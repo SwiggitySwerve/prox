@@ -54,4 +54,46 @@ inactive-control contrast exemption; the thresholds are unchanged.
 build and the server bundle. The screenshots use synthetic API fixtures and do
 not establish production quota correctness. The T3 inline HTML preview was
 blocked by the host's AppArmor browser sandbox; isolated Chromium captured the
-actual app. Three independent visual reviews remain pending for this round.
+actual app. Three independent visual reviews produced 52/112 passing cells,
+up from 35/112 in round 1 and 7/112 at baseline. No reviewer spread reached
+three points. Laptop type/numbers and responsive/accessibility medians each
+dropped from 9 to 8 because of wrapping; round 3 addresses that regression.
+
+## Round 3 verification
+
+Laptop statistics use two columns, the mobile Accounts link shares the title
+row, and supporting labels are larger. Chart sample readouts sit beside their
+keyboard controls. Empty/loading/error panels have clearer headings; unavailable
+forecasts have local chart captions. Account percentages explicitly say Remaining,
+and stale rows display the actual observation time. The empty-state credential
+action goes to the existing OAuth login screen.
+
+The collector sets `lastRefreshAtMs` in its `finally` block, including failed
+collections. The UI therefore calls it **Last collection attempt**, not Last
+successful refresh. Dashboard polling and collection availability have separate
+labels. No backend or quota calculation changed.
+
+Fixture corrections are not UI improvements: the previous long-label fixture
+combined a missing required window with a ready aggregate; it now retains the
+missing-window row and withholds aggregate/projection values, matching
+`server/quota/domain.ts`. Partial/stale/collecting fixtures no longer invent
+projection reset markers, and the stale example preserves its older observed
+percentage while withholding the current aggregate. Account counts, ordinary
+ready-state balances and the 14 capture cases remain the same. Compare the
+affected screenshots with this data correction in mind.
+
+All 14 states pass the fixed measured checks. Sampled text contrast remains at
+least 8.19:1, Claude/Codex strokes 8.48:1/8.51:1, and active control minimums
+24px desktop / 44px touch. The first chart SVG moved up 74.5px on laptop and
+103px on phone compared with round 2. There are no measured clipping, overflow,
+colour or browser-error failures.
+
+The capture script also checks keyboard sample selection and agreement between
+visible/accessible readouts, the single-sample state without an inert slider,
+disabled unavailable controls, and the empty-state credential destination.
+Every state has a passing applicable interaction check recorded in
+`round-3/measurements.json`. These are synthetic browser checks, not live provider
+verification. Independent visual scores for round 3 are pending.
+
+Final round-3 `bun run verify` passed: 1,726 tests, ESLint, TypeScript and both
+production builds. Targeted Prettier validation and `git diff --check` also pass.

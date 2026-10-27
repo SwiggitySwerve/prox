@@ -87,21 +87,34 @@ def fixture(state):
                 firstEmptyAtMs=None,
                 poolEmptyAtMs=None,
                 burnPointsPerHour=None,
+                drainPointsPerHour=None,
+                resets=[],
+                nextResetGainPoints=None,
             )
             if state != "collecting":
                 pool.update(remainingPoints=None, loadedCount=count - 1)
                 accounts[-1].update(
                     status="stale" if state == "stale" else "error",
-                    remainingPercent=None,
+                    remainingPercent=accounts[-1]["remainingPercent"] if state == "stale" else None,
+                    burnPointsPerHour=None,
+                    emptyAtMs=None,
                 )
+                if state == "stale":
+                    accounts[-1]["observedAtMs"] = NOW - 3_600_000
             if state == "collecting":
                 pool["recorded"] = [point(NOW, remaining)]
         if state == "long":
             accounts[0]["label"] = (
                 "A deliberately long credential label for a shared development workstation"
             )
-            accounts[1]["status"] = "missing-window"
-            accounts[1]["remainingPercent"] = None
+            accounts[1].update(status="missing-window", remainingPercent=None,
+                               burnPointsPerHour=None, emptyAtMs=None)
+            # Match server/quota/domain.ts: a required missing window withholds
+            # totals and projections. Keep the row and its missing-data meaning.
+            pool.update(forecastState="partial", loadedCount=count - 1,
+                        remainingPoints=None, burnPointsPerHour=None, drainPointsPerHour=None,
+                        projected=[], resets=[], firstEmptyAtMs=None, poolEmptyAtMs=None,
+                        nextResetGainPoints=None)
         pools.append(pool)
     return dict(
         nowMs=NOW,
@@ -392,6 +405,34 @@ async def main():
                     errors=errors,
                     **measure(path, geo, width < 600),
                 )
+                # Exercise native range keyboard behavior after capturing the
+                # fixed visual state, so screenshots stay comparable.
+                interaction = {}
+                slider = page.locator('article input[type="range"]').first
+                if await slider.count():
+                    before = await slider.get_attribute("aria-valuetext")
+                    await slider.focus()
+                    await slider.press("ArrowRight")
+                    assert await slider.input_value() == "1", "ArrowRight must select the next sample"
+                    after = await slider.get_attribute("aria-valuetext")
+                    assert after != before, "The accessible value must follow selection"
+                    readout_id = await slider.get_attribute("aria-describedby")
+                    assert await page.locator(f'[id="{readout_id}"]').inner_text() == after
+                    await slider.press("ArrowLeft")
+                    assert await slider.input_value() == "0"
+                    interaction["keyboard_sample_readout"] = "passed"
+                if state == "collecting":
+                    assert await page.locator('article input[type="range"]').count() == 0
+                    interaction["single_sample_has_no_inert_slider"] = "passed"
+                if state in ("empty", "loading", "error"):
+                    controls = page.locator('fieldset button, fieldset select')
+                    for index in range(await controls.count()):
+                        assert await controls.nth(index).is_disabled()
+                    interaction["unavailable_chart_controls_disabled"] = "passed"
+                if state == "empty":
+                    assert await page.get_by_role("link", name="Add credentials", exact=True).get_attribute("href") == "#/oauth"
+                    interaction["credential_action_targets_login"] = "passed"
+                results[name]["interaction"] = interaction
                 saved.write_text(json.dumps(results, indent=2) + "\n")
                 await context.close()
                 print(name, "captured", flush=True)

@@ -40,8 +40,11 @@ export function QuotaPoolPage() {
   return (
     <div className={styles.page}>
       <header className={styles.pageHeader}>
-        <div>
+        <div className={styles.titleRow}>
           <h1>{t('quota_pool.title')}</h1>
+          <Link to="/quota/accounts" className={styles.accountLink}>
+            {t('quota_pool.accounts')} <span aria-hidden="true">↗</span>
+          </Link>
         </div>
         <div className={styles.actions}>
           <label className={styles.privacy}>
@@ -80,16 +83,13 @@ export function QuotaPoolPage() {
             {item !== 'all' && <PoolProviderMark provider={item} />}
             {item === 'all' && <IconFilterAll size={18} aria-hidden="true" />}
             {t(`quota_pool.${item}`)}
-            {item !== 'all' && (
+            {item !== 'all' && data && (
               <span className={styles.count}>
-                {data?.pools.find((pool) => pool.provider === item)?.accountCount ?? '—'}
+                {data.pools.find((pool) => pool.provider === item)?.accountCount ?? 0}
               </span>
             )}
           </button>
         ))}
-        <Link to="/quota/accounts" className={styles.accountLink}>
-          {t('quota_pool.account_view')} <span aria-hidden="true">↗</span>
-        </Link>
       </div>
       <fieldset
         className={styles.toolbar}
@@ -150,7 +150,11 @@ export function QuotaPoolPage() {
           </select>
         </label>
         <div className={styles.dateNavigation}>
-          <span>{data ? `${date(data.fromMs, true)} – ${date(data.toMs, true)}` : '—'}</span>
+          <span>
+            {data
+              ? `${date(data.fromMs, true)} – ${date(data.toMs, true)}`
+              : t(`quota_pool.${initialLoading ? 'awaiting_data' : 'forecast_unavailable'}`)}
+          </span>
           <button
             type="button"
             aria-label={t('quota_pool.previous')}
@@ -172,7 +176,7 @@ export function QuotaPoolPage() {
           </button>
         </div>
       </fieldset>
-      <p className={styles.method}>{t('quota_pool.normalized')}</p>
+      {!chartUnavailable && <p className={styles.method}>{t('quota_pool.normalized_short')}</p>}
       {mode !== 'remaining' && (
         <p id="pool-recorded-only" className={styles.stateNote}>
           {t('quota_pool.recorded_only')}
@@ -184,21 +188,21 @@ export function QuotaPoolPage() {
         </div>
       )}
       {(state.error || state.refreshError) && (
-        <div className={styles.notice} role="alert">
-          {t(
-            `quota_pool.${state.refreshError ? 'refresh_error' : data ? 'load_error' : 'load_error_initial'}`
-          )}{' '}
+        <div className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+          <div>
+            <h2>{t(`quota_pool.${data ? 'refresh_failed_title' : 'load_failed_title'}`)}</h2>
+            <p>
+              {t(
+                `quota_pool.${state.refreshError ? 'refresh_error' : data ? 'load_error' : 'load_error_initial'}`
+              )}
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => void (state.refreshError ? state.refresh() : state.reload())}
           >
             {t('quota_pool.retry')}
           </button>
-          {data && (
-            <p>
-              {t('quota_pool.last_refresh')}: {date(data.lastRefreshAtMs)}
-            </p>
-          )}
         </div>
       )}
       {data?.issues.map((issue) => (
@@ -209,7 +213,7 @@ export function QuotaPoolPage() {
       {!data && state.loading && state.connected && (
         <div className={styles.loading} role="status">
           <span className={styles.loadingDot} />
-          {t('quota_pool.loading')}
+          <h2>{t('quota_pool.loading')}</h2>
         </div>
       )}
       <div className={styles.pools} aria-busy={state.loading}>
@@ -227,14 +231,16 @@ export function QuotaPoolPage() {
           ))}
         {data && data.pools.length === 0 && (
           <div className={styles.notice}>
-            <p>{t('quota_pool.state_note.no-accounts')}</p>
-            <Link to="/quota/accounts" className={styles.accountLink}>
-              {t('quota_pool.account_view')}
+            <h2>{t('quota_pool.no_accounts_title')}</h2>
+            <p>{t('quota_pool.no_accounts_help')}</p>
+            <Link to="/oauth" className={styles.accountLink}>
+              {t('quota_pool.add_credentials')}
             </Link>
           </div>
         )}
       </div>
       <footer className={styles.footer}>
+        <p className={styles.method}>{t('quota_pool.normalized')}</p>
         <p className={styles.method}>{t('quota_pool.limit_note')}</p>
         <span>{t('quota_pool.polling')}</span>
         {data && (

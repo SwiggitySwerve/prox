@@ -1,0 +1,335 @@
+{
+  "reviewer": "layout",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 8,
+      "layout": 6,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "narrow": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "empty": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "details-narrow": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "drain": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "refresh-error": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "laptop"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "responsive_accessible"
+      ],
+      "element": "Claude summary at 1280px: capacity drops below 248.4, Forecast: Ready occupies another line, and UTC is orphaned below both forecast dates.",
+      "fix": "Stack the four forecast metrics below the balance at this width, or give the balance and date columns explicit room before wrapping. Keep UTC and exact values. The plot now begins near y=626 versus y=565 in round 1; the reference keeps the summary and plot closer. This is a visible wrapping problem, not a demonstrated clipping or keyboard failure."
+    },
+    {
+      "states": [
+        "wide",
+        "drain",
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Provider header and detached sample readout still leave a deep band above each plot; wide reduces plot height while its top stays near the previous position.",
+      "fix": "Recover space from the header/readout gaps before reducing the chart itself. In wide, the first plot begins near y=517 versus y=511 previously, despite the shorter card. Put the sample readout beside its slider and bring the plot toward the summary, preserving legible chart depth and the reference's close summary-to-chart relationship. Keep the restored rate-mode balance and saved-data labels."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "Mobile toolbar gives Account view a separate outlined row, followed by full-width mode and interval rows, selects, date navigation and the new two-line quota definition.",
+      "fix": "Use a quieter Account view action beside the provider tabs where space permits, and tighten toolbar gaps while keeping readable labels and comfortable targets. Keep the useful unit definition, but shorten its first-visible wording and leave the full caveat below. The first provider card and plot have moved lower in these pairs. Preserve full long-name wrapping, aligned percentages and the two-column expanded details; their text is not visibly clipped. This recovers the compact secondary-control hierarchy of the reference."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "type_numbers"
+      ],
+      "element": "Small quota descriptions, forecast badges, sample timestamps, account statuses and footer freshness text beside much larger headline figures.",
+      "fix": "Raise essential supporting labels to a consistent readable size around 13px and use a restrained size only for chart ticks. Preserve the strong balance/rate numerals, exact decimals and explicit points or points/h units. The new UTC suffixes improve interpretation but need room rather than smaller type."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "controls_states"
+      ],
+      "element": "Inspect chart slider is below the plot while its selected timestamp/value readout is above it; the previous arrow-key hint is absent from the captured presentation.",
+      "fix": "Place the existing selected time, value, unit and Recorded/Projected qualifier beside the slider, with a short visible inspection hint. The new persistent readout and selected dot are improvements; their distance from the control still weakens the association, especially on mobile. This review establishes visible presentation only; keyboard, focus, screen-reader and live API behavior were not verified."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Large empty panel still has one small amber sentence saying 'this provider' under All pools and a second Account view action.",
+      "fix": "Add a neutral No accounts heading, make the scope say all pools when selected, and label the panel action Add credentials. Reduce excess panel padding and reserve amber for warnings. Keep the new muted unavailable controls and the dark card surface; those improve state clarity, but the panel's hierarchy and wording remain unresolved."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "consistency"
+      ],
+      "element": "Centered spinner and short loading sentence occupy a large otherwise featureless panel.",
+      "fix": "Move a compact loading heading toward the upper card region or add restrained static shapes suggesting the coming summary and plot. Keep the clearly busy Loading button and muted dependent controls, which resolve the previous control-state problem. Avoid spending most of the reserved panel on blank space."
+    },
+    {
+      "states": [
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Initial-load amber banner has a single undifferentiated sentence and a Try again button embedded mid-row.",
+      "fix": "Give Quota unavailable a short heading and align Try again to the trailing edge with balanced padding. Keep the corrected no-data explanation and the muted data controls. The misleading retained-data sentence is gone; the remaining issue is the banner's title/action hierarchy."
+    },
+    {
+      "states": [
+        "partial",
+        "stale"
+      ],
+      "aspects": [
+        "hierarchy",
+        "consistency"
+      ],
+      "element": "Large dash remains the primary total, followed by an amber Total unavailable sentence, a neutral Forecast badge and a second full-width warning.",
+      "fix": "Promote Total unavailable into a compact status heading beside the capacity, and use the existing amber warning treatment consistently for Partial/Stale badges. Keep the distinct missing-balance and stale-observation explanations and last-refresh timestamp, but avoid repeating them at equal visual weight. The new adjacent qualifier is a useful improvement over the unqualified round-1 dash."
+    },
+    {
+      "states": [
+        "partial",
+        "stale",
+        "collecting"
+      ],
+      "aspects": [
+        "layout",
+        "content",
+        "consistency"
+      ],
+      "element": "Shorter plots now omit the absent Projected legend, but the empty future region still carries reset markers without an in-chart explanation.",
+      "fix": "Keep the compact chart and all actual observations/reset markers; add a quiet Projection unavailable caption in partial/stale and No projection yet in collecting. This explains the empty region without inventing a series or changing the date range. The reduced chart height makes account rows and the second provider materially easier to reach than in round 1."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "hierarchy"
+      ],
+      "element": "Forecast: Collecting badge, long neutral collecting notice and two Unavailable forecast metrics compete with the lone recorded point.",
+      "fix": "Use a short Collecting history heading with the existing explanatory sentence beneath it, and visually subordinate the unavailable forecast metrics. Keep the valid balance and the single sample; make the collection state the clear explanation for the sparse chart."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "consistency"
+      ],
+      "element": "Rate headline is repeated in Burn, last 3h, while forecast dates retain equal weight and most of the chart after Snapshot remains blank.",
+      "fix": "Keep 3.7/2.7 points/h as the headline and the newly restored exact remaining balance/capacity below it. Group forecast dates as secondary remaining-quota context, reduce the repeated rate's prominence, and label the empty future region No future rate projection. Preserve the recorded-only notice, disabled future-usage selector, all observations and the Claude orange/Codex blue strokes."
+    }
+  ],
+  "drops": [
+    {
+      "state": "laptop",
+      "aspect": "layout",
+      "previous": 7,
+      "current": 6,
+      "reason": "7 to 6: longer forecast labels and UTC dates squeeze the balance column. Capacity and the forecast badge gain separate lines, UTC wraps by itself, and the first plot moves from roughly y=565 to y=626 despite its reduced height. The shorter chart has not recovered the added header space."
+    },
+    {
+      "state": "laptop",
+      "aspect": "responsive_accessible",
+      "previous": 9,
+      "current": 8,
+      "reason": "9 to 8: at the same laptop width, previously compact summary text now breaks into orphaned UTC lines and a fragmented balance/status stack. The layout needs an earlier metric-grid breakpoint. This drop concerns visible adaptive readability only; it does not allege clipping or failed keyboard access."
+    }
+  ]
+}

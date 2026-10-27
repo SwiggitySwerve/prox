@@ -15,4 +15,6 @@ export const formatPoolDate = (value: number | null, locale: string, short = fal
               minute: '2-digit',
               timeZoneName: 'short',
             }
-      ).format(value);
+      )
+        .format(value)
+        .replace(/\s(?=\S+$)/u, '\u00a0');

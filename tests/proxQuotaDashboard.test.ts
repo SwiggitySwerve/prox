@@ -368,7 +368,7 @@ describe('pool presentation', () => {
     );
     expect(markup).toContain('of 200 points');
     expect(markup).toContain('Unavailable');
-    expect(markup).toContain('may be incomplete');
+    expect(markup).toContain('Total and forecast unavailable');
     expect(markup).toContain('Claude account 1');
     expect(markup).not.toContain('private@example.test');
     expect(markup).toContain('type="range"');

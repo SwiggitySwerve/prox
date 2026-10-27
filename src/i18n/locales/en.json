@@ -2318,7 +2318,7 @@
     "saved_forecast": "Saved forecast",
     "snapshot": "Snapshot",
     "saved_snapshot": "Saved snapshot",
-    "load_error_initial": "Could not load quotas. Check the connection and try again.",
+    "load_error_initial": "Check the connection and try again.",
     "window_remaining": "{{window}} quota remaining",
     "history_forecast": "History and forecast",
     "forecast_status": "Forecast: {{state}}",
@@ -2353,14 +2353,14 @@
     "recorded_only": "Rates show recorded observations only. Future usage applies to remaining quota.",
     "normalized": "100 points = 100% of one eligible account’s quota. Quota points are not tokens; plans are not weighted.",
     "disconnected": "Connect to a backend to view pooled quota.",
-    "refresh_error": "Refresh failed. Previously loaded observations are still shown.",
+    "refresh_error": "Previously loaded observations are still shown. Try again to refresh them.",
     "load_error": "Could not load the pool dashboard. Any visible data is from the last successful request.",
     "retry": "Try again",
     "loading": "Loading pooled quota…",
-    "polling": "Updates every 15 seconds",
+    "polling": "Dashboard checks for updates every 15 seconds",
     "history_since": "History since",
-    "last_refresh": "Last refresh",
-    "next_refresh": "Next refresh available",
+    "last_refresh": "Last collection attempt",
+    "next_refresh": "Next collection available",
     "account_count": "{{count}} accounts",
     "of_capacity": "of {{capacity}} points",
     "coverage": "{{loaded}} loaded · {{eligible}} eligible",
@@ -2398,8 +2398,8 @@
     },
     "state_note": {
       "collecting": "Collecting history. A forecast appears when enough observations are available.",
-      "partial": "Some accounts have missing quota data. Totals and forecasts may be incomplete.",
-      "stale": "Observations are stale. Treat the displayed forecast as out of date.",
+      "partial": "Total and forecast unavailable: some eligible accounts have no current quota data.",
+      "stale": "Total and forecast unavailable until stale observations are refreshed.",
       "no-accounts": "No accounts are available for this provider. Add credentials in the account view."
     },
     "account_status": {
@@ -2412,6 +2412,21 @@
     "issue": {
       "inventory-unavailable": "Account inventory could not be loaded.",
       "quota-unavailable": "Quota is unavailable for one or more accounts."
-    }
+    },
+    "rate_no_projection": "Recorded rates only",
+    "projection_unavailable": "Forecast unavailable",
+    "scheduled_reset": "Scheduled reset",
+    "inspect_short": "Slide or use ← →",
+    "single_sample": "One recorded sample",
+    "recorded_rate": "Recorded {{rate}} · {{hours}}h",
+    "remaining_forecast": "Remaining-quota forecast",
+    "predicted_empty": "Predicted empty",
+    "normalized_short": "100 points = one account’s full quota.",
+    "awaiting_data": "Awaiting data",
+    "refresh_failed_title": "Refresh failed",
+    "load_failed_title": "Could not load quotas",
+    "no_accounts_title": "No accounts connected",
+    "no_accounts_help": "Connect your accounts to see their pooled quotas.",
+    "add_credentials": "Add credentials"
   }
 }

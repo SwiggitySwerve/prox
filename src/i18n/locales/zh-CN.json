@@ -2317,7 +2317,7 @@
     "saved_forecast": "已保存的预测",
     "snapshot": "快照",
     "saved_snapshot": "已保存的快照",
-    "load_error_initial": "无法加载配额。请检查连接后重试。",
+    "load_error_initial": "请检查连接后重试。",
     "window_remaining": "{{window}}剩余额度",
     "history_forecast": "历史与预测",
     "forecast_status": "预测：{{state}}",
@@ -2352,14 +2352,14 @@
     "recorded_only": "速率仅显示已记录的观测值。未来使用量仅影响剩余额度预测。",
     "normalized": "100 点 = 一个符合条件账户配额的 100%。配额点数不是令牌，不按套餐加权。",
     "disconnected": "连接后端以查看共享额度。",
-    "refresh_error": "刷新失败。仍显示之前加载的观测值。",
+    "refresh_error": "仍显示先前加载的观测。请重试以刷新。",
     "load_error": "无法加载额度池。当前可见数据来自上次成功的请求。",
     "retry": "重试",
     "loading": "正在加载共享额度…",
-    "polling": "每15秒更新",
+    "polling": "仪表板每 15 秒检查更新",
     "history_since": "历史起始时间",
-    "last_refresh": "上次刷新",
-    "next_refresh": "下次可刷新时间",
+    "last_refresh": "上次采集尝试",
+    "next_refresh": "下次可采集时间",
     "account_count": "{{count}}个账号",
     "of_capacity": "共{{capacity}}点",
     "coverage": "已加载{{loaded}}个 · 符合条件{{eligible}}个",
@@ -2397,8 +2397,8 @@
     },
     "state_note": {
       "collecting": "正在收集历史。观测值充足后显示预测。",
-      "partial": "部分账号缺少额度数据。总量和预测可能不完整。",
-      "stale": "观测值已过期。当前预测可能不再准确。",
+      "partial": "总量和预测不可用：部分符合条件的账户没有当前配额数据。",
+      "stale": "请刷新过期观测后查看总量和预测。",
       "no-accounts": "此服务商没有可用账号。请在账号视图中添加凭据。"
     },
     "account_status": {
@@ -2411,6 +2411,21 @@
     "issue": {
       "inventory-unavailable": "无法加载账号列表。",
       "quota-unavailable": "一个或多个账号的额度不可用。"
-    }
+    },
+    "rate_no_projection": "仅显示已记录速率",
+    "projection_unavailable": "预测不可用",
+    "scheduled_reset": "计划重置",
+    "inspect_short": "拖动或使用 ← →",
+    "single_sample": "一个已记录样本",
+    "recorded_rate": "已记录{{rate}} · {{hours}}小时",
+    "remaining_forecast": "剩余配额预测",
+    "predicted_empty": "预计耗尽",
+    "normalized_short": "100 点 = 一个账户的完整配额。",
+    "awaiting_data": "等待数据",
+    "refresh_failed_title": "刷新失败",
+    "load_failed_title": "无法加载配额",
+    "no_accounts_title": "尚未连接账户",
+    "no_accounts_help": "连接账户以查看汇总配额。",
+    "add_credentials": "添加凭据"
   }
 }

@@ -1,0 +1,421 @@
+{
+  "reviewer": "data",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "empty": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 8,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "details-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "drain": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "refresh-error": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "long-narrow"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "Both provider cards show a complete numerical total, all accounts loaded and Forecast: Ready, while each second account says Window unavailable under the selected Weekly window. The screenshot does not explain how these unavailable balances relate to the apparently complete pool.",
+      "fix": "Label the row Weekly quota unavailable and explain its eligibility beside the loaded/eligible counts. If a required selected-window balance is unavailable, present the total and forecast as unavailable; if the row is legitimately excluded, name that exclusion. Do not substitute zero, fabricate a sum or change quota weights."
+    },
+    {
+      "states": [
+        "stale"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "The new Total unavailable — some balances are missing caption conflates stale observations with missing observations. Claude account 3 says Stale without an observation time, and the warning refers to a displayed forecast although the depletion fields are Unavailable and only recorded history is plotted.",
+      "fix": "Say Total unavailable: a required observation is stale. Show the affected account's existing last-observed time or age beside Stale, keep request-refresh time separate, and say Forecast unavailable until observations are fresh. Preserve the historical trace and fresh-account values."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "content",
+        "controls_states",
+        "colour"
+      ],
+      "element": "Compared side by side with round 1, round 2 puts the points definition above the first card, adds UTC to timestamps and shows a selected timestamp/value with a marked chart sample. Unavailable forecasts no longer advertise a Projected trace; refresh-error now says Saved forecast, Saved snapshot and Saved observation. The dark surfaces, Claude orange and Codex blue remain intact.",
+      "fix": "Retain these improvements, the existing values and the distinction between recorded solid and projected dashed traces. This review covers all 14 PNG pairs and the supplied reference; ratings assess screenshot-visible meaning, readability and reflow only, without keyboard, live refresh or API verification."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "Available account percentages are still captioned Current, while their provider summary says Weekly quota remaining. The visible points definition now explains normalization, but Current does not tell readers whether 82.8% is remaining quota, usage or freshness.",
+      "fix": "Label available balances Remaining, or Weekly remaining where context is needed. If Current is a separate freshness status, display it separately from the balance label. Keep account values in percentages and pool values in points."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow",
+        "empty"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "The footer says Updates every 15 seconds while showing Last refresh: Oct 27, 12:00 PM UTC and Next refresh available: Oct 27, 12:05 PM UTC. The visible text does not distinguish the update cadence from the five-minute refresh-availability interval.",
+      "fix": "Name what each timing describes using the actual behavior: distinguish the dashboard's update schedule, the last successful data load and when another credential refresh is available. Preserve the existing times and do not imply that scheduled updates prove fresh provider observations."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout"
+      ],
+      "element": "Account view still takes a separate toolbar row, followed by full-width metric and lookback rows. The first provider card starts around 576px, or 638px with the rate notice, so the first quota value remains below a large control stack despite the shorter overall cards.",
+      "fix": "Move Account view beside the Accounts heading or another compact destination group and tighten spacing between toolbar groups. Keep the points explanation before the first total, the rate notice and the visible touch-target sizes; preserve every account row."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "type_numbers",
+        "responsive_accessible"
+      ],
+      "element": "At the native 390px width, chart ticks, snapshot labels, forecast badges, timestamp captions and expanded detail labels are visibly small beside the large totals. The newly added timestamp/value readout also uses this small secondary text.",
+      "fix": "Increase essential captions and chart readouts to 14px where possible with comfortable line height; allow the readout to wrap and retain the sparse date ticks. Preserve the prominent values and units. This is a visible readability issue, not a measured contrast or keyboard finding."
+    },
+    {
+      "states": [
+        "laptop"
+      ],
+      "aspects": [
+        "layout",
+        "type_numbers"
+      ],
+      "element": "The round-2 summary keeps four forecast-statistic columns beside a narrow total block: UTC wraps onto separate lines under the first-account and reset times, of 300 points moves below 248.4, and the forecast badge drops to another line. The Accounts heading remains at the bottom of the 900px capture.",
+      "fix": "At this width, place the forecast statistics in a second row or a balanced two-column grid and keep each timestamp/timezone together. Restore space for the total's capacity and badge without shrinking labels; consolidate the selected-sample readout with the inspection row."
+    },
+    {
+      "states": [
+        "partial",
+        "stale"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The shorter recorded-only charts are a clear improvement, but most of each selected range is still an unlabeled empty future region, with +100 reset markers suspended above it. In the 1000px captures the second provider only begins near the bottom.",
+      "fix": "Use the blank future area for a compact Forecast unavailable annotation and identify the markers as scheduled resets. Keep the selected dates and recorded geometry, and consolidate duplicate summary/warning copy to expose more of the second provider without shrinking chart labels."
+    },
+    {
+      "states": [
+        "partial"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "The total now correctly says it is unavailable and depletion fields say Unavailable, but the banner still says Totals and forecasts may be incomplete. That suggests partial results are displayed when these results are actually withheld.",
+      "fix": "State Total and forecast unavailable: 1 of 3 eligible accounts has no quota data for this visible Claude card, using each provider's existing counts. Keep the unavailable dash, full eligible capacity, recorded history and all available account balances."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "controls_states"
+      ],
+      "element": "A single recorded observation is now readable as Oct 27, 12:00 PM UTC · 248.4 points · Recorded, but Inspect chart still appears as a full enabled range slider. The screenshot offers no other sample to inspect.",
+      "fix": "Show One recorded observation beside the existing timestamp/value and replace or visibly disable the range control until multiple selectable samples exist. Preserve the collecting notice and avoid implying a forecast or zero rate."
+    },
+    {
+      "states": [
+        "details-narrow"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "The expanded Claude account detail now has UTC, but it still says First account empty inside one account's detail and labels 1.2 points/h only Burn rate. The provider summary specifies Burn, last 3h.",
+      "fix": "Use Predicted empty for this account's timestamp and Burn, last 3h for its rate, reflecting the selected lookback. Keep the existing 1.2 points/h and timestamps."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "consistency"
+      ],
+      "element": "The added Weekly quota remaining line improves context, but the primary Drain rate/Burn rate caption still omits the selected 3h lookback. Forecast: Ready, Pool empty and First account empty remain in the same summary as a chart explicitly limited to recorded rates.",
+      "fix": "Caption the primary number Recorded drain rate, last 3h or Recorded burn rate, last 3h and group the existing depletion statistics under Remaining-quota forecast. Preserve the recorded-only notice, the remaining-quota context, account percentages and all numerical values."
+    },
+    {
+      "states": [
+        "drain"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The rate plot still reserves most of its horizontal range for empty future dates without a local no-projection label. The Claude card occupies nearly the full 1000px capture, with only the next provider heading visible.",
+      "fix": "Use a more compact recorded-rate plot and label the blank future area Recorded rates only. Combine its readout/inspection row where space allows, keeping the selected date interval and account rows."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout",
+        "content",
+        "consistency"
+      ],
+      "element": "Saved forecast and Saved snapshot substantially improve the retained-data state. However, both the failure strip and card still call Oct 27, 12:00 PM UTC Last refresh, which does not explicitly distinguish the successful load from the failed attempt. The repeated time and separate readout row leave the account rows at the capture edge.",
+      "fix": "Label the existing retained timestamp Last successful refresh or Last loaded. Keep one clear timestamp in the card and the failure/retry message above it; combine the sample readout with inspection controls to recover space. Preserve the saved forecast, saved account observations and plotted values."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "type_numbers"
+      ],
+      "element": "The empty state is still an approximately 240px panel with a small unheaded sentence and Account view button centered inside it. The setup action has no clear primary heading, and the newly relocated points explanation precedes the actual no-accounts explanation.",
+      "fix": "Use a compact panel headed No accounts connected, a readable explanatory sentence and the existing destination labeled Add credentials. Reduce the unused panel height and give this setup message more visual priority than the general units note."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "colour"
+      ],
+      "element": "The normal no-accounts setup sentence remains amber inside a neutral panel, using the same warning hue as missing or stale data.",
+      "fix": "Use neutral primary/secondary text for the setup message and retain amber for degraded-data warnings. Preserve Claude orange and Codex blue in provider identity."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "All pools remains selected, but the setup message still says this provider and both provider counts are bare dashes. The visible empty result is not distinguished from unknown counts during loading.",
+      "fix": "Say No accounts connected for All pools and use 0 when the result confirms a provider has no accounts. Reserve unknown labels for loading/failure, and use provider-specific copy only when that provider is selected."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout"
+      ],
+      "element": "The refresh action now visibly says Loading... and dependent controls are dimmed, but the main progress indication is still a small spinner/sentence centered in a roughly 280px blank panel.",
+      "fix": "Use a compact Loading pooled quota heading/progress block at the start of the provider area or restrained provider-card placeholders. Keep the neutral spinner and visibly unavailable dependent controls."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "Provider counts and the date range remain unexplained dashes during the initial load, despite the clearer Loading... refresh action.",
+      "fix": "Label unknown counts/date fields Loading or Awaiting data during this state. Keep them distinct from confirmed zero accounts and from unavailable data after a failure."
+    },
+    {
+      "states": [
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "colour",
+        "content",
+        "consistency"
+      ],
+      "element": "The initial error correctly drops the retained-data claim and now says Could not load quotas. Check the connection and try again. It remains a single unheaded amber strip among a full dimmed toolbar, while provider counts and dates are unexplained dashes and the footer still says Updates every 15 seconds.",
+      "fix": "Give the strip a distinct Could not load quotas heading and short explanation with Try again beneath or beside it; add a warning icon for faster scanning. Label unresolved fields Unavailable and qualify the footer as an update schedule rather than an assertion of successful updates. Keep Account view and retry visibly available."
+    }
+  ],
+  "drops": [
+    {
+      "state": "laptop",
+      "aspect": "type_numbers",
+      "previous": 9,
+      "current": 8,
+      "reason": "Round 2 adds useful UTC labels and the longer First account empty caption without enough horizontal room in the four-column summary. UTC now breaks onto isolated lines, of 300 points wraps below the primary value, and the forecast badge also takes its own line; round 1 kept these blocks more compact. Retain the more precise labels and reflow the statistics instead of shrinking text."
+    }
+  ]
+}

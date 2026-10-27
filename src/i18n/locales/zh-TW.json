@@ -2345,7 +2345,7 @@
     "saved_forecast": "已儲存的預測",
     "snapshot": "快照",
     "saved_snapshot": "已儲存的快照",
-    "load_error_initial": "無法載入配額。請檢查連線後重試。",
+    "load_error_initial": "請檢查連線後重試。",
     "window_remaining": "{{window}}剩餘額度",
     "history_forecast": "歷史與預測",
     "forecast_status": "預測：{{state}}",
@@ -2380,14 +2380,14 @@
     "recorded_only": "速率僅顯示已記錄的觀測值。未來使用量僅影響剩餘額度預測。",
     "normalized": "100 點 = 一個符合條件帳戶配額的 100%。配額點數不是權杖，不按方案加權。",
     "disconnected": "連線至後端以查看共用額度。",
-    "refresh_error": "重新整理失敗。仍顯示先前載入的觀測值。",
+    "refresh_error": "仍顯示先前載入的觀測。請重試以重新整理。",
     "load_error": "無法載入額度池。目前顯示的資料來自上次成功的請求。",
     "retry": "重試",
     "loading": "正在載入共用額度…",
-    "polling": "每15秒更新",
+    "polling": "儀表板每 15 秒檢查更新",
     "history_since": "歷史起始時間",
-    "last_refresh": "上次重新整理",
-    "next_refresh": "下次可重新整理時間",
+    "last_refresh": "上次收集嘗試",
+    "next_refresh": "下次可收集時間",
     "account_count": "{{count}}個帳號",
     "of_capacity": "共{{capacity}}點",
     "coverage": "已載入{{loaded}}個 · 符合條件{{eligible}}個",
@@ -2425,8 +2425,8 @@
     },
     "state_note": {
       "collecting": "正在收集歷史。觀測值充足後顯示預測。",
-      "partial": "部分帳號缺少額度資料。總量和預測可能不完整。",
-      "stale": "觀測值已過期。目前預測可能不再準確。",
+      "partial": "總量和預測無法使用：部分符合條件的帳戶沒有目前配額資料。",
+      "stale": "請重新整理過期觀測後查看總量和預測。",
       "no-accounts": "此供應商沒有可用帳號。請在帳號檢視中新增憑證。"
     },
     "account_status": {
@@ -2439,6 +2439,21 @@
     "issue": {
       "inventory-unavailable": "無法載入帳號清單。",
       "quota-unavailable": "一個或多個帳號的額度無法使用。"
-    }
+    },
+    "rate_no_projection": "僅顯示已記錄速率",
+    "projection_unavailable": "預測無法使用",
+    "scheduled_reset": "排定重設",
+    "inspect_short": "拖曳或使用 ← →",
+    "single_sample": "一個已記錄樣本",
+    "recorded_rate": "已記錄{{rate}} · {{hours}}小時",
+    "remaining_forecast": "剩餘配額預測",
+    "predicted_empty": "預計耗盡",
+    "normalized_short": "100 點 = 一個帳戶的完整配額。",
+    "awaiting_data": "等待資料",
+    "refresh_failed_title": "重新整理失敗",
+    "load_failed_title": "無法載入配額",
+    "no_accounts_title": "尚未連接帳戶",
+    "no_accounts_help": "連接帳戶以查看彙總配額。",
+    "add_credentials": "新增憑證"
   }
 }

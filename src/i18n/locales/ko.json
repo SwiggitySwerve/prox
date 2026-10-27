@@ -2318,7 +2318,7 @@
     "saved_forecast": "저장된 예측",
     "snapshot": "스냅샷",
     "saved_snapshot": "저장된 스냅샷",
-    "load_error_initial": "할당량을 불러올 수 없습니다. 연결을 확인하고 다시 시도하세요.",
+    "load_error_initial": "연결을 확인하고 다시 시도하세요.",
     "window_remaining": "{{window}} 남은 할당량",
     "history_forecast": "기록 및 예측",
     "forecast_status": "예측: {{state}}",
@@ -2353,14 +2353,14 @@
     "recorded_only": "소모율은 기록된 관측값만 표시합니다. 향후 사용량은 잔여 할당량 예측에 적용됩니다.",
     "normalized": "100포인트 = 적격 계정 하나의 할당량 100%. 할당량 포인트는 토큰이 아니며 요금제별 가중치를 적용하지 않습니다.",
     "disconnected": "통합 할당량을 보려면 백엔드에 연결하세요.",
-    "refresh_error": "새로고침에 실패했습니다. 이전에 불러온 관측값이 표시됩니다.",
+    "refresh_error": "이전에 불러온 관측값을 표시합니다. 다시 시도하여 새로고침하세요.",
     "load_error": "할당량 대시보드를 불러오지 못했습니다. 표시된 데이터는 마지막으로 성공한 요청의 결과입니다.",
     "retry": "다시 시도",
     "loading": "통합 할당량 불러오는 중…",
-    "polling": "15초마다 업데이트",
+    "polling": "대시보드가 15초마다 업데이트 확인",
     "history_since": "기록 시작",
-    "last_refresh": "최근 새로고침",
-    "next_refresh": "다음 새로고침 가능 시간",
+    "last_refresh": "마지막 수집 시도",
+    "next_refresh": "다음 수집 가능 시간",
     "account_count": "계정 {{count}}개",
     "of_capacity": "전체 {{capacity}}포인트",
     "coverage": "{{loaded}}개 로드됨 · {{eligible}}개 적격",
@@ -2398,8 +2398,8 @@
     },
     "state_note": {
       "collecting": "기록을 수집 중입니다. 관측값이 충분해지면 예측이 표시됩니다.",
-      "partial": "일부 계정의 할당량 데이터가 없습니다. 합계와 예측이 불완전할 수 있습니다.",
-      "stale": "관측값이 오래되었습니다. 표시된 예측이 현재 상태와 다를 수 있습니다.",
+      "partial": "일부 적격 계정의 현재 할당량 데이터가 없어 합계와 예측을 표시할 수 없습니다.",
+      "stale": "오래된 관측값을 새로고침할 때까지 합계와 예측을 표시할 수 없습니다.",
       "no-accounts": "이 제공업체에 계정이 없습니다. 계정 보기에서 인증 정보를 추가하세요."
     },
     "account_status": {
@@ -2412,6 +2412,21 @@
     "issue": {
       "inventory-unavailable": "계정 목록을 불러올 수 없습니다.",
       "quota-unavailable": "하나 이상의 계정에서 할당량을 사용할 수 없습니다."
-    }
+    },
+    "rate_no_projection": "기록된 속도만 표시",
+    "projection_unavailable": "예측 사용 불가",
+    "scheduled_reset": "예정된 재설정",
+    "inspect_short": "슬라이더 또는 ← →",
+    "single_sample": "기록된 표본 1개",
+    "recorded_rate": "기록된 {{rate}} · {{hours}}시간",
+    "remaining_forecast": "잔여 할당량 예측",
+    "predicted_empty": "예상 소진",
+    "normalized_short": "100포인트 = 계정 하나의 전체 할당량.",
+    "awaiting_data": "데이터 대기 중",
+    "refresh_failed_title": "새로고침 실패",
+    "load_failed_title": "할당량을 불러올 수 없음",
+    "no_accounts_title": "연결된 계정 없음",
+    "no_accounts_help": "계정을 연결하여 합산 할당량을 확인하세요.",
+    "add_credentials": "인증 정보 추가"
   }
 }

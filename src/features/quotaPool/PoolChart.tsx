@@ -39,7 +39,7 @@ export function PoolChart({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const chartFrame = fitChartFrame(width, pool.forecastState !== 'ready');
+  const chartFrame = fitChartFrame(width, pool.forecastState !== 'ready' || mode !== 'remaining');
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   const [selected, setSelected] = useState(0);
   const { fromMs, toMs, nowMs } = dashboard;
@@ -73,9 +73,6 @@ export function PoolChart({
 
   return (
     <div className={styles.chart} ref={container}>
-      <div className={styles.chartReadout} id={`${id}-readout`} aria-live="polite">
-        {description}
-      </div>
       <svg
         viewBox={`0 0 ${chartFrame.width} ${chartFrame.height}`}
         role="img"
@@ -255,6 +252,18 @@ export function PoolChart({
             {t('quota_pool.no_history')}
           </text>
         )}
+        {hasValues && !hasProjection && visible(nowMs) && x(nowMs) < chartFrame.right - 130 && (
+          <text
+            x={(x(nowMs) + chartFrame.right) / 2}
+            y={(chartFrame.top + chartFrame.bottom) / 2}
+            textAnchor="middle"
+            className={styles.emptyChart}
+          >
+            {t(
+              `quota_pool.${mode !== 'remaining' ? 'rate_no_projection' : 'projection_unavailable'}`
+            )}
+          </text>
+        )}
       </svg>
       <div className={styles.chartFooter}>
         <div className={styles.legend}>
@@ -269,10 +278,21 @@ export function PoolChart({
               {t('quota_pool.projected')}
             </span>
           )}
+          {mode === 'remaining' && resetMarkers.length > 0 && (
+            <span>
+              <i className={styles.resetKey} />
+              {t('quota_pool.scheduled_reset')}
+            </span>
+          )}
         </div>
-        {samples.length > 0 && (
+      </div>
+      <div className={styles.inspectionRow}>
+        <div className={styles.chartReadout} id={`${id}-readout`} aria-live="polite">
+          {description}
+        </div>
+        {samples.length > 1 ? (
           <label className={styles.inspect}>
-            <span>{t('quota_pool.inspect')}</span>
+            <span>{t('quota_pool.inspect_short')}</span>
             <input
               type="range"
               min="0"
@@ -283,7 +303,9 @@ export function PoolChart({
               onChange={(event) => setSelected(Number(event.target.value))}
             />
           </label>
-        )}
+        ) : samples.length === 1 ? (
+          <span className={styles.singleSample}>{t('quota_pool.single_sample')}</span>
+        ) : null}
       </div>
     </div>
   );
