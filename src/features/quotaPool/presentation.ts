@@ -8,5 +8,11 @@ export const formatPoolDate = (value: number | null, locale: string, short = fal
         locale,
         short
           ? { month: 'short', day: 'numeric' }
-          : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+          : {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              timeZoneName: 'short',
+            }
       ).format(value);

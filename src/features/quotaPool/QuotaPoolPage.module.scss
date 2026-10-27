@@ -106,6 +106,10 @@
     background: #292929;
     border-color: #888;
   }
+  &:has(input:disabled) {
+    opacity: 0.5;
+    cursor: default;
+  }
   &:has(input:focus-visible) {
     outline: 2px solid #94baff;
     outline-offset: 3px;
@@ -168,11 +172,14 @@
   font-size: 13px;
 }
 .toolbar {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  margin: 0 0 12px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-bottom: 18px;
   font-size: 13px;
 }
 .segment {
@@ -230,7 +237,7 @@
   border: 1px solid #222;
   border-radius: 12px;
   background: #101010;
-  padding: 22px 24px 18px;
+  padding: 18px 24px 12px;
 }
 .poolHeader {
   display: flex;
@@ -254,7 +261,7 @@
 .metricLabel {
   color: #b5b5b5;
   font-size: 12px;
-  margin-top: 10px !important;
+  margin-top: 6px !important;
 }
 .headline {
   display: flex;
@@ -272,6 +279,19 @@
   > span {
     color: #b5b5b5;
     font-size: 14px;
+  }
+}
+.balanceContext {
+  color: #b5b5b5;
+  font-size: 12px;
+  margin-top: 6px !important;
+  strong {
+    color: #eee;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  &[data-warning] {
+    color: #f1dba8;
   }
 }
 .coverage {
@@ -321,7 +341,7 @@
   }
 }
 .forecast {
-  margin-top: 18px;
+  margin-top: 8px;
 }
 .badge {
   color: #c7c7c7;
@@ -335,7 +355,7 @@
 }
 .chartReadout {
   min-height: 24px;
-  margin-top: 4px;
+  margin-top: 0;
   color: #b5b5b5;
   font-size: 12px;
   text-align: right;
@@ -420,7 +440,7 @@
   }
 }
 .accounts {
-  margin-top: 10px;
+  margin-top: 6px;
   border-top: 1px solid #303030;
 }
 .accounts > h3 {
@@ -448,7 +468,7 @@
     grid-template-columns: 12px minmax(0, 1fr) auto;
     align-items: center;
     gap: 2px 8px;
-    min-height: 60px;
+    min-height: 52px;
     padding: 8px 0;
     cursor: pointer;
     font-size: 13px;
@@ -573,6 +593,7 @@
   padding: 20px 2px;
 }
 .method {
+  margin-bottom: 12px !important;
   flex-basis: 100%;
   font-size: 12px;
   color: #aaa;
@@ -766,7 +787,7 @@
     font-size: 40px;
   }
   .forecast {
-    margin-top: 14px;
+    margin-top: 8px;
   }
   .chartReadout {
     text-align: left;

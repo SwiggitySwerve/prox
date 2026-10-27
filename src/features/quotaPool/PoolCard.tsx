@@ -11,17 +11,24 @@ export function PoolCard({
   dashboard,
   mode,
   reveal,
+  savedData = false,
 }: {
   pool: QuotaPool;
   dashboard: PoolDashboard;
   mode: ChartMode;
   reveal: boolean;
+  savedData?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
   const date = (value: number | null) => formatPoolDate(value, i18n.language);
-  const forecastDate = (value: number | null) =>
-    value === null ? t('quota_pool.not_predicted') : date(value);
+  const forecastDate = (value: number | null, available = pool.forecastState === 'ready') =>
+    value === null
+      ? t(`quota_pool.${available ? 'not_predicted' : 'forecast_unavailable'}`)
+      : date(value);
+  const balanceLabel = t('quota_pool.window_remaining', {
+    window: t(`quota_pool.${dashboard.window === 'weekly' ? 'weekly' : 'five_hour'}`),
+  });
   return (
     <article
       className={`${styles.pool} ${styles[pool.provider]}`}
@@ -36,11 +43,7 @@ export function PoolCard({
             <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
           </div>
           <p className={styles.metricLabel}>
-            {mode !== 'remaining'
-              ? t(`quota_pool.${mode}`)
-              : t('quota_pool.window_remaining', {
-                  window: t(`quota_pool.${dashboard.window === 'weekly' ? 'weekly' : 'five_hour'}`),
-                })}
+            {mode !== 'remaining' ? t(`quota_pool.${mode}`) : balanceLabel}
           </p>
           <div className={styles.headline}>
             <strong>{number(pool[metricField[mode]])}</strong>
@@ -50,15 +53,28 @@ export function PoolCard({
                 : t('quota_pool.points_hour')}
             </span>
           </div>
+          {mode !== 'remaining' && (
+            <p className={styles.balanceContext}>
+              {balanceLabel}: <strong>{number(pool.remainingPoints)}</strong>{' '}
+              {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
+            </p>
+          )}
+          {pool.remainingPoints === null && (
+            <p className={styles.balanceContext} data-warning="true">
+              {t('quota_pool.total_unavailable')}
+            </p>
+          )}
           <p className={styles.coverage}>
             {t('quota_pool.coverage', { loaded: pool.loadedCount, eligible: pool.eligibleCount })}
             <span className={styles.badge}>
-              {t('quota_pool.forecast_status', {
-                state: t(`quota_pool.state.${pool.forecastState}`),
-              })}
+              {savedData
+                ? t('quota_pool.saved_forecast')
+                : t('quota_pool.forecast_status', {
+                    state: t(`quota_pool.state.${pool.forecastState}`),
+                  })}
             </span>
           </p>
-          {pool.forecastState === 'stale' && (
+          {(pool.forecastState === 'stale' || savedData) && (
             <p className={styles.coverage}>
               {t('quota_pool.last_refresh')}: {date(dashboard.lastRefreshAtMs)}
             </p>
@@ -101,6 +117,7 @@ export function PoolCard({
           pool={pool}
           dashboard={dashboard}
           mode={mode}
+          savedData={savedData}
         />
       </section>
       <section className={styles.accounts} aria-labelledby={`${pool.provider}-accounts`}>
@@ -118,7 +135,9 @@ export function PoolCard({
                     {reveal && account.email ? account.email : account.label}
                   </span>
                   <span className={styles.accountStatus}>
-                    {t(`quota_pool.account_status.${account.status}`)}
+                    {savedData && account.status === 'ok'
+                      ? t('quota_pool.saved_observation')
+                      : t(`quota_pool.account_status.${account.status}`)}
                   </span>
                   <strong>
                     {account.remainingPercent === null
@@ -137,7 +156,12 @@ export function PoolCard({
                   </div>
                   <div>
                     <dt>{t('quota_pool.first_empty')}</dt>
-                    <dd>{forecastDate(account.emptyAtMs)}</dd>
+                    <dd>
+                      {forecastDate(
+                        account.emptyAtMs,
+                        pool.forecastState === 'ready' && account.status === 'ok'
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt>{t('quota_pool.burn')}</dt>

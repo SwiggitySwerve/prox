@@ -27,6 +27,8 @@ export function QuotaPoolPage() {
   const { data, refresh } = state;
   const refreshStatus = state.refreshStatus ?? data;
   const refreshing = state.refreshing || refreshStatus?.refreshing;
+  const initialLoading = state.loading && !data;
+  const chartUnavailable = !data?.pools.length;
   const refreshFromHeader = useCallback(async () => {
     if (!(await refresh())) throw new Error(t('quota_pool.refresh_error'));
   }, [refresh, t]);
@@ -46,6 +48,7 @@ export function QuotaPoolPage() {
             <input
               type="checkbox"
               checked={query.reveal}
+              disabled={chartUnavailable}
               onChange={(event) => change('reveal', event.target.checked)}
             />
             <IconEye size={18} aria-hidden="true" />
@@ -55,10 +58,12 @@ export function QuotaPoolPage() {
             type="button"
             className={styles.refresh}
             onClick={() => void state.refresh()}
-            disabled={!state.connected || Boolean(refreshing)}
+            disabled={!state.connected || initialLoading || Boolean(refreshing)}
           >
             <IconRefreshCw size={18} aria-hidden="true" />
-            {t(`quota_pool.${refreshing ? 'refreshing' : 'refresh_all'}`)}
+            {initialLoading
+              ? t('common.loading')
+              : t(`quota_pool.${refreshing ? 'refreshing' : 'refresh_all'}`)}
           </button>
         </div>
       </header>
@@ -68,6 +73,7 @@ export function QuotaPoolPage() {
             type="button"
             key={item}
             aria-pressed={provider === item}
+            disabled={chartUnavailable}
             onClick={() => setProvider(item)}
             className={item === 'all' ? undefined : styles[item]}
           >
@@ -85,7 +91,11 @@ export function QuotaPoolPage() {
           {t('quota_pool.account_view')} <span aria-hidden="true">↗</span>
         </Link>
       </div>
-      <div className={styles.toolbar}>
+      <fieldset
+        className={styles.toolbar}
+        disabled={chartUnavailable}
+        aria-label={t('quota_pool.chart_mode')}
+      >
         <div className={styles.segment} role="group" aria-label={t('quota_pool.chart_mode')}>
           {(['remaining', 'drain', 'burn'] as const).map((item) => (
             <button
@@ -161,7 +171,8 @@ export function QuotaPoolPage() {
             <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
           </button>
         </div>
-      </div>
+      </fieldset>
+      <p className={styles.method}>{t('quota_pool.normalized')}</p>
       {mode !== 'remaining' && (
         <p id="pool-recorded-only" className={styles.stateNote}>
           {t('quota_pool.recorded_only')}
@@ -174,7 +185,9 @@ export function QuotaPoolPage() {
       )}
       {(state.error || state.refreshError) && (
         <div className={styles.notice} role="alert">
-          {t(`quota_pool.${state.refreshError ? 'refresh_error' : 'load_error'}`)}{' '}
+          {t(
+            `quota_pool.${state.refreshError ? 'refresh_error' : data ? 'load_error' : 'load_error_initial'}`
+          )}{' '}
           <button
             type="button"
             onClick={() => void (state.refreshError ? state.refresh() : state.reload())}
@@ -209,6 +222,7 @@ export function QuotaPoolPage() {
               dashboard={data}
               mode={mode}
               reveal={query.reveal}
+              savedData={state.error || state.refreshError}
             />
           ))}
         {data && data.pools.length === 0 && (
@@ -221,7 +235,6 @@ export function QuotaPoolPage() {
         )}
       </div>
       <footer className={styles.footer}>
-        <p className={styles.method}>{t('quota_pool.normalized')}</p>
         <p className={styles.method}>{t('quota_pool.limit_note')}</p>
         <span>{t('quota_pool.polling')}</span>
         {data && (

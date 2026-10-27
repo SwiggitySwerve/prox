@@ -16,10 +16,12 @@ export function PoolChart({
   pool,
   dashboard,
   mode,
+  savedData = false,
 }: {
   pool: QuotaPool;
   dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs'>;
   mode: ChartMode;
+  savedData?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -37,9 +39,9 @@ export function PoolChart({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const chartFrame = fitChartFrame(width);
+  const chartFrame = fitChartFrame(width, pool.forecastState !== 'ready');
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState(0);
   const { fromMs, toMs, nowMs } = dashboard;
   const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
     ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
@@ -47,7 +49,7 @@ export function PoolChart({
   const geometry = chartGeometry(samples, mode, pool.capacityPoints, fromMs, toMs, chartFrame);
   const { x, y, min, max, segments } = geometry;
   const field = metricField[mode];
-  const sample = selected === null ? undefined : samples[Math.min(selected, samples.length - 1)];
+  const sample = samples[Math.min(selected, samples.length - 1)];
   const unit = t(`quota_pool.${mode === 'remaining' ? 'points' : 'points_hour'}`);
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
   const date = (value: number) => formatPoolDate(value, i18n.language);
@@ -64,6 +66,7 @@ export function PoolChart({
       return { ...reset, showLabel };
     });
   const hasValues = samples.some(({ point }) => point[field] !== null);
+  const hasProjection = samples.some(({ point, projected }) => projected && point[field] !== null);
   const description = sample
     ? `${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
     : t('quota_pool.inspect_hint');
@@ -105,10 +108,10 @@ export function PoolChart({
           </linearGradient>
           <clipPath id={`${id}-clip`}>
             <rect
-              x={chartFrame.left}
-              y={chartFrame.top - 3}
-              width={chartFrame.right - chartFrame.left}
-              height={chartFrame.bottom - chartFrame.top + 6}
+              x={chartFrame.left - 6}
+              y={chartFrame.top - 6}
+              width={chartFrame.right - chartFrame.left + 12}
+              height={chartFrame.bottom - chartFrame.top + 12}
             />
           </clipPath>
         </defs>
@@ -222,7 +225,7 @@ export function PoolChart({
             y={chartFrame.top - 12}
             textAnchor="middle"
           >
-            {t('quota_pool.now')}
+            {t(`quota_pool.${savedData ? 'saved_snapshot' : 'snapshot'}`)}
           </text>
         )}
         {mode === 'remaining' &&
@@ -260,7 +263,7 @@ export function PoolChart({
             <i />
             {t('quota_pool.recorded')}
           </span>
-          {mode === 'remaining' && (
+          {hasProjection && (
             <span>
               <i className={styles.dashed} />
               {t('quota_pool.projected')}
@@ -274,10 +277,9 @@ export function PoolChart({
               type="range"
               min="0"
               max={samples.length - 1}
-              value={selected ?? 0}
+              value={selected}
               aria-describedby={`${id}-readout`}
               aria-valuetext={sample ? description : t('quota_pool.inspect_hint')}
-              onFocus={() => setSelected((current) => current ?? 0)}
               onChange={(event) => setSelected(Number(event.target.value))}
             />
           </label>

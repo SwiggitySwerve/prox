@@ -1,0 +1,457 @@
+{
+  "reviewer": "interaction",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "empty": {
+      "hierarchy": 8,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 8,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "stale": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "collecting": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "long-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "details-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "drain": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "burn-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "refresh-error": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "partial",
+        "stale",
+        "collecting",
+        "drain",
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Stacked provider cards have a tall summary-to-plot area plus a full-height chart before accounts. At laptop width no account row or Codex balance is visible in the 900 px capture; in partial, stale, collecting and refresh-error the second provider is entirely below the 1000 px capture. Baseline showed both providers and their accounts together.",
+      "fix": "Tighten the summary/chart gap and use a shorter readable plot at laptop widths; compact the account section spacing so the next provider is reached sooner. Keep the chart visible, every account row, all values, and readable axes."
+    },
+    {
+      "states": [
+        "laptop"
+      ],
+      "aspects": [
+        "hierarchy",
+        "responsive_accessible"
+      ],
+      "element": "The wrapped date controls form a separate right-aligned row, while the first provider fills the remaining viewport and hides the second provider's summary.",
+      "fix": "Make the date controls an intentional compact toolbar row and reduce the first card's vertical spacing at this breakpoint, preserving full control targets and both providers."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "responsive_accessible"
+      ],
+      "element": "The mobile title/actions, provider tabs, separate Account view row and four chart-control rows still place the first balance near y=617. The first account starts around y=1250 after summary metadata, inspection instructions and chart.",
+      "fix": "Reduce the large gaps in the mobile header and between summary, inspection instructions and chart; give Account view less vertical separation from the provider row. Retain 44 px targets, visible charts, full account names and every account row."
+    },
+    {
+      "states": [
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout",
+        "responsive_accessible"
+      ],
+      "element": "The rate-only explanation touches the first card, while the long summary and full future date range leave most of the rate plot blank and push the first account below y=1300.",
+      "fix": "Add a small gap between the explanation and card, reduce excess summary/plot spacing, and use a shorter rate plot on touch widths while retaining the recorded-only explanation, date bounds, axes and all accounts."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "controls_states"
+      ],
+      "element": "Inspect chart has a visible slider and instructions but no persistent selected time/value readout or visible selected point in the captured state. The thumb starts at the far left while the plot's prominent marker is Now.",
+      "fix": "Show the selected sample's timestamp and exact points or points/h beside the slider and mark the same sample on the plot. Use the existing sample data and preserve keyboard inspection."
+    },
+    {
+      "states": [
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "responsive_accessible"
+      ],
+      "element": "The Inspect chart slider has a small visible thumb and only generic instructions; touch users must aim at the narrow track and infer a sample from the chart. The measured touch interaction box meets 44 px, which does not provide a visible result by itself.",
+      "fix": "Enlarge the visible touch thumb within its existing 44 px interaction area and add a readable selected-time/value line below the plot, preserving the keyboard control."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "long-narrow",
+        "details-narrow"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Balances say points, account rows say %, and reset annotations say +100, but the explanation that each eligible account represents 100 normalized points has moved below both tall provider cards. It is absent from the desktop viewport and near the bottom of the full mobile page.",
+      "fix": "Place one short normalized-points explanation next to the first pool summary or directly beneath the toolbar; keep the provider-limit caveat readable and preserve every value, percentage, points label and points/h unit."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "hierarchy",
+        "colour",
+        "content",
+        "consistency"
+      ],
+      "element": "The neutral full-width empty panel is an improvement, but its only status is a small amber sentence saying this provider while All pools is selected. There is no short leading empty-state heading.",
+      "fix": "Add a clear No accounts available heading and refer to the current selection. Use neutral status text for ordinary emptiness, retaining the visible Account view action and reserving amber for caution."
+    },
+    {
+      "states": [
+        "empty",
+        "loading",
+        "error"
+      ],
+      "aspects": [
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Metric tabs, time tabs, future-usage and quota-window selectors and date navigation retain the same ready appearance as populated results despite there being no chart to affect. Loading also keeps Refresh all in its ordinary ready state.",
+      "fix": "Visibly disable chart-only controls until chart data exists; during loading show Refresh all as busy and unavailable. Keep account management and useful provider navigation available."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content"
+      ],
+      "element": "Loading pooled quota is still a small centered label in a large mostly empty panel. The full chart toolbar above it draws more attention than the pending results.",
+      "fix": "Place the loading status near the top-left of the results panel with a short loading heading and use compact card-shaped placeholders or a shallower panel. Retain static loading text for reduced motion."
+    },
+    {
+      "states": [
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content"
+      ],
+      "element": "The initial-load error remains one long sentence followed by the saved-data qualification Any visible data is from the last successful request, although no saved results are visible.",
+      "fix": "Lead with a short Could not load quota heading, keep Try again beside it, and show the saved-data qualification only when retained results are actually displayed."
+    },
+    {
+      "states": [
+        "partial",
+        "stale"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "consistency"
+      ],
+      "element": "The unavailable aggregate remains a giant dash while Pool empty and First empty both say Not predicted. With Forecast: Partial or Stale, that wording can be mistaken for a valid forecast of no depletion; the caption is also neutral beside the amber warning.",
+      "fix": "Add an explicit Unavailable balance label and qualify unavailable forecast fields with the existing partial/stale reason. Distinguish this presentation from a ready forecast that predicts no depletion; retain loaded/eligible counts, all reset values, account statuses and provider colours."
+    },
+    {
+      "states": [
+        "partial",
+        "stale",
+        "collecting"
+      ],
+      "aspects": [
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "The chart shows no projected curve but still includes a Projected legend entry and future +100 reset markers. In collecting the only observation is a dot in an otherwise mostly empty plot, yet forecast fields still read Not predicted.",
+      "fix": "Keep the observed data and reset amounts, but visually mark the projected legend as unavailable and label future markers as scheduled resets. For collecting, put Forecast pending beside the plot and distinguish the absence of a forecast from a prediction of no depletion."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "hierarchy"
+      ],
+      "element": "Forecast: Collecting is beside the balance, while the explanation is a separate full-width strip and the chart allocates most of its area to empty history/future space.",
+      "fix": "Group the collecting badge and explanation directly above a compact observed-data plot, keeping balances prominent and all accounts visible."
+    },
+    {
+      "states": [
+        "stale"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Last refresh is now near the stale warning, but it does not identify the age of the stale observation. Next reset remains unqualified next to the stale aggregate; fresh and stale account rows are distinct but easy to conflate with pool freshness.",
+      "fix": "Label the existing timestamp precisely as refresh time and display the existing stale observation time where available. Qualify stale reset information as last reported without relabeling account rows that are actually current."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "The selected rate is now correctly dominant and uses points/h, but the pool's remaining amount and total capacity previously shown in the summary are no longer visible in these rate-mode captures. Burn, last 3h also repeats the headline rate.",
+      "fix": "Keep the large selected rate and add a compact Weekly quota remaining line using the existing exact remaining and capacity values; remove redundant rate presentation only, preserving rate units, account percentages and reset amounts."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "consistency"
+      ],
+      "element": "The retry button and timestamp are clearer, but the timestamp says only Last refresh, while the saved observations retain an unqualified Forecast: Ready and Current row labels under a detached page warning.",
+      "fix": "Label the banner timestamp Last successful refresh and add a compact Showing last loaded data caption beside each saved pool summary. Keep forecast readiness and actual account statuses separate rather than changing their meaning."
+    }
+  ],
+  "drops": [
+    {
+      "state": "wide",
+      "aspect": "layout",
+      "previous": 9,
+      "current": 8,
+      "reason": "The open, stacked cards expose history but take substantially more vertical space than baseline's side-by-side cards. The first provider delays the second provider and account scanning; tighten summary/plot spacing and plot height without hiding accounts or charts."
+    },
+    {
+      "state": "wide",
+      "aspect": "content",
+      "previous": 9,
+      "current": 8,
+      "reason": "The normalized-points explanation moved from above the summaries to below both expanded provider cards. Readers now encounter points, percentages and reset amounts before their shared explanation; restore one concise explanation near the first summary."
+    },
+    {
+      "state": "laptop",
+      "aspect": "layout",
+      "previous": 8,
+      "current": 7,
+      "reason": "The open, stacked cards expose history but take substantially more vertical space than baseline's side-by-side cards. The first provider delays the second provider and account scanning; tighten summary/plot spacing and plot height without hiding accounts or charts."
+    },
+    {
+      "state": "laptop",
+      "aspect": "content",
+      "previous": 9,
+      "current": 8,
+      "reason": "The normalized-points explanation moved from above the summaries to below both expanded provider cards. Readers now encounter points, percentages and reset amounts before their shared explanation; restore one concise explanation near the first summary."
+    },
+    {
+      "state": "narrow",
+      "aspect": "content",
+      "previous": 9,
+      "current": 8,
+      "reason": "The normalized-points explanation moved from above the summaries to below both expanded provider cards. Readers now encounter points, percentages and reset amounts before their shared explanation; restore one concise explanation near the first summary."
+    },
+    {
+      "state": "partial",
+      "aspect": "layout",
+      "previous": 9,
+      "current": 7,
+      "reason": "The open, stacked cards expose history but take substantially more vertical space than baseline's side-by-side cards. The first provider delays the second provider and account scanning; tighten summary/plot spacing and plot height without hiding accounts or charts."
+    },
+    {
+      "state": "partial",
+      "aspect": "content",
+      "previous": 8,
+      "current": 7,
+      "reason": "The newly exposed forecast summary says Not predicted for both empty-time fields despite Forecast: Partial, and the open plot keeps a Projected legend without a projected curve. Baseline did not expose these contradictory forecast cues; qualify the unavailable fields and legend using the existing partial status."
+    },
+    {
+      "state": "stale",
+      "aspect": "layout",
+      "previous": 9,
+      "current": 7,
+      "reason": "The open, stacked cards expose history but take substantially more vertical space than baseline's side-by-side cards. The first provider delays the second provider and account scanning; tighten summary/plot spacing and plot height without hiding accounts or charts."
+    },
+    {
+      "state": "collecting",
+      "aspect": "layout",
+      "previous": 9,
+      "current": 7,
+      "reason": "The open, stacked cards expose history but take substantially more vertical space than baseline's side-by-side cards. The first provider delays the second provider and account scanning; tighten summary/plot spacing and plot height without hiding accounts or charts."
+    },
+    {
+      "state": "collecting",
+      "aspect": "consistency",
+      "previous": 9,
+      "current": 8,
+      "reason": "Opening the collecting chart exposes a Projected legend and future reset markers without a projected curve. The neutral pending presentation does not explain that difference; label forecast availability and scheduled resets explicitly."
+    },
+    {
+      "state": "details-narrow",
+      "aspect": "content",
+      "previous": 9,
+      "current": 8,
+      "reason": "The normalized-points explanation moved from above the summaries to below both expanded provider cards. Readers now encounter points, percentages and reset amounts before their shared explanation; restore one concise explanation near the first summary."
+    },
+    {
+      "state": "refresh-error",
+      "aspect": "layout",
+      "previous": 9,
+      "current": 7,
+      "reason": "The open, stacked cards expose history but take substantially more vertical space than baseline's side-by-side cards. The first provider delays the second provider and account scanning; tighten summary/plot spacing and plot height without hiding accounts or charts."
+    }
+  ]
+}

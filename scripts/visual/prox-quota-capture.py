@@ -128,7 +128,7 @@ GEOMETRY = r"""() => {
     return {text:(e.getAttribute('aria-label')||e.textContent||e.getAttribute('type')||'').trim().slice(0,100),...rect(target),disabled:e.matches(':disabled')};});
   const clipped=[...root.querySelectorAll('*')].filter(e=>visible(e)&&e.clientWidth>2&&e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>({tag:e.tagName,class:e.className,client:e.clientWidth,scroll:e.scrollWidth}));
   const text=[...root.querySelectorAll('h1,h2,h3,p,dt,dd,button,a,summary,span,label,svg text')].filter(e=>visible(e)&&e.textContent.trim()&&(!e.children.length||e.matches('h1,h2,p,button'))).map(e=>{
-    const s=getComputedStyle(e);return {text:e.textContent.trim().slice(0,90),...rect(e),size:parseFloat(s.fontSize),weight:parseInt(s.fontWeight)||400,disabled:e.matches(':disabled'),tag:e.tagName};});
+    const s=getComputedStyle(e);return {text:e.textContent.trim().slice(0,90),...rect(e),size:parseFloat(s.fontSize),weight:parseInt(s.fontWeight)||400,disabled:!!e.closest(':disabled')||e.matches('label:has(input:disabled)'),tag:e.tagName};});
   const charts=[...root.querySelectorAll('article')].filter(e=>e.querySelector('svg')&&visible(e.querySelector('svg'))).map(e=>{
     const svg=e.querySelector('svg'), matrix=svg.getScreenCTM();
     const screen=(x,y)=>{const p=new DOMPoint(x,y).matrixTransform(matrix);return {x:p.x+scrollX,y:p.y+scrollY};};

@@ -33,3 +33,25 @@ uv run --with playwright --with pillow python scripts/visual/prox-quota-capture.
 Reviewers score each captured state on hierarchy, layout, type/numbers, colour,
 content, controls/states, consistency and responsive/accessibility. Screenshots
 and measurements are captured again with the same script for each round.
+
+## Round 2 verification
+
+Reduced plot height and card spacing, restored remaining/capacity context in rate
+views, placed point normalization beside the controls, and qualified saved data
+after refresh failures. Forecasts that cannot be calculated say “Unavailable”;
+the projected legend appears only when the rendered series contains projections.
+The initial chart sample now has a visible value and matching marker. Initial
+loading, empty and error states disable controls that need loaded data.
+
+All 14 captures pass the fixed checks: minimum sampled text contrast 8.19:1,
+Claude/Codex strokes 8.48:1 and 8.51:1, hues 16.8°/219.7° (157.1° separation),
+and minimum active targets 24px desktop / 44px touch. No measured overflow,
+clipped text, browser exceptions or failed colour checks. The capture now
+recognizes text inside disabled buttons as disabled, matching the existing
+inactive-control contrast exemption; the thresholds are unchanged.
+
+`bun run verify` passed: 1,726 tests, ESLint, TypeScript, the single-file frontend
+build and the server bundle. The screenshots use synthetic API fixtures and do
+not establish production quota correctness. The T3 inline HTML preview was
+blocked by the host's AppArmor browser sandbox; isolated Chromium captured the
+actual app. Three independent visual reviews remain pending for this round.

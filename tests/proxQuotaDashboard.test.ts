@@ -367,7 +367,7 @@ describe('pool presentation', () => {
       createElement(PoolCard, { pool, dashboard, mode: 'remaining', reveal: false })
     );
     expect(markup).toContain('of 200 points');
-    expect(markup).toContain('Not predicted');
+    expect(markup).toContain('Unavailable');
     expect(markup).toContain('may be incomplete');
     expect(markup).toContain('Claude account 1');
     expect(markup).not.toContain('private@example.test');
@@ -380,6 +380,42 @@ describe('pool presentation', () => {
     );
     expect(revealed).toContain('private@example.test');
   });
+  test('saved data qualifies forecasts and account freshness while retaining rate balances', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, forecastState: 'ready' },
+        dashboard,
+        mode: 'burn',
+        reveal: false,
+        savedData: true,
+      })
+    );
+    expect(markup).toContain('Saved forecast');
+    expect(markup).toContain('Saved snapshot');
+    expect(markup).toContain('Saved observation');
+    expect(markup).not.toContain('Forecast: Ready');
+    expect(markup).not.toContain('>Current<');
+    expect(markup).toContain('Weekly quota remaining: <strong>73</strong>');
+    expect(markup).toContain('of 200 points');
+    expect(markup).toContain('3 points/h · Recorded');
+  });
+
+  test('absent projections have no projected legend or implied depletion estimate', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, projected: [] },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).not.toContain('>Projected<');
+    expect(markup).toContain('Unavailable');
+    expect(markup).not.toContain('Not in this range');
+  });
+
   test('rate chart excludes future reset/empty markers and projection legend', async () => {
     await i18n.changeLanguage('en');
     const markup = renderToStaticMarkup(
