@@ -1,0 +1,3450 @@
+{
+  "startedAt": "2026-10-27T22:23:30.854488+00:00",
+  "scope": "Actual App + MainLayout + hash routes; synthetic login, Axios adapter, discovery; no production.",
+  "cases": {
+    "auth-files-1440": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Management source Alpha fixturealpha",
+        "Auth Files Management",
+        "Management source Beta fixturebeta",
+        "Auth Files Management"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "auth-files-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/auth-files",
+      "width": 1440,
+      "pass": true
+    },
+    "quota-accounts-1440": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Alpha fixture",
+        "Quota Management",
+        "Beta fixture",
+        "Quota Management"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "quota-accounts-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/quota/accounts",
+      "width": 1440,
+      "pass": true
+    },
+    "providers-1440": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Alpha fixture",
+        "AI Providers",
+        "Gemini",
+        "Beta fixture",
+        "AI Providers",
+        "Gemini"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/observability/usage/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/observability/usage/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "providers-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/ai-providers",
+      "width": 1440,
+      "pass": true
+    },
+    "dashboard-1440": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Alpha fixture",
+        "Quiet for now.",
+        "Throughput, ten minutes at a time",
+        "Every provider, side by side",
+        "Credential status",
+        "Configuration at a glance",
+        "Where to go from here",
+        "Beta fixture",
+        "Quiet for now.",
+        "Throughput, ten minutes at a time",
+        "Every provider, side by side",
+        "Credential status",
+        "Configuration at a glance",
+        "Where to go from here"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/observability/usage/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/observability/usage/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "dashboard-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/dashboard",
+      "width": 1440,
+      "pass": true
+    },
+    "plugins-1440": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Alpha fixture",
+        "Plugin Management",
+        "Synthetic plugin",
+        "Beta fixture",
+        "Plugin Management",
+        "Synthetic plugin"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins/store",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins/store",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "plugins-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/plugins",
+      "width": 1440,
+      "pass": true
+    },
+    "plugin-store-1440": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "plugin-store-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/plugin-store",
+      "width": 1440,
+      "pass": true
+    },
+    "system-beta-1440": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Management Center Info"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "system-beta-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/system?source=beta",
+      "width": 1440,
+      "pass": true
+    },
+    "config-beta-1440": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Config Panel",
+        "Common"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "class": "ConfigTabs-module__tab___phNMq "
+        },
+        {
+          "tag": "SPAN",
+          "class": "ConfigTabs-module__tabLabel___nOp9i"
+        },
+        {
+          "tag": "BUTTON",
+          "class": "ConfigTabs-module__tab___phNMq "
+        },
+        {
+          "tag": "svg",
+          "class": "[object SVGAnimatedString]"
+        },
+        {
+          "tag": "polyline",
+          "class": "[object SVGAnimatedString]"
+        },
+        {
+          "tag": "polyline",
+          "class": "[object SVGAnimatedString]"
+        },
+        {
+          "tag": "SPAN",
+          "class": "ConfigTabs-module__tabLabel___nOp9i"
+        }
+      ],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config.yaml",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config.yaml",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "config-beta-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/config?source=beta",
+      "width": 1440,
+      "pass": true
+    },
+    "logs-beta-1440": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Logs Viewer"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/observability/logs",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "logs-beta-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/logs?source=beta",
+      "width": 1440,
+      "pass": true
+    },
+    "oauth-beta-1440": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "OAuth Login",
+        "Other login methods"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "oauth-beta-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/oauth?source=beta",
+      "width": 1440,
+      "pass": true
+    },
+    "excluded-beta-1440": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "OAuth Model Disablement",
+        "Models to disable"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/routing/model-definitions/claude",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/routing/model-definitions/claude",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "excluded-beta-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/auth-files/oauth-excluded?source=beta&provider=claude",
+      "width": 1440,
+      "pass": true
+    },
+    "alias-beta-1440": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "OAuth Model Aliases",
+        "Model aliases"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/routing/model-definitions/claude",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/routing/model-definitions/claude",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "alias-beta-1440.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/auth-files/oauth-model-alias?source=beta&provider=claude",
+      "width": 1440,
+      "pass": true
+    },
+    "auth-files-390": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Management source Alpha fixturealpha",
+        "Auth Files Management",
+        "Management source Beta fixturebeta",
+        "Auth Files Management"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "auth-files-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/auth-files",
+      "width": 390,
+      "pass": true
+    },
+    "quota-accounts-390": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Alpha fixture",
+        "Quota Management",
+        "Beta fixture",
+        "Quota Management"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "class": "ProviderTabs-module__tab___H3sif "
+        },
+        {
+          "tag": "BUTTON",
+          "class": "ProviderTabs-module__tab___H3sif "
+        },
+        {
+          "tag": "SPAN",
+          "class": "ProviderTabs-module__tabIconWrap___ZotRT"
+        },
+        {
+          "tag": "IMG",
+          "class": "ProviderTabs-module__tabIcon___V2PI4"
+        },
+        {
+          "tag": "SPAN",
+          "class": "ProviderTabs-module__tabLabel___dEpsW"
+        },
+        {
+          "tag": "SPAN",
+          "class": "ProviderTabs-module__tabCount___wgH75"
+        },
+        {
+          "tag": "BUTTON",
+          "class": "ProviderTabs-module__tab___H3sif "
+        },
+        {
+          "tag": "SPAN",
+          "class": "ProviderTabs-module__tabIconWrap___ZotRT"
+        }
+      ],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/quota/accounts",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "quota-accounts-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/quota/accounts",
+      "width": 390,
+      "pass": true
+    },
+    "providers-390": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Alpha fixture",
+        "AI Providers",
+        "Gemini",
+        "Beta fixture",
+        "AI Providers",
+        "Gemini"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/observability/usage/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/observability/usage/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/ai-providers",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "providers-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/ai-providers",
+      "width": 390,
+      "pass": true
+    },
+    "dashboard-390": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Alpha fixture",
+        "Quiet for now.",
+        "Throughput, ten minutes at a time",
+        "Every provider, side by side",
+        "Credential status",
+        "Configuration at a glance",
+        "Where to go from here",
+        "Beta fixture",
+        "Quiet for now.",
+        "Throughput, ten minutes at a time",
+        "Every provider, side by side",
+        "Credential status",
+        "Configuration at a glance",
+        "Where to go from here"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "class": "dashboard-module__ambient___25f--"
+        },
+        {
+          "tag": "SPAN",
+          "class": "dashboard-module__gridWash___IJsAj"
+        },
+        {
+          "tag": "DIV",
+          "class": "dashboard-module__ambient___25f--"
+        },
+        {
+          "tag": "SPAN",
+          "class": "dashboard-module__gridWash___IJsAj"
+        }
+      ],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/observability/usage/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/observability/usage/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/dashboard",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "dashboard-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/dashboard",
+      "width": 390,
+      "pass": true
+    },
+    "plugins-390": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Alpha fixture",
+        "Plugin Management",
+        "Synthetic plugin",
+        "Beta fixture",
+        "Plugin Management",
+        "Synthetic plugin"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins/store",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugins",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins/store",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "plugins-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/plugins",
+      "width": 390,
+      "pass": true
+    },
+    "plugin-store-390": {
+      "shell": true,
+      "pressedSource": null,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/plugin-store",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "plugin-store-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/plugin-store",
+      "width": 390,
+      "pass": true
+    },
+    "system-beta-390": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Management Center Info"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/access/api-keys",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/system?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "system-beta-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/system?source=beta",
+      "width": 390,
+      "pass": true
+    },
+    "config-beta-390": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Config Panel",
+        "Common"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [
+        {
+          "tag": "BUTTON",
+          "class": "ConfigTabs-module__tab___phNMq "
+        },
+        {
+          "tag": "SPAN",
+          "class": "ConfigTabs-module__tabLabel___nOp9i"
+        },
+        {
+          "tag": "BUTTON",
+          "class": "ConfigTabs-module__tab___phNMq "
+        },
+        {
+          "tag": "svg",
+          "class": "[object SVGAnimatedString]"
+        },
+        {
+          "tag": "path",
+          "class": "[object SVGAnimatedString]"
+        },
+        {
+          "tag": "path",
+          "class": "[object SVGAnimatedString]"
+        },
+        {
+          "tag": "path",
+          "class": "[object SVGAnimatedString]"
+        },
+        {
+          "tag": "path",
+          "class": "[object SVGAnimatedString]"
+        }
+      ],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config.yaml",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config.yaml",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/config?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "config-beta-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/config?source=beta",
+      "width": 390,
+      "pass": true
+    },
+    "logs-beta-390": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Logs Viewer"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [
+        {
+          "tag": "DIV",
+          "class": "LogsPage-module__logList___IpC9T"
+        },
+        {
+          "tag": "DIV",
+          "class": "LogsPage-module__logRow___gvmFX"
+        },
+        {
+          "tag": "DIV",
+          "class": "LogsPage-module__rowMain___cKmRm"
+        }
+      ],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/observability/logs",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/logs?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "logs-beta-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/logs?source=beta",
+      "width": 390,
+      "pass": true
+    },
+    "oauth-beta-390": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "OAuth Login",
+        "Other login methods"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [
+        {
+          "tag": "SPAN",
+          "class": "SponsorCard-module__pool___T84BV"
+        },
+        {
+          "tag": "SPAN",
+          "class": "SponsorCard-module__pool___T84BV"
+        }
+      ],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/oauth?source=beta",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "oauth-beta-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/oauth?source=beta",
+      "width": 390,
+      "pass": true
+    },
+    "excluded-beta-390": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "OAuth Model Disablement",
+        "Models to disable"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/routing/model-definitions/claude",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/routing/model-definitions/claude",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-excluded?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "excluded-beta-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/auth-files/oauth-excluded?source=beta&provider=claude",
+      "width": 390,
+      "pass": true
+    },
+    "alias-beta-390": {
+      "shell": true,
+      "pressedSource": "Beta fixture",
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "OAuth Model Aliases",
+        "Model aliases"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/routing/model-definitions/claude",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/routing/model-definitions/claude",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files/oauth-model-alias?source=beta&provider=claude",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "alias-beta-390.png",
+      "selectedToolbarPass": true,
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/auth-files/oauth-model-alias?source=beta&provider=claude",
+      "width": 390,
+      "pass": true
+    }
+  },
+  "actions": {
+    "independentSelections": {
+      "pass": true
+    },
+    "ownerPinnedDelete": {
+      "pass": true,
+      "requests": [
+        {
+          "route": "#/auth-files",
+          "phase": "action",
+          "source": "alpha",
+          "method": "delete",
+          "path": "/credentials",
+          "forbidden": false,
+          "targets": [
+            "same.json"
+          ]
+        }
+      ]
+    },
+    "secondary401": {
+      "pass": true,
+      "screenshot": "auth-files-beta-401-1440.png"
+    },
+    "destinationSwitch": {
+      "pass": true,
+      "ownersBefore": [
+        {
+          "id": "alpha",
+          "owner": {
+            "instanceId": "alpha",
+            "sessionEpoch": 1,
+            "sourceGeneration": 1
+          },
+          "status": "ready"
+        },
+        {
+          "id": "beta",
+          "owner": {
+            "instanceId": "beta",
+            "sessionEpoch": 1,
+            "sourceGeneration": 1
+          },
+          "status": "ready"
+        }
+      ],
+      "ownersAfter": [
+        {
+          "id": "alpha",
+          "owner": {
+            "instanceId": "alpha",
+            "sessionEpoch": 1,
+            "sourceGeneration": 1
+          },
+          "status": "ready"
+        },
+        {
+          "id": "beta",
+          "owner": {
+            "instanceId": "beta",
+            "sessionEpoch": 1,
+            "sourceGeneration": 1
+          },
+          "status": "ready"
+        }
+      ],
+      "hash": "#/system?source=alpha",
+      "screenshot": "system-source-switch-1440.png"
+    }
+  },
+  "browser": "Playwright headless Chromium 156.0.8078.4",
+  "finishedAt": "2026-10-27T22:24:29.019283+00:00"
+}

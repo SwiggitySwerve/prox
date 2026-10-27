@@ -1,0 +1,338 @@
+{
+  "startedAt": "2026-10-27T22:07:40.577804+00:00",
+  "scope": "Actual App + MainLayout + hash routes; synthetic login, Axios adapter, discovery; no production.",
+  "cases": {
+    "auth-files-1440": {
+      "shell": true,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Management source Alpha fixturealpha",
+        "Auth Files Management",
+        "Management source Beta fixturebeta",
+        "Auth Files Management"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "auth-files-1440.png",
+      "harnessError": "Locator.check: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-source-id=alpha] input[type=checkbox]\").first\n    - locator resolved to <input type=\"checkbox\" aria-label=\"Select credential same.json\" class=\"SelectionCheckbox-module__input___b-Hpm\"/>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n    - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n  2 \u00d7 retrying click action\n      - waiting 100ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - element is outside of the viewport\n  3 \u00d7 retrying click action\n      - waiting 500ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n    - retrying click action\n      - waiting 500ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n    - retrying click action\n      - waiting 500ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - element is outside of the viewport\n    - retrying click action\n      - waiting 500ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - element is outside of the viewport\n  2 \u00d7 retrying click action\n      - waiting 500ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n  - retrying click action\n    - waiting 500ms\n    - waiting for element to be visible, enabled and stable\n  - element was detached from the DOM, retrying\n    - locator resolved to <input type=\"checkbox\" aria-label=\"Select credential same.json\" class=\"SelectionCheckbox-module__input___b-Hpm\"/>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n    - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n  2 \u00d7 retrying click action\n      - waiting 100ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - element is outside of the viewport\n  10 \u00d7 retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <span class=\"SelectionCheckbox-module__box___FRD4m\"></span> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - element is outside of the viewport\n     - retrying click action\n       - waiting 500ms\n       - waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - element is outside of the viewport\n  - retrying click action\n    - waiting 500ms\n",
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/auth-files",
+      "width": 1440,
+      "pass": false
+    },
+    "auth-files-390": {
+      "shell": true,
+      "sourceLabels": [
+        "Alpha fixture",
+        "Beta fixture"
+      ],
+      "headings": [
+        "Management source Alpha fixturealpha",
+        "Auth Files Management",
+        "Management source Beta fixturebeta",
+        "Auth Files Management"
+      ],
+      "alerts": [],
+      "overflow": false,
+      "overflowElements": [],
+      "secretSentinelVisible": false,
+      "requests": [
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "ambient",
+          "method": "get",
+          "path": "/config",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/excluded-models",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/config/oauth/model-alias",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/credentials",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "alpha",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        },
+        {
+          "route": "#/auth-files",
+          "phase": "passive",
+          "source": "beta",
+          "method": "get",
+          "path": "/plugins",
+          "forbidden": false
+        }
+      ],
+      "sourceVisibilityPass": true,
+      "passiveOperationsPass": true,
+      "fixtureCoveragePass": true,
+      "screenshot": "auth-files-390.png",
+      "errors": [],
+      "blockedNetwork": [],
+      "route": "/auth-files",
+      "width": 390,
+      "pass": true
+    }
+  },
+  "actions": {},
+  "browser": "Playwright headless Chromium 156.0.8078.4",
+  "finishedAt": "2026-10-27T22:08:17.600251+00:00"
+}

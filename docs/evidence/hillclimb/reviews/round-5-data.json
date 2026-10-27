@@ -1,0 +1,353 @@
+{
+  "reviewer": "data",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "narrow": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "empty": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "details-narrow": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "drain": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "refresh-error": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "type_numbers",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "Independently inspected the supplied design-reference PNG and all 14 round-4/round-5 PNG pairs side by side with image viewing tools. Also inspected enlarged paired crops of laptop, narrow, long-narrow, stale, drain and refresh-error. The checkout identifies branch feat/prox-quota-visual-polish at 36e2d79. Only my round-4 data review was read for prior scores and schema; no other reviewer files, medians, evidence README or app implementation were read.",
+      "fix": "Retain the reference direction: dark provider cards, Claude orange, Codex blue, prominent numerical summaries and solid recorded versus dashed projected traces. Scores assess screenshot-visible presentation and reflow only; they do not verify interactions, keyboard behavior, live APIs, runtime arithmetic, accessible names or measured contrast. Desktop images show a viewport of an internally scrolling page: account rows or cards below its edge are not evidence of removal. Fixtures were supplied as unchanged."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "type_numbers",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "The compact toolbar now visibly labels Rate interval, Future usage and Quota window; the selected 3h, Same as now and Weekly values remain identifiable. The immediate 100 points per eligible account · unweighted quota, not tokens qualification remains. Forecast status moves beside the provider heading, while loaded/eligible counts move to the Accounts heading below the chart. Visible counts and values are retained rather than discarded to gain space.",
+      "fix": "Retain these labels and the relocated counts. Keep each numerical summary attached to its weekly window, points or points/h unit and capacity. Preserve the fuller footer explanation that points are not tokens and plans are not weighted wherever the footer is captured. Keep provider names and icons alongside their colors so identity does not rely on color alone."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout",
+        "responsive_accessible"
+      ],
+      "element": "Laptops now fit the mode controls, labeled selects and date navigation on one toolbar row, with the first card higher and all three Claude account rows inside the capture. On 390px captures the selects share one row, the sample readout shares space with its slider, and the counts no longer consume a separate summary row. Narrow and details-narrow are each 156px shorter overall; burn-narrow is 121px shorter. Wide shows more of the second provider chart and its readout. The laptop, narrow, details-narrow and burn-narrow layout scores rise from 8 to 9.",
+      "fix": "Retain the denser arrangement and the readable selected values, date navigation, chart legend, sample timestamp and complete account sections. The mobile captures still show all three Claude and both Codex accounts; keep those rows and their values when adjusting density. No interaction or keyboard behavior is established by the visible slider instruction."
+    },
+    {
+      "states": [
+        "long-narrow"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The unavailable-state mobile capture is only 40px shorter than round 4. Forecast unavailable wraps onto its own provider-header row, followed by Total unavailable, the two-line weekly-capacity caption, the forecast statistics and the warning before the chart. This leaves the Codex summary far down the page despite the improved toolbar. All five account rows, both long names and the missing-balance dashes remain present; their presence is valuable rather than a defect.",
+      "fix": "Tighten the vertical margins between the wrapped Forecast unavailable badge, Total unavailable and weekly-capacity caption, and between the chart legend, selected-sample readout and Accounts heading. Reduce gaps rather than text size or account content. Preserve the explicit warning, loaded/eligible counts, all long credential labels, 82.8% and 71.4% observations and unavailable dashes."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The smaller failure banner and consolidated card heading expose the Codex provider heading and some forecast statistics at the bottom of the 1000px viewport, an improvement over round 4. The second provider remaining-quota total is still below the viewport, so the retained balances cannot yet be compared together without scrolling. This is a density issue, not evidence that the second provider or its accounts were removed.",
+      "fix": "Shorten the first card plot modestly and tighten the vertical gaps around the saved-snapshot metadata and chart captions enough to bring the Codex remaining total into this viewport. Retain readable axis labels, the full failure explanation, Try again, Saved forecast, the saved-snapshot timestamp, selected recorded-sample timestamp and every account balance."
+    },
+    {
+      "states": [
+        "partial",
+        "long-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "type_numbers",
+        "content",
+        "controls_states",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "Total unavailable, Forecast unavailable, unavailable depletion fields and the explanation that eligible accounts lack current quota remain mutually consistent. The historical trace and timestamped recorded sample remain; no projected line is drawn into the unavailable future region. The visible partial Claude row still has an unavailable dash, while long-narrow explicitly says Weekly quota unavailable for the affected Claude and Codex rows. The other account observations remain 82.8% and 71.4%, and loaded/eligible counts are now beside the Accounts heading.",
+      "fix": "Retain the distinction between historical values, available individual balances and unavailable current aggregates. Preserve the missing account rows and their dashes; do not display missing balances as zero or draw a complete forecast from the available subset. Keep the nearby normalization and capacity labels."
+    },
+    {
+      "states": [
+        "stale"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "type_numbers",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "The stale Claude observation remains 82.8%, with Stale directly beneath the percentage and Stale · Last observed: Oct 27, 11:00 AM UTC under the account name. The header still says Total unavailable and Forecast unavailable, the warning requires stale observations to be refreshed, and the chart retains the history while withholding its future projection. The 2 loaded · 3 eligible qualification is retained in the Accounts heading.",
+      "fix": "Retain both the stale balance and its exact observation timestamp, the adjacent status, and the unavailable aggregate/forecast treatment. Keep the selected Oct 24 historical-sample timestamp distinct from the stale account observation time. Do not turn a collection attempt or a chart Snapshot caption into a freshness guarantee."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "type_numbers",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Refresh failed, the explanation that previously loaded observations are still shown, and Try again remain prominent. The retained Claude total is 248.4 of 300 points, Saved forecast remains beside the provider, and Saved snapshot: Oct 27, 12:00 PM UTC remains beneath the total. The chart boundary also says Saved snapshot. Its selected recorded sample remains Oct 24, 12:00 PM UTC · 279.6 points · Recorded, and all three visible account percentages remain 82.8% with Saved observation labels.",
+      "fix": "Retain these separate status and time labels with the saved data. Saved snapshot names the existing server snapshot-generation time under the supplied semantics; it must not be relabeled as an account observation time or a successful refresh. Preserve the independent selected historical-sample time and the distinction between retained observations and saved forecasts."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "type_numbers",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Collecting still displays the observed Claude 248.4 of 300 and Codex 142.8 of 200 point totals. Forecast: Collecting and the explanation that enough observations are needed remain. The chart shows one recorded sample at the snapshot, the readout says Oct 27, 12:00 PM UTC · 248.4 points · Recorded and One recorded sample, and the future area says Forecast unavailable. Available account percentages and loaded/eligible counts remain visible for Claude.",
+      "fix": "Retain the observed balances while leaving rate and depletion predictions unavailable until supported. Keep the single-sample explanation and neutral collecting treatment; do not fabricate a history segment or imply that a valid current balance already establishes a reliable forecast."
+    },
+    {
+      "states": [
+        "empty",
+        "loading",
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "type_numbers",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "The three no-result presentations remain distinct. Empty shows No accounts connected, zero Claude/Codex counts and Add credentials. Loading shows Loading pooled quota, Loading in the refresh button and Awaiting data in the range. Initial error shows Could not load quotas, a connection/retry explanation, Try again and an Unavailable range. None substitutes a zero pooled balance or an invented chart. The new labels make the disabled toolbar selections easier to identify.",
+      "fix": "Retain these separate setup, progress and initial-failure messages and the visible actions. Preserve the footer units explanation and the distinction between checking for updates and collecting provider observations. The screenshots establish displayed states, not whether the actions execute or disabled controls are correctly implemented."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "type_numbers",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "The rate views keep 3.7 and 2.7 points/h with Recorded Drain rate · 3h or Recorded Burn rate · 3h labels, and retain separate weekly remaining balances of 248.4 of 300 and 142.8 of 200 points. Remaining-quota forecast still labels depletion/reset statistics. The notice says rates show recorded observations only and future usage applies to remaining quota; the unplotted future region says Recorded rates only. Burn-narrow still shows all account percentages and footer collection-attempt/next-availability times.",
+      "fix": "Retain the recorded-rate units and sample timestamps, the separate remaining-quota balances and forecast heading, and the empty future rate region. Do not reinterpret a remaining-quota projection as a forecast rate. Preserve the consolidated burn summary and the account percentages; the visibly disabled future-usage select is not evidence that its behavior was tested."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "type_numbers",
+        "content",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "The full-height mobile pairs preserve the axis units/numbers, sparse date ticks, readable Recorded/Projected or Recorded-only legends, and wrapping sample readouts. Details-narrow keeps the expanded Claude account at 82.8%, Last observed Oct 27, Next reset Oct 28, Predicted empty Oct 29, each at 12:00 PM UTC, plus Burn, last 3h at 1.2 points/h. All remaining account rows and the two Codex 71.4% values remain. The footer still separates History since, Last collection attempt and Next collection available.",
+      "fix": "Retain the complete expanded account data, UTC on each timestamp, the forecast wording on Predicted empty and the footer distinctions. Preserve long-name wrapping, visible remaining values and text labels alongside the provider colors. Continue to distinguish a selected historical point from the current account observation and a collection attempt from demonstrated freshness."
+    }
+  ],
+  "drops": []
+}
