@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "defaultInstanceId": "codex-primary",
+  "history": {
+    "upstreamOrigin": "http://127.0.0.1:18319",
+    "managementKeyFile": "/run/secrets/proxy-management-key"
+  },
+  "sources": [
+    {
+      "instanceId": "codex-primary",
+      "label": "GPT / Codex",
+      "publicBasePath": "/codex",
+      "aliases": [""],
+      "authScope": "homelab-management",
+      "upstreamOrigin": "http://127.0.0.1:8317",
+      "managementKeyFile": "/run/secrets/proxy-management-key"
+    },
+    {
+      "instanceId": "claude-primary",
+      "label": "Claude / Claude Code",
+      "publicBasePath": "/claude",
+      "aliases": [],
+      "authScope": "homelab-management",
+      "upstreamOrigin": "http://127.0.0.1:8319",
+      "managementKeyFile": "/run/secrets/proxy-management-key"
+    }
+  ]
+}

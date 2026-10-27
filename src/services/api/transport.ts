@@ -15,14 +15,19 @@ import {
 } from '@/utils/constants';
 import { computeApiUrl } from '@/utils/connection';
 import { parseApiErrorResponse } from './apiError';
+import { guardSourceRequest, type TransportEvent, type TransportPolicy } from './transportPolicy';
 
 export class ApiClient {
   private instance: AxiosInstance;
   private apiBase: string = '';
   private managementKey: string = '';
   private connectionRevision = 0;
+  private readonly requestRevisions = new WeakMap<object, number>();
 
-  constructor(private readonly emitEvents: () => boolean = () => true) {
+  constructor(
+    private readonly emitEvents: () => boolean = () => true,
+    private readonly policy?: TransportPolicy
+  ) {
     this.instance = axios.create({
       timeout: REQUEST_TIMEOUT_MS,
       headers: {
@@ -63,6 +68,23 @@ export class ApiClient {
     client.apiBase = this.apiBase;
     client.managementKey = this.managementKey;
     return client;
+  }
+
+  private publish(event: TransportEvent, config?: object): void {
+    if (
+      !this.emitEvents() ||
+      !config ||
+      this.requestRevisions.get(config) !== this.connectionRevision
+    )
+      return;
+    if (this.policy) this.policy.onEvent(event);
+    else if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        'detail' in event
+          ? new CustomEvent(event.type, { detail: event.detail })
+          : new Event(event.type)
+      );
+    }
   }
 
   private readHeader(headers: Record<string, unknown> | undefined, keys: string[]): string | null {
@@ -123,6 +145,8 @@ export class ApiClient {
     // Request interceptor
     this.instance.interceptors.request.use(
       (config) => {
+        if (this.policy) guardSourceRequest(config, this.policy);
+        this.requestRevisions.set(config, this.connectionRevision);
         // Set baseURL
         config.baseURL = this.apiBase;
 
@@ -139,6 +163,7 @@ export class ApiClient {
     // Response interceptor
     this.instance.interceptors.response.use(
       (response) => {
+        this.policy?.assertCurrent();
         const headers = response.headers as Record<string, string | undefined>;
         const cpaVersion = this.readHeader(headers, CPA_VERSION_HEADER_KEYS);
         const cpaBuildDate = this.readHeader(headers, CPA_BUILD_DATE_HEADER_KEYS);
@@ -146,19 +171,16 @@ export class ApiClient {
         const buildDate = cpaBuildDate || this.readHeader(headers, BUILD_DATE_HEADER_KEYS);
         const supportsPlugin = this.readBooleanHeader(headers, CPA_SUPPORT_PLUGIN_HEADER_KEYS);
 
-        // Dispatch version updates for store consumers
-        if (this.emitEvents() && (version || buildDate)) {
-          window.dispatchEvent(
-            new CustomEvent('server-version-update', {
-              detail: { version: version || null, buildDate: buildDate || null },
-            })
+        if (version || buildDate) {
+          this.publish(
+            { type: 'server-version-update', detail: { version, buildDate } },
+            response.config
           );
         }
-        if (this.emitEvents() && supportsPlugin !== null) {
-          window.dispatchEvent(
-            new CustomEvent('server-plugin-support-update', {
-              detail: { supportsPlugin },
-            })
+        if (supportsPlugin !== null) {
+          this.publish(
+            { type: 'server-plugin-support-update', detail: { supportsPlugin } },
+            response.config
           );
         }
 
@@ -172,6 +194,7 @@ export class ApiClient {
    * Error handling
    */
   private handleError(error: unknown): ApiError {
+    this.policy?.assertCurrent();
     if (axios.isAxiosError(error)) {
       const responseData: unknown = error.response?.data;
       const parsedError = parseApiErrorResponse(responseData, error.message);
@@ -184,9 +207,7 @@ export class ApiClient {
       apiError.data = responseData;
 
       // Dispatch logout for unauthorized responses
-      if (this.emitEvents() && error.response?.status === 401) {
-        window.dispatchEvent(new Event('unauthorized'));
-      }
+      if (error.response?.status === 401) this.publish({ type: 'unauthorized' }, error.config);
 
       return apiError;
     }
@@ -267,4 +288,3 @@ export class ApiClient {
     return response.data;
   }
 }
-

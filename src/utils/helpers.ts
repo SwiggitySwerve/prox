@@ -25,3 +25,11 @@ export const getErrorMessage = (error: unknown, fallback = ''): string => {
   if (isRecord(error) && typeof error.message === 'string') return error.message || fallback;
   return fallback;
 };
+
+/** ASCII control bytes are invalid in source URLs, keys, and manifest text. */
+export function containsControlCharacters(value: string): boolean {
+  return [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return code < 32 || code === 127;
+  });
+}

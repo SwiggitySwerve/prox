@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "revision": "26a3999f49dc3b9a46821da16aa34af62ebd663812851abbece33d78f269f497",
+  "defaultInstanceId": "codex-primary",
+  "sources": [
+    {
+      "instanceId": "codex-primary",
+      "label": "GPT / Codex",
+      "publicBasePath": "/codex",
+      "aliases": [
+        ""
+      ],
+      "authScope": "homelab-management"
+    },
+    {
+      "instanceId": "claude-primary",
+      "label": "Claude / Claude Code",
+      "publicBasePath": "/claude",
+      "aliases": [],
+      "authScope": "homelab-management"
+    }
+  ]
+}
