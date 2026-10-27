@@ -1,3 +1,5 @@
+import { buildClaudeQuotaWindows } from '@/domain/quotaWindows/claude';
+export { buildClaudeQuotaWindows } from '@/domain/quotaWindows/claude';
 /**
  * Claude quota data: plan windows, extra usage, and independent dollar balances.
  * React-free and SCSS-free so fixture tests can consume the data layer directly.
@@ -11,8 +13,6 @@ import type {
   ClaudeProfileResponse,
   ClaudeQuotaState,
   ClaudeQuotaWindow,
-  ClaudeUsageWindow,
-  ClaudeUsagePayload,
 } from '@/types';
 import { apiCallApi, getApiCallErrorMessage } from '@/services/api';
 import { normalizeClaudeUsageSnapshot } from '@/services/api/claudeUsage';
@@ -20,13 +20,9 @@ import {
   CLAUDE_PROFILE_URL,
   CLAUDE_USAGE_URL,
   CLAUDE_REQUEST_HEADERS,
-  CLAUDE_USAGE_WINDOW_KEYS,
-  claudePeriodHours,
   normalizeNumberValue,
   normalizeStringValue,
   parseClaudeUsagePayload,
-  formatQuotaResetTime,
-  resolveResetMs,
   createStatusError,
   isClaudeFile,
   isDisabledAuthFile,
@@ -46,86 +42,6 @@ export const hasClaudeUsageData = (quota?: ClaudeQuotaState): boolean =>
   Boolean(
     quota?.observedAt || quota?.windows?.length || quota?.extraUsage || quota?.dollarWindows?.length
   );
-
-const findFableUsageLimit = (payload: ClaudeUsagePayload) => {
-  if (!Array.isArray(payload.limits)) return null;
-
-  const candidates = payload.limits.filter((limit) => {
-    const kind = (normalizeStringValue(limit?.kind) ?? '').trim().toLowerCase();
-    const modelName = (normalizeStringValue(limit?.scope?.model?.display_name) ?? '')
-      .trim()
-      .toLowerCase();
-    const isFable = modelName === 'fable' || modelName === 'fable 5';
-    return kind === 'weekly_scoped' && isFable && normalizeNumberValue(limit?.percent) !== null;
-  });
-
-  return candidates.find((limit) => limit.is_active === true) ?? candidates[0] ?? null;
-};
-
-const isDollarDenominatedWindow = (window: ClaudeUsageWindow) =>
-  normalizeNumberValue(window.limit_dollars) !== null ||
-  normalizeNumberValue(window.used_dollars) !== null ||
-  normalizeNumberValue(window.remaining_dollars) !== null;
-
-export const buildClaudeQuotaWindows = (
-  payload: ClaudeUsagePayload,
-  t: TFunction
-): ClaudeQuotaWindow[] => {
-  const windows: ClaudeQuotaWindow[] = [];
-  const fableLimit = findFableUsageLimit(payload);
-
-  for (const { key, id, labelKey } of CLAUDE_USAGE_WINDOW_KEYS) {
-    const window = payload[key as keyof ClaudeUsagePayload];
-    if (!window || typeof window !== 'object' || !('utilization' in window)) continue;
-    const typedWindow = window as ClaudeUsageWindow;
-    const isCreditPool = key === 'iguana_necktie' && isDollarDenominatedWindow(typedWindow);
-    if (key === 'iguana_necktie' && fableLimit && !isCreditPool) continue;
-    if (isCreditPool) {
-      windows.push({
-        id: 'cloud-session-credits',
-        label: t('claude_quota.cloud_session_credits'),
-        labelKey: 'claude_quota.cloud_session_credits',
-        usedPercent: normalizeNumberValue(typedWindow.utilization),
-        resetLabel: formatQuotaResetTime(typedWindow.resets_at ?? undefined),
-        resetAtMs: resolveResetMs([typedWindow.resets_at]),
-        periodHours: null,
-      });
-      continue;
-    }
-    const usedPercent = normalizeNumberValue(typedWindow.utilization);
-    const resetLabel = formatQuotaResetTime(typedWindow.resets_at ?? undefined);
-    windows.push({
-      id,
-      label: t(labelKey),
-      labelKey,
-      usedPercent,
-      resetLabel,
-      // Claude states the period nowhere in the payload, so it comes from the
-      // key: `five_hour` is the rolling window, everything else is weekly.
-      resetAtMs: resolveResetMs([typedWindow.resets_at]),
-      periodHours: claudePeriodHours(key),
-    });
-  }
-
-  if (fableLimit) {
-    const usedPercent = normalizeNumberValue(fableLimit.percent);
-    if (usedPercent !== null) {
-      windows.push({
-        id: 'seven-day-fable',
-        label: t('claude_quota.seven_day_fable'),
-        labelKey: 'claude_quota.seven_day_fable',
-        usedPercent,
-        resetLabel: formatQuotaResetTime(fableLimit.resets_at ?? undefined),
-        // `weekly_scoped` is a 7-day window by definition, so the timeline can
-        // place this row alongside the ones derived from the named keys.
-        resetAtMs: resolveResetMs([fableLimit.resets_at]),
-        periodHours: claudePeriodHours('seven_day'),
-      });
-    }
-  }
-
-  return windows;
-};
 
 const normalizeFlagValue = (value: unknown): boolean | undefined => {
   if (value === undefined || value === null) return undefined;
