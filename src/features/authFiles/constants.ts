@@ -28,14 +28,7 @@ export type AuthFileModelItem = {
 export type AuthFileIconAsset = string | { light: string; dark: string };
 
 export type QuotaProviderType =
-  | 'antigravity'
-  | 'claude'
-  | 'codex'
-  | 'devin'
-  | 'kimi'
-  | 'meta'
-  | 'plugin'
-  | 'xai';
+  'antigravity' | 'claude' | 'codex' | 'devin' | 'kimi' | 'meta' | 'plugin' | 'xai';
 export type AuthFileQuotaFilter = string | null;
 export type OAuthConfigLoadError = 'loading' | 'unsupported' | 'load' | null;
 
@@ -129,6 +122,39 @@ export const getAuthFileStatusMessage = (file: AuthFileItem): string => {
   if (typeof raw === 'string') return raw.trim();
   if (raw == null) return '';
   return String(raw).trim();
+};
+
+export type AuthFileStatusSummary =
+  | { kind: 'usage_limit'; window: 'weekly' | 'five_hour' | null; resetsAt: number | null }
+  | { kind: 'rate_limit' }
+  | { kind: 'message'; text: string };
+
+/** Upstream errors arrive as raw JSON; reduce them to what the card should say. */
+export const summarizeAuthFileStatusMessage = (raw: string): AuthFileStatusSummary => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { kind: 'message', text: raw };
+  }
+  const error = (parsed as { error?: unknown } | null)?.error;
+  if (typeof error === 'string') return { kind: 'message', text: error };
+  if (!error || typeof error !== 'object') return { kind: 'message', text: raw };
+  const {
+    type,
+    message,
+    limit_window_minutes: minutes,
+    resets_at: resetsAt,
+  } = error as Record<string, unknown>;
+  if (type === 'usage_limit_reached') {
+    return {
+      kind: 'usage_limit',
+      window: minutes === 10080 ? 'weekly' : minutes === 300 ? 'five_hour' : null,
+      resetsAt: typeof resetsAt === 'number' ? resetsAt * 1000 : null,
+    };
+  }
+  if (type === 'rate_limit_error') return { kind: 'rate_limit' };
+  return { kind: 'message', text: typeof message === 'string' && message ? message : raw };
 };
 
 /** 这些 status_message 视为健康，不触发告警态。 */
