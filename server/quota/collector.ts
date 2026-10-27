@@ -259,7 +259,10 @@ export class QuotaCollector {
     return this.nextRefresh;
   }
   get issues(): PoolDashboard['issues'] {
-    return this.currentIssues.map((issue) => ({ ...issue }));
+    // Providers are collected concurrently; report issues in a stable order, not completion order.
+    return this.currentIssues
+      .map((issue) => ({ ...issue }))
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   }
   get sources(): QuotaSourceView[] | undefined {
     if (this.revision === undefined) return undefined;
