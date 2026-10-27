@@ -567,13 +567,27 @@ function buildAuthFilesApi(
   }
 
   const api = {
-    list: async (lookup?: AuthFileLookup) =>
-      normalizeAuthFilesResponse(
-        await transport.get<AuthFilesResponse>(
-          '/credentials',
-          lookup ? { params: { name: lookup.name, auth_index: lookup.authIndex } } : undefined
+    list: async (lookup?: AuthFileLookup) => {
+      const payload = await transport.get<AuthFilesResponse>(
+        '/credentials',
+        lookup ? { params: { name: lookup.name, auth_index: lookup.authIndex } } : undefined
+      );
+      // This call requests the complete inventory. A malformed or truncated success
+      // must not erase accounts or authorize bulk actions as an empty inventory.
+      if (
+        !isRecord(payload) ||
+        !Array.isArray(payload.files) ||
+        (payload.has_more !== undefined && payload.has_more !== false) ||
+        (payload.total !== undefined && payload.total !== payload.files.length) ||
+        (payload.page !== undefined && payload.page !== 1) ||
+        payload.files.some(
+          (entry) => !isRecord(entry) || typeof entry.name !== 'string' || !entry.name.trim()
         )
-      ),
+      ) {
+        throw new Error('Invalid credential inventory');
+      }
+      return normalizeAuthFilesResponse(payload);
+    },
 
     setStatus: (name: string, disabled: boolean, authIndex?: string) =>
       transport.patch<AuthFileStatusResponse>('/credentials/status', {

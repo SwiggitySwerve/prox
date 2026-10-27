@@ -427,3 +427,21 @@ describe('source-bound auth files', () => {
     expect(download).toHaveBeenCalledWith('legacy.json');
   });
 });
+
+test('malformed and incomplete inventories fail without becoming empty accounts', async () => {
+  for (const payload of [
+    null,
+    {},
+    { files: null },
+    { files: [null] },
+    { files: [{}] },
+    { files: [], has_more: true },
+    { files: [], total: 1 },
+    { files: [], page: 2 },
+  ]) {
+    const source = fixture('invalid', () => payload);
+    await expect(source.api.list()).rejects.toThrow('Invalid credential inventory');
+  }
+  const empty = fixture('empty', () => ({ files: [], total: 0 }));
+  expect((await empty.api.list()).files).toEqual([]);
+});
