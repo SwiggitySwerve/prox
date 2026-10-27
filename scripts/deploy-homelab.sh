@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and install only the Prox UI. Never restart either inference proxy.
+# Build and install Prox UI and quota history. Never restart either inference proxy.
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo"

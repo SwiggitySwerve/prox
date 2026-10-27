@@ -13,7 +13,7 @@ reference, not proof that upstream supplies pooled forecasts.
 
 - Fork: `https://github.com/SwiggitySwerve/prox`
 - Checkout on homelab: `/home/swerve/src/prox`
-- Setup branch: `setup/prox-workspace`
+- Setup merged in PR #1; pooled dashboard branch: `feat/pooled-quota-dashboard`.
 - Public UI: `https://prox.swervelab.xyz`
 - Local UI: `http://127.0.0.1:18318`
 - Service: `systemctl --user status prox`
@@ -138,5 +138,17 @@ T3 preview is blocked by this host's AppArmor sandbox configuration. The fallbac
 used an isolated headless Chromium profile, closed after verification. Chromium
 and its missing libcups, libcairo, and libpango runtime libraries were installed
 for those checks. The original inference and usage container start times are
-unchanged. The frontend currently selects one backend at a time; unified pools,
-forecasting, and matching the supplied Prox design are the next implementation.
+unchanged. This records the setup baseline before the pooled dashboard.
+
+## Pooled dashboard verification (2026-10-27)
+
+The full verification passes 1,714 tests, ESLint, both TypeScript configurations,
+and the single-file frontend plus Bun server build. The deployed history API
+loads all three Claude and two Codex accounts with no collection issues, through
+each of the root, `/codex`, and `/claude` management routes.
+
+Authenticated Chromium checks passed provider filters, rate modes, quota-window
+and usage-scenario controls, privacy toggling, and all five account rows.
+Desktop (1440×1100) and mobile (390×844) have no page overflow or browser errors.
+Initial live charts correctly show collection in progress; forecasts require
+real observation history. A full public Authentik sign-in remains unverified.

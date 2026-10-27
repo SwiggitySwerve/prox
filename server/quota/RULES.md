@@ -11,6 +11,8 @@ credential UI. The store owns persistence; the collector uses only public APIs.
 - Weekly and five-hour windows are separate. Model-scoped, monthly, dollar and
   reset-credit balances are not added to those pools.
 - Missing, expired, errored or older-than-15-minute samples are unknown, not 0.
+  A successful response without a general window records an explicit missing
+  observation, immediately superseding that window's previous balance.
   Disabled/retired accounts are excluded. A failed inventory cannot look like
   an empty healthy provider. History describes the current eligible membership.
 - Burn is measured depletion per hour within matching reset cycles, excluding

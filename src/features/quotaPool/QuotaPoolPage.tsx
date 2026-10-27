@@ -6,6 +6,7 @@ import type { PoolQuery } from '@/services/api/quotaPool';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
 import { PoolCard } from './PoolCard';
+import { PoolProviderMark } from './PoolProviderMark';
 import type { ChartMode } from './chartGeometry';
 import { formatPoolDate } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
@@ -69,11 +70,7 @@ export function QuotaPoolPage() {
             onClick={() => setProvider(item)}
             className={item === 'all' ? undefined : styles[item]}
           >
-            {item !== 'all' && (
-              <span className={styles.providerMark} aria-hidden="true">
-                {item === 'claude' ? '✳' : '⌘'}
-              </span>
-            )}
+            {item !== 'all' && <PoolProviderMark provider={item} />}
             {t(`quota_pool.${item}`)}
             {item !== 'all' && (
               <span className={styles.count}>

@@ -29,6 +29,15 @@ export function PoolChart({
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
   const date = (value: number) => formatPoolDate(value, i18n.language);
   const visible = (at: number | null): at is number => at !== null && at >= fromMs && at <= toMs;
+  // Keep dense five-hour reset labels legible; every reset still has a tick and title.
+  let lastLabelX = -Infinity;
+  const resetMarkers = pool.resets
+    .filter((reset) => visible(reset.atMs))
+    .map((reset) => {
+      const showLabel = x(reset.atMs) - lastLabelX >= 100;
+      if (showLabel) lastLabelX = x(reset.atMs);
+      return { ...reset, showLabel };
+    });
   const hasValues = samples.some(({ point }) => point[field] !== null);
   const description = sample
     ? `${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
@@ -176,17 +185,17 @@ export function PoolChart({
           </text>
         )}
         {mode === 'remaining' &&
-          pool.resets
-            .filter((reset) => visible(reset.atMs))
-            .map((reset, index) => (
-              <g key={`${reset.atMs}-${index}`} className={styles.resetMarker}>
-                <line x1={x(reset.atMs)} x2={x(reset.atMs)} y1="38" y2="49" />
-                <text x={x(reset.atMs)} y={index % 2 ? 17 : 30} textAnchor="middle">
+          resetMarkers.map((reset, index) => (
+            <g key={`${reset.atMs}-${index}`} className={styles.resetMarker}>
+              <line x1={x(reset.atMs)} x2={x(reset.atMs)} y1="38" y2="49" />
+              {reset.showLabel && (
+                <text x={x(reset.atMs)} y="20" textAnchor="middle">
                   +{number(reset.gainPoints)}
                 </text>
-                <title>{`${t('quota_pool.reset')}: ${date(reset.atMs)} · +${number(reset.gainPoints)} ${unit}`}</title>
-              </g>
-            ))}
+              )}
+              <title>{`${t('quota_pool.reset')}: ${date(reset.atMs)} · +${number(reset.gainPoints)} ${unit}`}</title>
+            </g>
+          ))}
         {!hasValues && (
           <text x="520" y="150" textAnchor="middle" className={styles.emptyChart}>
             {t('quota_pool.no_history')}

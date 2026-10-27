@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import type { ChartMode } from './chartGeometry';
 import { PoolChart } from './PoolChart';
+import { PoolProviderMark } from './PoolProviderMark';
 import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
@@ -29,9 +30,7 @@ export function PoolCard({
       <div className={styles.poolHeader}>
         <div>
           <div className={styles.poolTitle}>
-            <span className={styles.providerMark} aria-hidden="true">
-              {pool.provider === 'claude' ? '✳' : '⌘'}
-            </span>
+            <PoolProviderMark provider={pool.provider} />
             <h2 id={`${pool.provider}-title`}>{t(`quota_pool.${pool.provider}`)}</h2>
             <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
             <span className={styles.badge}>{t(`quota_pool.state.${pool.forecastState}`)}</span>
