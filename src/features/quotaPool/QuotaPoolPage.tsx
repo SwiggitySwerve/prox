@@ -166,6 +166,7 @@ export function QuotaPoolPage() {
         </p>
       )}
       <p className={styles.method}>{t('quota_pool.normalized')}</p>
+      <p className={styles.method}>{t('quota_pool.limit_note')}</p>
       {!state.connected && (
         <div className={styles.notice} role="status">
           {t('quota_pool.disconnected')}

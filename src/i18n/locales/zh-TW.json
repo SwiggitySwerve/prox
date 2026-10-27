@@ -2339,6 +2339,10 @@
     "expired": "綁定工作階段已過期，請重新開始。"
   },
   "quota_pool": {
+    "window_remaining": "{{window}}剩餘額度",
+    "history_forecast": "歷史與預測",
+    "forecast_status": "預測：{{state}}",
+    "limit_note": "餘額由提供商回報。特定模型的限制和請求可用性可能有所不同。",
     "runtime_source": "管理來源",
     "runtime_scope": "此頁面使用 {{provider}} 執行個體。彙總額度包含兩個供應商。",
     "runtime_switching": "正在切換執行個體…",

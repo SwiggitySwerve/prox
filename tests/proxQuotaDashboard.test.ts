@@ -301,6 +301,38 @@ describe('honest chart geometry', () => {
 });
 
 describe('pool presentation', () => {
+  test('shows authenticated accounts before collapsed forecasts and labels the balance window', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, remainingPoints: 0, forecastState: 'ready' },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).toContain('Weekly quota remaining');
+    expect(markup).toContain('Forecast: Ready');
+    expect(markup).not.toContain('>Ready<');
+    const accounts = markup.slice(markup.indexOf('<section'), markup.indexOf('</section>'));
+    expect(accounts).toContain('Claude account 1');
+    expect(accounts).toContain('73%');
+    expect(markup.indexOf('</section>')).toBeLessThan(markup.indexOf('History and forecast'));
+    expect(markup).not.toMatch(/<details[^>]*\bopen[\s=>]/);
+  });
+
+  test('hides reset markers that replenish no balance', () => {
+    const markup = renderToStaticMarkup(
+      createElement(PoolChart, {
+        pool: { ...pool, resets: [{ atMs: 800, gainPoints: 0 }] },
+        dashboard,
+        mode: 'remaining',
+      })
+    );
+    expect(markup).not.toContain('Reset:');
+    expect(markup).not.toContain('>+0<');
+  });
+
   test('uses server capacity and missing predictions without exposing hidden emails', async () => {
     await i18n.changeLanguage('en');
     const markup = renderToStaticMarkup(

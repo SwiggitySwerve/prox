@@ -2311,6 +2311,10 @@
     "expired": "绑定会话已过期，请重新开始。"
   },
   "quota_pool": {
+    "window_remaining": "{{window}}剩余额度",
+    "history_forecast": "历史与预测",
+    "forecast_status": "预测：{{state}}",
+    "limit_note": "余额由提供商报告。特定模型的限制和请求可用性可能有所不同。",
     "runtime_source": "管理来源",
     "runtime_scope": "此页面使用 {{provider}} 实例。汇总额度包含两个提供商。",
     "runtime_switching": "正在切换实例…",
