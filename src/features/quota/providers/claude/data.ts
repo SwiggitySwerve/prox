@@ -14,7 +14,7 @@ import type {
   ClaudeQuotaState,
   ClaudeQuotaWindow,
 } from '@/types';
-import { apiCallApi, getApiCallErrorMessage } from '@/services/api';
+import { getApiCallErrorMessage } from '@/services/api/apiCall';
 import { normalizeClaudeUsageSnapshot } from '@/services/api/claudeUsage';
 import {
   CLAUDE_PROFILE_URL,
@@ -28,6 +28,7 @@ import {
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
+import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
 
 export type ClaudeQuotaData = {
   windows: ClaudeQuotaWindow[];
@@ -97,93 +98,101 @@ export const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): st
   return null;
 };
 
-const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<ClaudeQuotaData> => {
-  const rawAuthIndex = file['auth_index'] ?? file.authIndex;
-  const authIndex = normalizeAuthIndex(rawAuthIndex);
-  if (!authIndex) {
-    throw new Error(t('claude_quota.missing_auth_index'));
-  }
+export function createClaudeQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+  const { apiCallApi } = deps;
 
-  const [usageResult, profileResult] = await Promise.allSettled([
-    apiCallApi.request({
-      authIndex,
-      method: 'GET',
-      url: CLAUDE_USAGE_URL,
-      header: { ...CLAUDE_REQUEST_HEADERS, Accept: 'application/json' },
-    }),
-    apiCallApi.request({
-      authIndex,
-      method: 'GET',
-      url: CLAUDE_PROFILE_URL,
-      header: { ...CLAUDE_REQUEST_HEADERS },
-    }),
-  ]);
+  const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<ClaudeQuotaData> => {
+    const rawAuthIndex = file['auth_index'] ?? file.authIndex;
+    const authIndex = normalizeAuthIndex(rawAuthIndex);
+    if (!authIndex) {
+      throw new Error(t('claude_quota.missing_auth_index'));
+    }
 
-  if (usageResult.status === 'rejected') {
-    throw usageResult.reason;
-  }
+    const [usageResult, profileResult] = await Promise.allSettled([
+      apiCallApi.request({
+        authIndex,
+        method: 'GET',
+        url: CLAUDE_USAGE_URL,
+        header: { ...CLAUDE_REQUEST_HEADERS, Accept: 'application/json' },
+      }),
+      apiCallApi.request({
+        authIndex,
+        method: 'GET',
+        url: CLAUDE_PROFILE_URL,
+        header: { ...CLAUDE_REQUEST_HEADERS },
+      }),
+    ]);
 
-  const result = usageResult.value;
+    if (usageResult.status === 'rejected') {
+      throw usageResult.reason;
+    }
 
-  if (result.statusCode < 200 || result.statusCode >= 300) {
-    throw createStatusError(getApiCallErrorMessage(result), result.statusCode);
-  }
+    const result = usageResult.value;
 
-  const payload = parseClaudeUsagePayload(result.body ?? result.bodyText);
-  if (!payload) {
-    throw new Error(t('claude_quota.empty_windows'));
-  }
+    if (result.statusCode < 200 || result.statusCode >= 300) {
+      throw createStatusError(getApiCallErrorMessage(result), result.statusCode);
+    }
 
-  const snapshot = normalizeClaudeUsageSnapshot(payload);
-  if (!snapshot) {
-    throw new Error(t('claude_quota.empty_windows'));
-  }
-  const dollarWindows = snapshot.dollarWindows;
-  // Full dollar balances get their own amount/reset rows, not a second plan meter.
-  const windows = buildClaudeQuotaWindows(payload, t).filter(
-    (window) =>
-      window.id !== 'cloud-session-credits' ||
-      !dollarWindows.some((balance) => balance.key === 'iguana_necktie')
-  );
-  const planType =
-    profileResult.status === 'fulfilled' &&
-    profileResult.value.statusCode >= 200 &&
-    profileResult.value.statusCode < 300
-      ? resolveClaudePlanType(
-          parseClaudeProfilePayload(profileResult.value.body ?? profileResult.value.bodyText)
-        )
-      : null;
+    const payload = parseClaudeUsagePayload(result.body ?? result.bodyText);
+    if (!payload) {
+      throw new Error(t('claude_quota.empty_windows'));
+    }
 
-  return {
-    windows,
-    extraUsage: snapshot.extraUsage,
-    dollarWindows,
-    observedAt: new Date().toISOString(),
-    planType,
+    const snapshot = normalizeClaudeUsageSnapshot(payload);
+    if (!snapshot) {
+      throw new Error(t('claude_quota.empty_windows'));
+    }
+    const dollarWindows = snapshot.dollarWindows;
+    // Full dollar balances get their own amount/reset rows, not a second plan meter.
+    const windows = buildClaudeQuotaWindows(payload, t).filter(
+      (window) =>
+        window.id !== 'cloud-session-credits' ||
+        !dollarWindows.some((balance) => balance.key === 'iguana_necktie')
+    );
+    const planType =
+      profileResult.status === 'fulfilled' &&
+      profileResult.value.statusCode >= 200 &&
+      profileResult.value.statusCode < 300
+        ? resolveClaudePlanType(
+            parseClaudeProfilePayload(profileResult.value.body ?? profileResult.value.bodyText)
+          )
+        : null;
+
+    return {
+      windows,
+      extraUsage: snapshot.extraUsage,
+      dollarWindows,
+      observedAt: new Date().toISOString(),
+      planType,
+    };
   };
-};
 
-export const CLAUDE_CONFIG: QuotaProviderData<ClaudeQuotaState, ClaudeQuotaData> = {
-  type: 'claude',
-  i18nPrefix: 'claude_quota',
-  filterFn: (file) => isClaudeFile(file) && !isDisabledAuthFile(file),
-  fetchQuota: fetchClaudeQuota,
-  storeSelector: (state) => state.claudeQuota,
-  storeSetter: 'setClaudeQuota',
-  buildLoadingState: () => ({ status: 'loading', windows: [] }),
-  buildSuccessState: (data) => ({
-    status: 'success',
-    windows: data.windows,
-    extraUsage: data.extraUsage,
-    planType: data.planType,
-    dollarWindows: data.dollarWindows,
-    observedAt: data.observedAt,
-    stale: false,
-  }),
-  buildErrorState: (message, status) => ({
-    status: 'error',
-    windows: [],
-    error: message,
-    errorStatus: status,
-  }),
-};
+  const config: QuotaProviderData<ClaudeQuotaState, ClaudeQuotaData> = {
+    type: 'claude',
+    i18nPrefix: 'claude_quota',
+    filterFn: (file) => isClaudeFile(file) && !isDisabledAuthFile(file),
+    fetchQuota: fetchClaudeQuota,
+    storeSelector: (state) => state.claudeQuota,
+    storeSetter: 'setClaudeQuota',
+    buildLoadingState: () => ({ status: 'loading', windows: [] }),
+    buildSuccessState: (data) => ({
+      status: 'success',
+      windows: data.windows,
+      extraUsage: data.extraUsage,
+      planType: data.planType,
+      dollarWindows: data.dollarWindows,
+      observedAt: data.observedAt,
+      stale: false,
+    }),
+    buildErrorState: (message, status) => ({
+      status: 'error',
+      windows: [],
+      error: message,
+      errorStatus: status,
+    }),
+  };
+
+  return config;
+}
+
+export const CLAUDE_CONFIG = createClaudeQuotaConfig();

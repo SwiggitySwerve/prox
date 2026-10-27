@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useRevealGroup } from '@/hooks/motion';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useVisualConfig } from '@/hooks/useVisualConfig';
-import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
+import { useNotificationStore, useThemeStore } from '@/stores';
 import {
   CONFIG_MODE_STORAGE_KEY,
   CONFIG_SECTION_STORAGE_KEY,
@@ -60,7 +61,7 @@ export function ConfigPage() {
   const pageTransitionLayer = usePageTransitionLayer();
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.isCurrentLayer : true;
   const showNotification = useNotificationStore((state) => state.showNotification);
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const session = useSelectedSourceSession();
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const revealRef = useRevealGroup<HTMLDivElement>();
@@ -109,7 +110,7 @@ export function ConfigPage() {
   });
   const sourceSearch = useSourceSearch();
 
-  const disableControls = connectionStatus !== 'connected';
+  const disableControls = session.signal.aborted;
   const hasVisualModeError = !!visualParseError;
   const hasVisualValidationErrors =
     mode === 'visual' &&

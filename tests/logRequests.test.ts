@@ -175,24 +175,23 @@ describe('logs controller lifecycle wiring', () => {
     'utf8'
   );
 
-  test('invalidates synchronously on connection identity/config changes and unmount', () => {
+  test('invalidates synchronously on source revocation and unmount', () => {
     for (const owner of [page, source]) {
-      expect(owner).toContain('useAuthStore.subscribe');
-      expect(owner).toContain('next.apiBase === previous.apiBase');
-      expect(owner).toContain('next.managementKey === previous.managementKey');
-      expect(owner).toContain('next.connectionStatus === previous.connectionStatus');
-      expect(owner).toContain('next.isAuthenticated === previous.isAuthenticated');
-      expect(owner).toContain(
-        'unsubscribeAuth();\n      unsubscribeConfig();\n      invalidateSession();'
-      );
+      expect(owner).toContain('useSelectedSourceSession()');
+      expect(owner).toContain('createLogsApi(sourceSession)');
+      expect(owner).toContain("sourceSession.signal.addEventListener('abort',");
+      expect(owner).toContain("sourceSession.signal.removeEventListener('abort',");
+      expect(owner).toContain('invalidateSession();');
+      expect(owner).not.toContain('useAuthStore');
+      expect(owner).not.toContain('useConfigStore');
     }
-    expect(source).toContain('next.config?.loggingToFile !== previous.config?.loggingToFile');
-    expect(page).toContain('next.config?.requestLog !== previous.config?.requestLog');
+    expect(source).toContain('[sourceSession, loggingToFileEnabled]');
+    expect(page).toContain('[activeTab, sourceSession, requestLogEnabled]');
   });
 
-  test('queued reloads read current stores and delayed confirmations check their session', () => {
-    expect(source).toContain("useAuthStore.getState().connectionStatus !== 'connected'");
-    expect(source).toContain('!useConfigStore.getState().config?.loggingToFile');
+  test('queued reloads read current source settings and delayed confirmations check their session', () => {
+    expect(source).toContain('sourceSession.signal.aborted');
+    expect(source).toContain('!loggingEnabledRef.current');
     expect(source).toContain('if (!requests.session.isCurrent(session)) return;');
     expect(source).toContain('requests.logs.startClear()');
     expect(source).toContain('requests.logs.finish(request, clearFailed)');
@@ -204,7 +203,9 @@ describe('logs controller lifecycle wiring', () => {
     expect(page).not.toContain('logsApi.fetchLogs(');
     expect(source).toContain('const cursor = logBufferRef.current.cursor;');
     expect(source).toContain('logsApi.fetchLogs(buildLogsQuery(cursor))');
-    const checked = source.indexOf('if (!requests.logs.isCurrent(request)) return;');
+    const checked = source.indexOf(
+      'if (sourceSession.signal.aborted || !requests.logs.isCurrent(request)) return;'
+    );
     const applied = source.indexOf('applyLogPage(logBufferRef.current, data, cursor)');
     expect(checked).toBeGreaterThan(0);
     expect(applied).toBeGreaterThan(checked);

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useNow } from '@/hooks/useNow';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNotificationStore } from '@/stores';
-import { apiClient } from '@/services/api/client';
 import {
   AnthropicResetGrantError,
   type AnthropicResetGrantStatus,
@@ -11,13 +10,13 @@ import {
 import type { AuthFileItem } from '@/types';
 import { normalizeAuthIndex } from '@/utils/quota';
 import {
-  resetGrantOperations,
   RETRY_WINDOW_MS,
   ResetGrantPreflightError,
   resetGrantFailureMessageKey,
 } from './resetGrantOperations';
 import { selectResetGrant } from './selectResetGrant';
-import { readResetGrantsForCard, scheduleResetGrantRead } from './resetGrantReads';
+import { scheduleResetGrantRead } from './resetGrantReads';
+import { legacyResetGrantScope, type ResetGrantScope } from './resetGrantScope';
 
 /** Card-owned reads; the session-scoped journal owns spending and ambiguous retries. */
 export function useClaudeResetGrants(
@@ -25,13 +24,14 @@ export function useClaudeResetGrants(
   enabled: boolean,
   disabled: boolean,
   refreshToken: unknown,
-  onRefresh: () => void
+  onRefresh: () => void,
+  scope: ResetGrantScope = legacyResetGrantScope
 ) {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const [session] = useState(() => apiClient.getConnectionRevision());
+  const [session] = useState(() => scope.revision());
   const sessionActive =
-    connectionStatus === 'connected' && session === apiClient.getConnectionRevision();
+    connectionStatus === 'connected' && scope.current() && session === scope.revision();
   const showConfirmation = useNotificationStore((state) => state.showConfirmation);
   const showNotification = useNotificationStore((state) => state.showNotification);
   const now = useNow();
@@ -49,9 +49,12 @@ export function useClaudeResetGrants(
     if (!enabled || disabled || !sessionActive || !authIndex) return;
     let cancelled = false;
     const current = () =>
-      !cancelled && version === generation.current && session === apiClient.getConnectionRevision();
+      !cancelled &&
+      version === generation.current &&
+      scope.current() &&
+      session === scope.revision();
     const cancelRead = scheduleResetGrantRead(() => {
-      void readResetGrantsForCard(authIndex).then(
+      void scope.read(authIndex).then(
         (result) => {
           if (current()) {
             setStatus(result);
@@ -74,9 +77,9 @@ export function useClaudeResetGrants(
       cancelRead();
       generation.current += 1;
     };
-  }, [authIndex, key, enabled, disabled, sessionActive, session, refreshToken, reload]);
+  }, [authIndex, key, enabled, disabled, sessionActive, session, refreshToken, reload, scope]);
 
-  const operation = resetGrantOperations.inspect(key);
+  const operation = scope.operations.inspect(key);
   const pending = operation && !operation.code ? operation : undefined;
   const expired = Boolean(pending && now - pending.createdAt >= RETRY_WINDOW_MS);
   const selected = pending?.grantId ?? (status ? selectResetGrant(status, now)?.id : undefined);
@@ -85,7 +88,7 @@ export function useClaudeResetGrants(
     if (blocked || lock.current || !selected || !authIndex) return;
     const version = generation.current;
     const current = () =>
-      session === apiClient.getConnectionRevision() && version === generation.current;
+      scope.current() && session === scope.revision() && version === generation.current;
     showConfirmation({
       title: t('claude_reset.title'),
       message: t(pending ? 'claude_reset.retry_confirm' : 'claude_reset.confirm_text', {
@@ -99,7 +102,7 @@ export function useClaudeResetGrants(
         lock.current = true;
         setBusy(true);
         try {
-          const answer = await resetGrantOperations.run(key, authIndex, selected);
+          const answer = await scope.operations.run(key, authIndex, selected);
           if (!current()) return;
           showNotification(
             t(`claude_reset.${answer.unresolved ? 'unknown' : answer.code}`),
@@ -109,7 +112,7 @@ export function useClaudeResetGrants(
           );
         } catch (error: unknown) {
           if (!current()) return;
-          const unresolved = resetGrantOperations.inspect(key);
+          const unresolved = scope.operations.inspect(key);
           showNotification(
             t(
               unresolved && !unresolved.code

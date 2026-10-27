@@ -22,7 +22,14 @@ function harness() {
     });
   };
   const env = {
-    apiClient: { getConnectionRevision: () => revision },
+    // Exercise the callbacks' request-revision guards; real view disposal/dispatch is
+    // covered with SourceSessions in authFilesSourceView.test.ts.
+    sourceScope: {
+      getRevision: () => revision,
+      isCurrent: () => true,
+      assertCurrent: () => {},
+      session: { owner: { instanceId: 'fixture', sessionEpoch: 0, sourceGeneration: 1 } },
+    },
     authFilesApi: { requestManualRefresh: request, requestAllManualRefresh: request },
     getAuthFileRefreshKey,
     isRuntimeOnlyAuthFile: () => false,

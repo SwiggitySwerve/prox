@@ -1,13 +1,14 @@
 // 两阶段保存：预览前读取 → 确认时再读取；服务端变化则重新预览。
 // 可视化仅提交 v8 字段差异，源码保留整份 YAML 保存。
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parse as parseYaml, parseDocument } from 'yaml';
-import { useConfigStore, useNotificationStore } from '@/stores';
-import { configFileApi } from '@/services/api/configFile';
-import { apiClient } from '@/services/api/client';
+import { useNotificationStore } from '@/stores';
+import { createConfigFileApi } from '@/services/api/configFile';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
+import { sourceOwnerKey } from '@/services/api/sourceSession';
 import {
-  applyConfigPatch,
+  createConfigPatchApi,
   buildConfigPatch,
   ConfigDraftConflictError,
   hasConfigPatchChanges,
@@ -99,6 +100,9 @@ export function useConfigDocument({
   applyVisualChangesToYaml,
 }: UseConfigDocumentArgs) {
   const { t } = useTranslation();
+  const session = useSelectedSourceSession();
+  const configFileApi = useMemo(() => createConfigFileApi(session), [session]);
+  const patchApi = useMemo(() => createConfigPatchApi(session), [session]);
   const showNotification = useNotificationStore((state) => state.showNotification);
   const showConfirmation = useNotificationStore((state) => state.showConfirmation);
 
@@ -115,22 +119,24 @@ export function useConfigDocument({
   const [previewServerYaml, setPreviewServerYaml] = useState('');
   const [previewMode, setPreviewMode] = useState<ConfigEditorMode>('visual');
   const [previewPlan, setPreviewPlan] = useState<ConfigPatchPlan | null>(null);
-  const previewRevision = useRef<number | null>(null);
+  const previewRevision = useRef<string | null>(null);
   const operationId = useRef(0);
+  const mounted = useRef(true);
 
   // Ignore old reads/completions after unmount, another load, or an ABA connection switch.
   const beginOperation = useCallback(() => {
     const id = ++operationId.current;
-    const revision = apiClient.getConnectionRevision();
+    const revision = sourceOwnerKey(session.owner);
     return {
       revision,
-      isCurrent: () => id === operationId.current && revision === apiClient.getConnectionRevision(),
+      isCurrent: () => mounted.current && id === operationId.current && !session.signal.aborted,
     };
-  }, []);
+  }, [session]);
 
   const isDirty = sourceDirty || visualDirty;
 
   const loadConfig = useCallback(async () => {
+    if (!mounted.current || session.signal.aborted) return;
     const operation = beginOperation();
     setLoading(true);
     setError('');
@@ -152,11 +158,13 @@ export function useConfigDocument({
     } finally {
       if (operation.isCurrent()) setLoading(false);
     }
-  }, [beginOperation, loadVisualValuesFromYaml, t]);
+  }, [beginOperation, configFileApi, loadVisualValuesFromYaml, session, t]);
 
   useEffect(() => {
+    mounted.current = true;
     void loadConfig();
     return () => {
+      mounted.current = false;
       operationId.current += 1;
     };
   }, [loadConfig]);
@@ -222,12 +230,11 @@ export function useConfigDocument({
       if (previewMode === 'visual' && !previewPlan) return;
       writeAttempted = true;
       if (previewMode === 'visual' && previewPlan) {
-        await applyConfigPatch(previewPlan, operation.revision);
+        await patchApi.applyConfigPatch(previewPlan);
       } else {
         await configFileApi.saveConfigYaml(mergedYaml);
       }
       if (!operation.isCurrent()) return;
-      useConfigStore.getState().clearCache();
       const latestContent = await configFileApi.fetchConfigYaml();
       if (!operation.isCurrent()) return;
       setSourceDirty(false);
@@ -238,24 +245,6 @@ export function useConfigDocument({
       setMergedYaml(latestContent);
       setPreviewServerYaml(latestContent);
       loadVisualValuesFromYaml(latestContent);
-
-      // Keep the global config store in sync so sidebar / other pages reflect YAML changes immediately.
-      try {
-        useConfigStore.getState().clearCache();
-        await useConfigStore.getState().fetchConfig(true);
-      } catch (refreshError: unknown) {
-        if (!operation.isCurrent()) return;
-        const message =
-          refreshError instanceof Error
-            ? refreshError.message
-            : typeof refreshError === 'string'
-              ? refreshError
-              : '';
-        showNotification(
-          `${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`,
-          'error'
-        );
-      }
 
       if (!operation.isCurrent()) return;
       showNotification(t('config_management.save_success'), 'success');
@@ -278,7 +267,6 @@ export function useConfigDocument({
         // Re-read immediately so changing an already-applied value back remains a dirty edit.
         setDiffModalOpen(false);
         setRecoveryRequired(true);
-        useConfigStore.getState().clearCache();
         showNotification(`${t('config_management.precise_save_incomplete')}: ${message}`, 'error');
         try {
           const latestYaml = await configFileApi.fetchConfigYaml();
@@ -306,11 +294,6 @@ export function useConfigDocument({
           );
         }
         if (!operation.isCurrent()) return;
-        try {
-          await useConfigStore.getState().fetchConfig(true);
-        } catch {
-          // Keep the primary mutation/readback error; the cache is already invalidated.
-        }
       } else {
         showNotification(`${t('notification.save_failed')}: ${message}`, 'error');
       }
@@ -320,12 +303,14 @@ export function useConfigDocument({
   }, [
     applyVisualChangesToYaml,
     beginOperation,
+    configFileApi,
     diffModalOpen,
     saving,
     loadVisualValuesFromYaml,
     mergedYaml,
     previewMode,
     previewPlan,
+    patchApi,
     recoverVisualDraft,
     sourceDirty,
     previewServerYaml,
@@ -419,6 +404,7 @@ export function useConfigDocument({
   }, [
     applyVisualChangesToYaml,
     beginOperation,
+    configFileApi,
     diffModalOpen,
     saving,
     content,
@@ -476,6 +462,7 @@ export function useConfigDocument({
       cancelText: t('common.cancel'),
       variant: 'danger',
       onConfirm: () => {
+        if (!mounted.current || session.signal.aborted) return;
         setContent(previewServerYaml);
         setSourceDirty(false);
         setDiffModalOpen(false);
@@ -486,6 +473,7 @@ export function useConfigDocument({
     });
   }, [
     handleReload,
+    session,
     isDirty,
     loadVisualValuesFromYaml,
     previewServerYaml,

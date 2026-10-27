@@ -1,7 +1,7 @@
+import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { authFilesApi } from '@/services/api';
-import { useNotificationStore } from '@/stores';
+
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
 import type { AuthFileModelItem, OAuthConfigLoadError } from '@/features/authFiles/constants';
 import { normalizeProviderKey } from '@/features/authFiles/constants';
@@ -37,8 +37,10 @@ export type UseAuthFilesOauthOptions = {
 
 export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFilesOauthResult {
   const { viewMode, files } = options;
+  const sourceScope = useAuthFilesSource();
+  const authFilesApi = sourceScope.api;
   const { t } = useTranslation();
-  const { showNotification, showConfirmation } = useNotificationStore();
+  const { showNotification, showConfirmation } = useAuthFilesNotifications();
 
   const [excluded, setExcluded] = useState<Record<string, string[]>>({});
   const [excludedError, setExcludedError] = useState<OAuthConfigLoadError>('loading');
@@ -101,14 +103,14 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
         providerList.map(async (provider) => {
           try {
             const models = await authFilesApi.getModelDefinitions(provider);
+            sourceScope.assertCurrent();
             return { provider, models };
           } catch {
             return { provider, models: [] as AuthFileModelItem[] };
           }
         })
       );
-
-      if (cancelled) return;
+      if (cancelled || !sourceScope.isCurrent()) return;
 
       const nextModels: Record<string, AuthFileModelItem[]> = {};
       results.forEach(({ provider, models }) => {
@@ -125,7 +127,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     return () => {
       cancelled = true;
     };
-  }, [providerList, viewMode]);
+  }, [authFilesApi, providerList, sourceScope, viewMode]);
 
   const loadExcluded = useCallback(async () => {
     const requestId = ++excludedLoadRequestRef.current;
@@ -133,12 +135,14 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     setExcludedError('loading');
     try {
       const res = await authFilesApi.getOauthExcludedModels();
+      sourceScope.assertCurrent();
       if (requestId !== excludedLoadRequestRef.current) return;
       excludedUnsupportedRef.current = false;
       excludedReadyRef.current = true;
       setExcluded(res || {});
       setExcludedError(null);
     } catch (err: unknown) {
+      if (!sourceScope.isCurrent()) return;
       if (requestId !== excludedLoadRequestRef.current) return;
       const status =
         typeof err === 'object' && err !== null && 'status' in err
@@ -156,7 +160,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
       }
       setExcludedError('load');
     }
-  }, [showNotification, t]);
+  }, [authFilesApi, showNotification, sourceScope, t]);
 
   const loadModelAlias = useCallback(async () => {
     const requestId = ++modelAliasLoadRequestRef.current;
@@ -164,12 +168,14 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     setModelAliasError('loading');
     try {
       const res = await authFilesApi.getOauthModelAlias();
+      sourceScope.assertCurrent();
       if (requestId !== modelAliasLoadRequestRef.current) return;
       mappingsUnsupportedRef.current = false;
       modelAliasReadyRef.current = true;
       setModelAlias(res || {});
       setModelAliasError(null);
     } catch (err: unknown) {
+      if (!sourceScope.isCurrent()) return;
       if (requestId !== modelAliasLoadRequestRef.current) return;
       const status =
         typeof err === 'object' && err !== null && 'status' in err
@@ -187,7 +193,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
       }
       setModelAliasError('load');
     }
-  }, [showNotification, t]);
+  }, [authFilesApi, showNotification, sourceScope, t]);
 
   const showLoadRequired = useCallback(() => {
     showNotification(t('notification.refresh_failed'), 'error');
@@ -213,20 +219,27 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
           }
           try {
             await authFilesApi.deleteOauthExcludedEntry(providerKey);
+            sourceScope.assertCurrent();
             await loadExcluded();
+            sourceScope.assertCurrent();
             showNotification(t('oauth_excluded.delete_success'), 'success');
           } catch (err: unknown) {
+            if (!sourceScope.isCurrent()) return;
             try {
               const current = await authFilesApi.getOauthExcludedModels();
+              sourceScope.assertCurrent();
               const next: Record<string, string[]> = {};
               Object.entries(current).forEach(([key, models]) => {
                 if (normalizeProviderKey(key) === providerKey) return;
                 next[key] = models;
               });
               await authFilesApi.replaceOauthExcludedModels(next);
+              sourceScope.assertCurrent();
               await loadExcluded();
+              sourceScope.assertCurrent();
               showNotification(t('oauth_excluded.delete_success'), 'success');
             } catch (fallbackErr: unknown) {
+              if (!sourceScope.isCurrent()) return;
               const errorMessage =
                 fallbackErr instanceof Error
                   ? fallbackErr.message
@@ -239,7 +252,15 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
         },
       });
     },
-    [loadExcluded, showConfirmation, showLoadRequired, showNotification, t]
+    [
+      authFilesApi,
+      loadExcluded,
+      showConfirmation,
+      showLoadRequired,
+      showNotification,
+      sourceScope,
+      t,
+    ]
   );
 
   const deleteModelAlias = useCallback(
@@ -256,16 +277,27 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
           }
           try {
             await authFilesApi.deleteOauthModelAlias(provider);
+            sourceScope.assertCurrent();
             await loadModelAlias();
+            sourceScope.assertCurrent();
             showNotification(t('oauth_model_alias.delete_success'), 'success');
           } catch (err: unknown) {
+            if (!sourceScope.isCurrent()) return;
             const errorMessage = err instanceof Error ? err.message : '';
             showNotification(`${t('oauth_model_alias.delete_failed')}: ${errorMessage}`, 'error');
           }
         },
       });
     },
-    [loadModelAlias, showConfirmation, showLoadRequired, showNotification, t]
+    [
+      authFilesApi,
+      loadModelAlias,
+      showConfirmation,
+      showLoadRequired,
+      showNotification,
+      sourceScope,
+      t,
+    ]
   );
 
   const handleMappingUpdate = useCallback(
@@ -305,14 +337,17 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
 
       try {
         await authFilesApi.saveOauthModelAlias(normalizedProvider, nextMappings);
+        sourceScope.assertCurrent();
         await loadModelAlias();
+        sourceScope.assertCurrent();
         showNotification(t('oauth_model_alias.save_success'), 'success');
       } catch (err: unknown) {
+        if (!sourceScope.isCurrent()) return;
         const errorMessage = err instanceof Error ? err.message : '';
         showNotification(`${t('oauth_model_alias.save_failed')}: ${errorMessage}`, 'error');
       }
     },
-    [loadModelAlias, modelAlias, showLoadRequired, showNotification, t]
+    [authFilesApi, loadModelAlias, modelAlias, showLoadRequired, showNotification, sourceScope, t]
   );
 
   const handleDeleteLink = useCallback(
@@ -354,19 +389,32 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
           try {
             if (nextMappings.length === 0) {
               await authFilesApi.deleteOauthModelAlias(normalizedProvider);
+              sourceScope.assertCurrent();
             } else {
               await authFilesApi.saveOauthModelAlias(normalizedProvider, nextMappings);
+              sourceScope.assertCurrent();
             }
             await loadModelAlias();
+            sourceScope.assertCurrent();
             showNotification(t('oauth_model_alias.save_success'), 'success');
           } catch (err: unknown) {
+            if (!sourceScope.isCurrent()) return;
             const errorMessage = err instanceof Error ? err.message : '';
             showNotification(`${t('oauth_model_alias.save_failed')}: ${errorMessage}`, 'error');
           }
         },
       });
     },
-    [loadModelAlias, modelAlias, showConfirmation, showLoadRequired, showNotification, t]
+    [
+      authFilesApi,
+      loadModelAlias,
+      modelAlias,
+      showConfirmation,
+      showLoadRequired,
+      showNotification,
+      sourceScope,
+      t,
+    ]
   );
 
   const handleToggleFork = useCallback(
@@ -400,14 +448,17 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
 
       try {
         await authFilesApi.saveOauthModelAlias(normalizedProvider, nextMappings);
+        sourceScope.assertCurrent();
         await loadModelAlias();
+        sourceScope.assertCurrent();
         showNotification(t('oauth_model_alias.save_success'), 'success');
       } catch (err: unknown) {
+        if (!sourceScope.isCurrent()) return;
         const errorMessage = err instanceof Error ? err.message : '';
         showNotification(`${t('oauth_model_alias.save_failed')}: ${errorMessage}`, 'error');
       }
     },
-    [loadModelAlias, modelAlias, showLoadRequired, showNotification, t]
+    [authFilesApi, loadModelAlias, modelAlias, showLoadRequired, showNotification, sourceScope, t]
   );
 
   const handleRenameAlias = useCallback(
@@ -439,6 +490,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
             return authFilesApi.saveOauthModelAlias(provider, nextMappings);
           })
         );
+        sourceScope.assertCurrent();
 
         const failures = results.filter(
           (result): result is PromiseRejectedResult => result.status === 'rejected'
@@ -451,6 +503,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
         }
       } finally {
         await loadModelAlias();
+        sourceScope.assertCurrent();
       }
 
       if (hadFailure) {
@@ -464,7 +517,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
         showNotification(t('oauth_model_alias.save_success'), 'success');
       }
     },
-    [loadModelAlias, modelAlias, showLoadRequired, showNotification, t]
+    [authFilesApi, loadModelAlias, modelAlias, showLoadRequired, showNotification, sourceScope, t]
   );
 
   const handleDeleteAlias = useCallback(
@@ -509,6 +562,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
                 return authFilesApi.saveOauthModelAlias(provider, nextMappings);
               })
             );
+            sourceScope.assertCurrent();
 
             const failures = results.filter(
               (result): result is PromiseRejectedResult => result.status === 'rejected'
@@ -521,6 +575,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
             }
           } finally {
             await loadModelAlias();
+            sourceScope.assertCurrent();
           }
 
           if (hadFailure) {
@@ -536,7 +591,16 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
         },
       });
     },
-    [loadModelAlias, modelAlias, showConfirmation, showLoadRequired, showNotification, t]
+    [
+      authFilesApi,
+      loadModelAlias,
+      modelAlias,
+      showConfirmation,
+      showLoadRequired,
+      showNotification,
+      sourceScope,
+      t,
+    ]
   );
 
   return {

@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from 'bun:test';
+import { afterEach, expect, spyOn, test } from 'bun:test';
 import type { AxiosAdapter, AxiosRequestConfig } from 'axios';
 import {
   SourceSessions,
@@ -240,4 +240,57 @@ test('late legacy response metadata and unauthorized events are suppressed acros
     else await pending;
   }
   expect(events).toEqual([]);
+});
+
+test('successful config writes notify caches only for their immutable owner', async () => {
+  const { subscribeSourceConfigChanges } = await import('../src/services/api/sourceConfigChanges');
+  const sessions = new SourceSessions();
+  sessions.configure([a, b]);
+  const observed: string[] = [];
+  const unsubscribe = subscribeSourceConfigChanges((owner) => observed.push(owner.instanceId));
+  try {
+    await sessions.captureSource('alpha').management.get('/config', { adapter: ok });
+    await sessions
+      .captureSource('beta')
+      .management.put('/config/observability/logs/request-log', true, { adapter: ok });
+    expect(observed).toEqual(['beta']);
+    await expect(
+      sessions.captureSource('alpha').management.put(
+        '/config',
+        {},
+        {
+          adapter: async () => {
+            throw new Error('no acknowledgement');
+          },
+        }
+      )
+    ).rejects.toThrow();
+    expect(observed).toEqual(['beta']);
+  } finally {
+    unsubscribe();
+  }
+});
+
+test('a broken config observer cannot reject an acknowledged write or skip other observers', async () => {
+  const { subscribeSourceConfigChanges } = await import('../src/services/api/sourceConfigChanges');
+  const sessions = new SourceSessions();
+  sessions.configure([a]);
+  const observed: string[] = [];
+  const diagnostic = spyOn(console, 'error').mockImplementation(() => {});
+  const broken = subscribeSourceConfigChanges(() => {
+    throw new Error('private config');
+  });
+  const healthy = subscribeSourceConfigChanges((owner) => observed.push(owner.instanceId));
+  try {
+    await sessions.captureSource('alpha').management.put('/config', {}, { adapter: ok });
+    expect(observed).toEqual(['alpha']);
+    expect(diagnostic).toHaveBeenCalledWith(
+      'A source configuration cache could not be invalidated.'
+    );
+    expect(JSON.stringify(diagnostic.mock.calls)).not.toContain('private config');
+  } finally {
+    broken();
+    healthy();
+    diagnostic.mockRestore();
+  }
 });

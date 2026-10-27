@@ -8,7 +8,12 @@ import type {
   QuotaPool,
 } from '../../src/domain/quotaPool/types';
 import { DAY_MS, HOUR_MS, MIN_RATE_SPAN_MS, REFRESH_INTERVAL_MS, STALE_MS } from './types';
-import type { QuotaSample, StoredAccount } from './types';
+import {
+  QUOTA_PROVIDERS,
+  type QuotaSample,
+  type QuotaSourceView,
+  type StoredAccount,
+} from './types';
 
 export interface DashboardOptions {
   nowMs: number;
@@ -24,6 +29,7 @@ export interface CollectionState {
   nextRefreshAtMs: number;
   refreshing: boolean;
   issues: PoolDashboard['issues'];
+  sources?: readonly QuotaSourceView[];
 }
 type Rates = { burn: number | null; drain: number | null };
 
@@ -325,6 +331,50 @@ export function buildDashboard(
   const fromMs = Math.floor(options.nowMs / DAY_MS) * DAY_MS + (options.offsetDays - 3) * DAY_MS;
   const toMs = fromMs + 14 * DAY_MS;
   const filtered = samples.filter((s) => s.window === options.window);
+  const { sources, ...state } = collection;
+  const scopes = new Map<string, QuotaSourceView>();
+  for (const source of sources ?? []) scopes.set(source.instanceId, source);
+  for (const entry of [...accounts, ...collection.issues]) {
+    if (entry.instanceId !== undefined && !scopes.has(entry.instanceId)) {
+      scopes.set(entry.instanceId, {
+        instanceId: entry.instanceId,
+        sourceLabel: ('sourceLabel' in entry ? entry.sourceLabel : undefined) ?? entry.instanceId,
+      });
+    }
+  }
+  const scoped = sources !== undefined || scopes.size > 0;
+  const allPools = (scoped ? [...scopes.values()] : [undefined]).flatMap((source) =>
+    QUOTA_PROVIDERS.map((provider) => ({
+      ...buildPool(
+        provider,
+        accounts.filter((account) => account.instanceId === source?.instanceId),
+        filtered,
+        options,
+        fromMs,
+        toMs,
+        (sources !== undefined &&
+          !sources.some((entry) => entry.instanceId === source?.instanceId)) ||
+          collection.issues.some(
+            (issue) =>
+              issue.instanceId === source?.instanceId &&
+              issue.provider === provider &&
+              issue.code === 'inventory-unavailable'
+          )
+      ),
+      ...source,
+    }))
+  );
+  // A source containing one supported provider does not create an empty sibling-provider card.
+  // Retain empty results when the entire source is empty, and preserve failure visibility.
+  const pools = allPools.filter(
+    (pool) =>
+      !scoped ||
+      pool.accountCount > 0 ||
+      !allPools.some((other) => other.instanceId === pool.instanceId && other.accountCount > 0) ||
+      collection.issues.some(
+        (issue) => issue.instanceId === pool.instanceId && issue.provider === pool.provider
+      )
+  );
   return {
     nowMs: options.nowMs,
     fromMs,
@@ -332,19 +382,41 @@ export function buildDashboard(
     window: options.window,
     lookbackHours: options.lookbackHours,
     multiplier: options.multiplier,
-    ...collection,
-    pools: (['claude', 'codex'] as const).map((provider) =>
-      buildPool(
-        provider,
-        accounts,
-        filtered,
-        options,
-        fromMs,
-        toMs,
-        collection.issues.some(
-          (issue) => issue.provider === provider && issue.code === 'inventory-unavailable'
-        )
-      )
-    ),
+    ...state,
+    pools,
+    ...(scoped
+      ? {
+          unresolvedHistoryAccountCount: accounts.filter(
+            (account) => account.instanceId === undefined
+          ).length,
+          combinations: QUOTA_PROVIDERS.flatMap((provider) => {
+            const local = pools.filter(
+              (pool) =>
+                pool.provider === provider &&
+                (pool.accountCount > 0 ||
+                  collection.issues.some(
+                    (issue) => issue.instanceId === pool.instanceId && issue.provider === provider
+                  ))
+            );
+            return local.length < 2
+              ? []
+              : [
+                  {
+                    provider,
+                    reason: 'cross-source-combination-unverified' as const,
+                    occurrenceCount: local.reduce((count, pool) => count + pool.accountCount, 0),
+                    capacityPoints: null,
+                    remainingPoints: null,
+                    burnPointsPerHour: null,
+                    drainPointsPerHour: null,
+                    firstEmptyAtMs: null,
+                    poolEmptyAtMs: null,
+                    recorded: [] as [],
+                    projected: [] as [],
+                  },
+                ];
+          }),
+        }
+      : {}),
   };
 }

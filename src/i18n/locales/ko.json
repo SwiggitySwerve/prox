@@ -435,7 +435,8 @@
     "quota_refresh_single": "할당량 새로 고침",
     "quota_refresh_hint": "이 자격 증명의 할당량만 새로 고침합니다",
     "quota_refresh_success": "\"{{name}}\"의 할당량을 새로 고쳤습니다",
-    "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}"
+    "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}",
+    "source_authentication_required": "인증 파일을 보려면 이 소스에 로그인하세요."
   },
   "antigravity_subscription": {
     "plan_unknown": "알 수 없음",
@@ -1780,7 +1781,9 @@
     "gate_step2_action": "이러한 위험을 읽었으며 이해했습니다",
     "gate_step3_prompt": "확인하려면 아래 입력란에 \"{{token}}\"을(를) 입력하세요",
     "gate_step3_action": "이 플러그인 설치",
-    "gate_step3_hint": "설치를 활성화하려면 위에 표시된 식별자를 정확히 입력하세요."
+    "gate_step3_hint": "설치를 활성화하려면 위에 표시된 식별자를 정확히 입력하세요.",
+    "destination": "대상",
+    "select_destination": "대상 소스를 선택하세요"
   },
   "plugin_resource": {
     "page_count": "페이지 {{count}}개",
@@ -1789,7 +1792,8 @@
     "not_found": "플러그인 페이지를 찾을 수 없습니다",
     "not_found_desc": "이 플러그인 페이지는 현재 백엔드 플러그인 목록에 선언되어 있지 않습니다.",
     "empty_src": "플러그인 페이지 URL이 비어 있습니다",
-    "empty_src_desc": "이 플러그인 메뉴는 포함 가능한 페이지 URL을 제공하지 않습니다."
+    "empty_src_desc": "이 플러그인 메뉴는 포함 가능한 페이지 URL을 제공하지 않습니다.",
+    "source_embedding_unsupported": "이 배포의 소스 라우팅이 확인되지 않아 플러그인 페이지를 삽입할 수 없습니다."
   },
   "system_info": {
     "title": "관리 센터 정보",
@@ -2430,5 +2434,12 @@
     "no_accounts_title": "연결된 계정 없음",
     "no_accounts_help": "계정을 연결하여 합산 할당량을 확인하세요.",
     "add_credentials": "인증 정보 추가"
+  },
+  "provider_sources": {
+    "discovery_error": "소스 목록을 불러올 수 없습니다. 새로고침하여 다시 시도하세요.",
+    "authentication_required": "계속하려면 이 소스에 로그인하세요.",
+    "separate_pools": "각 {{provider}} 소스의 할당량을 별도로 표시합니다. 공유 한도가 확인되지 않아 합계를 제공하지 않습니다.",
+    "unresolved_history": "일부 과거 계정의 소스가 확인되지 않았습니다. 기록은 보존되며 현재 합계에서 제외됩니다.",
+    "mutation_unconfirmed": "작업 결과를 확인할 수 없습니다. 다시 시도하기 전에 새로 불러온 상태를 확인하세요."
   }
 }

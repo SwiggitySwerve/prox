@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from './client';
+import type { SourceSession, ManagementTransport } from './sourceSession';
 
 export interface VertexImportResponse {
   status: 'ok';
@@ -13,13 +14,21 @@ export interface VertexImportResponse {
   auth_file?: string;
 }
 
-export const vertexApi = {
-  importCredential: (file: File, location?: string) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (location) {
-      formData.append('location', location);
-    }
-    return apiClient.postForm<VertexImportResponse>('/oauth/import?provider=vertex', formData);
-  },
-};
+function buildVertexApi(client: ManagementTransport) {
+  return {
+    importCredential: (file: File, location?: string) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (location) {
+        formData.append('location', location);
+      }
+      return client.postForm<VertexImportResponse>('/oauth/import?provider=vertex', formData);
+    },
+  };
+}
+
+export function createVertexApi(session: SourceSession) {
+  return buildVertexApi(session.management);
+}
+
+export const vertexApi = buildVertexApi(apiClient);

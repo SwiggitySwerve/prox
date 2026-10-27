@@ -433,7 +433,8 @@
     "quota_refresh_single": "刷新额度",
     "quota_refresh_hint": "仅刷新该认证文件的额度",
     "quota_refresh_success": "已刷新 \"{{name}}\" 的额度",
-    "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}"
+    "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}",
+    "source_authentication_required": "请登录此代理实例以查看认证文件。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
@@ -549,7 +550,6 @@
     "reset_confirm_button": "确认重置",
     "reset_not_confirmed": "未确认额度重置成功，请刷新额度后再决定是否重试。",
     "reset_cooldown_failed": "额度已重置，但代理冷却清除失败。请在原连接的认证文件页面使用“清除冷却”，不要再次消耗重置卡。",
-
     "reset_success": "已重置 \"{{name}}\" 的 Codex 额度",
     "reset_failed": "重置 \"{{name}}\" 的 Codex 额度失败：{{message}}",
     "plan_plus": "Plus",
@@ -1779,7 +1779,9 @@
     "gate_step2_action": "我已阅读并理解上述风险",
     "gate_step3_prompt": "如需确认，请在下方输入框中键入 “{{token}}”",
     "gate_step3_action": "安装此插件",
-    "gate_step3_hint": "请输入上方显示的完整标识以启用安装。"
+    "gate_step3_hint": "请输入上方显示的完整标识以启用安装。",
+    "destination": "目标实例",
+    "select_destination": "请选择目标实例"
   },
   "plugin_resource": {
     "page_count": "{{count}} 个页面",
@@ -1788,7 +1790,8 @@
     "not_found": "未找到插件页面",
     "not_found_desc": "该插件页面未在当前后端插件列表中声明。",
     "empty_src": "插件页面地址为空",
-    "empty_src_desc": "该插件菜单未提供可嵌入的页面地址。"
+    "empty_src_desc": "该插件菜单未提供可嵌入的页面地址。",
+    "source_embedding_unsupported": "此部署尚未验证插件页面的实例路由，因此无法嵌入插件页面。"
   },
   "system_info": {
     "title": "管理中心信息",
@@ -2429,5 +2432,12 @@
     "no_accounts_title": "尚未连接账户",
     "no_accounts_help": "连接账户以查看汇总配额。",
     "add_credentials": "添加凭据"
+  },
+  "provider_sources": {
+    "discovery_error": "无法获取代理实例列表。请重新加载以重试。",
+    "authentication_required": "请登录此代理实例以继续。",
+    "separate_pools": "每个 {{provider}} 实例分别显示配额池。尚未验证共享额度，因此无法提供合计。",
+    "unresolved_history": "部分历史账号尚未确认所属实例。历史记录已保留，不计入当前合计。",
+    "mutation_unconfirmed": "无法确认操作结果。重试前请检查刷新后的状态。"
   }
 }

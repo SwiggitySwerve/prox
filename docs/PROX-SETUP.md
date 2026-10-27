@@ -58,13 +58,32 @@ After Authentik sign-in, use the existing proxy management key at the UI's login
 | `https://prox.swervelab.xyz` or `https://prox.swervelab.xyz/codex` | GPT/Codex, port 8317 |
 | `https://prox.swervelab.xyz/claude` | Claude, port 8319 |
 
-These paths forward `/v8/management/` requests. Management authentication is
-passed through from the browser, never injected by Nginx. The original account
-management pages connect to one instance at a time. The new `/quota` dashboard
-uses `/v8/management/prox/` to read both providers through the history service;
-the original single-instance quota view remains at `/quota/accounts`.
-Backend-declared plugin/custom-extension paths need explicit routing before use;
-the setup does not expose a catch-all backend proxy or inference endpoint.
+The checked-in source manifest, `deploy/provider-sources.json`, owns instance
+membership, ports, paths, aliases, and explicit authentication-sharing scopes.
+Run `bun run sources:generate` after editing it. `bun run sources:check` and the
+build reject stale generated Nginx routes or public discovery. The browser reads
+the sanitized `/prox/sources.json`; upstream origins and key-file references are
+excluded. History collection reads the same manifest once at process start.
+
+These paths forward `/v8/management/` requests and the client-authenticated
+`/v1/models` catalog. Management authentication passes through from the browser;
+Nginx never injects it. Catalog requests use client API keys, not management keys.
+No inference endpoint or catch-all backend proxy is exposed by this UI routing.
+
+Auth Files, detailed quotas (`/quota/accounts`), provider configuration, dashboard
+and installed plugins enumerate source sections. Equal filenames or account
+indices remain separate occurrences. Config, OAuth, logs and system information
+use an explicit source destination. Editors, confirmations, queued writes and
+nested quota operations retain that destination until completion or cancellation.
+Inventory refresh does not automatically run quota probes or download auth files.
+An unavailable source remains visible without erasing healthy sibling results.
+
+The `/quota` dashboard reads source-owned pools from the history service. Multiple
+instances containing the same provider get separate pools; their allowances are
+not added until an account-identity and combination policy can prove that sum
+valid. An external, standalone management connection remains a single source.
+Deployment plugin embedding is explicitly unsupported until nested asset/request
+routing is verified; standalone external plugin-resource behavior is preserved.
 
 Neither inference service, account auth directory, nor usage dashboard is changed.
 No second usage-queue consumer is started. The existing queue must retain its
@@ -109,6 +128,22 @@ the affected route at desktop and mobile widths against the screenshot. Keep
 browser screenshots free of credentials and account identities.
 
 ## Rollback
+
+Before the first deployment of source-aware history, take a consistent SQLite
+backup and retain the previous UI/history images. Stop `prox-history` before
+copying its database directory (including any WAL files), or use SQLite's online
+backup API while it runs. Do not copy only a live `.sqlite` file. Store backups
+privately; they contain account metadata. This is an operator prerequisite, not
+an automated backup in `scripts/deploy-homelab.sh`.
+
+Source attribution adds ownership/alias tables in one transaction. The explicit
+prior-deployment mapping in `server/quota/identity.ts` retains legacy account IDs
+and sample tuples. Conflicts fail startup; unmapped history stays retained and is
+reported as unresolved. Keep instance IDs stable when editing labels or paths.
+To roll back, stop history first, restore the consistent backup and previous
+images together, then restart. Never run old and new collectors concurrently.
+Synthetic migration tests cover rollback, repeated startup and unknown provenance;
+they do not certify the production database or replace its backup.
 
 Stop the new UI and collector with `systemctl --user stop prox prox-history`.
 Keep the data directory for later recovery. To remove its cluster

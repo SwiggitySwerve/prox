@@ -1,5 +1,6 @@
 import { isMap as isYamlMap, parseDocument } from 'yaml';
 import { apiClient } from './client';
+import type { SourceSession, ManagementTransport } from './sourceSession';
 
 export interface ConfigPatchPlan {
   patch: Record<string, unknown>;
@@ -236,22 +237,33 @@ export function hasConfigPatchChanges(plan: ConfigPatchPlan): boolean {
   );
 }
 
-export async function applyConfigPatch(
-  plan: ConfigPatchPlan,
-  connectionRevision: number
-): Promise<void> {
-  const checkConnection = () => {
+export function createConfigPatchApi(session: SourceSession) {
+  return {
+    applyConfigPatch: (plan: ConfigPatchPlan) =>
+      executeConfigPatch(plan, session.management, session.assertCurrent),
+  };
+}
+
+export function applyConfigPatch(plan: ConfigPatchPlan, connectionRevision: number): Promise<void> {
+  return executeConfigPatch(plan, apiClient, () => {
     if (apiClient.getConnectionRevision() !== connectionRevision) {
       throw new Error('Connection changed while saving configuration');
     }
-  };
+  });
+}
+
+async function executeConfigPatch(
+  plan: ConfigPatchPlan,
+  client: ManagementTransport,
+  checkConnection: () => void
+): Promise<void> {
   // Validate every path before performing any mutations, including for caller-built plans.
   const urls = plan.deletions.map(fieldUrl);
   const emptyMapUrls = (plan.emptyMaps ?? []).map(fieldUrl);
   checkConnection();
   if (Object.keys(plan.patch).length) {
     try {
-      await apiClient.patch('/config', plan.patch);
+      await client.patch('/config', plan.patch);
     } finally {
       checkConnection();
     }
@@ -259,7 +271,7 @@ export async function applyConfigPatch(
   for (const url of emptyMapUrls) {
     checkConnection();
     try {
-      await apiClient.put(url, {});
+      await client.put(url, {});
     } finally {
       checkConnection();
     }
@@ -267,7 +279,7 @@ export async function applyConfigPatch(
   for (const url of urls) {
     checkConnection();
     try {
-      await apiClient.delete(url);
+      await client.delete(url);
     } catch (error: unknown) {
       if (!error || typeof error !== 'object' || !('status' in error) || error.status !== 404) {
         throw error;

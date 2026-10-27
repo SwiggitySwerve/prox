@@ -4,7 +4,8 @@ import type { AxiosRequestConfig } from 'axios';
 export type TransportEvent =
   | { type: 'server-version-update'; detail: { version: string | null; buildDate: string | null } }
   | { type: 'server-plugin-support-update'; detail: { supportsPlugin: boolean } }
-  | { type: 'unauthorized' };
+  | { type: 'unauthorized' }
+  | { type: 'source-config-changed' };
 
 export interface TransportPolicy {
   readonly signal: AbortSignal;

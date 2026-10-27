@@ -111,3 +111,35 @@ test('discovery transport is passive and validates the public allowlist', async 
   const absent = (async () => new Response('', { status: 404 })) as typeof fetch;
   expect(await fetchSourceDiscovery('https://fixture.invalid', signal, absent)).toBeNull();
 });
+
+test('unchanged response metadata preserves snapshot identity and cannot start a refresh loop', async () => {
+  const registry = new SourceRegistry(async () => discovery);
+  await registry.connect('https://fixture.invalid', 'fixture', 'https://fixture.invalid');
+  const client = registry.getSnapshot().sources[0].session!.management;
+  const adapter = async (config: import('axios').InternalAxiosRequestConfig) => ({
+    data: {},
+    status: 200,
+    statusText: 'OK',
+    headers: { 'x-cpa-version': 'v8-test', 'x-cpa-support-plugin': 'true' },
+    config,
+  });
+  await client.get('/config', { adapter });
+  const settled = registry.getSnapshot();
+  await client.get('/config', { adapter });
+  expect(registry.getSnapshot()).toBe(settled);
+});
+
+test('source selection honors requested ownership and never falls back on stale links', async () => {
+  const { selectSource } = await import('../src/services/providerSources/selection');
+  const registry = new SourceRegistry(async () => discovery);
+  await registry.connect('https://fixture.invalid', 'fixture', 'https://fixture.invalid');
+  const snapshot = registry.getSnapshot();
+  const beta = snapshot.sources[1].session!;
+  expect(selectSource(snapshot, 'second')?.session).toBe(beta);
+  expect(selectSource(snapshot, 'not-present')).toBeNull();
+  expect(selectSource(snapshot, 'third')).toBeNull();
+  expect(selectSource(snapshot, 'second', snapshot.sources[0].session!.owner)).toBeNull();
+  const owner = beta.owner;
+  await registry.connect('https://fixture.invalid', 'fixture', 'https://fixture.invalid');
+  expect(selectSource(registry.getSnapshot(), 'second', owner)).toBeNull();
+});

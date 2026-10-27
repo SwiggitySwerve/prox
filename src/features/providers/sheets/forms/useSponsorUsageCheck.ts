@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { apiCallApi, getApiCallErrorMessage } from '@/services/api';
+import { getApiCallErrorMessage } from '@/services/api/apiCall';
+import { useProviderSource } from '../../ProviderSourceContext';
 import { getErrorMessage } from '@/utils/helpers';
 import {
   getApiKeyFunUsageEndpoints,
@@ -44,6 +45,7 @@ export function useSponsorUsageCheck(
   args: UseSponsorUsageCheckArgs,
   messages: SponsorUsageMessages
 ) {
+  const { apiCallApi } = useProviderSource();
   const { baseUrl, apiKey, fallbackApiKey } = args;
 
   const endpoints = useMemo(() => getApiKeyFunUsageEndpoints(baseUrl), [baseUrl]);
@@ -129,7 +131,7 @@ export function useSponsorUsageCheck(
       message: lastNetworkError || messages.requestFailed,
       summary: null,
     });
-  }, [apiKey, endpoints, fallbackApiKey, messages, setStatus]);
+  }, [apiCallApi, apiKey, endpoints, fallbackApiKey, messages, setStatus]);
 
   return {
     status,

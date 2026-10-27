@@ -1,3 +1,4 @@
+import { useAuthFilesSource } from '../AuthFilesSourceContext';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -41,10 +42,11 @@ export function AuthFileRefreshResults({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { source } = useAuthFilesSource();
   return (
     <Modal
       open={results !== null}
-      title={t('auth_files.refresh_all_results')}
+      title={`${source.label} · ${t('auth_files.refresh_all_results')}`}
       onClose={onClose}
       footer={<Button onClick={onClose}>{t('common.close')}</Button>}
     >

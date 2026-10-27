@@ -184,6 +184,13 @@ export class ApiClient {
           );
         }
 
+        if (
+          this.policy &&
+          !['get', 'head', 'options'].includes(response.config.method ?? 'get') &&
+          /^\/config(?:\/|\.yaml(?:\?|$)|$)/.test(response.config.url ?? '')
+        ) {
+          this.publish({ type: 'source-config-changed' }, response.config);
+        }
         return response;
       },
       (error) => Promise.reject(this.handleError(error))

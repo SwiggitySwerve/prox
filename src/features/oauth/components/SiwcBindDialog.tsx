@@ -1,11 +1,11 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { IconExternalLink, IconLoader2 } from '@/components/ui/icons';
 import iconCodex from '@/assets/icons/codex.svg';
-import { authFilesApi } from '@/services/api/authFiles';
-import { captureSiwcBindingApi, oauthApi, type SiwcBindResponse } from '@/services/api/oauth';
-import { useAuthStore } from '@/stores/useAuthStore';
+import { createAuthFilesApi } from '@/services/api/authFiles';
+import { captureSiwcBindingApi, createOAuthApi, type SiwcBindResponse } from '@/services/api/oauth';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
 import type { AuthFileItem } from '@/types';
 import { formatDateTimeValue } from '@/utils/format';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
@@ -42,6 +42,9 @@ export interface SiwcBindDialogProps {
  */
 export function SiwcBindDialog({ open, onClose, onViewAuthFiles }: SiwcBindDialogProps) {
   const { t, i18n } = useTranslation();
+  const sourceSession = useSelectedSourceSession();
+  const authFilesApi = useMemo(() => createAuthFilesApi(sourceSession), [sourceSession]);
+  const oauthApi = useMemo(() => createOAuthApi(sourceSession), [sourceSession]);
   const [targets, setTargets] = useState<AuthFileItem[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [name, setName] = useState('');
@@ -61,27 +64,17 @@ export function SiwcBindDialog({ open, onClose, onViewAuthFiles }: SiwcBindDialo
   // 连接守卫 + 凭证列表：切换连接或登出时立即作废并关闭，旧响应不得写入。
   useEffect(() => {
     let active = true;
-    const connection = useAuthStore.getState();
-    const sameConnection = () => {
-      const current = useAuthStore.getState();
-      return (
-        current.isAuthenticated === connection.isAuthenticated &&
-        current.apiBase === connection.apiBase &&
-        current.managementKey === connection.managementKey
-      );
+    const invalidate = () => {
+      active = false;
+      attemptRef.current?.invalidate();
+      startRef.current?.close();
+      closeRef.current();
     };
-    const unsubscribe = useAuthStore.subscribe(() => {
-      if (!sameConnection()) {
-        active = false;
-        attemptRef.current?.invalidate();
-        startRef.current?.close();
-        closeRef.current();
-      }
-    });
+    sourceSession.signal.addEventListener('abort', invalidate);
     authFilesApi
       .list()
       .then((response) => {
-        if (!active || !sameConnection()) return;
+        if (!active || sourceSession.signal.aborted) return;
         const list = listSiwcTargets(response.files);
         setTargets(list);
         if (list.length === 1) setName(list[0].name);
@@ -91,9 +84,9 @@ export function SiwcBindDialog({ open, onClose, onViewAuthFiles }: SiwcBindDialo
       });
     return () => {
       active = false;
-      unsubscribe();
+      sourceSession.signal.removeEventListener('abort', invalidate);
     };
-  }, []);
+  }, [authFilesApi, sourceSession]);
 
   useEffect(() => {
     if (!name) return;
@@ -103,7 +96,7 @@ export function SiwcBindDialog({ open, onClose, onViewAuthFiles }: SiwcBindDialo
     });
     const attempt = attempts.begin(name);
     attemptRef.current = attempt;
-    const api = captureSiwcBindingApi();
+    const api = captureSiwcBindingApi(sourceSession);
     const startup = createSiwcStart({
       start: () => {
         setPhase('starting');
@@ -135,7 +128,7 @@ export function SiwcBindDialog({ open, onClose, onViewAuthFiles }: SiwcBindDialo
             setPhase(result.status);
             if (result.status === 'ok') {
               startup.complete();
-              notifyAuthFilesChanged();
+              notifyAuthFilesChanged(sourceSession.owner);
             }
             return result.status === 'wait';
           },
@@ -159,7 +152,7 @@ export function SiwcBindDialog({ open, onClose, onViewAuthFiles }: SiwcBindDialo
       if (attemptRef.current === attempt) attemptRef.current = null;
       if (startRef.current === startup) startRef.current = null;
     };
-  }, [name, run]);
+  }, [name, run, oauthApi, sourceSession]);
 
   const close = () => {
     attemptRef.current?.invalidate();

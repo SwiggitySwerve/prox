@@ -13,6 +13,9 @@ import { useTranslation } from 'react-i18next';
 import { captureQuotaCacheGeneration, commitIfQuotaCacheCurrent } from '@/stores';
 import { getStatusFromError } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
+import { useQuotaStore, type QuotaStore } from '@/stores/useQuotaStore';
+import type { SourceSession } from '@/services/api/sourceSession';
+import { isQuotaSourceCurrent } from '../sourceCurrent';
 import type { QuotaFileEntry } from '../logic';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from '../providers';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
@@ -27,7 +30,11 @@ interface BatchFetchResult {
   errorStatus?: number;
 }
 
-export function useQuotaBatchLoader() {
+export function useQuotaBatchLoader(
+  adapters = QUOTA_ADAPTERS,
+  store: QuotaStore = useQuotaStore,
+  session?: SourceSession
+) {
   const { t } = useTranslation();
   const [batchLoading, setBatchLoading] = useState(false);
   const loadingRef = useRef(false);
@@ -35,11 +42,11 @@ export function useQuotaBatchLoader() {
 
   const loadQuota = useCallback(
     async (targets: QuotaFileEntry[]) => {
-      if (loadingRef.current) return;
+      if (loadingRef.current || !isQuotaSourceCurrent(session)) return;
       if (targets.length === 0) return;
       loadingRef.current = true;
       const requestId = ++requestIdRef.current;
-      const cacheGeneration = captureQuotaCacheGeneration();
+      const cacheGeneration = captureQuotaCacheGeneration(undefined, store);
       setBatchLoading(true);
 
       try {
@@ -52,8 +59,8 @@ export function useQuotaBatchLoader() {
 
         await Promise.all(
           Array.from(groups.entries()).map(async ([type, entries]) => {
-            const adapter = QUOTA_ADAPTERS[type];
-            const setQuota = getQuotaSetter(adapter);
+            const adapter = adapters[type];
+            const setQuota = getQuotaSetter(adapter, store);
 
             commitIfQuotaCacheCurrent(cacheGeneration, () => {
               setQuota((prev) => {
@@ -84,7 +91,7 @@ export function useQuotaBatchLoader() {
               })
             );
 
-            if (requestId !== requestIdRef.current) return;
+            if (requestId !== requestIdRef.current || !isQuotaSourceCurrent(session)) return;
 
             const committedStates = new Map<string, QuotaCardState>();
             setQuota((prev) => {
@@ -110,7 +117,14 @@ export function useQuotaBatchLoader() {
             results.forEach((result, index) => {
               const state = committedStates.get(result.cacheKey);
               if (result.status === 'success' && state) {
-                void enrichQuotaInBackground(adapter, entries[index].file, result.data, state, t);
+                void enrichQuotaInBackground(
+                  adapter,
+                  entries[index].file,
+                  result.data,
+                  state,
+                  t,
+                  store
+                );
               }
             });
           })
@@ -122,7 +136,7 @@ export function useQuotaBatchLoader() {
         }
       }
     },
-    [t]
+    [t, adapters, store, session]
   );
 
   return { batchLoading, loadQuota };

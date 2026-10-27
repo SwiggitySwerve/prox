@@ -433,7 +433,8 @@
     "quota_refresh_single": "重新整理配額",
     "quota_refresh_hint": "僅重新整理該驗證檔案的配額",
     "quota_refresh_success": "已重新整理「{{name}}」的配額",
-    "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}"
+    "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}",
+    "source_authentication_required": "請登入此代理執行個體以檢視驗證檔案。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
@@ -549,7 +550,6 @@
     "reset_confirm_button": "確認重置",
     "reset_not_confirmed": "尚未確認額度重置成功，請重新整理額度後再決定是否重試。",
     "reset_cooldown_failed": "額度已重置，但代理冷卻清除失敗。請在原連線的認證檔案頁面使用「清除冷卻」，不要再次消耗重置卡。",
-
     "reset_success": "已重置「{{name}}」的 Codex 配額",
     "reset_failed": "重置「{{name}}」的 Codex 配額失敗：{{message}}",
     "plan_plus": "Plus",
@@ -1807,7 +1807,9 @@
     "gate_step2_action": "我已閱讀並理解上述風險",
     "gate_step3_prompt": "如需確認，請在下方輸入框中鍵入 “{{token}}”",
     "gate_step3_action": "安裝此插件",
-    "gate_step3_hint": "請輸入上方顯示的完整識別碼以啟用安裝。"
+    "gate_step3_hint": "請輸入上方顯示的完整識別碼以啟用安裝。",
+    "destination": "目標執行個體",
+    "select_destination": "請選擇目標執行個體"
   },
   "plugin_resource": {
     "page_count": "{{count}} 個頁面",
@@ -1816,7 +1818,8 @@
     "not_found": "找不到插件頁面",
     "not_found_desc": "目前後端插件清單未宣告此插件頁面。",
     "empty_src": "插件頁面位址為空",
-    "empty_src_desc": "此插件選單未提供可嵌入的頁面位址。"
+    "empty_src_desc": "此插件選單未提供可嵌入的頁面位址。",
+    "source_embedding_unsupported": "此部署尚未驗證外掛頁面的執行個體路由，因此無法嵌入外掛頁面。"
   },
   "system_info": {
     "title": "管理中心資訊",
@@ -2457,5 +2460,12 @@
     "no_accounts_title": "尚未連接帳戶",
     "no_accounts_help": "連接帳戶以查看彙總配額。",
     "add_credentials": "新增憑證"
+  },
+  "provider_sources": {
+    "discovery_error": "無法取得代理執行個體清單。請重新載入以重試。",
+    "authentication_required": "請登入此代理執行個體以繼續。",
+    "separate_pools": "每個 {{provider}} 執行個體分別顯示配額池。尚未驗證共用額度，因此無法提供合計。",
+    "unresolved_history": "部分歷史帳號尚未確認所屬執行個體。歷史記錄已保留，不計入目前合計。",
+    "mutation_unconfirmed": "無法確認操作結果。重試前請檢查重新整理後的狀態。"
   }
 }

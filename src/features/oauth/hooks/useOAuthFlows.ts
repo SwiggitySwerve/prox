@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore, useNotificationStore } from '@/stores';
-import { oauthApi, pluginsApi } from '@/services/api';
+import { useNotificationStore } from '@/stores';
+import { createOAuthApi } from '@/services/api/oauth';
+import { pluginsApi } from '@/services/api/plugins';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
 import { getErrorMessage, isRecord } from '@/utils/helpers';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import { createOAuthAttempts, type OAuthAttempt } from '../oauthAttempts';
@@ -51,24 +53,26 @@ function getErrorStatus(error: unknown): number | undefined {
 }
 
 /** 已启用且声明 OAuth 能力的插件 → 追加到内置提供商之后。 */
-export function usePluginOAuthProviders(apiBase: string) {
+export function usePluginOAuthProviders(apiBase: string | undefined) {
+  const session = useSelectedSourceSession();
   const [pluginProviders, setPluginProviders] = useState<PluginOAuthProviderCard[]>([]);
 
   useEffect(() => {
+    if (!apiBase) return;
     let cancelled = false;
     pluginsApi
-      .list()
+      .list(session.management)
       .then((response) => {
-        if (!cancelled)
+        if (!cancelled && !session.signal.aborted)
           setPluginProviders(buildPluginOAuthProviderCards(response.plugins, apiBase));
       })
       .catch(() => {
-        if (!cancelled) setPluginProviders([]);
+        if (!cancelled && !session.signal.aborted) setPluginProviders([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [apiBase]);
+  }, [apiBase, session]);
 
   return pluginProviders;
 }
@@ -79,6 +83,8 @@ export function usePluginOAuthProviders(apiBase: string) {
  */
 export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions) {
   const { t } = useTranslation();
+  const session = useSelectedSourceSession();
+  const oauthApi = useMemo(() => createOAuthApi(session), [session]);
   const { showNotification } = useNotificationStore();
   const [states, setStates] = useState<Record<string, ProviderFlowState>>({});
   /** 本次会话新增的凭证数（含 Vertex 导入），换连接时归零。 */
@@ -96,24 +102,17 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
   }, []);
 
   useEffect(() => {
-    // Invalidate synchronously on connection changes, including a new key on
-    // the same server. Never send cleanup requests through the new connection.
-    const unsubscribe = useAuthStore.subscribe((current, previous) => {
-      if (
-        current.apiBase !== previous.apiBase ||
-        current.managementKey !== previous.managementKey ||
-        current.isAuthenticated !== previous.isAuthenticated
-      ) {
-        clearTimers();
-        setStates({});
-        setAddedCount(0);
-      }
-    });
+    const invalidate = () => {
+      clearTimers();
+      setStates({});
+      setAddedCount(0);
+    };
+    session.signal.addEventListener('abort', invalidate);
     return () => {
-      unsubscribe();
+      session.signal.removeEventListener('abort', invalidate);
       clearTimers();
     };
-  }, [clearTimers]);
+  }, [clearTimers, session]);
 
   const providerText = (provider: string, suffix: string) => {
     const card = providerCards.find((item) => item.id === provider);
@@ -141,7 +140,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
 
   const completeProviderAuth = (provider: string) => {
     const resetAttempt = attempts.current.begin(provider);
-    notifyAuthFilesChanged();
+    notifyAuthFilesChanged(session.owner);
     recordCredentialAdded();
     updateProviderState(provider, {
       url: undefined,

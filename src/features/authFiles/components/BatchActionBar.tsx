@@ -13,6 +13,8 @@ const BASE_TRANSFORM = 'translateX(-50%)';
 const HIDDEN_TRANSFORM = 'translateX(-50%) translateY(56px)';
 
 export type BatchActionBarProps = {
+  inline?: boolean;
+  sourceLabel?: string;
   selectionCount: number;
   selectablePageCount: number;
   selectableFilteredCount: number;
@@ -36,6 +38,8 @@ export type BatchActionBarProps = {
  */
 export function BatchActionBar(props: BatchActionBarProps) {
   const {
+    inline = false,
+    sourceLabel,
     selectionCount,
     selectablePageCount,
     selectableFilteredCount,
@@ -58,7 +62,7 @@ export function BatchActionBar(props: BatchActionBarProps) {
   const selectionCountRef = useRef(selectionCount);
   const previousCountRef = useRef(0);
 
-  useActionBarHeightVar(containerRef, '--auth-files-action-bar-height', visible);
+  useActionBarHeightVar(containerRef, '--auth-files-action-bar-height', visible && !inline);
 
   useEffect(() => {
     selectionCountRef.current = selectionCount;
@@ -68,7 +72,7 @@ export function BatchActionBar(props: BatchActionBarProps) {
   }, [selectionCount]);
 
   useLayoutEffect(() => {
-    if (!visible) return;
+    if (inline || !visible) return;
     const currentCount = selectionCount;
     const previousCount = previousCountRef.current;
     const el = containerRef.current;
@@ -130,7 +134,7 @@ export function BatchActionBar(props: BatchActionBarProps) {
     }
 
     previousCountRef.current = currentCount;
-  }, [visible, selectionCount]);
+  }, [inline, visible, selectionCount]);
 
   useEffect(
     () => () => {
@@ -140,17 +144,18 @@ export function BatchActionBar(props: BatchActionBarProps) {
     []
   );
 
-  if (!visible || typeof document === 'undefined') return null;
+  if (inline ? selectionCount === 0 : !visible || typeof document === 'undefined') return null;
 
-  return createPortal(
-    <div className={styles.container} ref={containerRef}>
+  const bar = (
+    <div className={inline ? styles.inlineContainer : styles.container} ref={containerRef}>
       <div
         className={styles.bar}
         role="toolbar"
-        aria-label={t('auth_files.batch_toolbar_label')}
+        aria-label={`${sourceLabel ?? ''} ${t('auth_files.batch_toolbar_label')}`.trim()}
         aria-orientation="horizontal"
       >
         <div className={styles.left}>
+          {sourceLabel && <span className={styles.count}>{sourceLabel}</span>}
           <span className={styles.count} aria-live="polite">
             {t('auth_files.batch_selected', { count: selectionCount })}
           </span>
@@ -207,7 +212,7 @@ export function BatchActionBar(props: BatchActionBarProps) {
           </Button>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
+  return inline ? bar : createPortal(bar, document.body);
 }

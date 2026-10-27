@@ -1,0 +1,12 @@
+# Provider source ownership
+
+- The workbench enumerates `useProviderSources()` and renders one existing provider UI per source. Provider kind, credential text, display name and flattened row index do not identify an instance. Unavailable sources remain visible.
+- `ProviderSourceProvider` owns a `createProviderSourceScope(session, source)` for one complete source owner (instance ID, session epoch and generation). Session replacement remounts the panel, sheet and forms. Selection does not retarget an existing operation.
+- The scope uses the shared `createSourceLease`. Disposing it aborts work and prevents pending confirmations or nested requests from dispatching. Operations spanning awaits capture the lease signal; reactivation does not revive old operations.
+- Provider edits preserve the existing group snapshot checks, metadata and independent capability descriptors. Sponsor mutations, connectivity tests and model discovery use APIs from the originating scope. A bulk connectivity test keeps its original entries and owner.
+- Config and model store factories retain legacy singleton behavior with per-instance caches and request tokens. Recent-request normalization and arithmetic remain in their existing owners. Source config events invalidate only matching complete owners; subscriptions end with the view.
+- Scoped client model catalogs use a fixed owner URL and a key from that source's client-key inventory. Caller headers and management credentials cannot supply catalog authorization. Proxied upstream discovery retains provider credentials, auth indices, proxy settings, pagination and owner checks.
+- Invalid provider/client-key inventories reject instead of becoming successful empty results. Valid empty inventory remains distinct from load failure. Passive inventory loading does not run provider connectivity tests, inference, quota adapters or credential downloads.
+- Legacy API exports remain supported. `providerInventory.ts` is pure and must not import auth stores, API clients or store initialization. Scoped nested request chains must not call ambient API objects.
+
+Regression coverage: `tests/providerSourceWorkbench.test.ts`, `tests/providerProbeProxy.test.ts`, provider v8 mutation suites, model API/cache suites and config cache suites. Browser acceptance uses synthetic A/B same-provider and C mixed-provider sources; it does not verify deployed credentials or routing.

@@ -435,7 +435,8 @@
     "quota_refresh_single": "Refresh quota",
     "quota_refresh_hint": "Refresh quota only for this credential",
     "quota_refresh_success": "Quota refreshed for \"{{name}}\"",
-    "quota_refresh_failed": "Failed to refresh quota for \"{{name}}\": {{message}}"
+    "quota_refresh_failed": "Failed to refresh quota for \"{{name}}\": {{message}}",
+    "source_authentication_required": "Sign in to this source to view its auth files."
   },
   "antigravity_subscription": {
     "plan_unknown": "Unknown",
@@ -1780,7 +1781,9 @@
     "gate_step2_action": "I have read and understand these risks",
     "gate_step3_prompt": "To confirm, type \"{{token}}\" in the box below",
     "gate_step3_action": "Install this plugin",
-    "gate_step3_hint": "Enter the exact identifier shown above to enable installation."
+    "gate_step3_hint": "Enter the exact identifier shown above to enable installation.",
+    "destination": "Destination",
+    "select_destination": "Select a destination source"
   },
   "plugin_resource": {
     "page_count": "{{count}} pages",
@@ -1789,7 +1792,8 @@
     "not_found": "Plugin page not found",
     "not_found_desc": "This plugin page is not declared by the current backend plugin list.",
     "empty_src": "Plugin page URL is empty",
-    "empty_src_desc": "This plugin menu does not provide an embeddable page URL."
+    "empty_src_desc": "This plugin menu does not provide an embeddable page URL.",
+    "source_embedding_unsupported": "Embedded plugin pages are unavailable for this deployment because their source routing has not been verified."
   },
   "system_info": {
     "title": "Management Center Info",
@@ -2430,5 +2434,12 @@
     "no_accounts_title": "No accounts connected",
     "no_accounts_help": "Connect your accounts to see their pooled quotas.",
     "add_credentials": "Add credentials"
+  },
+  "provider_sources": {
+    "discovery_error": "Source discovery is unavailable. Reload to retry.",
+    "authentication_required": "Sign in to this source to continue.",
+    "separate_pools": "Each {{provider}} source has its own quota pool. Combined totals are unavailable because shared allowances have not been verified.",
+    "unresolved_history": "Some historical accounts have no confirmed source. Their history is retained and excluded from current totals.",
+    "mutation_unconfirmed": "The operation could not be confirmed. Review the refreshed state before retrying."
   }
 }

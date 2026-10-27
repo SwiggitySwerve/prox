@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { providersApi } from '@/services/api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { providersApi as LegacyProvidersApi } from '@/services/api/providers';
+import { useProviderSource } from './ProviderSourceContext';
 import { getErrorMessage } from '@/utils/helpers';
-import { useAuthStore, useConfigStore } from '@/stores';
 import {
   stripDisableAllModelsRule,
   withDisableAllModelsRule,
@@ -329,7 +329,11 @@ const normalizeSponsorKeyEntries = (
   entries: SponsorKeyEntryInput[] | undefined
 ): SponsorKeyEntryInput[] => (entries ?? []).filter((entry) => sponsorEntryApiKey(entry));
 
-const toggleSponsorConfig = async (raw: SponsorProviderRaw, disabled: boolean) => {
+const toggleSponsorConfig = async (
+  providersApi: typeof LegacyProvidersApi,
+  raw: SponsorProviderRaw,
+  disabled: boolean
+) => {
   for (const item of raw.gemini) {
     const excludedModels = disabled
       ? withDisableAllModelsRule(item.config.excludedModels)
@@ -466,7 +470,8 @@ export const buildProviderGroups = (config: Config): ProviderGroup[] =>
 /* -------------------------------------------------------------------------- */
 
 export function useProviderWorkbench(): UseProviderWorkbenchResult {
-  const connectionStatus = useAuthStore((s) => s.connectionStatus);
+  const scope = useProviderSource();
+  const { providersApi, configStore: useConfigStore } = scope;
   const config = useConfigStore((s) => s.config);
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const updateConfigValue = useConfigStore((s) => s.updateConfigValue);
@@ -478,45 +483,36 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
   const [mutating, setMutating] = useState<boolean>(false);
   const [fetchedAt, setFetchedAt] = useState<string>(() => new Date().toISOString());
 
-  const hasFetchedRef = useRef(false);
-
-  const connected = connectionStatus === 'connected';
+  const connected = scope.isCurrent();
 
   const refetch = useCallback(async () => {
+    const revision = scope.getRevision();
+    const current = () => scope.isCurrent() && scope.getRevision() === revision;
     setIsFetching(true);
     setErrorMessage(null);
     try {
-      const [configResult, vertexResult, openaiResult] = await Promise.allSettled([
-        fetchConfig(true),
-        providersApi.getVertexConfigs(),
-        providersApi.getOpenAIProviders(),
-      ]);
-      if (configResult.status !== 'fulfilled') {
-        throw configResult.reason;
-      }
-      if (vertexResult.status === 'fulfilled') {
-        updateConfigValue('vertex-api-key', vertexResult.value || []);
-      }
-      if (openaiResult.status === 'fulfilled') {
-        updateConfigValue('openai-compatibility', openaiResult.value || []);
-      }
+      scope.assertCurrent();
+      await fetchConfig(true);
+      scope.assertCurrent();
+      if (!current()) return;
       setFetchedAt(new Date().toISOString());
     } catch (err) {
+      if (!current()) return;
       setErrorMessage(getErrorMessage(err) || 'Failed to load providers');
     } finally {
-      setIsPending(false);
-      setIsFetching(false);
+      if (current()) {
+        setIsPending(false);
+        setIsFetching(false);
+      }
     }
-  }, [fetchConfig, updateConfigValue]);
+  }, [fetchConfig, scope]);
 
   const refreshSnapshot = useCallback(() => {
     setFetchedAt(new Date().toISOString());
   }, []);
 
   useEffect(() => {
-    if (hasFetchedRef.current) return;
     if (!connected) return;
-    hasFetchedRef.current = true;
     refetch().catch(() => {});
   }, [connected, refetch]);
 
@@ -651,7 +647,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
         await providersApi.deleteOpenAIProvider(currentOpenAI.index, currentOpenAI.config.source);
       }
     },
-    [config]
+    [config, providersApi]
   );
 
   const createProvider = useCallback(
@@ -701,7 +697,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
         setMutating(false);
       }
     },
-    [persistSponsorConfig, refetch]
+    [persistSponsorConfig, providersApi, refetch]
   );
 
   const updateProvider = useCallback(
@@ -778,7 +774,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
         setMutating(false);
       }
     },
-    [persistSponsorConfig, refetch]
+    [persistSponsorConfig, providersApi, refetch]
   );
 
   const deleteProvider = useCallback(
@@ -896,7 +892,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
         setMutating(false);
       }
     },
-    [config, refetch, updateConfigValue]
+    [config, providersApi, refetch, updateConfigValue]
   );
 
   const toggleDisabled = useCallback(
@@ -959,7 +955,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           brand === 'kimi'
         ) {
           await runSponsorMutationWithRecovery(
-            () => toggleSponsorConfig(resource.raw as SponsorProviderRaw, disabled),
+            () => toggleSponsorConfig(providersApi, resource.raw as SponsorProviderRaw, disabled),
             refetch
           );
         }
@@ -968,7 +964,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
         setMutating(false);
       }
     },
-    [refetch]
+    [providersApi, refetch]
   );
 
   return {

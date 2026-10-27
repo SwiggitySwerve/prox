@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationStore } from '@/stores';
-import { vertexApi } from '@/services/api/vertex';
+import { createVertexApi } from '@/services/api/vertex';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
 import { getErrorMessage } from '@/utils/helpers';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 
@@ -29,6 +30,15 @@ export function useVertexImport(options: {
   onCredentialAdded: () => void;
 }) {
   const { isFocused, onCredentialAdded } = options;
+  const session = useSelectedSourceSession();
+  const vertexApi = useMemo(() => createVertexApi(session), [session]);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const [vertex, setVertex] = useState<VertexImportState>({ location: '', loading: false });
@@ -53,6 +63,7 @@ export function useVertexImport(options: {
     setVertex((prev) => ({ ...prev, loading: true, error: undefined, result: undefined }));
     try {
       const res = await vertexApi.importCredential(vertex.file, location || undefined);
+      if (!mounted.current || session.signal.aborted) return;
       const result: VertexImportResult = {
         projectId: res.project_id,
         email: res.email,
@@ -60,10 +71,11 @@ export function useVertexImport(options: {
         authFile: res['auth-file'] ?? res.auth_file,
       };
       setVertex((prev) => ({ ...prev, loading: false, result }));
-      notifyAuthFilesChanged();
+      notifyAuthFilesChanged(session.owner);
       onCredentialAdded();
       if (!isFocused()) showNotification(t('vertex_import.success'), 'success');
     } catch (err: unknown) {
+      if (!mounted.current || session.signal.aborted) return;
       const message = getErrorMessage(err);
       setVertex((prev) => ({
         ...prev,

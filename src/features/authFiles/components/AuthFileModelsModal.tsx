@@ -1,3 +1,4 @@
+import { useAuthFilesSource } from '../AuthFilesSourceContext';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -19,6 +20,7 @@ export type AuthFileModelsModalProps = {
 };
 
 export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
+  const { source } = useAuthFilesSource();
   const { t } = useTranslation();
   const { open, fileName, fileType, loading, error, models, excluded, onClose, onCopyText } = props;
 
@@ -26,7 +28,12 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title={t('auth_files.models_title', { defaultValue: '支持的模型' }) + ` - ${fileName}`}
+      title={
+        source.label +
+        ' · ' +
+        t('auth_files.models_title', { defaultValue: '支持的模型' }) +
+        ` - ${fileName}`
+      }
       footer={
         <Button variant="secondary" onClick={onClose}>
           {t('common.close')}

@@ -18,6 +18,7 @@ export interface SourceView {
   readonly session: SourceSession | null;
   readonly status: 'ready' | 'authentication-required' | 'unauthorized';
   readonly version: string | null;
+  readonly buildDate?: string | null;
   readonly supportsPlugin: boolean;
 }
 export interface SourceRegistrySnapshot {
@@ -109,10 +110,18 @@ export class SourceRegistry {
   private receive(event: SourceTransportEvent): void {
     const sources = this.snapshot.sources.map((view): SourceView => {
       if (view.session?.owner !== event.owner) return view;
-      if (event.type === 'unauthorized') return { ...view, status: 'unauthorized' };
-      if (event.type === 'server-version-update') return { ...view, version: event.detail.version };
-      return { ...view, supportsPlugin: event.detail.supportsPlugin };
+      if (event.type === 'unauthorized')
+        return view.status === 'unauthorized' ? view : { ...view, status: 'unauthorized' };
+      if (event.type === 'server-version-update')
+        return view.version === event.detail.version && view.buildDate === event.detail.buildDate
+          ? view
+          : { ...view, version: event.detail.version, buildDate: event.detail.buildDate };
+      return view.supportsPlugin === event.detail.supportsPlugin
+        ? view
+        : { ...view, supportsPlugin: event.detail.supportsPlugin };
     });
-    this.publish({ ...this.snapshot, sources });
+    if (sources.some((source, index) => source !== this.snapshot.sources[index])) {
+      this.publish({ ...this.snapshot, sources });
+    }
   }
 }

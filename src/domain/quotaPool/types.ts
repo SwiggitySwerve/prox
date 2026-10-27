@@ -25,6 +25,8 @@ export interface PoolAccount {
   emptyAtMs: number | null;
 }
 export interface QuotaPool {
+  instanceId?: string;
+  sourceLabel?: string;
   provider: PoolProviderId;
   accountCount: number;
   eligibleCount: number;
@@ -54,6 +56,26 @@ export interface PoolDashboard {
   lastRefreshAtMs: number | null;
   nextRefreshAtMs: number;
   refreshing: boolean;
-  issues: { provider: PoolProviderId; code: 'inventory-unavailable' | 'quota-unavailable' }[];
+  issues: {
+    instanceId?: string;
+    sourceLabel?: string;
+    provider: PoolProviderId;
+    code: 'inventory-unavailable' | 'quota-unavailable';
+  }[];
+  /** Occurrences across sources are never interpreted as independent allowances. */
+  combinations?: {
+    provider: PoolProviderId;
+    reason: 'cross-source-combination-unverified';
+    occurrenceCount: number;
+    capacityPoints: null;
+    remainingPoints: null;
+    burnPointsPerHour: null;
+    drainPointsPerHour: null;
+    firstEmptyAtMs: null;
+    poolEmptyAtMs: null;
+    recorded: [];
+    projected: [];
+  }[];
+  unresolvedHistoryAccountCount?: number;
   pools: QuotaPool[];
 }

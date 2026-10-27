@@ -234,7 +234,7 @@ describe('source-bound auth files', () => {
         stored = requestBody(config);
         return {};
       });
-      const other = createAuthFilesApi(source.session);
+      const other = createAuthFilesApi({ ...source.session });
       if (path === ALIASES) {
         await Promise.all([
           source.api.saveOauthModelAlias('codex', [{ name: 'one', alias: 'one' }]),
@@ -321,7 +321,7 @@ describe('source-bound auth files', () => {
         stored = requestBody(config);
         return {};
       });
-      const other = createAuthFilesApi(source.session);
+      const other = createAuthFilesApi({ ...source.session });
       const results = await Promise.allSettled(
         path === ALIASES
           ? [source.api.deleteOauthModelAlias('codex'), other.deleteOauthModelAlias('claude')]
@@ -340,7 +340,7 @@ describe('source-bound auth files', () => {
       await release.promise;
       return {};
     });
-    const other = createAuthFilesApi(source.session);
+    const other = createAuthFilesApi({ ...source.session });
     const results = Promise.allSettled([
       source.api.saveOauthExcludedModels('codex', ['one']),
       other.saveOauthExcludedModels('claude', ['two']),

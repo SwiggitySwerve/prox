@@ -945,11 +945,28 @@
     padding: 12px;
   }
   .poolHeader {
-    gap: 10px;
+    gap: 6px;
   }
   .stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px 12px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    > div {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+      align-items: baseline;
+      gap: 2px 8px;
+    }
+    dt {
+      margin: 0;
+    }
+    dd {
+      text-align: right;
+    }
+    small {
+      grid-column: 2;
+      margin: 0;
+      text-align: right;
+    }
   }
   .stats dd {
     font-size: 13px;
@@ -995,17 +1012,19 @@
   }
   .inspect {
     width: 100%;
-    flex-direction: column;
-    gap: 0;
+    flex-direction: row;
+    gap: 8px;
   }
   .inspect input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+    width: auto;
     height: 44px;
   }
   .inspectionRow:has(.inspect) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 120px;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
   .accountDetails {
     padding-left: 0;
@@ -1034,5 +1053,23 @@
     dt {
       margin-bottom: 0;
     }
+  }
+}
+
+@media (max-width: 640px) {
+  .pool:not([data-forecast-state='ready']) .stats {
+    gap: 4px;
+    > div {
+      display: grid;
+    }
+  }
+  .statsHeading {
+    margin-bottom: 4px !important;
+  }
+  .balanceContext {
+    margin-top: 2px !important;
+  }
+  .headline[data-unavailable='true'] {
+    gap: 2px 10px;
   }
 }

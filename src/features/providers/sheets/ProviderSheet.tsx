@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Sheet } from '@/components/ui/Sheet';
 import { IconLoader2, IconPencil } from '@/components/ui/icons';
 import type { ProviderRecentUsageMap } from '@/components/providers/utils';
-import { useNotificationStore } from '@/stores';
+import { useProviderNotifications, useProviderSource } from '../ProviderSourceContext';
 import { PROVIDER_DESCRIPTORS } from '../descriptors';
 import { isMultiProtocolSponsorBrand } from '../sponsorDefinitions';
 import type { ProviderBrand, ProviderEntryFormInput, ProviderResource } from '../types';
@@ -50,7 +50,8 @@ export function ProviderSheet({
   ref,
 }: ProviderSheetProps) {
   const { t } = useTranslation();
-  const { showConfirmation } = useNotificationStore();
+  const { showConfirmation } = useProviderNotifications();
+  const scope = useProviderSource();
   const formId = useId();
   const [submitting, setSubmitting] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -237,7 +238,7 @@ export function ProviderSheet({
             ? t('providersPage.form.createEyebrow')
             : t('providersPage.form.editEyebrow')
       }
-      title={titleText}
+      title={`${scope.source.label} · ${titleText}`}
       description={t('providersPage.table.description', {
         route:
           state.brand === 'openaiCompatibility'

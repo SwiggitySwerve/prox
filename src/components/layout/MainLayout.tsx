@@ -1,3 +1,4 @@
+import { subscribeSourceConfigChanges } from '@/services/api/sourceConfigChanges';
 import {
   ReactNode,
   RefObject,
@@ -16,7 +17,9 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/common/PageTransition';
 import { MainRoutes } from '@/router/MainRoutes';
-import { authFilesApi, pluginsApi } from '@/services/api';
+import { loadPluginSourceInventories } from '@/features/plugins/pluginSourceInventory';
+import { createAuthFilesApi } from '@/services/api/authFiles';
+import { useProviderSources, providerSources } from '@/stores/useProviderSources';
 import {
   IconSidebarAuthFiles,
   IconSidebarConfig,
@@ -313,14 +316,28 @@ export function MainLayout() {
   const { showNotification } = useNotificationStore();
   const location = useLocation();
 
+  const registry = useProviderSources();
   const logout = useAuthStore((state) => state.logout);
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = useAuthStore((state) => state.apiBase);
-  const supportsPlugin = useAuthStore((state) => state.supportsPlugin);
+  const supportsPlugin = registry.sources.some((source) => source.supportsPlugin);
 
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
   const clearCache = useConfigStore((state) => state.clearCache);
   const config = useConfigStore((state) => state.config);
+
+  useEffect(
+    () =>
+      subscribeSourceConfigChanges((owner) => {
+        const snapshot = providerSources.getSnapshot();
+        const selected = snapshot.sources.find(
+          (view) => view.source.instanceId === snapshot.resolution?.selectedInstanceId
+        );
+        if (selected?.session?.owner !== owner) return;
+        clearCache();
+        void fetchConfig(true).catch(() => {});
+      }),
+    [clearCache, fetchConfig]
+  );
 
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
@@ -488,35 +505,62 @@ export function MainLayout() {
   }, [fetchConfig]);
 
   const loadPluginResources = useCallback(async () => {
-    if (connectionStatus !== 'connected' || !supportsPlugin) {
+    const captured = registry.resolution;
+    if (registry.status !== 'ready') {
       setPluginResources([]);
       return;
     }
-
-    try {
-      const plugins = await pluginsApi.list();
-      setPluginResources(collectPluginResourceEntries(plugins.plugins));
-    } catch {
-      setPluginResources([]);
-    }
-  }, [connectionStatus, supportsPlugin]);
+    const outcomes = await loadPluginSourceInventories(
+      registry.sources,
+      () => providerSources.getSnapshot().sources
+    );
+    if (providerSources.getSnapshot().resolution !== captured) return;
+    setPluginResources(
+      outcomes.flatMap((outcome) =>
+        outcome.status === 'complete'
+          ? collectPluginResourceEntries(
+              outcome.response.plugins,
+              outcome.view.source.instanceId
+            ).map((entry) => ({
+              ...entry,
+              pluginTitle: `${outcome.view.source.label} · ${entry.pluginTitle}`,
+              label: `${outcome.view.source.label} · ${entry.label}`,
+              pluginLogo: resolvePluginAssetURL(entry.pluginLogo, outcome.view.source.apiBase),
+            }))
+          : []
+      )
+    );
+  }, [registry]);
 
   const loadAuthFilesCount = useCallback(async () => {
     const requestID = ++authFilesCountRequestRef.current;
-    if (connectionStatus !== 'connected') {
+    if (registry.status !== 'ready') {
       setAuthFilesCount(null);
       return;
     }
 
     try {
-      const response = await authFilesApi.list();
-      if (requestID !== authFilesCountRequestRef.current) return;
-      setAuthFilesCount(Array.isArray(response?.files) ? response.files.length : null);
+      const captured = registry.resolution;
+      const inventories = await Promise.all(
+        registry.sources.map(async (view) => {
+          if (!view.session || view.status !== 'ready') throw new Error('Source unavailable');
+          return createAuthFilesApi(view.session).list();
+        })
+      );
+      if (
+        requestID !== authFilesCountRequestRef.current ||
+        providerSources.getSnapshot().resolution !== captured
+      )
+        return;
+      // Counts describe credential occurrences; they do not imply independent quota allowances.
+      setAuthFilesCount(
+        inventories.reduce((count, inventory) => count + inventory.files.length, 0)
+      );
     } catch {
       if (requestID !== authFilesCountRequestRef.current) return;
       setAuthFilesCount(null);
     }
-  }, [connectionStatus]);
+  }, [registry]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -538,14 +582,15 @@ export function MainLayout() {
   const pluginResourceGroups = pluginResources.reduce<
     Array<{ pluginID: string; pluginTitle: string; entries: PluginResourceEntry[] }>
   >((groups, resource) => {
-    const group = groups.find((item) => item.pluginID === resource.pluginID);
+    const groupId = JSON.stringify([resource.instanceId, resource.pluginID]);
+    const group = groups.find((item) => item.pluginID === groupId);
     if (group) {
       group.entries.push(resource);
       return groups;
     }
 
     groups.push({
-      pluginID: resource.pluginID,
+      pluginID: groupId,
       pluginTitle: resource.pluginTitle,
       entries: [resource],
     });
@@ -1213,7 +1258,14 @@ export function MainLayout() {
               isPluginResourcePage ? ' main-content-plugin-resource' : ''
             }`}
           >
-            {['/quota/accounts', '/logs'].includes(location.pathname) && <ManagementRuntime />}
+            {[
+              '/oauth',
+              '/config',
+              '/logs',
+              '/system',
+              '/auth-files/oauth-excluded',
+              '/auth-files/oauth-model-alias',
+            ].includes(location.pathname) && <ManagementRuntime />}
             <PageTransition
               render={(location) => <MainRoutes location={location} />}
               getRouteOrder={getRouteOrder}

@@ -100,3 +100,31 @@
     gap: 16px;
   }
 }
+
+.sources {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-width: 0;
+}
+
+.sourcePanel {
+  min-width: 0;
+}
+
+.sourceHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+
+  span,
+  code {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 400;
+  }
+}

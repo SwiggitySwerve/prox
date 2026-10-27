@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { authFilesApi } from '@/services/api';
-import { useAuthStore, useConfigStore, useModelsStore } from '@/stores';
+import { createAuthFilesApi } from '@/services/api/authFiles';
+import { useProviderSource } from '@/features/providers/ProviderSourceContext';
+import { useAuthStore } from '@/stores';
 import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
 import { useProviderRecentRequests } from '@/components/providers/hooks/useProviderRecentRequests';
 import {
@@ -110,8 +111,12 @@ export const getProviderKeyCounts = (config: Config) => ({
  * 凭证理论上可同时命中，因此这里按 `account_type` + `account` 做一次防御性去重。
  */
 export function useDashboardOverview() {
+  const scope = useProviderSource();
+  const useConfigStore = scope.configStore;
+  const useModelsStore = scope.modelsStore;
+  const authFilesApi = useMemo(() => createAuthFilesApi(scope.session), [scope.session]);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
+  const apiBase = scope.source.apiBase;
   const config = useConfigStore((state) => state.config);
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
 
@@ -133,11 +138,12 @@ export function useDashboardOverview() {
     if (!connected) return;
     try {
       const response = await authFilesApi.list();
+      scope.assertCurrent();
       setAuthFiles(response.files);
     } catch {
       setAuthFiles(null);
     }
-  }, [connected]);
+  }, [connected, authFilesApi, scope]);
 
   const loadModels = useCallback(async () => {
     if (!connected || !apiBase) return;

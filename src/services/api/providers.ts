@@ -1,7 +1,14 @@
 import { useAuthStore } from '@/stores/useAuthStore';
 import { apiClient } from './client';
+import type { ManagementTransport, SourceSession } from './sourceSession';
 import { guardConfigConnection } from './configValue';
 import { isRecord } from '@/utils/helpers';
+import {
+  readProviderGroups,
+  providerConfigurationConflict as conflict,
+  type ProviderFamily,
+} from './providerInventory';
+export { readProviderGroups, type ProviderFamily } from './providerInventory';
 import { normalizeApiKeyEntry, normalizeProviderGroups } from './transformers';
 import { serializeModelOptions } from './providerModels';
 import type {
@@ -207,15 +214,6 @@ const serializeOpenAIProvider = (provider: OpenAIProviderConfig) => {
   return payload;
 };
 
-export type ProviderFamily =
-  | 'gemini'
-  | 'interactions'
-  | 'codex'
-  | 'meta'
-  | 'xai'
-  | 'claude'
-  | 'vertex'
-  | 'openai-compatibility';
 type KeyConfig = ProviderKeyConfig | GeminiKeyConfig;
 const equal = (a: unknown, b: unknown): boolean => {
   if (a === b) return true;
@@ -229,34 +227,6 @@ const equal = (a: unknown, b: unknown): boolean => {
     );
   }
   return false;
-};
-const conflict = () =>
-  new Error('Provider configuration changed or is ambiguous; refresh and try again.');
-
-export const readProviderGroups = (
-  raw: unknown,
-  family: ProviderFamily
-): Record<string, unknown>[] => {
-  if (!isRecord(raw) || !isRecord(raw['api-keys'])) return [];
-  const groups = raw['api-keys'][family];
-  if (groups === undefined) return [];
-  if (!Array.isArray(groups) || !groups.every((g) => isRecord(g) && Array.isArray(g.keys)))
-    throw conflict();
-  return groups;
-};
-const getGroups = async (family: ProviderFamily) => {
-  const assertConnection = guardConfigConnection();
-  const session = useAuthStore.getState();
-  const raw = await apiClient.get('/config');
-  assertConnection();
-  const current = useAuthStore.getState();
-  if (
-    session.apiBase !== current.apiBase ||
-    session.managementKey !== current.managementKey ||
-    session.isAuthenticated !== current.isAuthenticated
-  )
-    throw conflict();
-  return readProviderGroups(raw, family);
 };
 // Remove the old UI-only field at known config locations, not inside opaque
 // user maps such as headers. Raw snapshots otherwise preserve unknown fields.
@@ -272,17 +242,6 @@ const cleanModelTestFields = (value: Record<string, unknown>) => {
     models: value.models.map((model) => (isRecord(model) ? removeTestModel(model) : model)),
   };
 };
-const putGroups = (family: ProviderFamily, groups: Record<string, unknown>[]) =>
-  apiClient.put(
-    `/config/api-keys/${family}`,
-    groups.map((group) => ({
-      ...cleanModelTestFields(family === 'openai-compatibility' ? removeTestModel(group) : group),
-      keys: (group.keys as unknown[]).map((key) =>
-        isRecord(key) ? cleanModelTestFields(key) : key
-      ),
-    }))
-  );
-
 /** Locate by persisted snapshot, never by flattened row index. Refuse ambiguous duplicates. */
 export const locateProviderGroup = (
   groups: Record<string, unknown>[],
@@ -426,199 +385,269 @@ const findKeySource = (
   if (matches.length !== 1 || !matches[0].source) throw conflict();
   return matches[0].source;
 };
-const createKey = async (family: ProviderFamily, config: KeyConfig) => {
-  const groups = await getGroups(family);
-  const payload = keySerializer(family)(config);
-  const baseUrl = payload['base-url'];
-  delete payload['base-url'];
-  const names = new Set(groups.map((g) => g.name));
-  let number = groups.length + 1;
-  while (names.has(`${family}-${number}`)) number++;
-  await putGroups(family, [
-    ...groups,
-    { name: `${family}-${number}`, ...(baseUrl ? { 'base-url': baseUrl } : {}), keys: [payload] },
-  ]);
-};
-const updateKey = async (
-  family: ProviderFamily,
-  apiKey: string,
-  baseUrl: string | undefined,
-  config: KeyConfig
-) => {
-  const groups = await getGroups(family);
-  const source = config.source ?? findKeySource(groups, apiKey, baseUrl);
-  const index = locateProviderGroup(groups, source);
-  const group = groups[index];
-  const keys = [...(group.keys as Record<string, unknown>[])];
-  const originalKeys = source.group.keys;
-  if (source.keyIndex === undefined || !Array.isArray(originalKeys)) throw conflict();
-  const matches = equal(group, source.group)
-    ? [source.keyIndex]
-    : keys.flatMap((key, i) => (equal(key, originalKeys[source.keyIndex!]) ? [i] : []));
-  if (matches.length !== 1) throw conflict();
-  const keyIndex = matches[0];
-  const original = (normalizeProviderGroups([group]) as KeyConfig[]).find(
-    (c) => c.source?.keyIndex === keyIndex
-  );
-  if (!original) throw conflict();
-  const serialize = keySerializer(family);
-  const before = serialize(original);
-  const after = serialize(config);
-  const nextGroup = { ...group };
-  if (!equal(before['base-url'], after['base-url'])) {
-    if (after['base-url'] === undefined) delete nextGroup['base-url'];
-    else nextGroup['base-url'] = after['base-url'];
-  }
-  delete before['base-url'];
-  delete after['base-url'];
-  const rawModels = keys[keyIndex].models ?? group.models;
-  const rawKey = keys[keyIndex];
-  keys[keyIndex] = applyProviderChanges(rawKey, before, after, group);
-  applyPolicyIntent(keys[keyIndex], rawKey, config, after);
-  preserveModelMetadata(
-    keys[keyIndex],
-    rawModels,
-    before.models,
-    after.models,
-    original.models,
-    config.models,
-    family === 'vertex' ? serializeVertexModelAliases : serializeModelAliases
-  );
-  // Response metadata belongs to credentials, not arbitrary nested maps such as headers.
-  delete keys[keyIndex]['auth-index'];
-  groups[index] = { ...nextGroup, keys };
-  await putGroups(family, groups);
-};
-const deleteKey = async (
-  family: ProviderFamily,
-  apiKey: string,
-  baseUrl?: string,
-  expected?: ProviderSource
-) => {
-  const groups = await getGroups(family);
-  const source = expected ?? findKeySource(groups, apiKey, baseUrl);
-  const index = locateProviderGroup(groups, source);
-  const originalKeys = source.group.keys;
-  if (source.keyIndex === undefined || !Array.isArray(originalKeys)) throw conflict();
-  const keys = groups[index].keys as unknown[];
-  const matches = equal(groups[index], source.group)
-    ? [source.keyIndex]
-    : keys.flatMap((key, i) => (equal(key, originalKeys[source.keyIndex!]) ? [i] : []));
-  if (matches.length !== 1) throw conflict();
-  groups[index] = { ...groups[index], keys: keys.filter((_, i) => i !== matches[0]) };
-  await putGroups(family, groups);
-};
 const serializeOpenAIGroup = serializeOpenAIProvider;
 const findOpenAISource = (groups: Record<string, unknown>[], source?: ProviderSource): number => {
   if (!source) throw conflict();
   return locateProviderGroup(groups, source);
 };
 
-export const providersApi = {
-  createGeminiKey: (config: GeminiKeyConfig) => createKey('gemini', config),
-  updateGeminiKey: (apiKey: string, baseUrl: string | undefined, config: GeminiKeyConfig) =>
-    updateKey('gemini', apiKey, baseUrl, config),
-  deleteGeminiKey: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
-    deleteKey('gemini', apiKey, baseUrl, source),
-  createInteractionsKey: (config: GeminiKeyConfig) => createKey('interactions', config),
-  updateInteractionsKey: (apiKey: string, baseUrl: string | undefined, config: GeminiKeyConfig) =>
-    updateKey('interactions', apiKey, baseUrl, config),
-  deleteInteractionsKey: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
-    deleteKey('interactions', apiKey, baseUrl, source),
-  createCodexConfig: (config: ProviderKeyConfig) => createKey('codex', config),
-  updateCodexConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
-    updateKey('codex', apiKey, baseUrl, config),
-  deleteCodexConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
-    deleteKey('codex', apiKey, baseUrl, source),
-  createMetaConfig: (config: ProviderKeyConfig) => createKey('meta', config),
-  updateMetaConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
-    updateKey('meta', apiKey, baseUrl, config),
-  deleteMetaConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
-    deleteKey('meta', apiKey, baseUrl, source),
-  createXAIConfig: (config: ProviderKeyConfig) => createKey('xai', config),
-  updateXAIConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
-    updateKey('xai', apiKey, baseUrl, config),
-  deleteXAIConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
-    deleteKey('xai', apiKey, baseUrl, source),
-  createClaudeConfig: (config: ProviderKeyConfig) => createKey('claude', config),
-  updateClaudeConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
-    updateKey('claude', apiKey, baseUrl, config),
-  deleteClaudeConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
-    deleteKey('claude', apiKey, baseUrl, source),
-  createVertexConfig: (config: ProviderKeyConfig) => createKey('vertex', config),
-  updateVertexConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
-    updateKey('vertex', apiKey, baseUrl, config),
-  deleteVertexConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
-    deleteKey('vertex', apiKey, baseUrl, source),
-  async getMetaConfigs() {
-    return normalizeProviderGroups(await getGroups('meta')) as ProviderKeyConfig[];
-  },
-  async getVertexConfigs() {
-    return normalizeProviderGroups(await getGroups('vertex')) as ProviderKeyConfig[];
-  },
-  async getOpenAIProviders() {
-    return normalizeProviderGroups(
-      await getGroups('openai-compatibility'),
-      true
-    ) as OpenAIProviderConfig[];
-  },
-  async createOpenAIProvider(config: OpenAIProviderConfig) {
-    const groups = await getGroups('openai-compatibility');
-    await putGroups('openai-compatibility', [...groups, serializeOpenAIGroup(config)]);
-  },
-  async updateOpenAIProvider(_name: string, _index: number, config: OpenAIProviderConfig) {
-    const groups = await getGroups('openai-compatibility');
-    const index = findOpenAISource(groups, config.source);
-    const original = (normalizeProviderGroups([groups[index]], true) as OpenAIProviderConfig[])[0];
-    const before = serializeOpenAIGroup(original);
-    const after = serializeOpenAIGroup(config);
-    const next = applyProviderChanges(groups[index], before, after);
-    applyPolicyIntent(next, groups[index], config, after);
+export function createProvidersApi(session: SourceSession) {
+  return buildProvidersApi(session.management, () => {
+    const signal = session.signal;
+    return () => {
+      session.assertCurrent();
+      signal.throwIfAborted();
+    };
+  });
+}
+
+function buildProvidersApi(transport: ManagementTransport, captureGuard: () => () => void) {
+  const getGroups = async (family: ProviderFamily) => {
+    const assertCurrent = captureGuard();
+    assertCurrent();
+    const raw = await transport.get('/config');
+    assertCurrent();
+    return { groups: readProviderGroups(raw, family), assertCurrent };
+  };
+  const putGroups = async (
+    family: ProviderFamily,
+    groups: Record<string, unknown>[],
+    assertCurrent: () => void
+  ) => {
+    assertCurrent();
+    const result = await transport.put(
+      `/config/api-keys/${family}`,
+      groups.map((group) => ({
+        ...cleanModelTestFields(family === 'openai-compatibility' ? removeTestModel(group) : group),
+        keys: (group.keys as unknown[]).map((key) =>
+          isRecord(key) ? cleanModelTestFields(key) : key
+        ),
+      }))
+    );
+    assertCurrent();
+    return result;
+  };
+
+  const createKey = async (family: ProviderFamily, config: KeyConfig) => {
+    const { groups, assertCurrent } = await getGroups(family);
+    const payload = keySerializer(family)(config);
+    const baseUrl = payload['base-url'];
+    delete payload['base-url'];
+    const names = new Set(groups.map((g) => g.name));
+    let number = groups.length + 1;
+    while (names.has(`${family}-${number}`)) number++;
+    await putGroups(
+      family,
+      [
+        ...groups,
+        {
+          name: `${family}-${number}`,
+          ...(baseUrl ? { 'base-url': baseUrl } : {}),
+          keys: [payload],
+        },
+      ],
+      assertCurrent
+    );
+  };
+  const updateKey = async (
+    family: ProviderFamily,
+    apiKey: string,
+    baseUrl: string | undefined,
+    config: KeyConfig
+  ) => {
+    const { groups, assertCurrent } = await getGroups(family);
+    const source = config.source ?? findKeySource(groups, apiKey, baseUrl);
+    const index = locateProviderGroup(groups, source);
+    const group = groups[index];
+    const keys = [...(group.keys as Record<string, unknown>[])];
+    const originalKeys = source.group.keys;
+    if (source.keyIndex === undefined || !Array.isArray(originalKeys)) throw conflict();
+    const matches = equal(group, source.group)
+      ? [source.keyIndex]
+      : keys.flatMap((key, i) => (equal(key, originalKeys[source.keyIndex!]) ? [i] : []));
+    if (matches.length !== 1) throw conflict();
+    const keyIndex = matches[0];
+    const original = (normalizeProviderGroups([group]) as KeyConfig[]).find(
+      (c) => c.source?.keyIndex === keyIndex
+    );
+    if (!original) throw conflict();
+    const serialize = keySerializer(family);
+    const before = serialize(original);
+    const after = serialize(config);
+    const nextGroup = { ...group };
+    if (!equal(before['base-url'], after['base-url'])) {
+      if (after['base-url'] === undefined) delete nextGroup['base-url'];
+      else nextGroup['base-url'] = after['base-url'];
+    }
+    delete before['base-url'];
+    delete after['base-url'];
+    const rawModels = keys[keyIndex].models ?? group.models;
+    const rawKey = keys[keyIndex];
+    keys[keyIndex] = applyProviderChanges(rawKey, before, after, group);
+    applyPolicyIntent(keys[keyIndex], rawKey, config, after);
     preserveModelMetadata(
-      next,
-      groups[index].models,
+      keys[keyIndex],
+      rawModels,
       before.models,
       after.models,
       original.models,
       config.models,
-      (models) => serializeModelAliases(models, true)
+      family === 'vertex' ? serializeVertexModelAliases : serializeModelAliases
     );
-    if (!equal(before.keys, after.keys)) {
-      const rawKeys = groups[index].keys as Record<string, unknown>[];
-      const used = new Set<number>();
-      next.keys = config.apiKeyEntries.map((entry) => {
-        // Existing form entries retain their source index; its absence means a new credential.
-        // API keys alone are not identities: the same key can use different proxies.
-        const keyIndex = entry.sourceIndex;
-        if (keyIndex === undefined) return serializeApiKeyEntry(entry);
-        if (used.has(keyIndex) || !isRecord(rawKeys[keyIndex])) throw conflict();
-        used.add(keyIndex);
-        const old = normalizeApiKeyEntry(rawKeys[keyIndex]);
-        if (!old) throw conflict();
-        const key = applyProviderChanges(
-          rawKeys[keyIndex],
-          serializeApiKeyEntry(old),
-          serializeApiKeyEntry(entry)
-        );
-        delete key['auth-index'];
-        return key;
-      });
-    }
-    groups[index] = next;
-    await putGroups('openai-compatibility', groups);
-  },
-  async updateOpenAIProviderDisabled(_index: number, disabled: boolean, source?: ProviderSource) {
-    const groups = await getGroups('openai-compatibility');
-    const index = findOpenAISource(groups, source);
-    groups[index] = { ...groups[index], disabled };
-    await putGroups('openai-compatibility', groups);
-  },
-  async deleteOpenAIProvider(_index: number, source?: ProviderSource) {
-    const groups = await getGroups('openai-compatibility');
-    const index = findOpenAISource(groups, source);
-    await putGroups(
-      'openai-compatibility',
-      groups.filter((_, i) => i !== index)
-    );
-  },
-};
+    // Response metadata belongs to credentials, not arbitrary nested maps such as headers.
+    delete keys[keyIndex]['auth-index'];
+    groups[index] = { ...nextGroup, keys };
+    await putGroups(family, groups, assertCurrent);
+  };
+  const deleteKey = async (
+    family: ProviderFamily,
+    apiKey: string,
+    baseUrl?: string,
+    expected?: ProviderSource
+  ) => {
+    const { groups, assertCurrent } = await getGroups(family);
+    const source = expected ?? findKeySource(groups, apiKey, baseUrl);
+    const index = locateProviderGroup(groups, source);
+    const originalKeys = source.group.keys;
+    if (source.keyIndex === undefined || !Array.isArray(originalKeys)) throw conflict();
+    const keys = groups[index].keys as unknown[];
+    const matches = equal(groups[index], source.group)
+      ? [source.keyIndex]
+      : keys.flatMap((key, i) => (equal(key, originalKeys[source.keyIndex!]) ? [i] : []));
+    if (matches.length !== 1) throw conflict();
+    groups[index] = { ...groups[index], keys: keys.filter((_, i) => i !== matches[0]) };
+    await putGroups(family, groups, assertCurrent);
+  };
+  return {
+    createGeminiKey: (config: GeminiKeyConfig) => createKey('gemini', config),
+    updateGeminiKey: (apiKey: string, baseUrl: string | undefined, config: GeminiKeyConfig) =>
+      updateKey('gemini', apiKey, baseUrl, config),
+    deleteGeminiKey: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
+      deleteKey('gemini', apiKey, baseUrl, source),
+    createInteractionsKey: (config: GeminiKeyConfig) => createKey('interactions', config),
+    updateInteractionsKey: (apiKey: string, baseUrl: string | undefined, config: GeminiKeyConfig) =>
+      updateKey('interactions', apiKey, baseUrl, config),
+    deleteInteractionsKey: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
+      deleteKey('interactions', apiKey, baseUrl, source),
+    createCodexConfig: (config: ProviderKeyConfig) => createKey('codex', config),
+    updateCodexConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
+      updateKey('codex', apiKey, baseUrl, config),
+    deleteCodexConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
+      deleteKey('codex', apiKey, baseUrl, source),
+    createMetaConfig: (config: ProviderKeyConfig) => createKey('meta', config),
+    updateMetaConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
+      updateKey('meta', apiKey, baseUrl, config),
+    deleteMetaConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
+      deleteKey('meta', apiKey, baseUrl, source),
+    createXAIConfig: (config: ProviderKeyConfig) => createKey('xai', config),
+    updateXAIConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
+      updateKey('xai', apiKey, baseUrl, config),
+    deleteXAIConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
+      deleteKey('xai', apiKey, baseUrl, source),
+    createClaudeConfig: (config: ProviderKeyConfig) => createKey('claude', config),
+    updateClaudeConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
+      updateKey('claude', apiKey, baseUrl, config),
+    deleteClaudeConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
+      deleteKey('claude', apiKey, baseUrl, source),
+    createVertexConfig: (config: ProviderKeyConfig) => createKey('vertex', config),
+    updateVertexConfig: (apiKey: string, baseUrl: string | undefined, config: ProviderKeyConfig) =>
+      updateKey('vertex', apiKey, baseUrl, config),
+    deleteVertexConfig: (apiKey: string, baseUrl?: string, source?: ProviderSource) =>
+      deleteKey('vertex', apiKey, baseUrl, source),
+    async getMetaConfigs() {
+      return normalizeProviderGroups((await getGroups('meta')).groups) as ProviderKeyConfig[];
+    },
+    async getVertexConfigs() {
+      return normalizeProviderGroups((await getGroups('vertex')).groups) as ProviderKeyConfig[];
+    },
+    async getOpenAIProviders() {
+      return normalizeProviderGroups(
+        (await getGroups('openai-compatibility')).groups,
+        true
+      ) as OpenAIProviderConfig[];
+    },
+    async createOpenAIProvider(config: OpenAIProviderConfig) {
+      const { groups, assertCurrent } = await getGroups('openai-compatibility');
+      await putGroups(
+        'openai-compatibility',
+        [...groups, serializeOpenAIGroup(config)],
+        assertCurrent
+      );
+    },
+    async updateOpenAIProvider(_name: string, _index: number, config: OpenAIProviderConfig) {
+      const { groups, assertCurrent } = await getGroups('openai-compatibility');
+      const index = findOpenAISource(groups, config.source);
+      const original = (
+        normalizeProviderGroups([groups[index]], true) as OpenAIProviderConfig[]
+      )[0];
+      const before = serializeOpenAIGroup(original);
+      const after = serializeOpenAIGroup(config);
+      const next = applyProviderChanges(groups[index], before, after);
+      applyPolicyIntent(next, groups[index], config, after);
+      preserveModelMetadata(
+        next,
+        groups[index].models,
+        before.models,
+        after.models,
+        original.models,
+        config.models,
+        (models) => serializeModelAliases(models, true)
+      );
+      if (!equal(before.keys, after.keys)) {
+        const rawKeys = groups[index].keys as Record<string, unknown>[];
+        const used = new Set<number>();
+        next.keys = config.apiKeyEntries.map((entry) => {
+          // Existing form entries retain their source index; its absence means a new credential.
+          // API keys alone are not identities: the same key can use different proxies.
+          const keyIndex = entry.sourceIndex;
+          if (keyIndex === undefined) return serializeApiKeyEntry(entry);
+          if (used.has(keyIndex) || !isRecord(rawKeys[keyIndex])) throw conflict();
+          used.add(keyIndex);
+          const old = normalizeApiKeyEntry(rawKeys[keyIndex]);
+          if (!old) throw conflict();
+          const key = applyProviderChanges(
+            rawKeys[keyIndex],
+            serializeApiKeyEntry(old),
+            serializeApiKeyEntry(entry)
+          );
+          delete key['auth-index'];
+          return key;
+        });
+      }
+      groups[index] = next;
+      await putGroups('openai-compatibility', groups, assertCurrent);
+    },
+    async updateOpenAIProviderDisabled(_index: number, disabled: boolean, source?: ProviderSource) {
+      const { groups, assertCurrent } = await getGroups('openai-compatibility');
+      const index = findOpenAISource(groups, source);
+      groups[index] = { ...groups[index], disabled };
+      await putGroups('openai-compatibility', groups, assertCurrent);
+    },
+    async deleteOpenAIProvider(_index: number, source?: ProviderSource) {
+      const { groups, assertCurrent } = await getGroups('openai-compatibility');
+      const index = findOpenAISource(groups, source);
+      await putGroups(
+        'openai-compatibility',
+        groups.filter((_, i) => i !== index),
+        assertCurrent
+      );
+    },
+  };
+}
+
+function captureLegacyConnection() {
+  const guard = guardConfigConnection();
+  const before = useAuthStore.getState();
+  return () => {
+    guard();
+    const current = useAuthStore.getState();
+    if (
+      before.apiBase !== current.apiBase ||
+      before.managementKey !== current.managementKey ||
+      before.isAuthenticated !== current.isAuthenticated
+    )
+      throw conflict();
+  };
+}
+
+export const providersApi = buildProvidersApi(apiClient, captureLegacyConnection);

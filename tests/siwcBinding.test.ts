@@ -178,19 +178,21 @@ describe('SIWC binding', () => {
     for (const contract of [
       'attempts.begin(name)',
       'attempt.invalidate()',
-      'sameConnection()',
-      'current.isAuthenticated',
-      'current.apiBase',
-      'current.managementKey',
+      'useSelectedSourceSession()',
+      'sourceSession.signal.aborted',
+      "sourceSession.signal.addEventListener('abort', invalidate)",
+      'captureSiwcBindingApi(sourceSession)',
+      'createAuthFilesApi(sourceSession)',
+      'createOAuthApi(sourceSession)',
       'cancel: api.cancel',
       'startup.close()',
       'startRef.current?.start()',
       'authFilesApi',
       'listSiwcTargets(response.files)',
       'setRun((value) => value + 1)',
-      '}, [name, run]);',
+      '}, [name, run, oauthApi, sourceSession]);',
       'type="radio"',
-      'notifyAuthFilesChanged()',
+      'notifyAuthFilesChanged(sourceSession.owner)',
       'error.status === 404',
       "'unsupported'",
       "oauthApi.submitCallback('codex', callback, attempt.signal)",
@@ -198,6 +200,7 @@ describe('SIWC binding', () => {
       expect(source).toContain(contract);
     expect(source).not.toContain('startAuth(');
     expect(source).not.toContain('localStorage');
+    expect(source).not.toContain('useAuthStore');
     for (const locale of ['en', 'zh-CN', 'zh-TW', 'ru', 'vi', 'ko']) {
       const messages = JSON.parse(
         readFileSync(new URL(`../src/i18n/locales/${locale}.json`, import.meta.url), 'utf8')

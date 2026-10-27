@@ -341,7 +341,7 @@ describe('pool presentation', () => {
     expect(markup).toContain('Weekly quota remaining');
     expect(markup).toContain('Forecast: Ready');
     expect(markup).not.toContain('>Ready<');
-    const accounts = markup.slice(markup.indexOf('aria-labelledby="claude-accounts"'));
+    const accounts = markup.slice(markup.search(/<section[^>]*aria-labelledby="[^"]+-accounts"/));
     expect(accounts).toContain('Claude account 1');
     expect(accounts).toContain('73%');
     expect(markup.indexOf('<svg')).toBeLessThan(markup.indexOf('Claude account 1'));

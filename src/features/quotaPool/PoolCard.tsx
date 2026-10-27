@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
@@ -20,6 +21,7 @@ export function PoolCard({
   savedData?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const id = useId();
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
   const date = (value: number | null) => formatPoolDate(value, i18n.language);
   const forecastDate = (value: number | null, available = pool.forecastState === 'ready') =>
@@ -31,14 +33,18 @@ export function PoolCard({
   return (
     <article
       className={`${styles.pool} ${styles[pool.provider]}`}
-      aria-labelledby={`${pool.provider}-title`}
+      aria-labelledby={`${id}-title`}
       data-forecast-state={pool.forecastState}
+      data-chart-mode={mode}
     >
       <div className={styles.poolHeader}>
         <div className={styles.poolIdentity}>
           <div className={styles.poolTitle}>
             <PoolProviderMark provider={pool.provider} />
-            <h2 id={`${pool.provider}-title`}>{t(`quota_pool.${pool.provider}`)}</h2>
+            <h2 id={`${id}-title`}>
+              {t(`quota_pool.${pool.provider}`)}
+              {pool.sourceLabel && <small> · {pool.sourceLabel}</small>}
+            </h2>
             <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
             <span className={styles.badge} data-state={pool.forecastState}>
               {savedData
@@ -133,8 +139,8 @@ export function PoolCard({
           savedData={savedData}
         />
       </section>
-      <section className={styles.accounts} aria-labelledby={`${pool.provider}-accounts`}>
-        <h3 id={`${pool.provider}-accounts`}>
+      <section className={styles.accounts} aria-labelledby={`${id}-accounts`}>
+        <h3 id={`${id}-accounts`}>
           <span>
             {t('quota_pool.accounts')} ·{' '}
             {t('quota_pool.coverage', { loaded: pool.loadedCount, eligible: pool.eligibleCount })}

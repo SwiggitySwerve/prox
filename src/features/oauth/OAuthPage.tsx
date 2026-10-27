@@ -1,8 +1,11 @@
 import { useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
+import { selectSource } from '@/services/providerSources/selection';
+import { useProviderSources } from '@/stores/useProviderSources';
 import { useRevealGroup } from '@/hooks/motion';
-import { useAuthStore, useThemeStore } from '@/stores';
+import { useThemeStore } from '@/stores';
 import iconVertex from '@/assets/icons/vertex.svg';
 import iconCodex from '@/assets/icons/codex.svg';
 import { KIMI_DISPLAY_NAME } from '@/features/providers/kimi';
@@ -42,7 +45,10 @@ type DialogTarget = { kind: 'oauth'; id: string } | { kind: 'vertex' };
 export function OAuthPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const apiBase = useAuthStore((state) => state.apiBase);
+  const session = useSelectedSourceSession();
+  const registry = useProviderSources();
+  const destination = selectSource(registry, session.owner.instanceId, session.owner);
+  const apiBase = destination?.source.apiBase;
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const revealRef = useRevealGroup<HTMLDivElement>();
   const otherMethodsId = useId();

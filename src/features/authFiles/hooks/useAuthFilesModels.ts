@@ -1,7 +1,7 @@
+import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { authFilesApi } from '@/services/api';
-import { useNotificationStore } from '@/stores';
+
 import type { AuthFileItem } from '@/types';
 import type { AuthFileModelItem } from '@/features/authFiles/constants';
 
@@ -21,8 +21,10 @@ export type UseAuthFilesModelsResult = {
 };
 
 export function useAuthFilesModels(): UseAuthFilesModelsResult {
+  const sourceScope = useAuthFilesSource();
+  const authFilesApi = sourceScope.api;
   const { t } = useTranslation();
-  const showNotification = useNotificationStore((state) => state.showNotification);
+  const showNotification = useAuthFilesNotifications().showNotification;
 
   const [modelsModalOpen, setModelsModalOpen] = useState(false);
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -56,6 +58,7 @@ export function useAuthFilesModels(): UseAuthFilesModelsResult {
 
   const showModels = useCallback(
     async (item: AuthFileItem) => {
+      if (!sourceScope.isCurrent()) return;
       const cacheKey = item.name.trim();
       const requestId = ++activeModelsRequestIdRef.current;
 
@@ -75,18 +78,22 @@ export function useAuthFilesModels(): UseAuthFilesModelsResult {
       const cacheVersion = modelsCacheVersionRef.current;
       const fileVersion = modelsFileVersionRef.current.get(cacheKey) ?? 0;
       const isCacheCurrent = () =>
+        sourceScope.isCurrent() &&
         cacheVersion === modelsCacheVersionRef.current &&
         fileVersion === (modelsFileVersionRef.current.get(cacheKey) ?? 0);
-      const isRequestCurrent = () => requestId === activeModelsRequestIdRef.current;
+      const isRequestCurrent = () =>
+        sourceScope.isCurrent() && requestId === activeModelsRequestIdRef.current;
 
       setModelsLoading(true);
       try {
         const models = await authFilesApi.getModelsForAuthFile(item.name);
+        sourceScope.assertCurrent();
         if (isCacheCurrent()) {
           modelsCacheRef.current.set(cacheKey, models);
           if (isRequestCurrent()) setModelsList(models);
         }
       } catch (err) {
+        if (!sourceScope.isCurrent()) return;
         if (!isRequestCurrent() || !isCacheCurrent()) return;
         const errorMessage = err instanceof Error ? err.message : '';
         if (
@@ -102,7 +109,7 @@ export function useAuthFilesModels(): UseAuthFilesModelsResult {
         if (isRequestCurrent()) setModelsLoading(false);
       }
     },
-    [showNotification, t]
+    [authFilesApi, showNotification, sourceScope, t]
   );
 
   return {

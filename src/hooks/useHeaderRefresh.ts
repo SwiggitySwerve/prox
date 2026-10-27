@@ -1,34 +1,25 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 export type HeaderRefreshHandler = () => void | Promise<void>;
+const handlers = new Map<symbol, HeaderRefreshHandler>();
 
-let activeHeaderRefreshHandler: HeaderRefreshHandler | null = null;
-
+/** Each mounted source registers independently; cleanup removes only its own subscription. */
+export function registerHeaderRefresh(handler: HeaderRefreshHandler): () => void {
+  const id = Symbol();
+  handlers.set(id, handler);
+  return () => {
+    handlers.delete(id);
+  };
+}
 export const triggerHeaderRefresh = async () => {
-  if (!activeHeaderRefreshHandler) return;
-  await activeHeaderRefreshHandler();
+  const results = await Promise.allSettled(
+    [...handlers.values()].map((handler) => Promise.resolve().then(handler))
+  );
+  const failure = results.find((result) => result.status === 'rejected');
+  if (failure?.status === 'rejected') throw failure.reason;
 };
-
 export const useHeaderRefresh = (handler?: HeaderRefreshHandler | null, enabled = true) => {
-  const lastHandlerRef = useRef<HeaderRefreshHandler | null>(null);
-
   useEffect(() => {
-    const previousHandler = lastHandlerRef.current;
-    lastHandlerRef.current = handler ?? null;
-
-    if (!enabled || !handler) {
-      if (previousHandler && activeHeaderRefreshHandler === previousHandler) {
-        activeHeaderRefreshHandler = null;
-      }
-      return;
-    }
-
-    activeHeaderRefreshHandler = handler;
-
-    return () => {
-      if (activeHeaderRefreshHandler === handler) {
-        activeHeaderRefreshHandler = null;
-      }
-    };
+    if (enabled && handler) return registerHeaderRefresh(handler);
   }, [enabled, handler]);
 };

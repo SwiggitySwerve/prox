@@ -506,7 +506,17 @@ export function createAuthFilesApi(session: SourceSession) {
     writes = new Map();
     sourceOauthMapWrites.set(session.owner, writes);
   }
-  return buildAuthFilesApi(session.management, () => () => session.assertCurrent(), writes);
+  return buildAuthFilesApi(
+    session.management,
+    () => {
+      const signal = session.signal;
+      return () => {
+        signal.throwIfAborted();
+        session.assertCurrent();
+      };
+    },
+    writes
+  );
 }
 
 function buildAuthFilesApi(

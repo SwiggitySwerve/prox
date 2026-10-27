@@ -1,3 +1,4 @@
+import { notifySourceConfigChanged } from './sourceConfigChanges';
 import { containsControlCharacters } from '@/utils/helpers';
 import type { ApiClientConfig } from '@/types';
 import { validatedManagementBase } from '@/utils/connection';
@@ -28,7 +29,9 @@ export interface SourceConnection extends ApiClientConfig {
   readonly configurationRevision: string;
 }
 
-export type SourceTransportEvent = TransportEvent & { readonly owner: SourceOwner };
+export type SourceTransportEvent = Exclude<TransportEvent, { type: 'source-config-changed' }> & {
+  readonly owner: SourceOwner;
+};
 
 interface Entry {
   config: SourceConnection;
@@ -107,7 +110,8 @@ export class SourceSessions {
         assertCurrent,
         onEvent: (event) => {
           assertCurrent();
-          this.onEvent({ ...event, owner });
+          if (event.type === 'source-config-changed') notifySourceConfigChanged(owner);
+          else this.onEvent({ ...event, owner });
         },
       });
       transport.setConfig(config);

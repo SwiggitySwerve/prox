@@ -6,6 +6,10 @@
  */
 
 import type { ComponentType } from 'react';
+import type { SourceSession } from '@/services/api/sourceSession';
+import type { QuotaStore as BoundQuotaStore } from '@/stores/useQuotaStore';
+import { createQuotaConfigs } from './scoped';
+import { createSourceResetGrants, type ResetGrantScope } from './claude/resetGrantScope';
 import type { TFunction } from 'i18next';
 import { useQuotaStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
@@ -37,6 +41,7 @@ export interface QuotaCardState {
 
 export interface QuotaAdapter {
   type: QuotaProviderType;
+  resetGrants?: ResetGrantScope;
   i18nPrefix: string;
   filterFn: (file: AuthFileItem) => boolean;
   fetchQuota: (file: AuthFileItem, t: TFunction) => Promise<unknown>;
@@ -65,14 +70,38 @@ export const QUOTA_ADAPTERS: Record<QuotaProviderType, QuotaAdapter> = {
   xai: { ...XAI_CONFIG, Body: XaiQuotaBody } as unknown as QuotaAdapter,
 };
 
+/** Create once per source session/store; no requests occur during construction. */
+export function createQuotaAdapters(
+  session: SourceSession,
+  store?: BoundQuotaStore
+): Record<QuotaProviderType, QuotaAdapter> {
+  const configs = createQuotaConfigs(session, store);
+  const adapters = Object.fromEntries(
+    Object.entries(configs).map(([type, config]) => [
+      type,
+      {
+        ...config,
+        Body: QUOTA_ADAPTERS[type as QuotaProviderType].Body,
+      },
+    ])
+  ) as Record<QuotaProviderType, QuotaAdapter>;
+  adapters.claude.resetGrants = createSourceResetGrants(session);
+  return adapters;
+}
+
 export type QuotaMapUpdater = (
   updater: (prev: Record<string, QuotaCardState>) => Record<string, QuotaCardState>
 ) => void;
 
 /** 取 adapter 对应的 store setter（getState 直读，不建立订阅）。 */
-export const getQuotaSetter = (adapter: QuotaAdapter): QuotaMapUpdater =>
-  useQuotaStore.getState()[adapter.storeSetter] as unknown as QuotaMapUpdater;
+export const getQuotaSetter = (
+  adapter: QuotaAdapter,
+  store: BoundQuotaStore = useQuotaStore
+): QuotaMapUpdater => store.getState()[adapter.storeSetter] as unknown as QuotaMapUpdater;
 
 /** 取 adapter 对应的额度缓存快照（getState 直读，不建立订阅）。 */
-export const getQuotaMap = (adapter: QuotaAdapter): Record<string, QuotaCardState> =>
-  adapter.storeSelector(useQuotaStore.getState() as unknown as QuotaStore);
+export const getQuotaMap = (
+  adapter: QuotaAdapter,
+  store: BoundQuotaStore = useQuotaStore
+): Record<string, QuotaCardState> =>
+  adapter.storeSelector(store.getState() as unknown as QuotaStore);

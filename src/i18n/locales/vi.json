@@ -435,7 +435,8 @@
     "policy_rules_hint": "Các quy tắc tùy chỉnh được ưu tiên theo thứ tự danh sách. Kế thừa hoặc danh sách trống sẽ sử dụng quy tắc kế thừa; điều này không vô hiệu hóa chúng. Mẫu biểu thức chính quy (Regex) dùng cú pháp của Go.",
     "policy_retry_invalid": "Nhập một số nguyên an toàn không âm, hoặc chọn Kế thừa.",
     "policy_aliases_invalid": "Nhập tên model và bí danh không để trống cho mỗi hàng mới hoặc đã chỉnh sửa.",
-    "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống."
+    "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống.",
+    "source_authentication_required": "Đăng nhập vào nguồn này để xem tệp xác thực."
   },
   "antigravity_subscription": {
     "plan_unknown": "Không rõ",
@@ -1736,7 +1737,9 @@
     "gate_step2_action": "Tôi đã đọc và hiểu các rủi ro này",
     "gate_step3_prompt": "Để xác nhận, nhập \"{{token}}\" vào ô bên dưới",
     "gate_step3_action": "Cài đặt plugin này",
-    "gate_step3_hint": "Nhập chính xác mã định danh hiển thị ở trên để cho phép cài đặt."
+    "gate_step3_hint": "Nhập chính xác mã định danh hiển thị ở trên để cho phép cài đặt.",
+    "destination": "Đích đến",
+    "select_destination": "Chọn nguồn đích"
   },
   "plugin_resource": {
     "page_count": "{{count}} trang",
@@ -1745,7 +1748,8 @@
     "not_found": "Không tìm thấy trang plugin",
     "not_found_desc": "Trang plugin này không được khai báo trong danh sách plugin backend hiện tại.",
     "empty_src": "URL trang plugin trống",
-    "empty_src_desc": "Menu plugin này không cung cấp URL trang nhúng được."
+    "empty_src_desc": "Menu plugin này không cung cấp URL trang nhúng được.",
+    "source_embedding_unsupported": "Không thể nhúng trang tiện ích vì định tuyến đến nguồn chưa được xác minh cho triển khai này."
   },
   "system_info": {
     "title": "Thông tin Trung tâm Quản lý",
@@ -2436,5 +2440,12 @@
     "no_accounts_title": "Chưa kết nối tài khoản",
     "no_accounts_help": "Kết nối tài khoản để xem tổng hạn mức.",
     "add_credentials": "Thêm thông tin xác thực"
+  },
+  "provider_sources": {
+    "discovery_error": "Không thể tải danh sách nguồn. Hãy tải lại trang để thử lại.",
+    "authentication_required": "Đăng nhập vào nguồn này để tiếp tục.",
+    "separate_pools": "Mỗi nguồn {{provider}} có nhóm hạn mức riêng. Chưa xác minh hạn mức dùng chung nên không hiển thị tổng.",
+    "unresolved_history": "Một số tài khoản lịch sử chưa xác nhận nguồn. Lịch sử được giữ lại và không tính vào tổng hiện tại.",
+    "mutation_unconfirmed": "Chưa xác nhận được kết quả thao tác. Kiểm tra trạng thái vừa tải lại trước khi thử lại."
   }
 }

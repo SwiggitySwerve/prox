@@ -63,12 +63,15 @@ export function parseKimiQuotaUrl(text: string, file: AuthFileItem): string {
 }
 
 /** Read only for this request; never retain the downloaded credential in a cache/store. */
-export async function resolveKimiQuotaUrl(file: AuthFileItem): Promise<string> {
+export async function resolveKimiQuotaUrl(
+  file: AuthFileItem,
+  files: Pick<typeof authFilesApi, 'downloadText'> = authFilesApi
+): Promise<string> {
   if (
     !file.name?.trim() ||
     [file.runtimeOnly, file.runtime_only].some((value) => value === true || value === 'true')
   ) {
     throw new Error('Kimi credential is not downloadable');
   }
-  return parseKimiQuotaUrl(await authFilesApi.downloadText(file.name), file);
+  return parseKimiQuotaUrl(await files.downloadText(file.name), file);
 }

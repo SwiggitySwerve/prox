@@ -39,7 +39,10 @@ export function PoolChart({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const chartFrame = fitChartFrame(width, pool.forecastState !== 'ready' || mode !== 'remaining');
+  const chartFrame = fitChartFrame(
+    width,
+    savedData || pool.forecastState !== 'ready' || mode !== 'remaining'
+  );
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   const [selected, setSelected] = useState(0);
   const { fromMs, toMs, nowMs } = dashboard;

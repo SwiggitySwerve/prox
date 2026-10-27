@@ -100,6 +100,7 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
             nextRefreshAtMs: collector.nextRefreshAtMs,
             refreshing: collector.refreshing,
             issues: collector.issues,
+            sources: collector.sources,
           }
         )
       );

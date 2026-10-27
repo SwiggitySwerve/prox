@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { IconAlertTriangle, IconExternalLink, IconPlug } from '@/components/ui/icons';
-import { useAuthStore } from '@/stores';
 import type { PluginStoreEntry } from '@/types';
 import {
   buildRepositoryURL,
@@ -16,6 +15,7 @@ import {
 import styles from './PluginInstallGateModal.module.scss';
 
 interface PluginInstallGateModalProps {
+  apiBase: string;
   open: boolean;
   entry: PluginStoreEntry | null;
   isUpdate: boolean;
@@ -34,6 +34,7 @@ function GateLogo({ src }: { src: string }) {
 }
 
 export function PluginInstallGateModal({
+  apiBase,
   open,
   entry,
   isUpdate,
@@ -42,7 +43,6 @@ export function PluginInstallGateModal({
   onConfirm,
 }: PluginInstallGateModalProps) {
   const { t } = useTranslation();
-  const apiBase = useAuthStore((state) => state.apiBase);
   const [step, setStep] = useState(1);
   const [typed, setTyped] = useState('');
   const [wasOpen, setWasOpen] = useState(false);

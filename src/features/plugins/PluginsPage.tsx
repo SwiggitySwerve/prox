@@ -17,8 +17,11 @@ import {
   IconTrash2,
 } from '@/components/ui/icons';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { pluginsApi, pluginStoreApi } from '@/services/api';
-import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
+import { createPluginsApi, createPluginStoreApi } from '@/services/api/plugins';
+import { sourceOwnerKey } from '@/services/api/sourceSession';
+import { useProviderSources } from '@/stores/useProviderSources';
+import { PluginSourceScope, type PluginSourceProps } from './PluginSourceScope';
+import { usePluginSource } from './usePluginSource';
 import { getErrorMessage, isRecord } from '@/utils/helpers';
 import type {
   PluginConfigField,
@@ -37,7 +40,7 @@ import {
   notifyPluginResourcesChanged,
   resolvePluginAssetURL,
 } from './pluginResources';
-import { waitForPluginState } from './pluginPolling';
+import { createPluginPolling } from './pluginPolling';
 import { getPluginLogo } from './pluginLogo';
 import styles from './PluginsPage.module.scss';
 
@@ -63,18 +66,42 @@ const hasRestartRequiredError = (error: unknown) =>
 
 export function PluginsPage() {
   const { t } = useTranslation();
+  const registry = useProviderSources();
+  const [refresh, setRefresh] = useState(0);
+  const refreshAll = useCallback(() => setRefresh((value) => value + 1), []);
+  useHeaderRefresh(refreshAll);
+  if (registry.status === 'loading') return <p role="status">{t('common.loading')}</p>;
+  if (registry.status !== 'ready')
+    return <p role="alert">{t('provider_sources.discovery_error')}</p>;
+  return (
+    <>
+      {registry.sources.map((view) => (
+        <section key={view.session ? sourceOwnerKey(view.session.owner) : view.source.instanceId}>
+          <h2>{view.source.label}</h2>
+          <PluginSourceScope view={view}>
+            {(scope) => <SourcePluginsPage {...scope} refresh={refresh} />}
+          </PluginSourceScope>
+        </section>
+      ))}
+    </>
+  );
+}
+
+function SourcePluginsPage({
+  session: owner,
+  apiBase,
+  refresh,
+}: PluginSourceProps & { refresh: number }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
-  const managementKey = useAuthStore((state) => state.managementKey);
-  const clearConfigCache = useConfigStore((state) => state.clearCache);
-  const showNotification = useNotificationStore((state) => state.showNotification);
-  const showConfirmation = useNotificationStore((state) => state.showConfirmation);
+  const lease = usePluginSource(owner);
+  const { session, showNotification, showConfirmation } = lease;
+  const pluginsApi = useMemo(() => createPluginsApi(session), [session]);
+  const pluginStoreApi = useMemo(() => createPluginStoreApi(session), [session]);
+  const { waitForPluginState } = useMemo(() => createPluginPolling(session), [session]);
 
   const [data, setData] = useState<PluginListResponse | null>(null);
   const [storeLogos, setStoreLogos] = useState<{
-    apiBase: string;
-    managementKey: string;
     entries: PluginStoreEntry[];
   } | null>(null);
   const [filter, setFilter] = useState('');
@@ -87,9 +114,11 @@ export function PluginsPage() {
   const [openingConfigID, setOpeningConfigID] = useState('');
   const configRequestSeq = useRef(0);
 
-  const connected = connectionStatus === 'connected';
+  const connected = !session.signal.aborted;
 
   const loadPlugins = useCallback(async () => {
+    const revision = lease.getRevision();
+    if (revision < 0) return;
     if (!connected) {
       setLoading(false);
       setError(t('notification.connection_required'));
@@ -98,19 +127,22 @@ export function PluginsPage() {
 
     setLoading(true);
     setError('');
+    setData(null);
     try {
       const plugins = await pluginsApi.list();
+      if (lease.getRevision() !== revision) return;
       setData(plugins);
     } catch (err: unknown) {
+      if (lease.getRevision() !== revision) return;
       setError(
         hasStatus(err, 404)
           ? t('plugin_management.unsupported_backend')
           : getErrorMessage(err, t('plugin_management.load_failed'))
       );
     } finally {
-      setLoading(false);
+      if (lease.getRevision() === revision) setLoading(false);
     }
-  }, [connected, t]);
+  }, [connected, pluginsApi, lease, t]);
 
   const waitForPluginRuntimeState = useCallback(
     async (id: string, enabled: boolean): Promise<PluginRuntimeWaitStatus> => {
@@ -119,20 +151,19 @@ export function PluginsPage() {
           ? !response.pluginsEnabled || (item.registered && item.effectiveEnabled)
           : !item.effectiveEnabled
       );
+      session.assertCurrent();
       setData(result.response);
       if (enabled && !result.response.pluginsEnabled) {
         return 'globalDisabled';
       }
       return result.timedOut ? 'timeout' : 'ready';
     },
-    []
+    [waitForPluginState, session]
   );
-
-  useHeaderRefresh(loadPlugins, connected);
 
   useEffect(() => {
     void loadPlugins();
-  }, [loadPlugins]);
+  }, [loadPlugins, refresh]);
 
   useEffect(() => {
     setStoreLogos(null);
@@ -141,7 +172,7 @@ export function PluginsPage() {
     void pluginStoreApi.list().then(
       (response) => {
         if (!cancelled) {
-          setStoreLogos({ apiBase, managementKey, entries: response.plugins });
+          setStoreLogos({ entries: response.plugins });
         }
       },
       () => {
@@ -151,12 +182,9 @@ export function PluginsPage() {
     return () => {
       cancelled = true;
     };
-  }, [connected, apiBase, managementKey, data]);
+  }, [connected, pluginStoreApi, data]);
 
-  const logoEntries =
-    connected && storeLogos?.apiBase === apiBase && storeLogos.managementKey === managementKey
-      ? storeLogos.entries
-      : [];
+  const logoEntries = storeLogos?.entries ?? [];
 
   const pluginStats = useMemo(() => {
     const plugins = data?.plugins ?? [];
@@ -206,11 +234,11 @@ export function PluginsPage() {
 
     try {
       const currentConfig = await pluginsApi.getConfig(plugin.id);
-      if (configRequestSeq.current !== requestSeq) return;
+      if (!lease.isCurrent() || configRequestSeq.current !== requestSeq) return;
 
       setDraft(buildPluginConfigDraft(plugin, currentConfig));
     } catch (err: unknown) {
-      if (configRequestSeq.current !== requestSeq) return;
+      if (!lease.isCurrent() || configRequestSeq.current !== requestSeq) return;
 
       setEditingPlugin(null);
       setDraft(null);
@@ -224,7 +252,7 @@ export function PluginsPage() {
         'error'
       );
     } finally {
-      if (configRequestSeq.current === requestSeq) {
+      if (lease.isCurrent() && configRequestSeq.current === requestSeq) {
         setOpeningConfigID('');
       }
     }
@@ -240,12 +268,19 @@ export function PluginsPage() {
     setDraft((current) => (current ? updater(current) : current));
   };
 
+  const reconcileMutation = async () => {
+    await loadPlugins();
+    if (!lease.isCurrent()) return;
+    notifyPluginResourcesChanged();
+    showNotification(t('provider_sources.mutation_unconfirmed'), 'warning');
+  };
+
   const handleTogglePlugin = async (plugin: PluginListEntry, enabled: boolean) => {
     if (deletingID) return;
     setMutatingID(plugin.id);
     try {
       await pluginsApi.updateEnabled(plugin.id, enabled);
-      clearConfigCache();
+
       const status = await waitForPluginRuntimeState(plugin.id, enabled);
       if (status === 'ready') {
         notifyPluginResourcesChanged();
@@ -261,6 +296,8 @@ export function PluginsPage() {
         );
       }
     } catch (err: unknown) {
+      if (!lease.isCurrent()) return;
+      await reconcileMutation();
       showNotification(
         `${t('plugin_management.toggle_failed')}: ${getErrorMessage(
           err,
@@ -269,7 +306,7 @@ export function PluginsPage() {
         'error'
       );
     } finally {
-      setMutatingID('');
+      if (lease.isCurrent()) setMutatingID('');
     }
   };
 
@@ -287,18 +324,22 @@ export function PluginsPage() {
         setMutatingID(plugin.id);
         try {
           const result = await pluginsApi.deletePlugin(plugin.id);
-          clearConfigCache();
+          session.assertCurrent();
+
           if (editingPlugin?.id === plugin.id) {
             setEditingPlugin(null);
             setDraft(null);
           }
           await loadPlugins();
+          session.assertCurrent();
           notifyPluginResourcesChanged();
           showNotification(t('plugin_management.delete_success'), 'success');
           if (result.restartRequired) {
             showNotification(t('plugin_management.delete_restart_required'), 'warning');
           }
         } catch (err: unknown) {
+          if (!lease.isCurrent()) return;
+          await reconcileMutation();
           const restartRequired = hasRestartRequiredError(err);
           const fallback = restartRequired
             ? t('plugin_management.delete_restart_required')
@@ -308,8 +349,10 @@ export function PluginsPage() {
             restartRequired ? 'warning' : 'error'
           );
         } finally {
-          setDeletingID('');
-          setMutatingID('');
+          if (lease.isCurrent()) {
+            setDeletingID('');
+            setMutatingID('');
+          }
         }
       },
     });
@@ -335,12 +378,13 @@ export function PluginsPage() {
     setMutatingID(editingPlugin.id);
     try {
       await pluginsApi.patchConfig(editingPlugin.id, patch);
-      clearConfigCache();
+
       const enabledChanged =
         typeof patch.enabled === 'boolean' && patch.enabled !== editingPlugin.enabled;
       const status = enabledChanged
         ? await waitForPluginRuntimeState(editingPlugin.id, patch.enabled === true)
         : await loadPlugins().then((): PluginRuntimeWaitStatus => 'ready');
+      session.assertCurrent();
       if (status === 'ready') {
         notifyPluginResourcesChanged();
       }
@@ -359,6 +403,8 @@ export function PluginsPage() {
         );
       }
     } catch (err: unknown) {
+      if (!lease.isCurrent()) return;
+      await reconcileMutation();
       showNotification(
         `${t('plugin_management.save_failed')}: ${getErrorMessage(
           err,
@@ -367,7 +413,7 @@ export function PluginsPage() {
         'error'
       );
     } finally {
-      setMutatingID('');
+      if (lease.isCurrent()) setMutatingID('');
     }
   };
 
@@ -566,7 +612,13 @@ export function PluginsPage() {
           <IconRefreshCw size={16} />
           {t('plugin_management.refresh')}
         </Button>
-        <Button variant="secondary" size="sm" onClick={() => navigate('/plugin-store')}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            navigate(`/plugin-store?source=${encodeURIComponent(session.owner.instanceId)}`)
+          }
+        >
           <IconSidebarStore size={16} />
           {t('plugin_store.title')}
         </Button>
@@ -585,7 +637,7 @@ export function PluginsPage() {
             </div>
           ))}
         </div>
-      ) : visiblePlugins.length === 0 ? (
+      ) : error ? null : visiblePlugins.length === 0 ? (
         <EmptyState
           title={t('plugin_management.no_plugins')}
           description={t('plugin_management.no_plugins_desc')}

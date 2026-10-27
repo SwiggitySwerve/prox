@@ -211,10 +211,27 @@ export function QuotaPoolPage() {
         </div>
       )}
       {data?.issues.map((issue) => (
-        <div className={styles.notice} role="status" key={`${issue.provider}-${issue.code}`}>
+        <div
+          className={styles.notice}
+          role="status"
+          key={`${issue.instanceId ?? 'legacy'}-${issue.provider}-${issue.code}`}
+        >
+          {issue.sourceLabel && `${issue.sourceLabel} · `}
           {t(`quota_pool.${issue.provider}`)}: {t(`quota_pool.issue.${issue.code}`)}
         </div>
       ))}
+      {data?.combinations?.map((combination) => (
+        <p className={styles.notice} role="status" key={combination.provider}>
+          {t('provider_sources.separate_pools', {
+            provider: t(`quota_pool.${combination.provider}`),
+          })}
+        </p>
+      ))}
+      {Boolean(data?.unresolvedHistoryAccountCount) && (
+        <p className={styles.notice} role="status">
+          {t('provider_sources.unresolved_history')}
+        </p>
+      )}
       {!data && state.loading && state.connected && (
         <div className={styles.loading} role="status">
           <span className={styles.loadingDot} />
@@ -226,7 +243,7 @@ export function QuotaPoolPage() {
           .filter((pool) => provider === 'all' || provider === pool.provider)
           .map((pool) => (
             <PoolCard
-              key={pool.provider}
+              key={`${pool.instanceId ?? 'legacy'}:${pool.provider}`}
               pool={pool}
               dashboard={data}
               mode={mode}
