@@ -2312,6 +2312,10 @@
     "expired": "바인딩 세션이 만료되었습니다. 다시 시작하세요."
   },
   "quota_pool": {
+    "runtime_source": "관리 대상",
+    "runtime_scope": "이 페이지는 {{provider}} 런타임을 사용합니다. 통합 할당량에는 두 제공자가 모두 포함됩니다.",
+    "runtime_switching": "런타임 전환 중…",
+    "runtime_switch_error": "런타임을 전환하지 못했습니다. 연결을 확인하고 다시 시도하세요.",
     "eyebrow": "Prox · 통합 할당량",
     "title": "할당량 관리",
     "show_emails": "이메일 표시",

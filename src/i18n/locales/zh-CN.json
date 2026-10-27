@@ -2311,6 +2311,10 @@
     "expired": "绑定会话已过期，请重新开始。"
   },
   "quota_pool": {
+    "runtime_source": "管理来源",
+    "runtime_scope": "此页面使用 {{provider}} 实例。汇总额度包含两个提供商。",
+    "runtime_switching": "正在切换实例…",
+    "runtime_switch_error": "无法切换实例。请检查连接后重试。",
     "eyebrow": "Prox · 共享额度",
     "title": "额度管理",
     "show_emails": "显示邮箱",

@@ -2318,6 +2318,10 @@
     "expired": "Phiên liên kết đã hết hạn. Hãy bắt đầu lại."
   },
   "quota_pool": {
+    "runtime_source": "Nguồn quản lý",
+    "runtime_scope": "Trang này sử dụng môi trường {{provider}}. Hạn mức tổng hợp bao gồm cả hai nhà cung cấp.",
+    "runtime_switching": "Đang chuyển môi trường…",
+    "runtime_switch_error": "Không thể chuyển môi trường. Kiểm tra kết nối và thử lại.",
     "eyebrow": "Prox · hạn mức gộp",
     "title": "Quản lý hạn mức",
     "show_emails": "Hiện email",

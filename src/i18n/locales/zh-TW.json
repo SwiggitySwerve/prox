@@ -2339,6 +2339,10 @@
     "expired": "綁定工作階段已過期，請重新開始。"
   },
   "quota_pool": {
+    "runtime_source": "管理來源",
+    "runtime_scope": "此頁面使用 {{provider}} 執行個體。彙總額度包含兩個供應商。",
+    "runtime_switching": "正在切換執行個體…",
+    "runtime_switch_error": "無法切換執行個體。請檢查連線後重試。",
     "eyebrow": "Prox · 共用額度",
     "title": "額度管理",
     "show_emails": "顯示電子郵件",
