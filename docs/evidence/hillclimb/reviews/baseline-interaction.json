@@ -1,0 +1,418 @@
+{
+  "reviewer": "interaction",
+  "scores": {
+    "wide": {
+      "hierarchy": 8,
+      "layout": 9,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "laptop": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "narrow": {
+      "hierarchy": 6,
+      "layout": 6,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 6,
+      "consistency": 9,
+      "responsive_accessible": 6
+    },
+    "empty": {
+      "hierarchy": 6,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 6,
+      "controls_states": 6,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "loading": {
+      "hierarchy": 7,
+      "layout": 6,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 6,
+      "consistency": 7,
+      "responsive_accessible": 8
+    },
+    "error": {
+      "hierarchy": 7,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 8,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "partial": {
+      "hierarchy": 7,
+      "layout": 9,
+      "type_numbers": 8,
+      "colour": 7,
+      "content": 8,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "stale": {
+      "hierarchy": 7,
+      "layout": 9,
+      "type_numbers": 8,
+      "colour": 7,
+      "content": 7,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "collecting": {
+      "hierarchy": 8,
+      "layout": 9,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "long-narrow": {
+      "hierarchy": 6,
+      "layout": 6,
+      "type_numbers": 7,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 6,
+      "consistency": 9,
+      "responsive_accessible": 6
+    },
+    "details-narrow": {
+      "hierarchy": 6,
+      "layout": 4,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 4,
+      "consistency": 5,
+      "responsive_accessible": 4
+    },
+    "drain": {
+      "hierarchy": 6,
+      "layout": 6,
+      "type_numbers": 7,
+      "colour": 9,
+      "content": 6,
+      "controls_states": 6,
+      "consistency": 7,
+      "responsive_accessible": 7
+    },
+    "burn-narrow": {
+      "hierarchy": 5,
+      "layout": 4,
+      "type_numbers": 4,
+      "colour": 7,
+      "content": 6,
+      "controls_states": 4,
+      "consistency": 6,
+      "responsive_accessible": 3
+    },
+    "refresh-error": {
+      "hierarchy": 8,
+      "layout": 9,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "controls_states",
+        "responsive_accessible"
+      ],
+      "element": "Show emails checkbox and label: measured clickable height is 19.5 px in every state.",
+      "fix": "Pad the entire checkbox label to at least 24 px high on desktop and 44 px high on touch, keeping the visible checkbox and account-visibility behavior."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "type_numbers"
+      ],
+      "element": "Secondary quota labels, account status, forecast badges and freshness footer use very small text; loaded/eligible and freshness text measure 11 px.",
+      "fix": "Raise essential secondary labels and freshness text to 13 px with clear line spacing; retain the large balances, exact units and explicit status words. Loading, empty and error states need the same readable freshness footer."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "long-narrow",
+        "details-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "controls_states"
+      ],
+      "element": "Remaining/Drain rate/Burn rate, time and future-usage controls sit above cards whose History and forecast section is closed, concealing the visual result of those controls.",
+      "fix": "Open History and forecast when a chart-affecting control changes, or place those controls beside the disclosure. Keep account rows visible and preserve orange Claude and blue Codex series."
+    },
+    {
+      "states": [
+        "laptop"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Date navigation wraps into a separate right-aligned row, leaving a large blank area below the other filters and pushing both cards down.",
+      "fix": "At this width use an intentional second toolbar row with the date range and navigation grouped together, and reduce the gap before the explanatory text."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout"
+      ],
+      "element": "Mobile header, Account view row, three filter rows, date navigation and explanatory paragraphs delay the first balance until about y=782, or y=834 in burn mode.",
+      "fix": "Reduce header and section gaps, group the quota-window and date controls into one deliberate row where they fit, and move the retained unit and provider caveats into compact text beside or immediately below the first summary. Preserve every warning and account row."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "controls_states",
+        "responsive_accessible"
+      ],
+      "element": "Mobile provider tabs are 42 px high; metric/time tabs are 34 px high; selects are 40 px high; date-arrow targets are about 31 px wide.",
+      "fix": "Give each touch target at least 44 by 44 CSS px, with enough separation to distinguish neighboring choices. Reflow the toolbar to fit rather than shrinking controls."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "No accounts message is a half-width amber warning beneath a full active chart toolbar; it refers to this provider while All pools is selected and sends users to the distant Account view link.",
+      "fix": "Use a neutral empty-state panel spanning the card area, say no accounts are available for the current selection, add an Account view action inside the panel, and disable chart-only controls until accounts exist. Reserve amber for conditions needing caution."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Loading pooled quota is isolated in the center of a large blank area while Refresh all, provider filters and chart selectors retain their ordinary ready appearance.",
+      "fix": "Place the loading status at the top of the results area or inside card-sized placeholders; show Refresh all as loading and disable controls that require the pending data. Keep the loading text visible without relying on animation."
+    },
+    {
+      "states": [
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Initial load error is a long amber sentence with a small dark Try again button, while the no-data filters remain visually active and Refresh all competes with recovery.",
+      "fix": "Make Could not load quota the short leading status, give Try again a clear outlined or filled button treatment, and disable data-dependent controls until recovery. Keep the saved-data qualification as secondary text only when saved data is visible."
+    },
+    {
+      "states": [
+        "partial",
+        "stale"
+      ],
+      "aspects": [
+        "hierarchy",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Incomplete or stale aggregate is shown as a giant dash; its explanatory sentence and Forecast: Partial/Stale badge have nearly the same neutral styling as ready helper text.",
+      "fix": "Put a compact amber Partial data or Stale data label beside each pool heading and use Unavailable beside the balance dash. Retain loaded/eligible counts and row statuses, and visually distinguish the matching forecast badge without changing provider colours."
+    },
+    {
+      "states": [
+        "stale"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Observations are stale has no nearby observation age; Current account rows and an unqualified Next reset remain alongside an unavailable aggregate.",
+      "fix": "Show the last observation time beside the stale warning and label the shown reset as last reported when appropriate, so readers can distinguish current rows from stale ones without opening each account."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "hierarchy",
+        "colour",
+        "content",
+        "controls_states"
+      ],
+      "element": "Collecting history explanation is a muted sentence separated from the small Forecast: Collecting badge at the bottom of each card.",
+      "fix": "Move the neutral Collecting history status next to History and forecast and keep its explanation directly underneath; state that balances are available while the forecast is pending. Preserve the current balance and account rows."
+    },
+    {
+      "states": [
+        "long-narrow"
+      ],
+      "aspects": [
+        "type_numbers",
+        "content"
+      ],
+      "element": "Long credential names wrap across three lines while Current and the percentage occupy the same horizontal band; Window unavailable competes for the narrow name column.",
+      "fix": "For wrapping account names, put status and value on a second aligned row below the full name. Preserve the complete credential name and Window unavailable wording."
+    },
+    {
+      "states": [
+        "details-narrow"
+      ],
+      "aspects": [
+        "layout",
+        "controls_states",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "The floating hamburger and global action toolbar appear around y=342 over the Remaining/Drain rate/Burn rate selector, unlike the top placement in the other narrow captures.",
+      "fix": "Keep global actions in a reserved header row, or offset sticky controls so they cannot cover the metric selector at this scroll position. Ensure every visible selector remains fully exposed."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Selecting a rate mode leaves Weekly quota remaining as the dominant card number; actual rate and chart sit below all accounts. In drain, only a sliver of the chart reaches the screenshot bottom.",
+      "fix": "When a rate mode is selected, show the existing rate value with points/h in the summary or place the open rate chart immediately after the summary and before the account list. Keep remaining quota and every account accessible and clearly labeled."
+    },
+    {
+      "states": [
+        "drain"
+      ],
+      "aspects": [
+        "type_numbers"
+      ],
+      "element": "Visible drain-chart axis labels are much smaller than surrounding 11\u201313 px metadata, with the chart compressed beneath the expanded history metrics.",
+      "fix": "Render chart ticks at a readable 12\u201313 px final size and give the chart enough vertical room; do not scale the label text with the drawing."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "controls_states",
+        "responsive_accessible"
+      ],
+      "element": "Inspect chart sliders measure only 16 px high; the burn screenshot shows a small thumb and short track with no adjacent selected-sample readout.",
+      "fix": "Increase the slider interaction area to at least 24 px high on desktop and 44 px on touch, enlarge its touch thumb, and display the selected time and rate beside it. Preserve keyboard sample inspection."
+    },
+    {
+      "states": [
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout",
+        "type_numbers",
+        "colour",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "Both narrow burn charts have tiny axis text and omit the right-hand range from the visible plot; measurements report 580 px content in a 320 px container. The 0 tick samples at 4.07:1.",
+      "fix": "Size each plot to the actual card width, reduce the number of date ticks, keep first and last ticks inside the chart, and render labels at 12\u201313 px with at least 4.5:1 contrast. Remove component horizontal overflow while preserving orange/blue strokes and points/h units."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Refresh failed banner preserves data clearly, but its small dark retry action recedes and the retained balances still use unqualified Current labels with Forecast: Ready.",
+      "fix": "Give Try again a stronger visible boundary and place Last successful refresh with its time in the banner. Qualify the shown data as last loaded after the failure while keeping forecast readiness a separate status and retaining every account."
+    }
+  ]
+}

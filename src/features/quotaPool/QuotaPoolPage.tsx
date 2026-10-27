@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { IconEye, IconRefreshCw, IconChevronLeft, IconFilterAll } from '@/components/ui/icons';
 import type { PoolProviderId } from '@/domain/quotaPool/types';
 import type { PoolQuery } from '@/services/api/quotaPool';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
@@ -38,7 +39,6 @@ export function QuotaPoolPage() {
     <div className={styles.page}>
       <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>{t('quota_pool.eyebrow')}</p>
           <h1>{t('quota_pool.title')}</h1>
         </div>
         <div className={styles.actions}>
@@ -48,6 +48,7 @@ export function QuotaPoolPage() {
               checked={query.reveal}
               onChange={(event) => change('reveal', event.target.checked)}
             />
+            <IconEye size={18} aria-hidden="true" />
             {t('quota_pool.show_emails')}
           </label>
           <button
@@ -56,7 +57,7 @@ export function QuotaPoolPage() {
             onClick={() => void state.refresh()}
             disabled={!state.connected || Boolean(refreshing)}
           >
-            <span aria-hidden="true">↻</span>{' '}
+            <IconRefreshCw size={18} aria-hidden="true" />
             {t(`quota_pool.${refreshing ? 'refreshing' : 'refresh_all'}`)}
           </button>
         </div>
@@ -71,6 +72,7 @@ export function QuotaPoolPage() {
             className={item === 'all' ? undefined : styles[item]}
           >
             {item !== 'all' && <PoolProviderMark provider={item} />}
+            {item === 'all' && <IconFilterAll size={18} aria-hidden="true" />}
             {t(`quota_pool.${item}`)}
             {item !== 'all' && (
               <span className={styles.count}>
@@ -145,7 +147,7 @@ export function QuotaPoolPage() {
             disabled={query.offsetDays <= -14}
             onClick={() => change('offsetDays', query.offsetDays - 1)}
           >
-            ‹
+            <IconChevronLeft size={18} aria-hidden="true" />
           </button>
           <button type="button" onClick={() => change('offsetDays', 0)}>
             {t('quota_pool.today')}
@@ -156,7 +158,7 @@ export function QuotaPoolPage() {
             disabled={query.offsetDays >= 14}
             onClick={() => change('offsetDays', query.offsetDays + 1)}
           >
-            ›
+            <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -165,8 +167,6 @@ export function QuotaPoolPage() {
           {t('quota_pool.recorded_only')}
         </p>
       )}
-      <p className={styles.method}>{t('quota_pool.normalized')}</p>
-      <p className={styles.method}>{t('quota_pool.limit_note')}</p>
       {!state.connected && (
         <div className={styles.notice} role="status">
           {t('quota_pool.disconnected')}
@@ -181,6 +181,11 @@ export function QuotaPoolPage() {
           >
             {t('quota_pool.retry')}
           </button>
+          {data && (
+            <p>
+              {t('quota_pool.last_refresh')}: {date(data.lastRefreshAtMs)}
+            </p>
+          )}
         </div>
       )}
       {data?.issues.map((issue) => (
@@ -207,10 +212,17 @@ export function QuotaPoolPage() {
             />
           ))}
         {data && data.pools.length === 0 && (
-          <div className={styles.notice}>{t('quota_pool.state_note.no-accounts')}</div>
+          <div className={styles.notice}>
+            <p>{t('quota_pool.state_note.no-accounts')}</p>
+            <Link to="/quota/accounts" className={styles.accountLink}>
+              {t('quota_pool.account_view')}
+            </Link>
+          </div>
         )}
       </div>
       <footer className={styles.footer}>
+        <p className={styles.method}>{t('quota_pool.normalized')}</p>
+        <p className={styles.method}>{t('quota_pool.limit_note')}</p>
         <span>{t('quota_pool.polling')}</span>
         {data && (
           <>

@@ -5,7 +5,11 @@ import { readFileSync } from 'node:fs';
 import i18n from '../src/i18n';
 import type { PoolDashboard, PoolPoint, QuotaPool } from '../src/domain/quotaPool/types';
 import type { PoolQuery, PoolRefresh } from '../src/services/api/quotaPool';
-import { chartGeometry, chartSamples } from '../src/features/quotaPool/chartGeometry';
+import {
+  chartGeometry,
+  chartSamples,
+  fitChartFrame,
+} from '../src/features/quotaPool/chartGeometry';
 import { createPoolResource } from '../src/features/quotaPool/poolResource';
 import { createPoolSessionObserver } from '../src/features/quotaPool/poolSession';
 import { useAuthStore } from '../src/stores/useAuthStore';
@@ -263,6 +267,23 @@ describe('pool request lifetime', () => {
 });
 
 describe('honest chart geometry', () => {
+  test('phone frame keeps the complete time range inside the available width', () => {
+    const frame = fitChartFrame(320);
+    const geometry = chartGeometry(
+      chartSamples(pool.recorded, pool.projected, 'remaining'),
+      'remaining',
+      200,
+      0,
+      1000,
+      frame
+    );
+    expect([geometry.x(0), geometry.x(1000)]).toEqual([40, 308]);
+    expect(geometry.y(0)).toBe(frame.bottom);
+    expect(geometry.y(200)).toBe(frame.top);
+    expect(geometry.segments(true)[0]).toContain(
+      `L${geometry.x(800)},${geometry.y(70)} L${geometry.x(800)},${geometry.y(170)}`
+    );
+  });
   test('shared frame preserves established plot coordinates', () => {
     const geometry = chartGeometry([], 'remaining', 200, 0, 1000);
     expect([geometry.x(0), geometry.x(1000), geometry.y(0), geometry.y(200)]).toEqual([
@@ -307,7 +328,7 @@ describe('honest chart geometry', () => {
 });
 
 describe('pool presentation', () => {
-  test('shows authenticated accounts before collapsed forecasts and labels the balance window', async () => {
+  test('exposes charts before account rows while retaining balances and the quota window', async () => {
     await i18n.changeLanguage('en');
     const markup = renderToStaticMarkup(
       createElement(PoolCard, {
@@ -320,10 +341,11 @@ describe('pool presentation', () => {
     expect(markup).toContain('Weekly quota remaining');
     expect(markup).toContain('Forecast: Ready');
     expect(markup).not.toContain('>Ready<');
-    const accounts = markup.slice(markup.indexOf('<section'), markup.indexOf('</section>'));
+    const accounts = markup.slice(markup.indexOf('aria-labelledby="claude-accounts"'));
     expect(accounts).toContain('Claude account 1');
     expect(accounts).toContain('73%');
-    expect(markup.indexOf('</section>')).toBeLessThan(markup.indexOf('History and forecast'));
+    expect(markup.indexOf('<svg')).toBeLessThan(markup.indexOf('Claude account 1'));
+    expect(markup).not.toMatch(/<details[^>]*forecast/);
     expect(markup).not.toMatch(/<details[^>]*\bopen[\s=>]/);
   });
 

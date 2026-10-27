@@ -1,8 +1,9 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import {
-  chartFrame,
+  chartFrame as defaultChartFrame,
+  fitChartFrame,
   chartGeometry,
   chartSamples,
   metricField,
@@ -22,12 +23,28 @@ export function PoolChart({
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
+  const container = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(defaultChartFrame.width);
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const update = () => {
+      const next = element.getBoundingClientRect().width;
+      if (next > 0) setWidth(next);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const chartFrame = fitChartFrame(width);
+  const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   const [selected, setSelected] = useState<number | null>(null);
   const { fromMs, toMs, nowMs } = dashboard;
   const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
     ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
   );
-  const geometry = chartGeometry(samples, mode, pool.capacityPoints, fromMs, toMs);
+  const geometry = chartGeometry(samples, mode, pool.capacityPoints, fromMs, toMs, chartFrame);
   const { x, y, min, max, segments } = geometry;
   const field = metricField[mode];
   const sample = selected === null ? undefined : samples[Math.min(selected, samples.length - 1)];
@@ -40,7 +57,9 @@ export function PoolChart({
   const resetMarkers = pool.resets
     .filter((reset) => visible(reset.atMs) && reset.gainPoints > 0)
     .map((reset) => {
-      const showLabel = x(reset.atMs) - lastLabelX >= 100;
+      const showLabel =
+        x(reset.atMs) - lastLabelX >= 100 &&
+        (!visible(nowMs) || Math.abs(x(reset.atMs) - x(nowMs)) >= 60);
       if (showLabel) lastLabelX = x(reset.atMs);
       return { ...reset, showLabel };
     });
@@ -50,7 +69,7 @@ export function PoolChart({
     : t('quota_pool.inspect_hint');
 
   return (
-    <div className={styles.chart}>
+    <div className={styles.chart} ref={container}>
       <div className={styles.chartReadout} id={`${id}-readout`} aria-live="polite">
         {description}
       </div>
@@ -101,15 +120,15 @@ export function PoolChart({
             </text>
           </g>
         ))}
-        {Array.from({ length: 8 }, (_, index) => {
-          const at = fromMs + ((toMs - fromMs) * index) / 7;
+        {Array.from({ length: tickCount }, (_, index) => {
+          const at = fromMs + ((toMs - fromMs) * index) / (tickCount - 1);
           return (
             <g key={index} className={styles.grid}>
               <line x1={x(at)} x2={x(at)} y1={chartFrame.top} y2={chartFrame.bottom} />
               <text
                 x={x(at)}
                 y={chartFrame.bottom + 26}
-                textAnchor={index === 0 ? 'start' : index === 7 ? 'end' : 'middle'}
+                textAnchor={index === 0 ? 'start' : index === tickCount - 1 ? 'end' : 'middle'}
               >
                 {formatPoolDate(at, i18n.language, true)}
               </text>

@@ -14,6 +14,19 @@ export interface ChartSample {
 
 export const chartFrame = { width: 1000, height: 300, left: 64, right: 976, top: 38, bottom: 254 };
 
+/** Keep labels in CSS pixels instead of shrinking a desktop SVG on phones. */
+export function fitChartFrame(width: number) {
+  const height = width < 600 ? 240 : 300;
+  return {
+    width,
+    height,
+    left: width < 600 ? 40 : 52,
+    right: width - 12,
+    top: 38,
+    bottom: height - 38,
+  };
+}
+
 export function chartSamples(recorded: PoolPoint[], projected: PoolPoint[], mode: ChartMode) {
   return [
     ...recorded.map((point) => ({ point, projected: false })),
@@ -27,7 +40,8 @@ export function chartGeometry(
   mode: ChartMode,
   capacity: number,
   from: number,
-  to: number
+  to: number,
+  frame = chartFrame
 ) {
   const values = samples.flatMap(({ point }) => {
     const value = point[metricField[mode]];
@@ -37,9 +51,8 @@ export function chartGeometry(
   const max = Math.max(mode === 'remaining' ? capacity : 0, ...values);
   const span = max - min || 1;
   const x = (at: number) =>
-    chartFrame.left + ((at - from) / (to - from || 1)) * (chartFrame.right - chartFrame.left);
-  const y = (value: number) =>
-    chartFrame.bottom - ((value - min) / span) * (chartFrame.bottom - chartFrame.top);
+    frame.left + ((at - from) / (to - from || 1)) * (frame.right - frame.left);
+  const y = (value: number) => frame.bottom - ((value - min) / span) * (frame.bottom - frame.top);
   const segments = (projected: boolean) => {
     const paths: string[] = [];
     let path = '';

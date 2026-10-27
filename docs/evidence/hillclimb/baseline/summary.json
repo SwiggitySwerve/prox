@@ -1,0 +1,114 @@
+{
+  "wide": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "laptop": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 16,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "empty": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "loading": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "error": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "partial": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "stale": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "collecting": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "long-narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 16,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "details-narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 16,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "drain": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 3,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "burn-narrow": {
+    "pageOverflow": false,
+    "clipped": 2,
+    "targetFailures": 17,
+    "contrastFailures": 4,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "refresh-error": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 1,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  }
+}

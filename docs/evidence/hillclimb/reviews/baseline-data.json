@@ -1,0 +1,507 @@
+{
+  "reviewer": "data",
+  "scores": {
+    "wide": {
+      "hierarchy": 7,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "laptop": {
+      "hierarchy": 7,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "narrow": {
+      "hierarchy": 6,
+      "layout": 6,
+      "type_numbers": 7,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 6,
+      "consistency": 8,
+      "responsive_accessible": 6
+    },
+    "empty": {
+      "hierarchy": 7,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 6,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "loading": {
+      "hierarchy": 7,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 8,
+      "controls_states": 6,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "error": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "partial": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 7,
+      "content": 8,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "stale": {
+      "hierarchy": 7,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 7,
+      "content": 7,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "collecting": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 8,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "long-narrow": {
+      "hierarchy": 6,
+      "layout": 6,
+      "type_numbers": 7,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 6,
+      "consistency": 7,
+      "responsive_accessible": 6
+    },
+    "details-narrow": {
+      "hierarchy": 6,
+      "layout": 5,
+      "type_numbers": 7,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 5,
+      "consistency": 7,
+      "responsive_accessible": 5
+    },
+    "drain": {
+      "hierarchy": 5,
+      "layout": 6,
+      "type_numbers": 6,
+      "colour": 9,
+      "content": 6,
+      "controls_states": 6,
+      "consistency": 6,
+      "responsive_accessible": 7
+    },
+    "burn-narrow": {
+      "hierarchy": 5,
+      "layout": 5,
+      "type_numbers": 4,
+      "colour": 7,
+      "content": 6,
+      "controls_states": 5,
+      "consistency": 6,
+      "responsive_accessible": 4
+    },
+    "refresh-error": {
+      "hierarchy": 7,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 7,
+      "consistency": 7,
+      "responsive_accessible": 8
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "type_numbers"
+      ],
+      "element": "Small supporting text: refresh footer, quota-window captions, loaded/eligible counts and forecast badges",
+      "fix": "Raise essential supporting labels from the current roughly 11px to at least 12-13px and keep refresh time and data-quality labels at the same readable size as account text. Preserve the clear large totals and explicit units; this is a legibility issue, not a blanket text-contrast failure."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "controls_states",
+        "responsive_accessible"
+      ],
+      "element": "Show emails checkbox and label",
+      "fix": "Increase the clickable label height from the measured 19.5px to at least 24px on desktop and 44px on touch, with the checkbox vertically centered."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "controls_states"
+      ],
+      "element": "History and forecast disclosure below the account list; prominent chart toolbar above it",
+      "fix": "Open the provider chart by default when a forecast is ready and place its disclosure directly after the quota summary, retaining every account row below it. For partial/stale/collecting states, expose the corresponding chart-status explanation in that position. This makes the toolbar act on visible content and restores the reference design emphasis on quota over time."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "Pool totals in points versus account values shown as Current percentages",
+      "fix": "Make the existing unit explanation explicit as 100 points = 100% of one eligible account quota, and label the account percentage column Remaining rather than Current. Keep points on pooled totals and points/h on rates; do not replace pooled points with a percentage or imply token counts."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout"
+      ],
+      "element": "Mobile toolbar, detached Account view link and two widely spaced explanation paragraphs above the first provider",
+      "fix": "Tighten the vertical gaps between the provider tabs, account link and toolbar; combine the two quota explanation paragraphs into one compact block. Keep warnings fully visible and give the first quota total room within the initial phone viewport."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "controls_states",
+        "responsive_accessible"
+      ],
+      "element": "Provider tabs, metric segments, 1h/3h/6h buttons, selects, Account view and date-navigation buttons",
+      "fix": "Give these touch controls at least 44x44px hit areas. Measurements show metric buttons at 34px high, lookback buttons at about 39x34px and date arrows about 31px wide; reflow groups as needed without horizontal scrolling."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Empty notice says this provider while All pools is selected; active chart toolbar remains above it",
+      "fix": "Use a compact primary empty panel reading No accounts connected with a direct Add credentials action. Keep Account view available, and disable data-dependent chart controls until accounts exist. Show 0 accounts instead of an unexplained provider-count dash when the absence is known."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "colour"
+      ],
+      "element": "Amber warning styling on the no-accounts panel",
+      "fix": "Use a neutral informational surface and an account/add icon for this normal setup state; reserve the amber warning treatment for data problems so empty and failed states are visually distinct."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Centered loading message, unexplained provider-count dashes and active data-dependent toolbar",
+      "fix": "Place a loading placeholder where the provider cards will appear, label unknown counts Loading, and disable data-dependent chart/date controls until the first response. Keep the loading message near that placeholder instead of isolated in a large blank region."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "colour"
+      ],
+      "element": "Orange bullet beside Loading pooled quota",
+      "fix": "Use a neutral progress indicator for the dashboard-wide load so the orange marker remains a Claude cue; retain the written loading label."
+    },
+    {
+      "states": [
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Initial-load error banner with Any visible data is from the last successful request although no data is visible",
+      "fix": "Show a compact Could not load quota panel directly below the provider tabs with its Try again action. Omit the cached-data sentence when no cached cards are displayed, and disable data-dependent controls until usable data exists."
+    },
+    {
+      "states": [
+        "error",
+        "refresh-error"
+      ],
+      "aspects": [
+        "colour"
+      ],
+      "element": "Generic amber error strip without a distinct status marker",
+      "fix": "Add a visible warning icon and a short Error or Refresh failed heading in the amber strip, while using neutral styling for empty/loading states. Keep the text explanation and retry action; preserve provider orange and blue for provider identity."
+    },
+    {
+      "states": [
+        "partial",
+        "stale"
+      ],
+      "aspects": [
+        "hierarchy",
+        "colour",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Missing/stale-data paragraph and Forecast: Partial/Stale badge styled like ordinary secondary metadata",
+      "fix": "Put an amber warning icon and Partial data or Stale data label beside the affected provider summary, repeating the same label on affected account rows. Keep the explanation and em-dash totals; make the warning visually distinct from the neutral Ready badge."
+    },
+    {
+      "states": [
+        "partial"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Large em-dash pool total and 2 loaded / 3 eligible or 1 loaded / 2 eligible captions",
+      "fix": "Add Total unavailable: 1 account missing beside the em dash for each affected provider, using the actual missing count. Keep individual available balances visible and retain the full eligible capacity denominator."
+    },
+    {
+      "states": [
+        "stale"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Stale pool warning and affected account rows without an observation age",
+      "fix": "Show the last observation time or age beside each stale account and make clear which observations are too old to include in the pool total. Keep fresh account values separately identified and retain the forecast-out-of-date warning."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "colour",
+        "controls_states",
+        "consistency",
+        "content"
+      ],
+      "element": "Collecting-history explanation buried between the balance and accounts, plus a distant Forecast: Collecting badge",
+      "fix": "Use one neutral Collecting history status block directly after the total, with the existing explanation that a forecast appears after enough observations. Attach the disclosure to that block and distinguish it from amber partial/stale warnings; do not invent a readiness ETA."
+    },
+    {
+      "states": [
+        "long-narrow"
+      ],
+      "aspects": [
+        "layout",
+        "type_numbers",
+        "content",
+        "consistency"
+      ],
+      "element": "Three-line credential labels sharing a row with Current and Window unavailable statuses",
+      "fix": "Keep the full credential label but move status and remaining value to a second line for long labels. Replace the ambiguous Window unavailable wording with Weekly quota unavailable for the selected Weekly window, and use the same remaining-value label as the shorter account rows."
+    },
+    {
+      "states": [
+        "details-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "controls_states",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "Floating menu and utility capsule overlap the Remaining/Drain rate/Burn rate toolbar",
+      "fix": "Reserve a non-overlapping row for the floating utility controls or keep them at the viewport top with sufficient content inset. Ensure opening account details cannot place the utilities over the metric buttons."
+    },
+    {
+      "states": [
+        "details-narrow"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Expanded account details: First empty timestamp and Burn rate 1.2 points/h",
+      "fix": "Label First empty as Predicted empty and Burn rate as Burn, last 3h to distinguish forecast from observation and match the visible lookback selection. Add the dashboard timezone once beside these timestamp groups without changing the values."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "consistency",
+        "controls_states"
+      ],
+      "element": "Selected Drain/Burn rate mode still leads with Weekly quota remaining; rate plot follows all account rows and a History and forecast heading",
+      "fix": "Show the selected rate and points/h unit in the provider summary, keeping remaining quota as a secondary value. Place recorded-rate history before the account list in these modes and title that section Recorded drain rate or Recorded burn rate. Keep any depletion forecast explicitly labeled as a forecast rather than conflating it with the recorded rate plot."
+    },
+    {
+      "states": [
+        "drain"
+      ],
+      "aspects": [
+        "type_numbers",
+        "layout",
+        "hierarchy"
+      ],
+      "element": "Very small rate-chart labels and plots beginning at the bottom edge of the 1000px desktop capture",
+      "fix": "Bring the rate plots above the account rows and render axis labels at a readable screen size of at least 11-12px. Give both providers aligned chart positions so their rates can be compared without searching below differently sized account lists."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "controls_states",
+        "responsive_accessible"
+      ],
+      "element": "Inspect chart range sliders",
+      "fix": "Increase each slider hit area from the measured 16px height to at least 24px on desktop and 44px on touch, and show the selected sample timestamp and points/h value beside it so inspection has a visible numerical result."
+    },
+    {
+      "states": [
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout",
+        "type_numbers",
+        "colour",
+        "responsive_accessible"
+      ],
+      "element": "Both rate-chart axes and the clipped right side of the timeline",
+      "fix": "Fit the chart viewBox and plot bounds to the available 320px container rather than retaining the measured 580px internal width. Recalculate tick density and use at least 11-12px rendered labels; keep the entire selected date interval visible. Brighten axis labels to at least 4.5:1: measurements report 4.07:1 for zero ticks and a clipped Oct 30 tick at 1.21:1. Preserve the orange/blue strokes, whose measured visible contrast exceeds 3:1."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Refresh-failed banner above cards that still say Current and Forecast: Ready",
+      "fix": "Keep the retained cards and retry action, but label the observations Last loaded and show their last successful timestamp beside the summary. Qualify the ready badge as Forecast from last loaded data while the refresh warning is active, so the cards do not appear freshly verified."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Next reset, observed and forecast timestamps without a visible timezone",
+      "fix": "Display the actual dashboard timezone once alongside the date controls or timestamp groups; keep the existing date and time values. Do not let Next reset or Predicted empty times appear timezone-free when users compare accounts."
+    }
+  ]
+}
