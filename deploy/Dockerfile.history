@@ -1,0 +1,5 @@
+FROM docker.io/oven/bun:1.4.3
+USER 0
+WORKDIR /app
+COPY dist/server.js /app/server.js
+CMD ["bun", "/app/server.js"]

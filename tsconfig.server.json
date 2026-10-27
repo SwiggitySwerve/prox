@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["bun"], "rootDir": "." },
+  "include": ["server", "src/domain/quotaPool", "src/domain/quotaWindows"],
+  "references": []
+}

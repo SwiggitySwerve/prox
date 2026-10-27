@@ -20,7 +20,6 @@ import {
   CLAUDE_PROFILE_URL,
   CLAUDE_USAGE_URL,
   CLAUDE_REQUEST_HEADERS,
-  normalizeNumberValue,
   normalizeStringValue,
   parseClaudeUsagePayload,
   createStatusError,

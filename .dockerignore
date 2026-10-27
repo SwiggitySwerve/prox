@@ -1,6 +1,8 @@
 **
 !deploy/
 !deploy/Dockerfile
+!deploy/Dockerfile.history
 !deploy/nginx.conf
 !dist/
 !dist/index.html
+!dist/server.js

@@ -1,0 +1,581 @@
+.page {
+  color-scheme: dark;
+  color: #eee;
+  background: #050505;
+  min-width: 0;
+  padding: 16px 8px 32px;
+  --pool-accent: #dc8867;
+
+  button,
+  select,
+  input {
+    font: inherit;
+  }
+  button,
+  select {
+    color: #d5d5d5;
+    background: #171717;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    min-height: 40px;
+    padding: 8px 13px;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:hover,
+  select:hover {
+    background: #242424;
+  }
+  button[aria-pressed='true'] {
+    background: #292929;
+    color: #fff;
+    border-color: #383838;
+  }
+  button:disabled,
+  select:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  :is(button, select, input, summary, a):focus-visible {
+    outline: 2px solid #94baff;
+    outline-offset: 4px;
+  }
+  h1,
+  h2,
+  p,
+  dl,
+  dd {
+    margin: 0;
+  }
+  h1 {
+    font-size: clamp(24px, 2.4vw, 32px);
+    font-weight: 600;
+    letter-spacing: -0.9px;
+  }
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  a {
+    color: #c0c0c0;
+    text-decoration: none;
+  }
+  a:hover {
+    color: #fff;
+  }
+}
+.claude {
+  --pool-accent: #ed9877;
+}
+.codex {
+  --pool-accent: #83adff;
+}
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+.eyebrow {
+  color: #999;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  margin-bottom: 7px !important;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.privacy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #c3c3c3;
+}
+.privacy input {
+  accent-color: #eee;
+  width: 16px;
+  height: 16px;
+}
+.page .refresh {
+  background: #e7e7e7;
+  color: #111;
+  font-weight: 600;
+  padding-inline: 17px;
+}
+.page .refresh:hover {
+  background: #fff;
+}
+.refresh span {
+  font-size: 20px;
+  vertical-align: middle;
+}
+.providerBar {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #202020;
+  margin-bottom: 20px;
+}
+.providerBar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+}
+.providerMark {
+  font-size: 24px;
+  line-height: 1;
+  color: var(--pool-accent);
+}
+.count {
+  color: #aaa;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.accountLink {
+  margin-left: auto;
+  font-size: 13px;
+  padding: 10px 0 10px 12px;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.segment {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 9px;
+  background: #111;
+}
+.segment button {
+  background: transparent;
+  min-height: 34px;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+.selectLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #aaa;
+}
+.selectLabel select {
+  max-width: 180px;
+}
+.dateNavigation {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dateNavigation > span {
+  color: #aaa;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.dateNavigation button:first-of-type,
+.dateNavigation button:last-of-type {
+  font-size: 22px;
+  background: transparent;
+  padding: 4px 10px;
+}
+.method {
+  color: #a3a3a3;
+  font-size: 12px;
+  margin: 15px 0 20px !important;
+}
+.pools {
+  display: grid;
+  gap: 20px;
+}
+.pool {
+  min-width: 0;
+  border: 1px solid #1d1d1d;
+  border-radius: 13px;
+  background: #101010;
+  padding: 23px 24px 0;
+  overflow: hidden;
+}
+.poolHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: center;
+}
+.poolTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.poolTitle > span:not(.providerMark) {
+  font-size: 12px;
+  color: #aaa;
+}
+.badge {
+  border: 1px solid #333;
+  border-radius: 20px;
+  padding: 3px 8px;
+}
+.headline {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-top: 13px;
+}
+.headline strong {
+  font-size: clamp(37px, 4vw, 49px);
+  font-weight: 550;
+  letter-spacing: -1.8px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.headline > span {
+  color: #aaa;
+  font-size: 14px;
+}
+.coverage {
+  color: #999;
+  font-size: 11px;
+  margin-top: 9px !important;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(105px, 1fr));
+  gap: 22px;
+}
+.stats dt,
+.accountDetails dt {
+  color: #aaa;
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+.stats dd {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.stats small {
+  font-size: 11px;
+  color: #b6b6b6;
+  display: inline-block;
+  margin-top: 4px;
+}
+.stateNote {
+  font-size: 12px;
+  color: #b6b6b6;
+  line-height: 1.6;
+  margin-top: 14px !important;
+}
+.chart {
+  margin-top: 14px;
+}
+.chartReadout {
+  min-height: 25px;
+  color: #b7b7b7;
+  font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.grid line {
+  stroke: #222;
+  stroke-width: 0.7;
+}
+.grid text {
+  fill: #aaa;
+  font-size: 11px;
+}
+.nowLine {
+  stroke: #999;
+  stroke-width: 1;
+}
+.nowLabel {
+  fill: #ccc;
+  font-size: 11px;
+}
+.resetMarker {
+  fill: #b7b7b7;
+  stroke: none;
+  font-size: 10px;
+}
+.resetMarker line {
+  stroke: var(--pool-accent);
+  stroke-width: 1;
+}
+.emptyChart {
+  fill: #aaa;
+  font-size: 14px;
+}
+.chartFooter {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  color: #aaa;
+  font-size: 11px;
+}
+.legend span {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+}
+.legend i {
+  width: 18px;
+  border-top: 2px solid var(--pool-accent);
+}
+.legend i.dashed {
+  border-top-style: dashed;
+}
+.inspect {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #aaa;
+  font-size: 11px;
+}
+.inspect input {
+  width: 110px;
+  accent-color: var(--pool-accent);
+  cursor: ew-resize;
+}
+.accounts {
+  border-top: 1px solid #252525;
+}
+.accounts > summary {
+  padding: 15px 0;
+  cursor: pointer;
+  font-size: 12px;
+  color: #c2c2c2;
+}
+.accounts > summary span {
+  margin-left: 8px;
+  color: #999;
+}
+.account {
+  border-top: 1px solid #242424;
+}
+.account > summary {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+.account > summary::before {
+  content: '›';
+  color: #aaa;
+}
+.account[open] > summary::before {
+  content: '⌄';
+}
+.accountName {
+  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
+}
+.accountStatus {
+  color: #aaa;
+  font-size: 11px;
+}
+.account strong {
+  font-variant-numeric: tabular-nums;
+}
+.accountDetails {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  padding: 0 22px 20px;
+  font-size: 12px;
+}
+.notice {
+  border: 1px solid #5c4931;
+  background: #211b13;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.notice button {
+  padding: 3px 12px;
+  min-height: 30px;
+}
+.loading {
+  min-height: 300px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  color: #aaa;
+}
+.loadingDot {
+  width: 8px;
+  height: 8px;
+  background: #ed9877;
+  border-radius: 50%;
+}
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  color: #999;
+  font-size: 11px;
+  padding: 20px 2px;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// Scoped shell theme: the original account dashboard retains its existing theme.
+.shell {
+  color-scheme: dark;
+  --bg-secondary: #050505;
+  --bg-primary: #101010;
+  --bg-tertiary: #202020;
+  --bg-hover: #202020;
+  --text-primary: #eee;
+  --text-secondary: #b5b5b5;
+  --text-tertiary: #999;
+  --text-muted: #999;
+  --border-color: #262626;
+  --border-primary: #333;
+  --border-hover: #444;
+  --floating-surface: #171717;
+  --primary-color: #b5b5b5;
+  background: #050505 !important;
+  color: #eee;
+  :global(.top-gradient-blur) {
+    display: none;
+  }
+  :global(.content),
+  :global(.main-content),
+  :global(.page-transition),
+  :global(.page-transition__layer),
+  :global(.sidebar) {
+    background: #050505;
+  }
+  :global(.main-header) {
+    // The fixed header spans the sidebar; keep its brand visible underneath.
+    background: transparent;
+  }
+  :global(.sidebar-brand-subtitle) {
+    display: none;
+  }
+}
+.brandMark {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  background: #222;
+  border-radius: 9px;
+  color: #ed9877;
+  font-size: 25px;
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .stats {
+    width: 100%;
+    gap: 15px;
+  }
+  .dateNavigation {
+    margin-left: 0;
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    padding: 8px 0 20px;
+  }
+  .pageHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .providerBar {
+    gap: 3px;
+  }
+  .providerBar button {
+    padding: 8px 10px;
+  }
+  .accountLink {
+    margin-left: 0;
+  }
+  .toolbar {
+    gap: 10px;
+  }
+  .dateNavigation {
+    width: 100%;
+  }
+  .dateNavigation > span {
+    margin-right: auto;
+  }
+  .pool {
+    padding: 18px 14px 0;
+  }
+  .poolTitle {
+    gap: 7px;
+  }
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 18px;
+  }
+  .chart {
+    overflow-x: auto;
+  }
+  .chart svg {
+    min-width: 580px;
+  }
+  .chartReadout {
+    text-align: left;
+    min-height: 38px;
+  }
+  .chartFooter {
+    margin-top: 8px;
+  }
+  .accountDetails {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: 0;
+  }
+  .account > summary {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
