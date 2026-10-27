@@ -12,13 +12,12 @@ import {
   SECTION_VALIDATION_FIELDS,
 } from '@/features/config/constants';
 import { CONFIG_FIELD_SEARCH_INDEX, searchConfigFields } from '@/features/config/searchIndex';
+import { escapeText } from './helpers/markup';
 
 const translations = i18n.cloneInstance({ lng: 'en' });
 const props = { values: DEFAULT_VISUAL_VALUES, disabled: false, onChange: () => {} };
 const render = (element: ReturnType<typeof createElement>) =>
   renderToStaticMarkup(createElement(I18nextProvider, { i18n: translations }, element));
-const escapeText = (value: string) =>
-  renderToStaticMarkup(createElement('span', null, value)).slice(6, -7);
 const extras = CONFIG_FIELD_SEARCH_INDEX.filter((entry) =>
   entry.labelKey.includes('.serverExtras.')
 );

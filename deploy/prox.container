@@ -1,0 +1,16 @@
+[Unit]
+Description=Prox management UI (separate upstream fork)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=localhost/prox:dev
+ContainerName=prox
+Network=host
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

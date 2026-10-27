@@ -10,14 +10,13 @@ import { SectionOAuthBehavior } from '@/features/config/components/sections/Sect
 import { CodexLiveICEServersEditor } from '@/features/config/components/blocks/CodexLiveICEServersEditor';
 import { CONFIG_SECTION_IDS } from '@/features/config/constants';
 import { CONFIG_FIELD_SEARCH_INDEX } from '@/features/config/searchIndex';
+import { escapeText } from './helpers/markup';
 
 const translations = i18n.cloneInstance({ lng: 'en' });
 const noop = () => {};
 const render = (element: ReturnType<typeof createElement>) =>
   renderToStaticMarkup(createElement(I18nextProvider, { i18n: translations }, element));
 const props = { values: DEFAULT_VISUAL_VALUES, disabled: false, onChange: noop };
-const escapeText = (value: string) =>
-  renderToStaticMarkup(createElement('span', null, value)).slice(6, -7);
 const text = (key: string) =>
   escapeText(translations.t(`config_management.visual.additions.${key}`));
 const server = {

@@ -12,6 +12,7 @@ import {
 } from '../src/features/authFiles/cooldowns';
 import { AuthFileCooldownSection } from '../src/features/authFiles/components/AuthFileCooldownSection';
 import type { AuthFileCooldownSnapshot, AuthFilesResponse } from '../src/types/authFile';
+import { escapeText } from './helpers/markup';
 
 const observedAt = '2026-07-17T10:00:00.000Z';
 const receivedAtMs = Date.now();
@@ -225,7 +226,7 @@ describe('cooldown section rendering', () => {
 
     const available = render(snapshot, { onReset: () => {} });
     expect(available).toContain(i18n.t('auth_files.cooldown_reset_button'));
-    expect(available).toContain(i18n.t('auth_files.cooldown_reset_hint'));
+    expect(available).toContain(escapeText(i18n.t('auth_files.cooldown_reset_hint')));
     expect(available).not.toContain('disabled=""');
 
     const pending = render(snapshot, { onReset: () => {}, resetting: true });
