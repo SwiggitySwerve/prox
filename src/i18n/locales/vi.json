@@ -2396,6 +2396,8 @@
     "recorded": "Đã ghi nhận",
     "projected": "Dự đoán",
     "inspect_hint": "Di chuột lên biểu đồ, hoặc chọn biểu đồ và dùng phím mũi tên để xem mẫu.",
+    "move_up": "Chuyển {{pool}} lên",
+    "move_down": "Chuyển {{pool}} xuống",
     "inspect": "Xem biểu đồ",
     "chart_title": "{{provider}} · {{mode}}",
     "chart_description": "Đường liền hiển thị dữ liệu đã ghi nhận; đường đứt hiển thị dự đoán từ máy chủ trong chế độ còn lại. Khoảng trống biểu thị dữ liệu thiếu. Dấu đặt lại hiển thị điểm được thêm. Di chuột hoặc dùng phím mũi tên để đọc giá trị chính xác.",

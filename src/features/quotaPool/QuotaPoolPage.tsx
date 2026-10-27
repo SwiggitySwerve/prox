@@ -7,6 +7,7 @@ import type { PoolQuery } from '@/services/api/quotaPool';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
 import { PoolCard } from './PoolCard';
+import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
 import { PoolProviderMark } from './PoolProviderMark';
 import type { ChartMode } from './chartGeometry';
 import { formatPoolDate } from './presentation';
@@ -29,6 +30,8 @@ export function QuotaPoolPage() {
   const refreshing = state.refreshing || refreshStatus?.refreshing;
   const initialLoading = state.loading && !data;
   const chartUnavailable = !data?.pools.length;
+  const { order, setOrder } = usePoolOrder();
+  const orderedPools = data ? orderPools(data.pools, order) : [];
   const refreshFromHeader = useCallback(async () => {
     if (!(await refresh())) throw new Error(t('quota_pool.refresh_error'));
   }, [refresh, t]);
@@ -239,18 +242,33 @@ export function QuotaPoolPage() {
         </div>
       )}
       <div className={styles.pools} aria-busy={state.loading}>
-        {data?.pools
-          .filter((pool) => provider === 'all' || provider === pool.provider)
-          .map((pool) => (
-            <PoolCard
-              key={`${pool.instanceId ?? 'legacy'}:${pool.provider}`}
-              pool={pool}
-              dashboard={data}
-              mode={mode}
-              reveal={query.reveal}
-              savedData={state.error || state.refreshError}
-            />
-          ))}
+        {data &&
+          orderedPools
+            .filter((pool) => provider === 'all' || provider === pool.provider)
+            .map((pool, index, shown) => (
+              <PoolCard
+                key={poolKey(pool)}
+                pool={pool}
+                dashboard={data}
+                mode={mode}
+                reveal={query.reveal}
+                savedData={state.error || state.refreshError}
+                move={
+                  provider === 'all' && shown.length > 1
+                    ? {
+                        up:
+                          index > 0
+                            ? () => setOrder(movePool(shown, poolKey(pool), -1))
+                            : undefined,
+                        down:
+                          index < shown.length - 1
+                            ? () => setOrder(movePool(shown, poolKey(pool), 1))
+                            : undefined,
+                      }
+                    : undefined
+                }
+              />
+            ))}
         {data && data.pools.length === 0 && (
           <div className={styles.notice}>
             <h2>{t('quota_pool.no_accounts_title')}</h2>

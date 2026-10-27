@@ -417,6 +417,17 @@ async def main():
                     await chart.press("ArrowLeft")
                     assert await readout.inner_text() == before
                     interaction["keyboard_sample_readout"] = "passed"
+                if name == "wide":
+                    titles = lambda: page.locator("article h2").all_inner_texts()
+                    first = (await titles())[0]
+                    await page.get_by_role("button", name=f"Move {first.split(' ')[0]} down").click()
+                    moved = await titles()
+                    assert moved[1] == first and moved[0] != first, "Move down must swap the first two pools"
+                    stored_order = await page.evaluate("localStorage.getItem('prox-pool-order')")
+                    assert stored_order and "codex" in stored_order.split("claude")[0], "The new order must be saved"
+                    await page.get_by_role("button", name=f"Move {first.split(' ')[0]} up").click()
+                    assert (await titles())[0] == first
+                    interaction["pool_reorder_persists"] = "passed"
                 if state == "collecting":
                     assert await page.locator('article svg[tabindex="0"]').count() == 0
                     interaction["single_sample_is_not_focusable"] = "passed"

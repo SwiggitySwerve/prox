@@ -2416,6 +2416,8 @@
     "recorded": "已記錄",
     "projected": "預測",
     "inspect_hint": "將指標停在圖表上，或聚焦圖表後使用方向鍵查看樣本。",
+    "move_up": "上移 {{pool}}",
+    "move_down": "下移 {{pool}}",
     "inspect": "查看圖表",
     "chart_title": "{{provider}} · {{mode}}",
     "chart_description": "實線表示已記錄的觀測值；虛線表示剩餘額度模式下的伺服器預測。空白表示缺失資料。重設標記表示增加的點數。停留指標或使用方向鍵讀取精確值。",

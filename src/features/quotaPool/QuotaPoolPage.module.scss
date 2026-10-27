@@ -250,6 +250,7 @@
   gap: 16px;
 }
 .pool {
+  position: relative;
   min-width: 0;
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -274,6 +275,38 @@
   > span:not(.providerMark) {
     font-size: 13px;
     color: #b5b5b5;
+  }
+}
+.reorder {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: inline-flex;
+  gap: 4px;
+  // Desktop: compact corner controls. Narrow layouts keep the page's 44px touch targets.
+  @media (min-width: 901px) {
+    button {
+      min-width: 32px;
+      min-height: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+  @media (max-width: 900px) {
+    position: static;
+    margin-left: auto;
+  }
+  button {
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border-primary);
+  }
+  button:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 }
 .metricLabel {

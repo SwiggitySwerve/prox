@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IconChevronDown, IconChevronUp } from '@/components/ui/icons';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
 import { PoolChart } from './PoolChart';
@@ -13,12 +14,15 @@ export function PoolCard({
   mode,
   reveal,
   savedData = false,
+  move,
 }: {
   pool: QuotaPool;
   dashboard: PoolDashboard;
   mode: ChartMode;
   reveal: boolean;
   savedData?: boolean;
+  /** Reorder controls; a missing direction is shown disabled. */
+  move?: { up?: () => void; down?: () => void };
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -55,6 +59,28 @@ export function PoolCard({
                       state: t(`quota_pool.state.${pool.forecastState}`),
                     })}
             </span>
+            {move && (
+              <span className={styles.reorder}>
+                <button
+                  type="button"
+                  onClick={move.up}
+                  disabled={!move.up}
+                  aria-label={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
+                  title={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
+                >
+                  <IconChevronUp size={18} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={move.down}
+                  disabled={!move.down}
+                  aria-label={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
+                  title={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
+                >
+                  <IconChevronDown size={18} aria-hidden="true" />
+                </button>
+              </span>
+            )}
           </div>
           <div className={styles.headline} data-unavailable={pool[metricField[mode]] === null}>
             <strong>
