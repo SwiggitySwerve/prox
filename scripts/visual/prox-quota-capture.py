@@ -352,9 +352,7 @@ async def main():
                 await page.evaluate("""async () => {
                     const {useAuthStore}=await import('/src/stores/useAuthStore.ts');
                     const {apiClient}=await import('/src/services/api/client.ts');
-                    const {useThemeStore}=await import('/src/stores/useThemeStore.ts');
                     const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage('en');
-                    useThemeStore.getState().setTheme('dark');
                     apiClient.setConfig({apiBase:location.origin,managementKey:'visual-fixture-only'});
                     useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
                     location.hash='/quota';

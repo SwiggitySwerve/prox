@@ -28,10 +28,8 @@ export function SelectedSourceBoundary({ children }: { children: ReactNode }) {
   );
   if (!source) return <p role="alert">{t('provider_sources.authentication_required')}</p>;
   return (
+    // MainLayout's source toolbar names the destination for these routes.
     <SourceDestination key={sourceOwnerKey(source.session.owner)} session={source.session}>
-      <p>
-        {t('quota_pool.runtime_source')}: {source.source.label}
-      </p>
       {children}
     </SourceDestination>
   );
