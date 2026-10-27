@@ -26,9 +26,8 @@ export function PoolCard({
     value === null
       ? t(`quota_pool.${available ? 'not_predicted' : 'forecast_unavailable'}`)
       : date(value);
-  const balanceLabel = t('quota_pool.window_remaining', {
-    window: t(`quota_pool.${dashboard.window === 'weekly' ? 'weekly' : 'five_hour'}`),
-  });
+  const windowLabel = t(`quota_pool.${dashboard.window === 'weekly' ? 'weekly' : 'five_hour'}`);
+  const balanceLabel = t('quota_pool.window_remaining', { window: windowLabel });
   return (
     <article
       className={`${styles.pool} ${styles[pool.provider]}`}
@@ -42,21 +41,29 @@ export function PoolCard({
             <h2 id={`${pool.provider}-title`}>{t(`quota_pool.${pool.provider}`)}</h2>
             <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
           </div>
-          <p className={styles.metricLabel}>
-            {mode !== 'remaining'
-              ? t('quota_pool.recorded_rate', {
-                  rate: t(`quota_pool.${mode}`),
-                  hours: dashboard.lookbackHours,
-                })
-              : balanceLabel}
-          </p>
-          <div className={styles.headline}>
-            <strong>{number(pool[metricField[mode]])}</strong>
-            <span>
-              {mode === 'remaining'
-                ? t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })
-                : t('quota_pool.points_hour')}
-            </span>
+          <div className={styles.headline} data-unavailable={pool[metricField[mode]] === null}>
+            <strong>
+              {pool[metricField[mode]] === null
+                ? t(
+                    `quota_pool.${mode === 'remaining' ? 'total_unavailable_title' : 'forecast_unavailable'}`
+                  )
+                : number(pool[metricField[mode]])}
+            </strong>
+            <div className={styles.headlineContext}>
+              <p className={styles.metricLabel}>
+                {mode !== 'remaining'
+                  ? t('quota_pool.recorded_rate', {
+                      rate: t(`quota_pool.${mode}`),
+                      hours: dashboard.lookbackHours,
+                    })
+                  : balanceLabel}
+              </p>
+              <span>
+                {mode === 'remaining'
+                  ? t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })
+                  : t('quota_pool.points_hour')}
+              </span>
+            </div>
           </div>
           {mode !== 'remaining' && (
             <p className={styles.balanceContext}>
@@ -69,14 +76,16 @@ export function PoolCard({
             <span className={styles.badge} data-state={pool.forecastState}>
               {savedData
                 ? t('quota_pool.saved_forecast')
-                : t('quota_pool.forecast_status', {
-                    state: t(`quota_pool.state.${pool.forecastState}`),
-                  })}
+                : pool.forecastState === 'partial' || pool.forecastState === 'stale'
+                  ? t('quota_pool.projection_unavailable')
+                  : t('quota_pool.forecast_status', {
+                      state: t(`quota_pool.state.${pool.forecastState}`),
+                    })}
             </span>
           </p>
-          {(pool.forecastState === 'stale' || savedData) && (
+          {savedData && (
             <p className={styles.coverage}>
-              {t('quota_pool.last_refresh')}: {date(dashboard.lastRefreshAtMs)}
+              {t('quota_pool.saved_snapshot')}: {date(dashboard.nowMs)}
             </p>
           )}
         </div>
@@ -102,25 +111,20 @@ export function PoolCard({
                 </small>
               )}
             </div>
-            <div>
-              <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
-              <dd>
-                {number(pool.burnPointsPerHour)} {t('quota_pool.points_hour')}
-              </dd>
-            </div>
+            {mode !== 'burn' && (
+              <div>
+                <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
+                <dd>
+                  {number(pool.burnPointsPerHour)} {t('quota_pool.points_hour')}
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
       </div>
       {pool.forecastState !== 'ready' && (
         <p className={styles.stateNote} role="status" data-state={pool.forecastState}>
           {t(`quota_pool.state_note.${pool.forecastState}`)}
-          {pool.forecastState === 'partial' && (
-            <>
-              {' '}
-              {t('quota_pool.coverage', { loaded: pool.loadedCount, eligible: pool.eligibleCount })}
-              .
-            </>
-          )}
         </p>
       )}
       <section className={styles.forecast} aria-label={t('quota_pool.history_forecast')}>
@@ -134,7 +138,10 @@ export function PoolCard({
       </section>
       <section className={styles.accounts} aria-labelledby={`${pool.provider}-accounts`}>
         <h3 id={`${pool.provider}-accounts`}>
-          {t('quota_pool.accounts')} <span>{pool.accountCount}</span>
+          <span>
+            {t('quota_pool.accounts')} {pool.accountCount}
+          </span>
+          <span>{t('quota_pool.remaining')}</span>
         </h3>
         <div className={styles.accountGrid}>
           {pool.accounts.length === 0 ? (
@@ -149,7 +156,9 @@ export function PoolCard({
                   <span className={styles.accountStatus}>
                     {savedData && account.status === 'ok'
                       ? t('quota_pool.saved_observation')
-                      : t(`quota_pool.account_status.${account.status}`)}
+                      : account.status === 'missing-window'
+                        ? t('quota_pool.window_unavailable', { window: windowLabel })
+                        : t(`quota_pool.account_status.${account.status}`)}
                     {account.status === 'stale' && (
                       <>
                         {' '}
@@ -161,7 +170,9 @@ export function PoolCard({
                     {account.remainingPercent === null
                       ? '—'
                       : `${number(account.remainingPercent)}%`}
-                    <small>{t('quota_pool.remaining')}</small>
+                    {account.status === 'stale' && (
+                      <small>{t('quota_pool.account_status.stale')}</small>
+                    )}
                   </strong>
                 </summary>
                 <dl className={styles.accountDetails}>

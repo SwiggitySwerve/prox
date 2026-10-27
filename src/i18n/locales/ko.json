@@ -2312,6 +2312,8 @@
     "expired": "바인딩 세션이 만료되었습니다. 다시 시작하세요."
   },
   "quota_pool": {
+    "total_unavailable_title": "합계 사용 불가",
+    "window_unavailable": "{{window}} 할당량 사용 불가",
     "saved_observation": "저장된 관측값",
     "forecast_unavailable": "사용 불가",
     "total_unavailable": "일부 잔여량이 없어 합계를 표시할 수 없습니다.",
@@ -2421,7 +2423,7 @@
     "recorded_rate": "기록된 {{rate}} · {{hours}}시간",
     "remaining_forecast": "잔여 할당량 예측",
     "predicted_empty": "예상 소진",
-    "normalized_short": "100포인트 = 계정 하나의 전체 할당량.",
+    "normalized_short": "적격 계정당 100포인트 · 가중치 없는 할당량이며 토큰이 아닙니다.",
     "awaiting_data": "데이터 대기 중",
     "refresh_failed_title": "새로고침 실패",
     "load_failed_title": "할당량을 불러올 수 없음",

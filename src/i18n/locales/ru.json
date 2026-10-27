@@ -2306,6 +2306,8 @@
     "expired": "Сеанс привязки истёк. Начните заново."
   },
   "quota_pool": {
+    "total_unavailable_title": "Итог недоступен",
+    "window_unavailable": "Квота {{window}} недоступна",
     "saved_observation": "Сохранённое наблюдение",
     "forecast_unavailable": "Недоступно",
     "total_unavailable": "Итог недоступен: часть остатков отсутствует.",
@@ -2415,7 +2417,7 @@
     "recorded_rate": "Наблюдаемый {{rate}} · {{hours}}ч",
     "remaining_forecast": "Прогноз остатка квоты",
     "predicted_empty": "Прогноз исчерпания",
-    "normalized_short": "100 баллов = полная квота одного аккаунта.",
+    "normalized_short": "100 баллов на подходящий аккаунт · квота без весов, не токены.",
     "awaiting_data": "Ожидание данных",
     "refresh_failed_title": "Ошибка обновления",
     "load_failed_title": "Не удалось загрузить квоты",

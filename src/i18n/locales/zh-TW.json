@@ -2339,6 +2339,8 @@
     "expired": "綁定工作階段已過期，請重新開始。"
   },
   "quota_pool": {
+    "total_unavailable_title": "總量無法使用",
+    "window_unavailable": "{{window}}配額無法使用",
     "saved_observation": "已儲存的觀測",
     "forecast_unavailable": "無法使用",
     "total_unavailable": "總量無法使用：部分餘額缺失。",
@@ -2448,7 +2450,7 @@
     "recorded_rate": "已記錄{{rate}} · {{hours}}小時",
     "remaining_forecast": "剩餘配額預測",
     "predicted_empty": "預計耗盡",
-    "normalized_short": "100 點 = 一個帳戶的完整配額。",
+    "normalized_short": "每個符合條件的帳戶 100 點 · 不加權的配額，並非權杖。",
     "awaiting_data": "等待資料",
     "refresh_failed_title": "重新整理失敗",
     "load_failed_title": "無法載入配額",

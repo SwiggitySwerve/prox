@@ -442,7 +442,7 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toContain('<strong>—</strong>');
+    expect(markup).toContain('<strong>Total unavailable</strong>');
     expect(markup).toContain('Collecting history');
     expect(markup).toContain('No observations in this range');
   });

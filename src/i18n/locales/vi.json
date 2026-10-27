@@ -2318,6 +2318,8 @@
     "expired": "Phiên liên kết đã hết hạn. Hãy bắt đầu lại."
   },
   "quota_pool": {
+    "total_unavailable_title": "Không có tổng",
+    "window_unavailable": "Không có hạn mức {{window}}",
     "saved_observation": "Quan sát đã lưu",
     "forecast_unavailable": "Không khả dụng",
     "total_unavailable": "Không có tổng — thiếu một số số dư.",
@@ -2427,7 +2429,7 @@
     "recorded_rate": "{{rate}} đã ghi · {{hours}}h",
     "remaining_forecast": "Dự báo hạn mức còn lại",
     "predicted_empty": "Dự kiến hết hạn mức",
-    "normalized_short": "100 điểm = toàn bộ hạn mức của một tài khoản.",
+    "normalized_short": "100 điểm mỗi tài khoản đủ điều kiện · hạn mức không trọng số, không phải token.",
     "awaiting_data": "Đang chờ dữ liệu",
     "refresh_failed_title": "Làm mới thất bại",
     "load_failed_title": "Không thể tải hạn mức",

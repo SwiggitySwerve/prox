@@ -93,7 +93,32 @@ visible/accessible readouts, the single-sample state without an inert slider,
 disabled unavailable controls, and the empty-state credential destination.
 Every state has a passing applicable interaction check recorded in
 `round-3/measurements.json`. These are synthetic browser checks, not live provider
-verification. Independent visual scores for round 3 are pending.
+verification. Three independent reviewers produced 95/112 passing cells for
+round 3, up from 52/112. No median dropped and no reviewer spread reached three.
 
 Final round-3 `bun run verify` passed: 1,726 tests, ESLint, TypeScript and both
 production builds. Targeted Prettier validation and `git diff --check` also pass.
+
+## Round 4 verification
+
+Summary labels sit beside their values, giving recorded/projection charts more
+depth. Missing totals have an explicit primary label; partial/stale badges say
+Forecast unavailable. Loaded counts and the Remaining column label are stated
+once. Stale percentages retain their values and carry a local Stale qualifier.
+The saved-snapshot timestamp is `dashboard.nowMs`, the snapshot generation time,
+not an invented account-observation or successful-collection time. Collection
+attempt metadata remains in the footer.
+
+Chart inspection readouts and sliders are adjacent on desktop. Slider thumbs
+are 20px; their control areas retain the original 24px/44px minimums. Phone axes
+and snapshot labels are 14px. The Accounts action has a visible button surface,
+and the title fits one line at 390px. Locale-aware date parts allow wrapping
+between date and time while keeping time, day period and timezone together.
+The intermediate-width toolbar and footer use deliberate rows. No fixtures or
+server behavior changed this round.
+
+All 14 states pass measured checks and applicable browser interaction assertions:
+text contrast at least 8.19:1, chart-stroke contrast 8.48:1/8.51:1, target areas
+at least 24px desktop/44px touch, and no measured clipping, overflow, colour or
+browser-error failures. `bun run verify` passes all 1,726 tests, ESLint,
+TypeScript and both production builds. Independent visual scores are pending.

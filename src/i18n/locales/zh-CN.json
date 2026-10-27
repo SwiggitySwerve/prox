@@ -2311,6 +2311,8 @@
     "expired": "绑定会话已过期，请重新开始。"
   },
   "quota_pool": {
+    "total_unavailable_title": "总量不可用",
+    "window_unavailable": "{{window}}配额不可用",
     "saved_observation": "已保存的观测",
     "forecast_unavailable": "不可用",
     "total_unavailable": "总量不可用：部分余额缺失。",
@@ -2420,7 +2422,7 @@
     "recorded_rate": "已记录{{rate}} · {{hours}}小时",
     "remaining_forecast": "剩余配额预测",
     "predicted_empty": "预计耗尽",
-    "normalized_short": "100 点 = 一个账户的完整配额。",
+    "normalized_short": "每个符合条件的账户 100 点 · 不加权的配额，并非令牌。",
     "awaiting_data": "等待数据",
     "refresh_failed_title": "刷新失败",
     "load_failed_title": "无法加载配额",

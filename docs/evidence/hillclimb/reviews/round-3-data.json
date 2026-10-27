@@ -1,0 +1,316 @@
+{
+  "reviewer": "data",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "empty": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "details-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "drain": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "refresh-error": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "colour",
+        "controls_states"
+      ],
+      "element": "Inspected the supplied reference PNG and all 14 round-2/round-3 pairs, including side-by-side composites made in memory from the actual PNG pixels. Round 3 preserves the dark surfaces, Claude orange, Codex blue, prominent totals and solid recorded/dashed projected distinction. The Accounts destination moves beside the page title, and warning headings are easier to scan.",
+      "fix": "Retain these visual improvements. Scores describe screenshot-visible communication and reflow only; they do not establish live refresh behavior, calculations, keyboard operation, accessible names or measured contrast. No implementation or other reviewers' reports were inspected."
+    },
+    {
+      "states": [
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "Round 3 shows no reset markers on the partial, stale and collecting charts. Long-narrow retains the Window unavailable account rows while showing unavailable totals and depletion predictions. Stale retains 82.8% on the affected Claude account and identifies its observation as Oct 27, 11:00 AM UTC. These are assessed with the supplied fixture corrections; their numerical/marker changes are not evidence of frontend arithmetic changes or UI-only gains.",
+      "fix": "Preserve the corrected fixtures and their data meaning. Credit the visible Forecast unavailable annotation, explicit withholding explanation and observation-time caption as communication improvements; do not restore invented resets, replace unavailable balances with zero, or discard the older observed percentage."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "collecting",
+        "details-narrow",
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "The immediate points explanation is now only 100 points = one account's full quota. The more important qualification that eligible accounts are normalized equally, points are not tokens and plans are not weighted has moved to the footer. It is below both provider cards in the mobile captures and outside the wide/laptop captures. A reader comparing the provider totals can still infer equal usable capacity from equal points without seeing that qualification.",
+      "fix": "Keep a compact qualification beside the first total or the top units note, such as 100 points per eligible account; unweighted quota, not tokens. Retain the fuller footer explanation, all displayed values and the current short toolbar. This is a remaining content limitation despite the improved account Remaining captions."
+    },
+    {
+      "states": [
+        "partial",
+        "long-narrow"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "The badge still says Forecast: Partial while the warning says Total and forecast unavailable and the chart says Forecast unavailable. Partial can suggest that a partial projection is actually displayed. In long-narrow, Window unavailable also leaves the selected Weekly window implicit, and the warning repeats the loaded/eligible counts already directly above it.",
+      "fix": "Label the badge Forecast unavailable and give Missing quota data as the reason. In long-narrow, label the affected row Weekly quota unavailable, using the selected window. Keep loaded/eligible counts once and preserve the unavailable aggregate, historical trace, available percentages and all account rows."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Moving Accounts into the title row brings the first Remaining card up to about 498px instead of 576px, but the metric, lookback, future-usage and date groups still occupy four stacked rows. The Scheduled reset legend and sample readout each wrap below the forecast charts; the second provider starts around 1449px in narrow and later in the expanded/rate variants. Long-narrow also repeats counts inside each multi-line warning.",
+      "fix": "Reduce vertical spacing between the toolbar groups and consolidate repeated counts/warning copy. Where space permits, combine chart units and legend entries into a compact wrapping group. Preserve readable sample text, current control sizes, all account rows and explicit missing-data messages; do not recover space by shrinking text."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "type_numbers",
+        "responsive_accessible"
+      ],
+      "element": "The account detail labels and sample readouts are visibly larger than round 2 and wrap cleanly. Chart axis numbers, date ticks and the Snapshot caption remain visibly smaller than the surrounding essential labels at the native 390px width. The three sparse dates help, but readers still have to resolve small text to interpret the plotted magnitude and recorded/projected boundary.",
+      "fix": "Increase essential chart ticks and the Snapshot caption to the size of the readable sample captions, allowing extra axis space where needed. Retain sparse date ticks and the prominent numeric totals. This rating concerns visible readability; the screenshots do not prove a contrast, focus or keyboard failure."
+    },
+    {
+      "states": [
+        "laptop"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The two-by-two forecast summary fixes round 2's isolated UTC lines and restores of 300 points beside 248.4. However, the date navigator occupies an otherwise mostly empty toolbar row, the first card still begins around 346px, and the account rows only start at the lower edge of the 900px capture.",
+      "fix": "Reflow the date navigator into a balanced second toolbar row with another control group and reduce the unused toolbar gap. Keep the improved two-column summary and timestamps together; preserve the readable type sizes."
+    },
+    {
+      "states": [
+        "stale"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "The stale account now has a useful Last observed timestamp, and the banner correctly says that the total and forecast are unavailable until stale observations are refreshed. Its retained 82.8% still has the same bold treatment and generic Remaining caption as the fresh balances, while the stale qualifier sits under the account name in a separate left-hand block.",
+      "fix": "Caption the retained percentage Last observed remaining, or place a compact Stale qualifier directly beside it, while retaining the existing observation timestamp and percentage. Keep Last collection attempt separate: under the supplied server semantics it describes an attempt and does not establish observation freshness."
+    },
+    {
+      "states": [
+        "stale",
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "In stale, the observation-time caption wraps onto two lines inside one of three account columns, and the second provider only begins near 918px. In refresh-error, the failure banner plus collection-attempt line keep the first card's account rows near the bottom of the 1000px image, with no second provider visible. Both are clearer than round 2 but still require substantial vertical travel to compare provider state.",
+      "fix": "Tighten summary-to-chart spacing and place freshness metadata in a compact, consistently wrapping row. Retain the distinct failure message, retry action, stale observation time, chart readout and account balances."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Refresh failed, Saved forecast, Saved snapshot and Saved observation clearly identify retained data. Last collection attempt: Oct 27, 12:00 PM UTC is accurate under the supplied semantics, correcting the prior review's proposed Last successful refresh wording. The screenshot still does not explicitly date the saved snapshot itself: the exact timestamp in the chart readout belongs to the selected Oct 24 historical sample, while the saved snapshot has only its plot position near Oct 27.",
+      "fix": "Show the saved snapshot's existing observation time beside Saved snapshot or the retained total, when available. Keep Last collection attempt for the attempt timestamp; never relabel that field Last successful refresh or infer success from it. Preserve the selected historical sample's independent timestamp and the saved forecast."
+    },
+    {
+      "states": [
+        "collecting",
+        "drain",
+        "burn-narrow",
+        "details-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Collecting replaces the misleading full slider with One recorded sample and annotates the unavailable forecast region. Rate cards now identify Recorded Drain/Burn rate with the selected 3h period, group depletion statistics under Remaining-quota forecast, and annotate the blank chart region Recorded rates only. Expanded account details now say Predicted empty and Burn, last 3h. These changes make the visible metric and forecast distinctions substantially clearer.",
+      "fix": "Retain these labels, the neutral collecting notice, the remaining-quota context and the distinction between account percentages and pool points. Preserve the recorded-only rate geometry and existing values. The removed reset markers in collecting remain a fixture correction, not an independently verified UI fix."
+    },
+    {
+      "states": [
+        "empty",
+        "loading",
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Empty now leads with No accounts connected, neutral explanatory text, Add credentials and confirmed zero provider counts. Loading uses a compact Loading pooled quota heading, Awaiting data for the range and a Loading refresh action. Initial error uses a distinct Could not load quotas heading, a visible Try again action and an Unavailable range. These visibly distinguish setup, progress and failure without claiming that a failed initial load has saved observations.",
+      "fix": "Retain these state-specific messages and the footer wording Dashboard checks for updates every 15 seconds. Preserve neutral setup/loading treatment and amber degraded-data treatment. The screenshots establish the displayed states and apparent availability of actions, not their runtime behavior."
+    }
+  ],
+  "drops": []
+}

@@ -16,7 +16,7 @@ export const chartFrame = { width: 1000, height: 300, left: 64, right: 976, top:
 
 /** Keep labels in CSS pixels instead of shrinking a desktop SVG on phones. */
 export function fitChartFrame(width: number, compact = false) {
-  const height = compact ? 170 : width < 600 ? 220 : 250;
+  const height = compact ? 190 : width < 600 ? 240 : 280;
   return {
     width,
     height,
