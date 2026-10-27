@@ -41,7 +41,12 @@ function latestIndex(samples: QuotaSample[], atMs: number): number {
 /** Only measured intervals count. Gaps and resets never become fabricated consumption. */
 export function measuredRates(samples: QuotaSample[], atMs: number, hours: number): Rates {
   const end = latestIndex(samples, atMs);
-  if (end < 1 || atMs - samples[end].observedAtMs > STALE_MS) return { burn: null, drain: null };
+  if (
+    end < 1 ||
+    samples[end].remainingPercent === null ||
+    atMs - samples[end].observedAtMs > STALE_MS
+  )
+    return { burn: null, drain: null };
   let burn = 0;
   let burnSpan = 0;
   let net = 0;
@@ -118,15 +123,20 @@ export function projectPool(inputs: ForecastInput[], nowMs: number, toMs: number
   record();
   while (time < toMs) {
     const nextReset = Math.min(...accounts.map((a) => a.resetAtMs));
-    const nextEmpty = Math.min(
-      ...accounts.map((a) =>
-        a.rate > 0 && a.remaining > 1e-8 ? time + (a.remaining / a.rate) * HOUR_MS : Infinity
-      )
+    const emptyTimes = accounts.map((a) =>
+      a.rate > 0 && a.remaining > 1e-8 ? time + (a.remaining / a.rate) * HOUR_MS : Infinity
     );
+    const nextEmpty = Math.min(...emptyTimes);
     const next = Math.min(time + HOUR_MS / 2, nextReset, nextEmpty, toMs);
-    if (next <= time) throw new Error('Invalid forecast cycle');
-    for (const account of accounts) {
-      account.remaining = Math.max(0, account.remaining - (account.rate * (next - time)) / HOUR_MS);
+    if (next < time || (next === time && nextEmpty !== time))
+      throw new Error('Invalid forecast cycle');
+    for (const [index, account] of accounts.entries()) {
+      // Epoch timestamps lose sub-millisecond precision. The depletion event owns
+      // the zero balance; subtracting elapsed time can leave a tiny residual.
+      account.remaining =
+        emptyTimes[index] <= next
+          ? 0
+          : Math.max(0, account.remaining - (account.rate * (next - time)) / HOUR_MS);
     }
     time = next;
     record();

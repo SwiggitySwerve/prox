@@ -142,7 +142,7 @@ unchanged. This records the setup baseline before the pooled dashboard.
 
 ## Pooled dashboard verification (2026-10-27)
 
-The full verification passes 1,714 tests, ESLint, both TypeScript configurations,
+The full verification passes 1,716 tests, ESLint, both TypeScript configurations,
 and the single-file frontend plus Bun server build. The deployed history API
 loads all three Claude and two Codex accounts with no collection issues, through
 each of the root, `/codex`, and `/claude` management routes.
@@ -152,3 +152,13 @@ and usage-scenario controls, privacy toggling, and all five account rows.
 Desktop (1440×1100) and mobile (390×844) have no page overflow or browser errors.
 Initial live charts correctly show collection in progress; forecasts require
 real observation history. A full public Authentik sign-in remains unverified.
+
+Independent review found a fractional-timestamp depletion loop that returned
+HTTP 503 for valid quota observations. Depletion events now set the balance to
+zero exactly; regression tests cover the reported HTTP failure and sub-millisecond
+depletion. Missing-window observations also suppress rates immediately. The
+reviewer's original reproducer now returns HTTP 200.
+
+Remote CI was unavailable for the setup merge; these verification results are
+local checks. Inference and CPA-Manager-Plus container start timestamps remain
+unchanged from before the Prox work.

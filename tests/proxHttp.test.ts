@@ -41,9 +41,37 @@ function fixture() {
         headers: auth ? { Authorization: 'Bearer synthetic-test-key' } : {},
       })
     );
-  return { request, keyFile, reads: () => reads, refreshes: () => refreshes };
+  return { request, keyFile, store, reads: () => reads, refreshes: () => refreshes };
 }
 describe('quota history HTTP boundary', () => {
+  test('fractional forecast depletion returns a dashboard instead of HTTP 503', async () => {
+    const f = fixture();
+    const now = Date.UTC(2026, 9, 27);
+    f.store.listAccounts = () => [
+      {
+        id: 'fixture',
+        provider: 'claude',
+        name: 'fixture',
+        email: null,
+        disabled: false,
+        retired: false,
+        lastSeenAtMs: now,
+        lastErrorAtMs: null,
+      },
+    ];
+    f.store.listSamples = () =>
+      [67, 14].map((remainingPercent, index) => ({
+        accountId: 'fixture',
+        window: 'five-hour',
+        observedAtMs: now - (1 - index) * 600_000,
+        remainingPercent,
+        resetAtMs: now + 7_200_000,
+        periodHours: 5,
+      }));
+    const response = f.request('/v1/pools?window=five-hour');
+    expect(response.status).toBe(200);
+    expect((await response.json()).pools[0].forecastState).toBe('ready');
+  });
   test('authentication runs before disclosure and refresh work', () => {
     const f = fixture();
     expect(f.request('/v1/pools?reveal=true', false).status).toBe(401);

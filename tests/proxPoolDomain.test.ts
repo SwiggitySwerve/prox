@@ -68,6 +68,20 @@ describe('measured quota rates', () => {
 });
 
 describe('pooled forecast scenarios', () => {
+  test('fractional depletion instants finish without timestamp-rounding loops', () => {
+    const samples = [sample(now - 600_000, 67), sample(now, 14)];
+    const pool = dashboard([account()], samples).pools[0];
+    expect(pool.forecastState).toBe('ready');
+    expect(pool.firstEmptyAtMs).toBeCloseTo(now + (14 / 318) * HOUR_MS, 0);
+    expect(pool.projected.some((point) => point.remainingPoints === 0)).toBe(true);
+    const tiny = projectPool(
+      [{ remaining: 2e-8, rate: 600, resetAtMs: now + HOUR_MS, periodHours: 5 }],
+      now,
+      now + HOUR_MS
+    );
+    expect(tiny.poolEmptyAtMs).toBe(now);
+    expect(tiny.points.at(-1)?.remainingPoints).toBe(100);
+  });
   test('records reset jumps at the same instant and caps each account at 100', () => {
     const result = projectPool(
       [{ remaining: 50, rate: 10, resetAtMs: now + HOUR_MS, periodHours: 5 }],
@@ -145,6 +159,10 @@ describe('dashboard evidence and privacy', () => {
     expect(pool.accounts[0].status).toBe('missing-window');
     expect(pool.recorded.at(-1)?.remainingPoints).toBeNull();
     expect(measuredRates(samples, now, 3)).toEqual({ burn: null, drain: null });
+    expect(measuredRates([sample(now - 1_200_000, 80), ...samples], now, 3)).toEqual({
+      burn: null,
+      drain: null,
+    });
     expect(
       dashboard([account()], [...samples, sample(now + 1, 50)], { nowMs: now + 1 }).pools[0]
         .remainingPoints
