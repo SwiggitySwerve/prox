@@ -40,6 +40,15 @@ export function PoolCard({
             <PoolProviderMark provider={pool.provider} />
             <h2 id={`${pool.provider}-title`}>{t(`quota_pool.${pool.provider}`)}</h2>
             <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
+            <span className={styles.badge} data-state={pool.forecastState}>
+              {savedData
+                ? t('quota_pool.saved_forecast')
+                : pool.forecastState === 'partial' || pool.forecastState === 'stale'
+                  ? t('quota_pool.projection_unavailable')
+                  : t('quota_pool.forecast_status', {
+                      state: t(`quota_pool.state.${pool.forecastState}`),
+                    })}
+            </span>
           </div>
           <div className={styles.headline} data-unavailable={pool[metricField[mode]] === null}>
             <strong>
@@ -71,18 +80,6 @@ export function PoolCard({
               {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
             </p>
           )}
-          <p className={styles.coverage}>
-            {t('quota_pool.coverage', { loaded: pool.loadedCount, eligible: pool.eligibleCount })}
-            <span className={styles.badge} data-state={pool.forecastState}>
-              {savedData
-                ? t('quota_pool.saved_forecast')
-                : pool.forecastState === 'partial' || pool.forecastState === 'stale'
-                  ? t('quota_pool.projection_unavailable')
-                  : t('quota_pool.forecast_status', {
-                      state: t(`quota_pool.state.${pool.forecastState}`),
-                    })}
-            </span>
-          </p>
           {savedData && (
             <p className={styles.coverage}>
               {t('quota_pool.saved_snapshot')}: {date(dashboard.nowMs)}
@@ -139,7 +136,8 @@ export function PoolCard({
       <section className={styles.accounts} aria-labelledby={`${pool.provider}-accounts`}>
         <h3 id={`${pool.provider}-accounts`}>
           <span>
-            {t('quota_pool.accounts')} {pool.accountCount}
+            {t('quota_pool.accounts')} ·{' '}
+            {t('quota_pool.coverage', { loaded: pool.loadedCount, eligible: pool.eligibleCount })}
           </span>
           <span>{t('quota_pool.remaining')}</span>
         </h3>

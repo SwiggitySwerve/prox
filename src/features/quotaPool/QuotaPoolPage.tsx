@@ -108,47 +108,52 @@ export function QuotaPoolPage() {
             </button>
           ))}
         </div>
-        <div className={styles.segment} role="group" aria-label={t('quota_pool.rate_interval')}>
-          {([1, 3, 6] as const).map((hours) => (
-            <button
-              type="button"
-              key={hours}
-              aria-pressed={query.lookback === hours}
-              onClick={() => change('lookback', hours)}
+        <div className={styles.chartSettings}>
+          <label className={styles.selectLabel}>
+            {t('quota_pool.rate_interval')}
+            <select
+              value={query.lookback}
+              onChange={(event) =>
+                change('lookback', Number(event.target.value) as PoolQuery['lookback'])
+              }
             >
-              {t('quota_pool.hours', { hours })}
-            </button>
-          ))}
+              {([1, 3, 6] as const).map((hours) => (
+                <option key={hours} value={hours}>
+                  {t('quota_pool.hours', { hours })}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.selectLabel}>
+            {t('quota_pool.future_usage')}
+            <select
+              value={query.multiplier}
+              disabled={mode !== 'remaining'}
+              aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
+              onChange={(event) =>
+                change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
+              }
+            >
+              {([1, 0.5, 2, 0] as const).map((value) => (
+                <option value={value} key={value}>
+                  {t(
+                    `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
+                  )}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.selectLabel}>
+            {t('quota_pool.window')}
+            <select
+              value={query.window}
+              onChange={(event) => change('window', event.target.value as PoolQuery['window'])}
+            >
+              <option value="weekly">{t('quota_pool.weekly')}</option>
+              <option value="five-hour">{t('quota_pool.five_hour')}</option>
+            </select>
+          </label>
         </div>
-        <label className={styles.selectLabel}>
-          {t('quota_pool.future_usage')}
-          <select
-            value={query.multiplier}
-            disabled={mode !== 'remaining'}
-            aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
-            onChange={(event) =>
-              change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
-            }
-          >
-            {([1, 0.5, 2, 0] as const).map((value) => (
-              <option value={value} key={value}>
-                {t(
-                  `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
-                )}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.selectLabel}>
-          <span className={styles.srOnly}>{t('quota_pool.window')}</span>
-          <select
-            value={query.window}
-            onChange={(event) => change('window', event.target.value as PoolQuery['window'])}
-          >
-            <option value="weekly">{t('quota_pool.weekly')}</option>
-            <option value="five-hour">{t('quota_pool.five_hour')}</option>
-          </select>
-        </label>
         <div className={styles.dateNavigation}>
           <span>
             {data

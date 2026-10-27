@@ -432,6 +432,14 @@ async def main():
                 if state == "empty":
                     assert await page.get_by_role("link", name="Add credentials", exact=True).get_attribute("href") == "#/oauth"
                     interaction["credential_action_targets_login"] = "passed"
+                if state == "ready":
+                    interval = page.get_by_role("combobox", name="Rate interval", exact=True)
+                    async with page.expect_request(
+                        lambda request: "/prox/pools?" in request.url and "lookback=6" in request.url
+                    ):
+                        await interval.select_option("6")
+                    assert await interval.input_value() == "6"
+                    interaction["rate_interval_updates_request"] = "passed"
                 results[name]["interaction"] = interaction
                 saved.write_text(json.dumps(results, indent=2) + "\n")
                 await context.close()

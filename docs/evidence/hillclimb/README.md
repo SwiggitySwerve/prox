@@ -121,4 +121,33 @@ All 14 states pass measured checks and applicable browser interaction assertions
 text contrast at least 8.19:1, chart-stroke contrast 8.48:1/8.51:1, target areas
 at least 24px desktop/44px touch, and no measured clipping, overflow, colour or
 browser-error failures. `bun run verify` passes all 1,726 tests, ESLint,
-TypeScript and both production builds. Independent visual scores are pending.
+TypeScript and both production builds. Three independent reviews produced 101/112
+passing cells, up from 95/112. No median dropped; no reviewer spread reached three.
+The remaining 11 cells concern layout density.
+
+## Round 5 verification
+
+Chart settings share one labeled group. The rate interval uses a native select
+with the same 1/3/6-hour choices and request values. At laptop widths the route's
+sidebar is narrower, with wrapping labels, so the controls fit one toolbar row.
+Phone settings fit one row beneath the metric selector. Forecast status sits
+beside the provider name, while loaded/eligible counts sit with account rows.
+Unavailable metrics use compact label/value pairs; known reset times remain.
+Phone sample readouts sit beside their sliders. Ready chart heights are unchanged;
+unavailable and rate chart frames increase from 190px to 220px.
+
+Compared with round 4, the first chart moves up 69px on laptop and 75.5px on
+phone. The phone Codex chart moves up 148px. No account, quota value, timestamp,
+warning or chart series was removed. Synthetic API fixtures and server behavior
+are unchanged.
+
+All 14 states pass measured checks and applicable browser assertions. Sampled
+text contrast is at least 7.60:1; provider stroke contrast is 8.48:1/8.51:1.
+Targets meet 24px desktop/44px touch minimums. There are no measured overflow,
+clipping, semantic-colour or browser-error failures. The wide/laptop/phone checks
+also select the six-hour interval and confirm the outgoing request has
+`lookback=6`. These are isolated fixture checks, not live provider verification.
+
+`bun run verify` passes 1,726 tests, ESLint, TypeScript and both production builds.
+Targeted formatting and diff validation pass. Independent visual reviews are
+pending. Production has not been changed.
