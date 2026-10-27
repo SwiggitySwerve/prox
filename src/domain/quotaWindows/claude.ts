@@ -84,4 +84,3 @@ export const buildClaudeQuotaWindows = (
 
   return windows;
 };
-

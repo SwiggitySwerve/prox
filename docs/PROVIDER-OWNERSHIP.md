@@ -46,6 +46,12 @@ passed both a quota read and an explicit refresh on 8319. After running the
 ranking job, 8317 still held only two Codex credentials and 8319 only three Claude
 credentials. No inference service restart was needed.
 
+The usage dashboard's merged inventory returned all five accounts. Quota reads
+through its owner resolver returned HTTP 200 for every account. Both collectors
+were running without errors and the dead-letter count was zero. The historical
+Claude account with legacy events retained its request and token totals, including
+boundary and full-day window queries checked against the persisted events.
+
 The inspected runtime can recreate a file when its credential remains registered,
 but the precise operation that caused this incident was not established. The
 repair retires runtime registrations as well as files. The overlap guard remains.
