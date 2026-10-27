@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import poolStyles from '@/features/quotaPool/QuotaPoolPage.module.scss';
+import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
 import {
   useAuthStore,
   useConfigStore,
@@ -1212,6 +1213,7 @@ export function MainLayout() {
               isPluginResourcePage ? ' main-content-plugin-resource' : ''
             }`}
           >
+            {['/quota/accounts', '/logs'].includes(location.pathname) && <ManagementRuntime />}
             <PageTransition
               render={(location) => <MainRoutes location={location} />}
               getRouteOrder={getRouteOrder}

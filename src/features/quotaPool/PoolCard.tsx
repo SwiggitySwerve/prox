@@ -33,8 +33,12 @@ export function PoolCard({
             <PoolProviderMark provider={pool.provider} />
             <h2 id={`${pool.provider}-title`}>{t(`quota_pool.${pool.provider}`)}</h2>
             <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
-            <span className={styles.badge}>{t(`quota_pool.state.${pool.forecastState}`)}</span>
           </div>
+          <p className={styles.coverage}>
+            {t('quota_pool.window_remaining', {
+              window: t(`quota_pool.${dashboard.window === 'weekly' ? 'weekly' : 'five_hour'}`),
+            })}
+          </p>
           <div className={styles.headline}>
             <strong>{number(pool.remainingPoints)}</strong>
             <span>{t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}</span>
@@ -45,43 +49,18 @@ export function PoolCard({
         </div>
         <dl className={styles.stats}>
           <div>
-            <dt>{t('quota_pool.pool_empty')}</dt>
-            <dd>{forecastDate(pool.poolEmptyAtMs)}</dd>
-          </div>
-          <div>
-            <dt>{t('quota_pool.first_empty')}</dt>
-            <dd>{forecastDate(pool.firstEmptyAtMs)}</dd>
-          </div>
-          <div>
             <dt>{t('quota_pool.next_reset')}</dt>
             <dd>{date(pool.nextResetAtMs)}</dd>
-            {pool.nextResetGainPoints !== null && (
-              <small>
-                +{number(pool.nextResetGainPoints)} {t('quota_pool.points')}
-              </small>
-            )}
-          </div>
-          <div>
-            <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
-            <dd>
-              {number(pool.burnPointsPerHour)} <small>{t('quota_pool.points_hour')}</small>
-            </dd>
           </div>
         </dl>
       </div>
       {pool.forecastState !== 'ready' && (
         <p className={styles.stateNote}>{t(`quota_pool.state_note.${pool.forecastState}`)}</p>
       )}
-      <PoolChart
-        key={`${mode}-${dashboard.fromMs}`}
-        pool={pool}
-        dashboard={dashboard}
-        mode={mode}
-      />
-      <details className={styles.accounts}>
-        <summary>
+      <section className={styles.accounts} aria-labelledby={`${pool.provider}-accounts`}>
+        <h3 id={`${pool.provider}-accounts`}>
           {t('quota_pool.accounts')} <span>{pool.accountCount}</span>
-        </summary>
+        </h3>
         {pool.accounts.length === 0 ? (
           <p className={styles.stateNote}>{t('quota_pool.state_note.no-accounts')}</p>
         ) : (
@@ -121,6 +100,38 @@ export function PoolCard({
             </details>
           ))
         )}
+      </section>
+      <details className={styles.forecast}>
+        <summary>
+          {t('quota_pool.history_forecast')}
+          <span className={styles.badge}>
+            {t('quota_pool.forecast_status', {
+              state: t(`quota_pool.state.${pool.forecastState}`),
+            })}
+          </span>
+        </summary>
+        <dl className={styles.forecastStats}>
+          <div>
+            <dt>{t('quota_pool.pool_empty')}</dt>
+            <dd>{forecastDate(pool.poolEmptyAtMs)}</dd>
+          </div>
+          <div>
+            <dt>{t('quota_pool.first_empty')}</dt>
+            <dd>{forecastDate(pool.firstEmptyAtMs)}</dd>
+          </div>
+          <div>
+            <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
+            <dd>
+              {number(pool.burnPointsPerHour)} {t('quota_pool.points_hour')}
+            </dd>
+          </div>
+        </dl>
+        <PoolChart
+          key={`${mode}-${dashboard.fromMs}`}
+          pool={pool}
+          dashboard={dashboard}
+          mode={mode}
+        />
       </details>
     </article>
   );

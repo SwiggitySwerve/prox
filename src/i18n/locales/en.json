@@ -2312,6 +2312,14 @@
     "expired": "The binding session expired. Please start over."
   },
   "quota_pool": {
+    "window_remaining": "{{window}} quota remaining",
+    "history_forecast": "History and forecast",
+    "forecast_status": "Forecast: {{state}}",
+    "limit_note": "Balances are reported by the provider. Model-specific limits and request availability may differ.",
+    "runtime_source": "Management source",
+    "runtime_scope": "This page uses the {{provider}} runtime. Pooled quotas combine both providers.",
+    "runtime_switching": "Switching runtime…",
+    "runtime_switch_error": "Could not switch runtimes. Check the connection and try again.",
     "eyebrow": "Prox · pooled quota",
     "title": "Quota Management",
     "show_emails": "Show emails",

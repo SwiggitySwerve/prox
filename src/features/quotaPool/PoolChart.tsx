@@ -32,7 +32,7 @@ export function PoolChart({
   // Keep dense five-hour reset labels legible; every reset still has a tick and title.
   let lastLabelX = -Infinity;
   const resetMarkers = pool.resets
-    .filter((reset) => visible(reset.atMs))
+    .filter((reset) => visible(reset.atMs) && reset.gainPoints > 0)
     .map((reset) => {
       const showLabel = x(reset.atMs) - lastLabelX >= 100;
       if (showLabel) lastLabelX = x(reset.atMs);

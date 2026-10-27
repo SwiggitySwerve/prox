@@ -95,6 +95,7 @@ export const useAuthStore = create<AuthStoreState>()(
         const apiBase = normalizeApiBase(credentials.apiBase);
         const managementKey = credentials.managementKey.trim();
         const rememberPassword = credentials.rememberPassword ?? get().rememberPassword ?? false;
+        let revision: number | undefined;
 
         try {
           set({
@@ -114,7 +115,7 @@ export const useAuthStore = create<AuthStoreState>()(
           });
 
           // 测试连接 - 获取配置。只在 v8 路由不存在时诊断旧版后端。
-          const revision = apiClient.getConnectionRevision();
+          revision = apiClient.getConnectionRevision();
           try {
             await useConfigStore.getState().fetchConfig(true);
           } catch (error) {
@@ -129,6 +130,9 @@ export const useAuthStore = create<AuthStoreState>()(
             throw error;
           }
 
+          if (revision !== apiClient.getConnectionRevision()) {
+            throw new Error('Connection changed while signing in');
+          }
           // 登录成功
           set({
             isAuthenticated: true,
@@ -143,7 +147,7 @@ export const useAuthStore = create<AuthStoreState>()(
             localStorage.removeItem('isLoggedIn');
           }
         } catch (error: unknown) {
-          set({ connectionStatus: 'error' });
+          if (revision === apiClient.getConnectionRevision()) set({ connectionStatus: 'error' });
           throw error;
         }
       },
