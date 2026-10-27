@@ -97,3 +97,28 @@ Stop just the new UI with `systemctl --user stop prox`. To remove its cluster
 routes, run `kubectl delete -f deploy/kubernetes.yaml`. This manifest contains only
 the new Prox namespace/resources. Existing proxy and usage services are untouched.
 Remove the Prox Authentik application/provider separately if retiring the service.
+
+## Setup verification (2026-10-27)
+
+The initial upstream test run had one failure: a cooldown hint assertion compared
+an unescaped apostrophe against React's escaped HTML. Shared test escaping now
+handles that assertion; no application UI source changed. The pinned Bun run
+passes all 1,662 tests, ESLint, TypeScript, and the production build.
+
+The deployed Nginx configuration passes `nginx -t`; Kubernetes accepts the
+manifest in a server-side dry run. The local health endpoint returns 200, while
+an unauthenticated management request returns 401. The new TLS certificate is
+ready and public requests redirect to Authentik.
+
+Chromium checks at 1440×1000 and 390×844 loaded the quota page and refreshed all
+two Codex and three Claude quotas through their respective routes. Public SSO
+redirect was checked in Chromium, but a complete public Authentik sign-in was
+not performed. Local authenticated checks exercised the same deployed UI and
+Nginx API routes. Screenshots were redacted before capture.
+
+T3 preview is blocked by this host's AppArmor sandbox configuration. The fallback
+used an isolated headless Chromium profile, closed after verification. Chromium
+and its missing libcups, libcairo, and libpango runtime libraries were installed
+for those checks. The original inference and usage container start times are
+unchanged. The frontend currently selects one backend at a time; unified pools,
+forecasting, and matching the supplied Prox design are the next implementation.
