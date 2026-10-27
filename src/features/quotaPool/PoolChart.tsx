@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import {
@@ -74,24 +74,45 @@ export function PoolChart({
     ? `${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
     : t('quota_pool.inspect_hint');
 
+  const selectAtPointer = (event: PointerEvent<SVGSVGElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const cursorX = ((event.clientX - bounds.left) / bounds.width) * chartFrame.width;
+    let closest = 0;
+    for (let index = 1; index < samples.length; index += 1) {
+      if (
+        Math.abs(x(samples[index].point.atMs) - cursorX) <=
+        Math.abs(x(samples[closest].point.atMs) - cursorX)
+      )
+        closest = index;
+    }
+    if (samples.length) setSelected(closest);
+  };
+
   return (
     <div className={styles.chart} ref={container}>
       <svg
         viewBox={`0 0 ${chartFrame.width} ${chartFrame.height}`}
         role="img"
         aria-labelledby={`${id}-title ${id}-desc`}
-        onPointerMove={(event) => {
-          const bounds = event.currentTarget.getBoundingClientRect();
-          const cursorX = ((event.clientX - bounds.left) / bounds.width) * chartFrame.width;
-          let closest = 0;
-          for (let index = 1; index < samples.length; index += 1) {
-            if (
-              Math.abs(x(samples[index].point.atMs) - cursorX) <=
-              Math.abs(x(samples[closest].point.atMs) - cursorX)
-            )
-              closest = index;
-          }
-          if (samples.length) setSelected(closest);
+        aria-describedby={`${id}-readout`}
+        tabIndex={samples.length > 1 ? 0 : undefined}
+        onPointerDown={selectAtPointer}
+        onPointerMove={selectAtPointer}
+        onKeyDown={(event) => {
+          const last = samples.length - 1;
+          const next =
+            event.key === 'ArrowLeft'
+              ? Math.max(0, selected - 1)
+              : event.key === 'ArrowRight'
+                ? Math.min(last, selected + 1)
+                : event.key === 'Home'
+                  ? 0
+                  : event.key === 'End'
+                    ? last
+                    : null;
+          if (next === null || last < 1) return;
+          event.preventDefault();
+          setSelected(next);
         }}
       >
         <title id={`${id}-title`}>
@@ -293,20 +314,7 @@ export function PoolChart({
         <div className={styles.chartReadout} id={`${id}-readout`} aria-live="polite">
           {description}
         </div>
-        {samples.length > 1 ? (
-          <label className={styles.inspect}>
-            <span>{t('quota_pool.inspect_short')}</span>
-            <input
-              type="range"
-              min="0"
-              max={samples.length - 1}
-              value={selected}
-              aria-describedby={`${id}-readout`}
-              aria-valuetext={sample ? description : t('quota_pool.inspect_hint')}
-              onChange={(event) => setSelected(Number(event.target.value))}
-            />
-          </label>
-        ) : samples.length === 1 ? (
+        {samples.length === 1 ? (
           <span className={styles.singleSample}>{t('quota_pool.single_sample')}</span>
         ) : null}
       </div>

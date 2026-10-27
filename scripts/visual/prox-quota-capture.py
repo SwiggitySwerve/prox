@@ -403,25 +403,23 @@ async def main():
                     errors=errors,
                     **measure(path, geo, width < 600),
                 )
-                # Exercise native range keyboard behavior after capturing the
-                # fixed visual state, so screenshots stay comparable.
+                # Exercise chart keyboard inspection after capturing the fixed
+                # visual state, so screenshots stay comparable.
                 interaction = {}
-                slider = page.locator('article input[type="range"]').first
-                if await slider.count():
-                    before = await slider.get_attribute("aria-valuetext")
-                    await slider.focus()
-                    await slider.press("ArrowRight")
-                    assert await slider.input_value() == "1", "ArrowRight must select the next sample"
-                    after = await slider.get_attribute("aria-valuetext")
-                    assert after != before, "The accessible value must follow selection"
-                    readout_id = await slider.get_attribute("aria-describedby")
-                    assert await page.locator(f'[id="{readout_id}"]').inner_text() == after
-                    await slider.press("ArrowLeft")
-                    assert await slider.input_value() == "0"
+                chart = page.locator('article svg[tabindex="0"]').first
+                if await chart.count():
+                    readout = page.locator(f'[id="{await chart.get_attribute("aria-describedby")}"]')
+                    before = await readout.inner_text()
+                    await chart.focus()
+                    await chart.press("ArrowRight")
+                    after = await readout.inner_text()
+                    assert after != before, "ArrowRight must select the next sample"
+                    await chart.press("ArrowLeft")
+                    assert await readout.inner_text() == before
                     interaction["keyboard_sample_readout"] = "passed"
                 if state == "collecting":
-                    assert await page.locator('article input[type="range"]').count() == 0
-                    interaction["single_sample_has_no_inert_slider"] = "passed"
+                    assert await page.locator('article svg[tabindex="0"]').count() == 0
+                    interaction["single_sample_is_not_focusable"] = "passed"
                 if state in ("empty", "loading", "error"):
                     controls = page.locator('fieldset button, fieldset select')
                     for index in range(await controls.count()):

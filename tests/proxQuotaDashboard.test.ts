@@ -371,8 +371,11 @@ describe('pool presentation', () => {
     expect(markup).toContain('Total and forecast unavailable');
     expect(markup).toContain('Claude account 1');
     expect(markup).not.toContain('private@example.test');
-    expect(markup).toContain('type="range"');
-    expect(markup).toContain('aria-valuetext=');
+    // The chart itself is inspected by pointer or arrow keys; no separate slider.
+    expect(markup).not.toContain('type="range"');
+    const chart = markup.match(/<svg[^>]*role="img"[^>]*>/)?.[0] ?? '';
+    expect(chart).toContain('tabindex="0"');
+    expect(chart).toMatch(/aria-describedby="[^"]*-readout"/);
     expect(markup).toContain('stroke-dasharray="7 5"');
     expect(markup).toContain('<summary>');
     const revealed = renderToStaticMarkup(

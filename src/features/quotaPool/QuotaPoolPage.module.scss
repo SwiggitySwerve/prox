@@ -41,7 +41,7 @@
     opacity: 0.5;
     cursor: default;
   }
-  :is(button, select, input, summary, a):focus-visible {
+  :is(button, select, input, summary, a, svg):focus-visible {
     outline: 2px solid var(--focus-ring);
     outline-offset: 3px;
   }
@@ -478,48 +478,6 @@
     height: 12px;
     border-top: 0;
     border-left: 2px solid var(--pool-accent);
-  }
-}
-.inspect {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: #b5b5b5;
-  font-size: 13px;
-  input {
-    width: 120px;
-    height: 24px;
-    accent-color: var(--pool-accent);
-    cursor: ew-resize;
-    margin: 0;
-    appearance: none;
-    background: transparent;
-    &::-webkit-slider-runnable-track {
-      height: 4px;
-      background: #555;
-      border-radius: 4px;
-    }
-    &::-webkit-slider-thumb {
-      appearance: none;
-      width: 20px;
-      height: 20px;
-      margin-top: -8px;
-      border-radius: 50%;
-      background: var(--pool-accent);
-      border: 1px solid #ddd;
-    }
-    &::-moz-range-track {
-      height: 4px;
-      background: #555;
-      border-radius: 4px;
-    }
-    &::-moz-range-thumb {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--pool-accent);
-      border: 1px solid #ddd;
-    }
   }
 }
 .accounts {
@@ -1009,22 +967,6 @@
   }
   .legend {
     gap: 4px 10px;
-  }
-  .inspect {
-    width: 100%;
-    flex-direction: row;
-    gap: 8px;
-  }
-  .inspect input {
-    flex: 1;
-    min-width: 0;
-    width: auto;
-    height: 44px;
-  }
-  .inspectionRow:has(.inspect) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
   }
   .accountDetails {
     padding-left: 0;
