@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prox
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prox
+  namespace: prox
+spec:
+  ports:
+    - name: http
+      port: 18318
+      targetPort: 18318
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: prox-host
+  namespace: prox
+  labels:
+    kubernetes.io/service-name: prox
+    endpointslice.kubernetes.io/managed-by: prox-manual
+addressType: IPv4
+ports:
+  - name: http
+    protocol: TCP
+    port: 18318
+endpoints:
+  - addresses: [10.42.0.1]
+    conditions:
+      ready: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prox
+  namespace: prox
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-dns
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: authentik-ak-outpost-authentik-embedded-outpost@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts: [prox.swervelab.xyz]
+      secretName: prox-tls
+  rules:
+    - host: prox.swervelab.xyz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prox
+                port:
+                  name: http
