@@ -1,7 +1,13 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
-import { chartGeometry, chartSamples, metricField, type ChartMode } from './chartGeometry';
+import {
+  chartFrame,
+  chartGeometry,
+  chartSamples,
+  metricField,
+  type ChartMode,
+} from './chartGeometry';
 import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
@@ -49,12 +55,12 @@ export function PoolChart({
         {description}
       </div>
       <svg
-        viewBox="0 0 1000 300"
+        viewBox={`0 0 ${chartFrame.width} ${chartFrame.height}`}
         role="img"
         aria-labelledby={`${id}-title ${id}-desc`}
         onPointerMove={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect();
-          const cursorX = ((event.clientX - bounds.left) / bounds.width) * 1000;
+          const cursorX = ((event.clientX - bounds.left) / bounds.width) * chartFrame.width;
           let closest = 0;
           for (let index = 1; index < samples.length; index += 1) {
             if (
@@ -79,13 +85,18 @@ export function PoolChart({
             <stop offset="100%" stopColor="var(--pool-accent)" stopOpacity="0" />
           </linearGradient>
           <clipPath id={`${id}-clip`}>
-            <rect x="64" y="35" width="912" height="222" />
+            <rect
+              x={chartFrame.left}
+              y={chartFrame.top - 3}
+              width={chartFrame.right - chartFrame.left}
+              height={chartFrame.bottom - chartFrame.top + 6}
+            />
           </clipPath>
         </defs>
         {(min === max ? [min] : [min, (min + max) / 2, max]).map((value, index) => (
           <g key={index} className={styles.grid}>
-            <line x1="64" x2="976" y1={y(value)} y2={y(value)} />
-            <text x="54" y={y(value) + 4} textAnchor="end">
+            <line x1={chartFrame.left} x2={chartFrame.right} y1={y(value)} y2={y(value)} />
+            <text x={chartFrame.left - 10} y={y(value) + 4} textAnchor="end">
               {number(value)}
             </text>
           </g>
@@ -94,10 +105,10 @@ export function PoolChart({
           const at = fromMs + ((toMs - fromMs) * index) / 7;
           return (
             <g key={index} className={styles.grid}>
-              <line x1={x(at)} x2={x(at)} y1="38" y2="254" />
+              <line x1={x(at)} x2={x(at)} y1={chartFrame.top} y2={chartFrame.bottom} />
               <text
                 x={x(at)}
-                y="280"
+                y={chartFrame.bottom + 26}
                 textAnchor={index === 0 ? 'start' : index === 7 ? 'end' : 'middle'}
               >
                 {formatPoolDate(at, i18n.language, true)}
@@ -144,15 +155,21 @@ export function PoolChart({
             )
           )}
           {visible(nowMs) && (
-            <line x1={x(nowMs)} x2={x(nowMs)} y1="38" y2="254" className={styles.nowLine} />
+            <line
+              x1={x(nowMs)}
+              x2={x(nowMs)}
+              y1={chartFrame.top}
+              y2={chartFrame.bottom}
+              className={styles.nowLine}
+            />
           )}
           {sample && sample.point[field] !== null && (
             <>
               <line
                 x1={x(sample.point.atMs)}
                 x2={x(sample.point.atMs)}
-                y1="38"
-                y2="254"
+                y1={chartFrame.top}
+                y2={chartFrame.bottom}
                 stroke="var(--pool-accent)"
                 opacity=".5"
               />
@@ -180,16 +197,26 @@ export function PoolChart({
           )}
         </g>
         {visible(nowMs) && (
-          <text className={styles.nowLabel} x={x(nowMs)} y="26" textAnchor="middle">
+          <text
+            className={styles.nowLabel}
+            x={x(nowMs)}
+            y={chartFrame.top - 12}
+            textAnchor="middle"
+          >
             {t('quota_pool.now')}
           </text>
         )}
         {mode === 'remaining' &&
           resetMarkers.map((reset, index) => (
             <g key={`${reset.atMs}-${index}`} className={styles.resetMarker}>
-              <line x1={x(reset.atMs)} x2={x(reset.atMs)} y1="38" y2="49" />
+              <line
+                x1={x(reset.atMs)}
+                x2={x(reset.atMs)}
+                y1={chartFrame.top}
+                y2={chartFrame.top + 11}
+              />
               {reset.showLabel && (
-                <text x={x(reset.atMs)} y="20" textAnchor="middle">
+                <text x={x(reset.atMs)} y={chartFrame.top - 18} textAnchor="middle">
                   +{number(reset.gainPoints)}
                 </text>
               )}
@@ -197,7 +224,12 @@ export function PoolChart({
             </g>
           ))}
         {!hasValues && (
-          <text x="520" y="150" textAnchor="middle" className={styles.emptyChart}>
+          <text
+            x={(chartFrame.left + chartFrame.right) / 2}
+            y={chartFrame.height / 2}
+            textAnchor="middle"
+            className={styles.emptyChart}
+          >
             {t('quota_pool.no_history')}
           </text>
         )}

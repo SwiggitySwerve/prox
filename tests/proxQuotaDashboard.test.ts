@@ -263,6 +263,12 @@ describe('pool request lifetime', () => {
 });
 
 describe('honest chart geometry', () => {
+  test('shared frame preserves established plot coordinates', () => {
+    const geometry = chartGeometry([], 'remaining', 200, 0, 1000);
+    expect([geometry.x(0), geometry.x(1000), geometry.y(0), geometry.y(200)]).toEqual([
+      64, 976, 254, 38,
+    ]);
+  });
   test('null observations split paths and preserve same-time reset jumps', () => {
     const geometry = chartGeometry(
       chartSamples(pool.recorded, pool.projected, 'remaining'),

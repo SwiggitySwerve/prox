@@ -12,6 +12,8 @@ export interface ChartSample {
   projected: boolean;
 }
 
+export const chartFrame = { width: 1000, height: 300, left: 64, right: 976, top: 38, bottom: 254 };
+
 export function chartSamples(recorded: PoolPoint[], projected: PoolPoint[], mode: ChartMode) {
   return [
     ...recorded.map((point) => ({ point, projected: false })),
@@ -34,8 +36,10 @@ export function chartGeometry(
   const min = Math.min(0, ...values);
   const max = Math.max(mode === 'remaining' ? capacity : 0, ...values);
   const span = max - min || 1;
-  const x = (at: number) => 64 + ((at - from) / (to - from || 1)) * 912;
-  const y = (value: number) => 254 - ((value - min) / span) * 216;
+  const x = (at: number) =>
+    chartFrame.left + ((at - from) / (to - from || 1)) * (chartFrame.right - chartFrame.left);
+  const y = (value: number) =>
+    chartFrame.bottom - ((value - min) / span) * (chartFrame.bottom - chartFrame.top);
   const segments = (projected: boolean) => {
     const paths: string[] = [];
     let path = '';
