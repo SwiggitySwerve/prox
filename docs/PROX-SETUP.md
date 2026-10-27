@@ -13,10 +13,12 @@ reference, not proof that upstream supplies pooled forecasts.
 
 - Fork: `https://github.com/SwiggitySwerve/prox`
 - Checkout on homelab: `/home/swerve/src/prox`
-- Setup branch: `setup/prox-workspace`
+- Setup merged in PR #1; pooled dashboard branch: `feat/pooled-quota-dashboard`.
 - Public UI: `https://prox.swervelab.xyz`
 - Local UI: `http://127.0.0.1:18318`
 - Service: `systemctl --user status prox`
+- Quota history: `systemctl --user status prox-history`, loopback port 18319,
+  persistent SQLite at `~/.local/share/prox-history/quota.sqlite`.
 - Runtime: rootless Podman, `localhost/prox:dev`, host networking, listeners only
   on loopback and the existing cluster bridge `10.42.0.1`.
 
@@ -28,8 +30,9 @@ To publish the current working tree to this homelab preview:
 bash scripts/deploy-homelab.sh
 ```
 
-This verifies and builds the single-file UI, checks Nginx configuration, installs
-the user service, and restarts only Prox. The script uses the pinned Bun via npm
+This verifies and builds the single-file UI and quota-history server, checks
+Nginx configuration, installs their user services, and restarts only Prox and
+Prox history. The script uses the pinned Bun via npm
 exec, so it does not replace a machine's global Bun. Commit first when the image
 revision must identify an exact source tree.
 
@@ -55,9 +58,11 @@ After Authentik sign-in, use the existing proxy management key at the UI's login
 | `https://prox.swervelab.xyz` or `https://prox.swervelab.xyz/codex` | GPT/Codex, port 8317 |
 | `https://prox.swervelab.xyz/claude` | Claude, port 8319 |
 
-These paths forward only `/v8/management/` requests. Management authentication is
-passed through from the browser, never injected by Nginx. This initial upstream
-UI connects to one instance at a time. A combined account view is future work.
+These paths forward `/v8/management/` requests. Management authentication is
+passed through from the browser, never injected by Nginx. The original account
+management pages connect to one instance at a time. The new `/quota` dashboard
+uses `/v8/management/prox/` to read both providers through the history service;
+the original single-instance quota view remains at `/quota/accounts`.
 Backend-declared plugin/custom-extension paths need explicit routing before use;
 the setup does not expose a catch-all backend proxy or inference endpoint.
 
@@ -67,9 +72,13 @@ single consumer to avoid splitting usage history.
 
 ## Start the UI iteration here
 
-The setup pass intentionally leaves `src/` unchanged. Entry points:
+The setup pass left `src/` unchanged. The pooled-dashboard implementation extends
+it through these entry points:
 
 - `src/features/quota/`: quota page, provider quota cards and refresh behavior.
+- `src/features/quotaPool/`: combined provider pool UI and chart presentation.
+- `server/quota/`: collection, persistence and forecast rules (see `RULES.md`).
+- `src/domain/quotaWindows/`: existing provider parsing, shared with collection.
 - `src/components/layout/`: shell and sidebar.
 - `src/styles/themes.scss`: shared visual tokens.
 - `src/services/api/`: v8 API boundary and provider requests.
@@ -79,13 +88,21 @@ cards, recorded versus projected lines, burn/drain intervals, account reset
 markers, and pool/first-account depletion estimates. Show stale/missing data
 explicitly; projections must remain distinguishable from observations.
 
-Before adding the chart, establish a single server-side quota-history and
-forecasting owner. Preserve provider and quota-window boundaries; percentages
-across plans are not interchangeable token capacities. Pool weights need an
-explicit supported rule. Inspect existing stored quota snapshots through their
-public contract instead of opening CPA-Manager-Plus's database from the frontend.
-Do not start inference traffic, fabricate historical quota samples, or change
-production routing to make a chart appear populated.
+The quota history service collects current provider quota windows every five
+minutes and retains 30 days of observations. It does not open CPA-Manager-Plus's
+database or consume its queue. The service reads the existing management key
+from a read-only mount, and checks that key before returning any quota data.
+It never reads OAuth files or stores access tokens. Internal account metadata
+and quota samples live only in the private SQLite directory. Email/name fields
+are omitted from responses unless the authenticated caller explicitly reveals them.
+
+Each enabled account contributes 100 normalized points; different plans are not
+treated as equal token capacities. Weekly and five-hour windows are separate.
+Rates need at least ten minutes of current measured observations; until then the
+view reports that it is collecting history. Forecasts assume each account keeps
+its recent burn rate (or the selected multiplier) and resets on its reported
+cycle. Missing/stale/error balances remain unknown, and history gaps break the
+recorded line. No historical samples or plan multipliers are fabricated.
 
 For each subsequent UI change: run `bun run verify`, deploy Prox only, and inspect
 the affected route at desktop and mobile widths against the screenshot. Keep
@@ -93,7 +110,8 @@ browser screenshots free of credentials and account identities.
 
 ## Rollback
 
-Stop just the new UI with `systemctl --user stop prox`. To remove its cluster
+Stop the new UI and collector with `systemctl --user stop prox prox-history`.
+Keep the data directory for later recovery. To remove its cluster
 routes, run `kubectl delete -f deploy/kubernetes.yaml`. This manifest contains only
 the new Prox namespace/resources. Existing proxy and usage services are untouched.
 Remove the Prox Authentik application/provider separately if retiring the service.
@@ -120,5 +138,27 @@ T3 preview is blocked by this host's AppArmor sandbox configuration. The fallbac
 used an isolated headless Chromium profile, closed after verification. Chromium
 and its missing libcups, libcairo, and libpango runtime libraries were installed
 for those checks. The original inference and usage container start times are
-unchanged. The frontend currently selects one backend at a time; unified pools,
-forecasting, and matching the supplied Prox design are the next implementation.
+unchanged. This records the setup baseline before the pooled dashboard.
+
+## Pooled dashboard verification (2026-10-27)
+
+The full verification passes 1,716 tests, ESLint, both TypeScript configurations,
+and the single-file frontend plus Bun server build. The deployed history API
+loads all three Claude and two Codex accounts with no collection issues, through
+each of the root, `/codex`, and `/claude` management routes.
+
+Authenticated Chromium checks passed provider filters, rate modes, quota-window
+and usage-scenario controls, privacy toggling, and all five account rows.
+Desktop (1440×1100) and mobile (390×844) have no page overflow or browser errors.
+Initial live charts correctly show collection in progress; forecasts require
+real observation history. A full public Authentik sign-in remains unverified.
+
+Independent review found a fractional-timestamp depletion loop that returned
+HTTP 503 for valid quota observations. Depletion events now set the balance to
+zero exactly; regression tests cover the reported HTTP failure and sub-millisecond
+depletion. Missing-window observations also suppress rates immediately. The
+reviewer's original reproducer now returns HTTP 200.
+
+Remote CI was unavailable for the setup merge; these verification results are
+local checks. Inference and CPA-Manager-Plus container start timestamps remain
+unchanged from before the Prox work.
