@@ -12,5 +12,6 @@ podman run --rm --network host --entrypoint nginx localhost/prox:dev -t
 install -D -m 644 deploy/prox.container "$HOME/.config/containers/systemd/prox.container"
 systemctl --user daemon-reload
 systemctl --user restart prox.service
-curl --fail --silent --show-error http://127.0.0.1:18318/healthz
+curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 \
+  --max-time 5 http://127.0.0.1:18318/healthz
 echo 'Prox UI deployed. Cluster routing and Authentik registration are separate; see docs/PROX-SETUP.md.'
