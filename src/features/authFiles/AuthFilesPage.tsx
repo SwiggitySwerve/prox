@@ -54,7 +54,15 @@ import {
   type AuthFilesStatusFilterMode,
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
-import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
+import { useThemeStore } from '@/stores';
+import { useProviderSources } from '@/stores/useProviderSources';
+import { sourceOwnerKey } from '@/services/api/sourceSession';
+import type { SourceView } from '@/services/providerSources/registry';
+import {
+  AuthFilesSourceProvider,
+  useAuthFilesSource,
+  useAuthFilesNotifications,
+} from './AuthFilesSourceContext';
 import styles from './AuthFilesPage.module.scss';
 
 const DEFAULT_REGULAR_PAGE_SIZE = 9;
@@ -78,9 +86,80 @@ const normalizePersistedStatusFilterMode = (value: unknown): AuthFilesStatusFilt
 };
 
 export function AuthFilesPage() {
+  const { status, sources } = useProviderSources();
   const { t } = useTranslation();
-  const showNotification = useNotificationStore((state) => state.showNotification);
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const refreshers = useRef(new Map<string, () => Promise<void>>());
+  const registerRefresh = useCallback((key: string, refresh: () => Promise<void>) => {
+    refreshers.current.set(key, refresh);
+    return () => {
+      refreshers.current.delete(key);
+    };
+  }, []);
+  const refreshAllSources = useCallback(async () => {
+    await Promise.allSettled([...refreshers.current.values()].map((refresh) => refresh()));
+  }, []);
+  useHeaderRefresh(refreshAllSources);
+
+  return (
+    <div className={styles.sources}>
+      {status === 'loading' && <div role="status">{t('common.loading')}</div>}
+      {(status === 'error' || status === 'disconnected') && (
+        <div role="alert" className={styles.errorBanner}>
+          {t('provider_sources.discovery_error')}
+        </div>
+      )}
+      {sources.map((view) => (
+        <AuthFilesSourcePanel
+          key={view.source.instanceId}
+          view={view}
+          registerRefresh={registerRefresh}
+        />
+      ))}
+    </div>
+  );
+}
+
+type RegisterRefresh = (key: string, refresh: () => Promise<void>) => () => void;
+
+export function AuthFilesSourcePanel({
+  view,
+  registerRefresh,
+}: {
+  view: SourceView;
+  registerRefresh: RegisterRefresh;
+}) {
+  const { t } = useTranslation();
+  return (
+    <section
+      className={styles.sourcePanel}
+      aria-label={view.source.label}
+      data-source-id={view.source.instanceId}
+    >
+      <h2 className={styles.sourceHeading}>
+        <span>{t('quota_pool.runtime_source')}</span> {view.source.label}
+        <code>{view.source.instanceId}</code>
+      </h2>
+      {view.status === 'ready' && view.session ? (
+        <AuthFilesSourceProvider source={view.source} session={view.session}>
+          <AuthFilesSourceContent registerRefresh={registerRefresh} />
+        </AuthFilesSourceProvider>
+      ) : (
+        <div className={styles.errorBanner} role="alert">
+          {view.status === 'unauthorized'
+            ? t('provider_sources.authentication_required')
+            : t('auth_files.source_authentication_required', {
+                defaultValue: 'Sign in to this source to view its auth files.',
+              })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: RegisterRefresh }) {
+  const { t } = useTranslation();
+  const sourceScope = useAuthFilesSource();
+  const { showNotification } = useAuthFilesNotifications();
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const pageTransitionLayer = usePageTransitionLayer();
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
@@ -113,8 +192,9 @@ export function AuthFilesPage() {
   } = useAuthFilesModels();
 
   const invalidateDerivedCaches = useCallback(
-    (names?: string[]) => invalidateAuthFileDerivedCaches(invalidateModels, names),
-    [invalidateModels]
+    (names?: string[]) =>
+      invalidateAuthFileDerivedCaches(invalidateModels, names, sourceScope.quotaStore),
+    [invalidateModels, sourceScope.quotaStore]
   );
 
   const {
@@ -182,12 +262,12 @@ export function AuthFilesPage() {
     handlePrefixProxyChange,
     handlePrefixProxySave,
   } = useAuthFilesPrefixProxyEditor({
-    disableControls: connectionStatus !== 'connected' || refreshingAllCredentials,
+    disableControls: !sourceScope.isCurrent() || refreshingAllCredentials,
     loadFiles,
     onFilesMutated: invalidateDerivedCaches,
   });
 
-  const disableControls = connectionStatus !== 'connected' || refreshingAllCredentials;
+  const disableControls = !sourceScope.isCurrent() || refreshingAllCredentials;
   const normalizedFilter = normalizeProviderKey(String(filter));
   const quotaFilterType: QuotaProviderType | null = QUOTA_PROVIDER_TYPES.has(
     normalizedFilter as QuotaProviderType
@@ -201,7 +281,7 @@ export function AuthFilesPage() {
   const disabledOnly = statusFilterMode === 'disabled';
   const enabledOnly = statusFilterMode === 'enabled';
 
-  /* ---------- uiState 水合与持久化（localStorage key/形状与旧版完全一致） ---------- */
+  /* Source-local filters and pagination; compact density remains a shared display preference. */
 
   useEffect(() => {
     const persistedCompactMode = readPersistedAuthFilesCompactMode();
@@ -209,7 +289,7 @@ export function AuthFilesPage() {
       setCompactMode(persistedCompactMode);
     }
 
-    const persisted = readAuthFilesUiState();
+    const persisted = readAuthFilesUiState(sourceScope.source.instanceId);
     if (persisted) {
       if (typeof persisted.filter === 'string' && persisted.filter.trim()) {
         setFilter(normalizeProviderKey(persisted.filter));
@@ -258,26 +338,30 @@ export function AuthFilesPage() {
     }
 
     setUiStateHydrated(true);
-  }, []);
+  }, [sourceScope.source.instanceId]);
 
   useEffect(() => {
     if (!uiStateHydrated) return;
 
-    writeAuthFilesUiState({
-      filter,
-      statusFilterMode,
-      problemOnly,
-      disabledOnly,
-      compactMode,
-      search,
-      page,
-      pageSize,
-      regularPageSize: pageSizeByMode.regular,
-      compactPageSize: pageSizeByMode.compact,
-      sortMode,
-    });
+    writeAuthFilesUiState(
+      {
+        filter,
+        statusFilterMode,
+        problemOnly,
+        disabledOnly,
+        compactMode,
+        search,
+        page,
+        pageSize,
+        regularPageSize: pageSizeByMode.regular,
+        compactPageSize: pageSizeByMode.compact,
+        sortMode,
+      },
+      sourceScope.source.instanceId
+    );
     writePersistedAuthFilesCompactMode(compactMode);
   }, [
+    sourceScope.source.instanceId,
     compactMode,
     disabledOnly,
     filter,
@@ -369,7 +453,10 @@ export function AuthFilesPage() {
     await Promise.all([loadFiles({ background: true }), loadExcluded(), loadModelAlias()]);
   }, [loadFiles, loadExcluded, loadModelAlias]);
 
-  useHeaderRefresh(handleHeaderRefresh);
+  useEffect(
+    () => registerRefresh(sourceOwnerKey(sourceScope.session.owner), handleHeaderRefresh),
+    [registerRefresh, sourceScope.session.owner, handleHeaderRefresh]
+  );
 
   useEffect(() => {
     if (!isCurrentLayer) return;
@@ -521,31 +608,33 @@ export function AuthFilesPage() {
   const openExcludedEditor = useCallback(
     (provider?: string) => {
       const providerValue = (provider || (filter !== 'all' ? String(filter) : '')).trim();
-      const params = new URLSearchParams();
+      sourceScope.assertCurrent();
+      const params = new URLSearchParams({ source: sourceScope.source.instanceId });
       if (providerValue) {
         params.set('provider', providerValue);
       }
       const nextSearch = params.toString();
       navigate(`/auth-files/oauth-excluded${nextSearch ? `?${nextSearch}` : ''}`, {
-        state: { fromAuthFiles: true },
+        state: { fromAuthFiles: true, sourceOwner: sourceScope.session.owner },
       });
     },
-    [filter, navigate]
+    [filter, navigate, sourceScope]
   );
 
   const openModelAliasEditor = useCallback(
     (provider?: string) => {
       const providerValue = (provider || (filter !== 'all' ? String(filter) : '')).trim();
-      const params = new URLSearchParams();
+      sourceScope.assertCurrent();
+      const params = new URLSearchParams({ source: sourceScope.source.instanceId });
       if (providerValue) {
         params.set('provider', providerValue);
       }
       const nextSearch = params.toString();
       navigate(`/auth-files/oauth-model-alias${nextSearch ? `?${nextSearch}` : ''}`, {
-        state: { fromAuthFiles: true },
+        state: { fromAuthFiles: true, sourceOwner: sourceScope.session.owner },
       });
     },
-    [filter, navigate]
+    [filter, navigate, sourceScope]
   );
 
   const clearFilters = useCallback(() => {
@@ -683,7 +772,15 @@ export function AuthFilesPage() {
                 >
                   {t('auth_files.upload_button')}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/oauth')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    navigate(`/oauth?source=${encodeURIComponent(sourceScope.source.instanceId)}`, {
+                      state: { sourceOwner: sourceScope.session.owner },
+                    })
+                  }
+                >
                   {t('auth_files.empty_oauth_link')}
                 </Button>
               </div>
@@ -812,6 +909,8 @@ export function AuthFilesPage() {
       />
 
       <BatchActionBar
+        inline
+        sourceLabel={sourceScope.source.label}
         selectionCount={selectionCount}
         selectablePageCount={selectablePageItems.length}
         selectableFilteredCount={selectableFilteredItems.length}

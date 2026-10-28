@@ -1,7 +1,14 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
-import { chartGeometry, chartSamples, metricField, type ChartMode } from './chartGeometry';
+import {
+  chartFrame as defaultChartFrame,
+  fitChartFrame,
+  chartGeometry,
+  chartSamples,
+  metricField,
+  type ChartMode,
+} from './chartGeometry';
 import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
@@ -9,22 +16,49 @@ export function PoolChart({
   pool,
   dashboard,
   mode,
+  savedData = false,
 }: {
   pool: QuotaPool;
   dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs'>;
   mode: ChartMode;
+  savedData?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
-  const [selected, setSelected] = useState<number | null>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(defaultChartFrame.width);
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const update = () => {
+      const next = element.getBoundingClientRect().width;
+      if (next > 0) setWidth(next);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const chartFrame = fitChartFrame(
+    width,
+    savedData || pool.forecastState !== 'ready' || mode !== 'remaining'
+  );
+  const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
+  // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
+  const [inspected, setInspected] = useState<number | null>(null);
   const { fromMs, toMs, nowMs } = dashboard;
   const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
     ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
   );
-  const geometry = chartGeometry(samples, mode, pool.capacityPoints, fromMs, toMs);
+  const geometry = chartGeometry(samples, mode, pool.capacityPoints, fromMs, toMs, chartFrame);
   const { x, y, min, max, segments } = geometry;
   const field = metricField[mode];
-  const sample = selected === null ? undefined : samples[Math.min(selected, samples.length - 1)];
+  const latestRecorded = samples.reduce(
+    (latest, { point, projected }, index) => (!projected && point.atMs <= nowMs ? index : latest),
+    0
+  );
+  const selected = inspected ?? latestRecorded;
+  const sample = samples[Math.min(selected, samples.length - 1)];
   const unit = t(`quota_pool.${mode === 'remaining' ? 'points' : 'points_hour'}`);
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
   const date = (value: number) => formatPoolDate(value, i18n.language);
@@ -34,36 +68,57 @@ export function PoolChart({
   const resetMarkers = pool.resets
     .filter((reset) => visible(reset.atMs) && reset.gainPoints > 0)
     .map((reset) => {
-      const showLabel = x(reset.atMs) - lastLabelX >= 100;
+      const showLabel =
+        x(reset.atMs) - lastLabelX >= 100 &&
+        (!visible(nowMs) || Math.abs(x(reset.atMs) - x(nowMs)) >= 60);
       if (showLabel) lastLabelX = x(reset.atMs);
       return { ...reset, showLabel };
     });
   const hasValues = samples.some(({ point }) => point[field] !== null);
+  const hasProjection = samples.some(({ point, projected }) => projected && point[field] !== null);
   const description = sample
     ? `${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
     : t('quota_pool.inspect_hint');
 
+  const selectAtPointer = (event: PointerEvent<SVGSVGElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const cursorX = ((event.clientX - bounds.left) / bounds.width) * chartFrame.width;
+    let closest = 0;
+    for (let index = 1; index < samples.length; index += 1) {
+      if (
+        Math.abs(x(samples[index].point.atMs) - cursorX) <=
+        Math.abs(x(samples[closest].point.atMs) - cursorX)
+      )
+        closest = index;
+    }
+    if (samples.length) setInspected(closest);
+  };
+
   return (
-    <div className={styles.chart}>
-      <div className={styles.chartReadout} id={`${id}-readout`} aria-live="polite">
-        {description}
-      </div>
+    <div className={styles.chart} ref={container}>
       <svg
-        viewBox="0 0 1000 300"
+        viewBox={`0 0 ${chartFrame.width} ${chartFrame.height}`}
         role="img"
         aria-labelledby={`${id}-title ${id}-desc`}
-        onPointerMove={(event) => {
-          const bounds = event.currentTarget.getBoundingClientRect();
-          const cursorX = ((event.clientX - bounds.left) / bounds.width) * 1000;
-          let closest = 0;
-          for (let index = 1; index < samples.length; index += 1) {
-            if (
-              Math.abs(x(samples[index].point.atMs) - cursorX) <=
-              Math.abs(x(samples[closest].point.atMs) - cursorX)
-            )
-              closest = index;
-          }
-          if (samples.length) setSelected(closest);
+        aria-describedby={`${id}-readout`}
+        tabIndex={samples.length > 1 ? 0 : undefined}
+        onPointerDown={selectAtPointer}
+        onPointerMove={selectAtPointer}
+        onKeyDown={(event) => {
+          const last = samples.length - 1;
+          const next =
+            event.key === 'ArrowLeft'
+              ? Math.max(0, selected - 1)
+              : event.key === 'ArrowRight'
+                ? Math.min(last, selected + 1)
+                : event.key === 'Home'
+                  ? 0
+                  : event.key === 'End'
+                    ? last
+                    : null;
+          if (next === null || last < 1) return;
+          event.preventDefault();
+          setInspected(next);
         }}
       >
         <title id={`${id}-title`}>
@@ -79,26 +134,31 @@ export function PoolChart({
             <stop offset="100%" stopColor="var(--pool-accent)" stopOpacity="0" />
           </linearGradient>
           <clipPath id={`${id}-clip`}>
-            <rect x="64" y="35" width="912" height="222" />
+            <rect
+              x={chartFrame.left - 6}
+              y={chartFrame.top - 6}
+              width={chartFrame.right - chartFrame.left + 12}
+              height={chartFrame.bottom - chartFrame.top + 12}
+            />
           </clipPath>
         </defs>
         {(min === max ? [min] : [min, (min + max) / 2, max]).map((value, index) => (
           <g key={index} className={styles.grid}>
-            <line x1="64" x2="976" y1={y(value)} y2={y(value)} />
-            <text x="54" y={y(value) + 4} textAnchor="end">
+            <line x1={chartFrame.left} x2={chartFrame.right} y1={y(value)} y2={y(value)} />
+            <text x={chartFrame.left - 10} y={y(value) + 4} textAnchor="end">
               {number(value)}
             </text>
           </g>
         ))}
-        {Array.from({ length: 8 }, (_, index) => {
-          const at = fromMs + ((toMs - fromMs) * index) / 7;
+        {Array.from({ length: tickCount }, (_, index) => {
+          const at = fromMs + ((toMs - fromMs) * index) / (tickCount - 1);
           return (
             <g key={index} className={styles.grid}>
-              <line x1={x(at)} x2={x(at)} y1="38" y2="254" />
+              <line x1={x(at)} x2={x(at)} y1={chartFrame.top} y2={chartFrame.bottom} />
               <text
                 x={x(at)}
-                y="280"
-                textAnchor={index === 0 ? 'start' : index === 7 ? 'end' : 'middle'}
+                y={chartFrame.bottom + 26}
+                textAnchor={index === 0 ? 'start' : index === tickCount - 1 ? 'end' : 'middle'}
               >
                 {formatPoolDate(at, i18n.language, true)}
               </text>
@@ -144,15 +204,21 @@ export function PoolChart({
             )
           )}
           {visible(nowMs) && (
-            <line x1={x(nowMs)} x2={x(nowMs)} y1="38" y2="254" className={styles.nowLine} />
+            <line
+              x1={x(nowMs)}
+              x2={x(nowMs)}
+              y1={chartFrame.top}
+              y2={chartFrame.bottom}
+              className={styles.nowLine}
+            />
           )}
           {sample && sample.point[field] !== null && (
             <>
               <line
                 x1={x(sample.point.atMs)}
                 x2={x(sample.point.atMs)}
-                y1="38"
-                y2="254"
+                y1={chartFrame.top}
+                y2={chartFrame.bottom}
                 stroke="var(--pool-accent)"
                 opacity=".5"
               />
@@ -180,16 +246,26 @@ export function PoolChart({
           )}
         </g>
         {visible(nowMs) && (
-          <text className={styles.nowLabel} x={x(nowMs)} y="26" textAnchor="middle">
-            {t('quota_pool.now')}
+          <text
+            className={styles.nowLabel}
+            x={x(nowMs)}
+            y={chartFrame.top - 12}
+            textAnchor="middle"
+          >
+            {t(`quota_pool.${savedData ? 'saved_snapshot' : 'snapshot'}`)}
           </text>
         )}
         {mode === 'remaining' &&
           resetMarkers.map((reset, index) => (
             <g key={`${reset.atMs}-${index}`} className={styles.resetMarker}>
-              <line x1={x(reset.atMs)} x2={x(reset.atMs)} y1="38" y2="49" />
+              <line
+                x1={x(reset.atMs)}
+                x2={x(reset.atMs)}
+                y1={chartFrame.top}
+                y2={chartFrame.top + 11}
+              />
               {reset.showLabel && (
-                <text x={x(reset.atMs)} y="20" textAnchor="middle">
+                <text x={x(reset.atMs)} y={chartFrame.top - 18} textAnchor="middle">
                   +{number(reset.gainPoints)}
                 </text>
               )}
@@ -197,8 +273,25 @@ export function PoolChart({
             </g>
           ))}
         {!hasValues && (
-          <text x="520" y="150" textAnchor="middle" className={styles.emptyChart}>
+          <text
+            x={(chartFrame.left + chartFrame.right) / 2}
+            y={chartFrame.height / 2}
+            textAnchor="middle"
+            className={styles.emptyChart}
+          >
             {t('quota_pool.no_history')}
+          </text>
+        )}
+        {hasValues && !hasProjection && visible(nowMs) && x(nowMs) < chartFrame.right - 130 && (
+          <text
+            x={(x(nowMs) + chartFrame.right) / 2}
+            y={(chartFrame.top + chartFrame.bottom) / 2}
+            textAnchor="middle"
+            className={styles.emptyChart}
+          >
+            {t(
+              `quota_pool.${mode !== 'remaining' ? 'rate_no_projection' : 'projection_unavailable'}`
+            )}
           </text>
         )}
       </svg>
@@ -209,28 +302,27 @@ export function PoolChart({
             <i />
             {t('quota_pool.recorded')}
           </span>
-          {mode === 'remaining' && (
+          {hasProjection && (
             <span>
               <i className={styles.dashed} />
               {t('quota_pool.projected')}
             </span>
           )}
+          {mode === 'remaining' && resetMarkers.length > 0 && (
+            <span>
+              <i className={styles.resetKey} />
+              {t('quota_pool.scheduled_reset')}
+            </span>
+          )}
         </div>
-        {samples.length > 0 && (
-          <label className={styles.inspect}>
-            <span>{t('quota_pool.inspect')}</span>
-            <input
-              type="range"
-              min="0"
-              max={samples.length - 1}
-              value={selected ?? 0}
-              aria-describedby={`${id}-readout`}
-              aria-valuetext={sample ? description : t('quota_pool.inspect_hint')}
-              onFocus={() => setSelected((current) => current ?? 0)}
-              onChange={(event) => setSelected(Number(event.target.value))}
-            />
-          </label>
-        )}
+      </div>
+      <div className={styles.inspectionRow}>
+        <div className={styles.chartReadout} id={`${id}-readout`} aria-live="polite">
+          {description}
+        </div>
+        {samples.length === 1 ? (
+          <span className={styles.singleSample}>{t('quota_pool.single_sample')}</span>
+        ) : null}
       </div>
     </div>
   );

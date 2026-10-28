@@ -6,13 +6,15 @@
   "packageManager": "bun@1.4.3",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && tsc -p tsconfig.server.json && vite build && bun build ./server/main.ts --target=bun --outdir dist --entry-naming server.js",
+    "build": "bun run sources:check && tsc && tsc -p tsconfig.server.json && vite build && bun build ./server/main.ts --target=bun --outdir dist --entry-naming server.js",
     "preview": "vite preview",
     "test": "bun test",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "verify": "bun run test && bun run lint && bun run build",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,scss}\"",
-    "type-check": "tsc --noEmit && tsc -p tsconfig.server.json"
+    "type-check": "tsc --noEmit && tsc -p tsconfig.server.json",
+    "sources:generate": "bun scripts/generate-provider-sources.ts",
+    "sources:check": "bun scripts/generate-provider-sources.ts --check"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.3",

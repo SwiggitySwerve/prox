@@ -1,11 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  captureQuotaCacheGeneration,
-  commitIfQuotaCacheCurrent,
-  useNotificationStore,
-  useQuotaStore,
-} from '@/stores';
+import { captureQuotaCacheGeneration, commitIfQuotaCacheCurrent } from '@/stores';
 import type { AuthFileItem, ClaudeQuotaState } from '@/types';
 import { getStatusFromError, resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
@@ -13,7 +8,8 @@ import { isRuntimeOnlyAuthFile, type QuotaProviderType } from '@/features/authFi
 import { Button } from '@/components/ui/Button';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { bindQuotaClasses } from '@/features/quota/types';
-import { QUOTA_ADAPTERS, type QuotaCardState } from '@/features/quota/providers';
+import type { QuotaCardState } from '@/features/quota/providers';
+import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import { hasClaudeUsageData } from '@/features/quota/providers/claude/data';
 import styles from './AuthFileQuota.module.scss';
 
@@ -37,10 +33,11 @@ export type AuthFileQuotaSectionProps = {
 export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   const { file, quotaType, disableControls } = props;
   const { t } = useTranslation();
-  const showNotification = useNotificationStore((state) => state.showNotification);
-  const showConfirmation = useNotificationStore((state) => state.showConfirmation);
+  const sourceScope = useAuthFilesSource();
+  const useQuotaStore = sourceScope.quotaStore;
+  const { showNotification, showConfirmation } = useAuthFilesNotifications();
   const [resettingQuota, setResettingQuota] = useState(false);
-  const adapter = QUOTA_ADAPTERS[quotaType];
+  const adapter = sourceScope.quotaAdapters[quotaType];
   const cacheKey = getQuotaCacheKey(file);
 
   const quota = useQuotaStore((state) => {
@@ -63,12 +60,12 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   );
 
   const refreshQuotaForFile = useCallback(async () => {
-    if (disableControls) return;
+    if (disableControls || !sourceScope.isCurrent()) return;
     if (isRuntimeOnlyAuthFile(file)) return;
     if (file.disabled) return;
     if (quota?.status === 'loading' || resettingQuota) return;
 
-    const cacheGeneration = captureQuotaCacheGeneration(file.name);
+    const cacheGeneration = captureQuotaCacheGeneration(file.name, sourceScope.quotaStore);
 
     updateQuotaState((prev) => ({
       ...prev,
@@ -77,6 +74,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
 
     try {
       const data = await adapter.fetchQuota(file, t);
+      sourceScope.assertCurrent();
       commitIfQuotaCacheCurrent(cacheGeneration, () => {
         updateQuotaState((prev) => ({
           ...prev,
@@ -85,6 +83,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
         showNotification(t('auth_files.quota_refresh_success', { name: file.name }), 'success');
       });
     } catch (err: unknown) {
+      if (!sourceScope.isCurrent()) return;
       const message = err instanceof Error ? err.message : t('common.unknown_error');
       const status = getStatusFromError(err);
       commitIfQuotaCacheCurrent(cacheGeneration, () => {
@@ -106,12 +105,13 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     quota?.status,
     resettingQuota,
     showNotification,
+    sourceScope,
     t,
     updateQuotaState,
   ]);
 
   const resetQuotaForFile = useCallback(() => {
-    if (disableControls) return;
+    if (disableControls || !sourceScope.isCurrent()) return;
     if (isRuntimeOnlyAuthFile(file)) return;
     if (file.disabled) return;
     if (quota?.status === 'loading') return;
@@ -126,10 +126,11 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       confirmText: t('codex_quota.reset_confirm_button'),
       variant: 'primary',
       onConfirm: async () => {
-        const cacheGeneration = captureQuotaCacheGeneration(file.name);
+        const cacheGeneration = captureQuotaCacheGeneration(file.name, sourceScope.quotaStore);
         setResettingQuota(true);
         try {
           const data = await resetQuota(file, t);
+          sourceScope.assertCurrent();
           commitIfQuotaCacheCurrent(cacheGeneration, () => {
             updateQuotaState((prev) => ({
               ...prev,
@@ -138,6 +139,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
             showNotification(t('codex_quota.reset_success', { name: file.name }), 'success');
           });
         } catch (err: unknown) {
+          if (!sourceScope.isCurrent()) return;
           const message = err instanceof Error ? err.message : t('common.unknown_error');
           commitIfQuotaCacheCurrent(cacheGeneration, () => {
             showNotification(t('codex_quota.reset_failed', { name: file.name, message }), 'error');
@@ -156,6 +158,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     resettingQuota,
     showConfirmation,
     showNotification,
+    sourceScope,
     t,
     updateQuotaState,
   ]);

@@ -1,3 +1,4 @@
+import { subscribeSourceConfigChanges } from '@/services/api/sourceConfigChanges';
 import {
   ReactNode,
   RefObject,
@@ -16,7 +17,9 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/common/PageTransition';
 import { MainRoutes } from '@/router/MainRoutes';
-import { authFilesApi, pluginsApi } from '@/services/api';
+import { loadPluginSourceInventories } from '@/features/plugins/pluginSourceInventory';
+import { createAuthFilesApi } from '@/services/api/authFiles';
+import { useProviderSources, providerSources } from '@/stores/useProviderSources';
 import {
   IconSidebarAuthFiles,
   IconSidebarConfig,
@@ -31,15 +34,12 @@ import {
   IconSidebarSystem,
   IconChevronDown,
 } from '@/components/ui/icons';
-import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
-import poolStyles from '@/features/quotaPool/QuotaPoolPage.module.scss';
 import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
 import {
   useAuthStore,
   useConfigStore,
   useLanguageStore,
   useNotificationStore,
-  useThemeStore,
 } from '@/stores';
 import { AUTH_FILES_CHANGED_EVENT } from '@/features/authFiles/authFilesEvents';
 import {
@@ -53,7 +53,6 @@ import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { LANGUAGE_LABEL_KEYS, LANGUAGE_ORDER } from '@/utils/constants';
 import { isSupportedLanguage } from '@/utils/language';
 import { getSidebarShortcutLabel, isSidebarToggleShortcut } from '@/utils/sidebarShortcut';
-import type { Theme } from '@/types';
 
 const sidebarIcons: Record<string, ReactNode> = {
   dashboard: <IconSidebarDashboard size={18} />,
@@ -199,55 +198,6 @@ const headerIcons = {
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   ),
-  sun: (
-    <svg {...headerIconProps}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2" />
-      <path d="M12 20v2" />
-      <path d="m4.93 4.93 1.41 1.41" />
-      <path d="m17.66 17.66 1.41 1.41" />
-      <path d="M2 12h2" />
-      <path d="M20 12h2" />
-      <path d="m6.34 17.66-1.41 1.41" />
-      <path d="m19.07 4.93-1.41 1.41" />
-    </svg>
-  ),
-  moon: (
-    <svg {...headerIconProps}>
-      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
-    </svg>
-  ),
-  whiteTheme: (
-    <svg {...headerIconProps}>
-      <circle cx="12" cy="12" r="7" />
-      <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
-    </svg>
-  ),
-  autoTheme: (
-    <svg {...headerIconProps}>
-      <defs>
-        <clipPath id="mainLayoutAutoThemeSunLeftHalf">
-          <rect x="0" y="0" width="12" height="24" />
-        </clipPath>
-      </defs>
-      <circle cx="12" cy="12" r="4" />
-      <circle
-        cx="12"
-        cy="12"
-        r="4"
-        clipPath="url(#mainLayoutAutoThemeSunLeftHalf)"
-        fill="currentColor"
-      />
-      <path d="M12 2v2" />
-      <path d="M12 20v2" />
-      <path d="M4.93 4.93l1.41 1.41" />
-      <path d="M17.66 17.66l1.41 1.41" />
-      <path d="M2 12h2" />
-      <path d="M20 12h2" />
-      <path d="M6.34 17.66l-1.41 1.41" />
-      <path d="M19.07 4.93l-1.41 1.41" />
-    </svg>
-  ),
   logout: (
     <svg {...headerIconProps}>
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -257,73 +207,34 @@ const headerIcons = {
   ),
 };
 
-const THEME_CARDS: Array<{
-  key: Theme;
-  labelKey: string;
-  colors: { bg: string; card: string; border: string; text: string; textMuted: string };
-}> = [
-  {
-    key: 'auto',
-    labelKey: 'theme.auto',
-    colors: {
-      bg: 'linear-gradient(135deg, #ffffff 0 50%, #111111 50% 100%)',
-      card: 'linear-gradient(135deg, #ffffff 0 50%, #1a1a1a 50% 100%)',
-      border: '#bdbdbd',
-      text: '#2d2a26',
-      textMuted: 'linear-gradient(135deg, #c9c9c9 0 50%, #5a5a5a 50% 100%)',
-    },
-  },
-  {
-    key: 'white',
-    labelKey: 'theme.white',
-    colors: {
-      bg: '#ffffff',
-      card: '#ffffff',
-      border: '#e5e5e5',
-      text: '#2d2a26',
-      textMuted: '#a29c95',
-    },
-  },
-  {
-    key: 'light',
-    labelKey: 'theme.light',
-    colors: {
-      bg: '#faf9f5',
-      card: '#f0eee8',
-      border: '#e3e1db',
-      text: '#2d2a26',
-      textMuted: '#a29c95',
-    },
-  },
-  {
-    key: 'dark',
-    labelKey: 'theme.dark',
-    colors: {
-      bg: '#151412',
-      card: '#1d1b18',
-      border: '#3a3530',
-      text: '#f6f4f1',
-      textMuted: '#9c958d',
-    },
-  },
-];
-
 export function MainLayout() {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const location = useLocation();
 
+  const registry = useProviderSources();
   const logout = useAuthStore((state) => state.logout);
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = useAuthStore((state) => state.apiBase);
-  const supportsPlugin = useAuthStore((state) => state.supportsPlugin);
+  const supportsPlugin = registry.sources.some((source) => source.supportsPlugin);
 
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
   const clearCache = useConfigStore((state) => state.clearCache);
   const config = useConfigStore((state) => state.config);
 
-  const theme = useThemeStore((state) => state.theme);
-  const setTheme = useThemeStore((state) => state.setTheme);
+  useEffect(
+    () =>
+      subscribeSourceConfigChanges((owner) => {
+        const snapshot = providerSources.getSnapshot();
+        const selected = snapshot.sources.find(
+          (view) => view.source.instanceId === snapshot.resolution?.selectedInstanceId
+        );
+        if (selected?.session?.owner !== owner) return;
+        clearCache();
+        void fetchConfig(true).catch(() => {});
+      }),
+    [clearCache, fetchConfig]
+  );
+
   const language = useLanguageStore((state) => state.language);
   const setLanguage = useLanguageStore((state) => state.setLanguage);
 
@@ -338,7 +249,6 @@ export function MainLayout() {
     top: number;
   } | null>(null);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [pluginResources, setPluginResources] = useState<PluginResourceEntry[]>([]);
   const [expandedPluginResourceIDs, setExpandedPluginResourceIDs] = useState<Set<string>>(
     () => new Set()
@@ -348,12 +258,8 @@ export function MainLayout() {
   const railTooltipRef = useRef<HTMLDivElement | null>(null);
   const focusedRailItemRef = useRef<HTMLElement | null>(null);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
-  const themeMenuRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
 
-  const isPoolPage = ['/', '/quota', '/quota/'].includes(location.pathname);
-  const fullBrandName = isPoolPage ? 'Prox' : 'CLI Proxy API Management Center';
-  const abbrBrandName = isPoolPage ? 'prox' : t('title.abbr');
   const isLogsPage = location.pathname.startsWith('/logs');
   const isPluginResourcePage = location.pathname.startsWith('/plugin-pages');
   const showSidebarLabels = !sidebarCollapsed || sidebarOpen;
@@ -448,27 +354,11 @@ export function MainLayout() {
   }, []);
 
   const closeLanguageMenu = useCallback(() => setLanguageMenuOpen(false), []);
-  const closeThemeMenu = useCallback(() => setThemeMenuOpen(false), []);
   useMenuDismiss(languageMenuOpen, languageMenuRef, closeLanguageMenu);
-  useMenuDismiss(themeMenuOpen, themeMenuRef, closeThemeMenu);
 
   const toggleLanguageMenu = useCallback(() => {
     setLanguageMenuOpen((prev) => !prev);
-    setThemeMenuOpen(false);
   }, []);
-
-  const toggleThemeMenu = useCallback(() => {
-    setThemeMenuOpen((prev) => !prev);
-    setLanguageMenuOpen(false);
-  }, []);
-
-  const handleThemeSelect = useCallback(
-    (nextTheme: Theme) => {
-      setTheme(nextTheme);
-      setThemeMenuOpen(false);
-    },
-    [setTheme]
-  );
 
   const handleLanguageSelect = useCallback(
     (nextLanguage: string) => {
@@ -488,35 +378,62 @@ export function MainLayout() {
   }, [fetchConfig]);
 
   const loadPluginResources = useCallback(async () => {
-    if (connectionStatus !== 'connected' || !supportsPlugin) {
+    const captured = registry.resolution;
+    if (registry.status !== 'ready') {
       setPluginResources([]);
       return;
     }
-
-    try {
-      const plugins = await pluginsApi.list();
-      setPluginResources(collectPluginResourceEntries(plugins.plugins));
-    } catch {
-      setPluginResources([]);
-    }
-  }, [connectionStatus, supportsPlugin]);
+    const outcomes = await loadPluginSourceInventories(
+      registry.sources,
+      () => providerSources.getSnapshot().sources
+    );
+    if (providerSources.getSnapshot().resolution !== captured) return;
+    setPluginResources(
+      outcomes.flatMap((outcome) =>
+        outcome.status === 'complete'
+          ? collectPluginResourceEntries(
+              outcome.response.plugins,
+              outcome.view.source.instanceId
+            ).map((entry) => ({
+              ...entry,
+              pluginTitle: `${outcome.view.source.label} · ${entry.pluginTitle}`,
+              label: `${outcome.view.source.label} · ${entry.label}`,
+              pluginLogo: resolvePluginAssetURL(entry.pluginLogo, outcome.view.source.apiBase),
+            }))
+          : []
+      )
+    );
+  }, [registry]);
 
   const loadAuthFilesCount = useCallback(async () => {
     const requestID = ++authFilesCountRequestRef.current;
-    if (connectionStatus !== 'connected') {
+    if (registry.status !== 'ready') {
       setAuthFilesCount(null);
       return;
     }
 
     try {
-      const response = await authFilesApi.list();
-      if (requestID !== authFilesCountRequestRef.current) return;
-      setAuthFilesCount(Array.isArray(response?.files) ? response.files.length : null);
+      const captured = registry.resolution;
+      const inventories = await Promise.all(
+        registry.sources.map(async (view) => {
+          if (!view.session || view.status !== 'ready') throw new Error('Source unavailable');
+          return createAuthFilesApi(view.session).list();
+        })
+      );
+      if (
+        requestID !== authFilesCountRequestRef.current ||
+        providerSources.getSnapshot().resolution !== captured
+      )
+        return;
+      // Counts describe credential occurrences; they do not imply independent quota allowances.
+      setAuthFilesCount(
+        inventories.reduce((count, inventory) => count + inventory.files.length, 0)
+      );
     } catch {
       if (requestID !== authFilesCountRequestRef.current) return;
       setAuthFilesCount(null);
     }
-  }, [connectionStatus]);
+  }, [registry]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -538,14 +455,15 @@ export function MainLayout() {
   const pluginResourceGroups = pluginResources.reduce<
     Array<{ pluginID: string; pluginTitle: string; entries: PluginResourceEntry[] }>
   >((groups, resource) => {
-    const group = groups.find((item) => item.pluginID === resource.pluginID);
+    const groupId = JSON.stringify([resource.instanceId, resource.pluginID]);
+    const group = groups.find((item) => item.pluginID === groupId);
     if (group) {
       group.entries.push(resource);
       return groups;
     }
 
     groups.push({
-      pluginID: resource.pluginID,
+      pluginID: groupId,
       pluginTitle: resource.pluginTitle,
       entries: [resource],
     });
@@ -975,7 +893,7 @@ export function MainLayout() {
 
   return (
     <div
-      className={`app-shell ${isPoolPage ? poolStyles.shell : ''} ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''} ${
+      className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''} ${
         isPluginResourcePage ? 'plugin-resource-shell' : ''
       }`}
     >
@@ -1061,79 +979,6 @@ export function MainLayout() {
               </div>
             )}
           </div>
-          <div className={`theme-menu ${themeMenuOpen ? 'open' : ''}`} ref={themeMenuRef}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleThemeMenu}
-              title={t('theme.switch')}
-              aria-label={t('theme.switch')}
-              aria-haspopup="menu"
-              aria-expanded={themeMenuOpen}
-            >
-              {theme === 'auto'
-                ? headerIcons.autoTheme
-                : theme === 'dark'
-                  ? headerIcons.moon
-                  : theme === 'white'
-                    ? headerIcons.whiteTheme
-                    : headerIcons.sun}
-            </Button>
-            {themeMenuOpen && (
-              <div
-                className="notification entering theme-menu-popover"
-                role="menu"
-                aria-label={t('theme.switch')}
-              >
-                {THEME_CARDS.map((tc) => (
-                  <button
-                    key={tc.key}
-                    type="button"
-                    className={`theme-card ${theme === tc.key ? 'active' : ''}`}
-                    onClick={() => handleThemeSelect(tc.key)}
-                    role="menuitemradio"
-                    aria-checked={theme === tc.key}
-                  >
-                    <div
-                      className="theme-card-preview"
-                      style={{
-                        background: tc.colors.bg,
-                        border: `1px solid ${tc.colors.border}`,
-                      }}
-                    >
-                      <div
-                        className="theme-card-header"
-                        style={{
-                          background: tc.colors.card,
-                          borderBottom: `1px solid ${tc.colors.border}`,
-                        }}
-                      />
-                      <div className="theme-card-body">
-                        <div
-                          className="theme-card-sidebar"
-                          style={{
-                            background: tc.colors.card,
-                            borderRight: `1px solid ${tc.colors.border}`,
-                          }}
-                        />
-                        <div className="theme-card-content" style={{ background: tc.colors.bg }}>
-                          <div
-                            className="theme-card-line"
-                            style={{ background: tc.colors.textMuted }}
-                          />
-                          <div
-                            className="theme-card-line short"
-                            style={{ background: tc.colors.textMuted }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <span className="theme-card-label">{t(tc.labelKey)}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
           <Button variant="ghost" size="sm" onClick={logout} title={t('header.logout')}>
             {headerIcons.logout}
           </Button>
@@ -1154,19 +999,13 @@ export function MainLayout() {
           className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
         >
           <div className="sidebar-header">
-            <div className="sidebar-brand" title={fullBrandName}>
-              <>
-                {isPoolPage ? (
-                  <span className={poolStyles.brandMark} aria-hidden="true">
-                    ➜
-                  </span>
-                ) : (
-                  <img src={INLINE_LOGO_JPEG} alt="CPAMC logo" className="sidebar-brand-logo" />
-                )}
-              </>
+            <div className="sidebar-brand" title="Prox">
+              <span className="sidebar-brand-mark" aria-hidden="true">
+                ➜
+              </span>
               {showSidebarLabels && (
                 <span className="sidebar-brand-text">
-                  <span className="sidebar-brand-title">{abbrBrandName}</span>
+                  <span className="sidebar-brand-title">prox</span>
                   <span className="sidebar-brand-subtitle">{t('sidebar.subtitle')}</span>
                 </span>
               )}
@@ -1213,7 +1052,14 @@ export function MainLayout() {
               isPluginResourcePage ? ' main-content-plugin-resource' : ''
             }`}
           >
-            {['/quota/accounts', '/logs'].includes(location.pathname) && <ManagementRuntime />}
+            {[
+              '/oauth',
+              '/config',
+              '/logs',
+              '/system',
+              '/auth-files/oauth-excluded',
+              '/auth-files/oauth-model-alias',
+            ].includes(location.pathname) && <ManagementRuntime />}
             <PageTransition
               render={(location) => <MainRoutes location={location} />}
               getRouteOrder={getRouteOrder}

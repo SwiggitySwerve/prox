@@ -1,0 +1,316 @@
+{
+  "reviewer": "interaction",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "empty": {
+      "hierarchy": 8,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "details-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "drain": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "refresh-error": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "laptop"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "responsive_accessible"
+      ],
+      "element": "The 1280 x 900 screenshot still ends at the first Accounts heading, with no account row or Codex summary visible. The date navigation remains a separate right-aligned row. Compared with round 1, the capacity, loaded count and forecast badge now stack into separate lines, and UTC wraps onto its own line in both forecast dates, consuming much of the shorter chart's space saving.",
+      "fix": "Use an intentional compact toolbar row at this width and reflow the summary into fewer rows with enough width for complete dates. Reduce the summary-to-plot gap so account rows and the next provider are reached sooner; retain UTC, exact values, readable axes and visible controls."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "responsive_accessible"
+      ],
+      "element": "At 390 px, the header, provider row, separate Account view row and four chart-control rows still precede the first balance or rate. The useful normalized-points note has moved into this stack, putting the first headline lower than round 1 even though the complete pages are shorter. Account rows remain far below the initial summary; burn mode adds another explanatory block before it.",
+      "fix": "Tighten the mobile header gaps and group Account view more closely with provider navigation. Compact the summary and inspection spacing while retaining the nearby points explanation, readable labels, full account names, every account row and comfortably visible control targets."
+    },
+    {
+      "states": [
+        "partial",
+        "stale",
+        "collecting"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "Unavailable forecast fields and removal of the unused Projected legend are improvements. However, the plots still show future +100 ticks with only a Recorded legend and no projected curve. Nothing beside those ticks identifies them as scheduled resets, leaving a forward-looking cue in an otherwise unavailable or collecting forecast.",
+      "fix": "Label these ticks or their legend Scheduled reset and keep their existing amounts and dates. Explicitly distinguish reset scheduling from an available depletion forecast; preserve the observed series, provider colours and the Unavailable fields."
+    },
+    {
+      "states": [
+        "wide",
+        "partial",
+        "stale",
+        "collecting",
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Shorter plots improve the stacked cards, especially in partial, stale and collecting, where the second provider now begins within the capture. The first card still dominates: the wide capture cuts through the Codex plot before its accounts, partial/stale/collecting expose only the start of Codex, and refresh-error reaches only Claude's accounts. Summary and selected-sample text remain separated from the plot by generous vertical space.",
+      "fix": "Reduce the remaining blank summary/readout-to-plot space at desktop widths and compact repeated metadata rows. Preserve both provider cards, every account, the recorded/projected distinction and readable chart labels rather than hiding detail to fit."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "hierarchy",
+        "colour",
+        "content",
+        "consistency"
+      ],
+      "element": "The empty panel still leads with a small amber sentence saying No accounts are available for this provider while All pools is selected. It lacks an empty-state heading. Visibly dimmed chart controls are clearer than round 1, but the ordinary empty result retains the same caution colour and selection-mismatched wording.",
+      "fix": "Add a clear No accounts available heading, describe the current All pools selection, and use neutral text for ordinary emptiness. Keep the visible Account view action and the disabled appearance of chart-only controls."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content"
+      ],
+      "element": "The Loading... button and dimmed chart toolbar now communicate a busy state. The result itself remains a small centered Loading pooled quota label inside a large otherwise empty panel, with the points explanation receiving an earlier reading position than the loading result.",
+      "fix": "Give the result a short loading heading near the top-left and use a shallower panel or compact provider-shaped placeholders. Keep static loading text visible and preserve the busy button treatment; a still image does not establish animation or reduced-motion behaviour."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "controls_states"
+      ],
+      "element": "Each chart now has an exact selected timestamp/value and a matching coloured sample dot, resolving the missing-result problem. On narrow screens that readout is above the plot while Inspect chart and its small visible thumb are below the plot and legend. The earlier slider/arrow-key instruction has disappeared, so the result and manipulation cue are visually separated.",
+      "fix": "Place the selected timestamp and exact points or points/h immediately beside or beneath the slider, keep the matching plot marker, and add a short arrow-key inspection cue. Increase the visible thumb without shrinking the track or other controls. These are screenshot affordance findings, not a keyboard or touch-target verification."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "controls_states",
+        "consistency"
+      ],
+      "element": "The collecting plot visibly contains one recorded dot and the readout identifies that observation, but Inspect chart retains the same long, ready-looking slider as charts with many samples. The captured state gives no indication that only one sample is available to inspect.",
+      "fix": "Show a One recorded sample caption and a visibly unavailable or fixed inspection control while only one sample exists. Keep the timestamp/value readout and collecting explanation visible; restore the ordinary slider presentation when multiple samples are available."
+    },
+    {
+      "states": [
+        "stale"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "The stale warning, Unavailable fields and Total unavailable caption are clearer. Last refresh still reports a refresh timestamp rather than identifying when the stale observation was recorded, and Next reset remains unqualified despite the stale account row.",
+      "fix": "Name the refresh timestamp precisely, show a separate last-observed timestamp when available, and qualify stale reset information as last reported. Preserve the Current labels on accounts that are actually current and do not substitute refresh time for observation time."
+    },
+    {
+      "states": [
+        "long-narrow"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Long account names wrap without clipping and the unavailable window rows remain readable. Both provider summaries nevertheless show all accounts loaded, Forecast: Ready and an exact aggregate while an account below says Window unavailable. The screenshot does not explain the different scopes of account retrieval, selected-window availability and the pool forecast.",
+      "fix": "Add a concise qualification explaining what Loaded and the displayed aggregate cover when a row has no selected-window value. Preserve the existing totals, percentages, account counts and statuses; do not silently reinterpret a window-unavailable row as a failed account load."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The restored Weekly quota remaining line correctly preserves balance context beneath the dominant points/h rate. The rate-only explanation still directly touches the first provider card, while the rate plot reserves most of its width for an empty future interval and the first provider continues to delay the next one.",
+      "fix": "Add a small visible gap between the rate explanation and card, and compact the rate summary/plot spacing. Keep the displayed date bounds, recorded-only explanation, exact remaining/capacity values, rate units and all account rows."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Saved forecast, Saved snapshot and Saved observation now make the retained-data state explicit, with a visible Try again action. The banner and pool still call the timestamp Last refresh, leaving it unclear whether that is the failed attempt or the successful request that supplied the displayed data.",
+      "fix": "Label the timestamp Last successful refresh when it identifies the retained results. If an attempt timestamp is also shown, give it a separate label; retain the saved-data captions and retry action."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "colour",
+        "type_numbers"
+      ],
+      "element": "Across all 14 side-by-side PNG pairs, round 2 retains the dark design and Claude orange/Codex blue from the supplied reference. Visible improvements include the nearby normalized-points explanation, explicit UTC timestamps, selected-sample readouts/markers, unavailable forecast wording, and saved-data labels. The initial-load error also drops the irrelevant retained-data qualification.",
+      "fix": "Preserve these improvements and all visible data meanings while addressing the findings above. Ratings cover screenshot-visible presentation only; keyboard behaviour, focus order, screen-reader output, actual touch hit areas, live API behaviour and conformance were not verified."
+    }
+  ],
+  "drops": []
+}

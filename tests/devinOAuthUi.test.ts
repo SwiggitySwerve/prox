@@ -1,9 +1,11 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeEach, afterEach, describe, expect, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { I18nextProvider } from 'react-i18next';
 import { createInstance } from 'i18next';
+import { SelectedSourceBoundary } from '@/components/sources/SelectedSourceBoundary';
+import { providerSources } from '@/stores/useProviderSources';
 import { OAuthPage } from '@/features/oauth/OAuthPage';
 import { OAuthFlowDialog } from '@/features/oauth/components/OAuthFlowDialog';
 import type { ProviderFlowState } from '@/features/oauth/hooks/useOAuthFlows';
@@ -18,12 +20,24 @@ const i18n = createInstance();
 await i18n.init({ lng: 'en', resources: { en: { translation: en } } });
 
 describe('Devin OAuth login UI', () => {
+  beforeEach(async () => {
+    await providerSources.connect(
+      'https://oauth-fixture.invalid',
+      'synthetic-key',
+      'https://app-fixture.invalid'
+    );
+  });
+  afterEach(() => providerSources.reset());
   test('renders a gallery tile and a dialog with version and expiry guidance', () => {
     const page = renderToStaticMarkup(
       createElement(
         I18nextProvider,
         { i18n },
-        createElement(MemoryRouter, null, createElement(OAuthPage))
+        createElement(
+          MemoryRouter,
+          null,
+          createElement(SelectedSourceBoundary, { children: createElement(OAuthPage) })
+        )
       )
     );
     expect(page).toContain('Devin');

@@ -1,4 +1,5 @@
-import { apiCallApi, getApiCallErrorMessage } from '@/services/api';
+import { createApiCallApi, getApiCallErrorMessage } from '@/services/api/apiCall';
+import type { SourceSession } from '@/services/api/sourceSession';
 import { isRecord } from '@/utils/helpers';
 
 export interface PluginReleaseVersion {
@@ -73,32 +74,37 @@ const normalizeRelease = (value: unknown): PluginReleaseVersion | null => {
   };
 };
 
-export const fetchPluginReleaseVersions = async (
-  repository: string
-): Promise<PluginReleaseVersion[]> => {
-  const slug = getGitHubRepositorySlug(repository);
-  if (!slug) {
-    throw new Error('Repository is not a GitHub repository');
-  }
+export function createPluginReleaseVersionsApi(session: SourceSession) {
+  const apiCallApi = createApiCallApi(session);
+  const fetchPluginReleaseVersions = async (
+    repository: string
+  ): Promise<PluginReleaseVersion[]> => {
+    const slug = getGitHubRepositorySlug(repository);
+    if (!slug) {
+      throw new Error('Repository is not a GitHub repository');
+    }
 
-  const result = await apiCallApi.request({
-    method: 'GET',
-    url: `${GITHUB_API_BASE}/repos/${slug}/releases?per_page=${GITHUB_RELEASES_PAGE_SIZE}`,
-    header: {
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  });
+    const result = await apiCallApi.request({
+      method: 'GET',
+      url: `${GITHUB_API_BASE}/repos/${slug}/releases?per_page=${GITHUB_RELEASES_PAGE_SIZE}`,
+      header: {
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
 
-  if (result.statusCode < 200 || result.statusCode >= 300) {
-    throw new Error(getApiCallErrorMessage(result));
-  }
+    if (result.statusCode < 200 || result.statusCode >= 300) {
+      throw new Error(getApiCallErrorMessage(result));
+    }
 
-  if (!Array.isArray(result.body)) {
-    throw new Error('GitHub releases response is not a list');
-  }
+    if (!Array.isArray(result.body)) {
+      throw new Error('GitHub releases response is not a list');
+    }
 
-  return result.body
-    .map(normalizeRelease)
-    .filter((release): release is PluginReleaseVersion => Boolean(release));
-};
+    return result.body
+      .map(normalizeRelease)
+      .filter((release): release is PluginReleaseVersion => Boolean(release));
+  };
+
+  return { fetchPluginReleaseVersions };
+}

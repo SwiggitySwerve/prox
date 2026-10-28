@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type MouseEvent } from 'react';
+import { useCallback, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { Sheet } from '@/components/ui/Sheet';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Input } from '@/components/ui/Input';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { useNotificationStore } from '@/stores';
+import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import type {
   PrefixProxyEditorField,
   PrefixProxyEditorFieldValue,
@@ -22,19 +22,6 @@ import { AuthFileExcludedModelsField } from './AuthFileExcludedModelsField';
 import { AuthFilePolicyFields } from './AuthFilePolicyFields';
 import { credentialPolicyError, readCredentialPolicy } from '../credentialPolicy';
 import styles from './AuthFileDetailsSheet.module.scss';
-
-/** API 边界归一化补写的派生字段——INFO 视图里只展示后端原始形状，避免重复噪音。 */
-const DERIVED_INFO_KEYS = [
-  'successCount',
-  'failureCount',
-  'recentRequests',
-  'runtimeOnly',
-  'authIndex',
-  'statusMessage',
-  'modified',
-  // 'email' 不在此列：后端原始键名与 camelCase 同形，删掉会藏起真实数据。
-  'projectId',
-];
 
 export type AuthFileDetailsSheetProps = {
   disableControls: boolean;
@@ -56,7 +43,9 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
   const navigate = useNavigate();
   const { disableControls, editor, updatedText, dirty, onClose, onCopyText, onSave, onChange } =
     props;
-  const showConfirmation = useNotificationStore((state) => state.showConfirmation);
+  const { showConfirmation } = useAuthFilesNotifications();
+  const sourceScope = useAuthFilesSource();
+  const settingsPath = `/config?field=routingStrategy&source=${encodeURIComponent(sourceScope.source.instanceId)}`;
 
   const confirmClose = useCallback((): boolean | Promise<boolean> => {
     if (!dirty || editor?.saving === true) return true;
@@ -85,10 +74,11 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
       if (editor?.saving) return;
 
       void Promise.resolve(confirmClose()).then((ok) => {
-        if (ok) void navigate('/config?field=routingStrategy');
+        if (ok && sourceScope.isCurrent())
+          void navigate(settingsPath, { state: { sourceOwner: sourceScope.session.owner } });
       });
     },
-    [confirmClose, editor?.saving, navigate]
+    [confirmClose, editor?.saving, navigate, settingsPath, sourceScope]
   );
 
   const formatJsonText = (text: string) => {
@@ -101,23 +91,7 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
   };
   const previewText = formatJsonText(updatedText);
   const invalidContentPreview = editor?.invalidContentPreview ?? '';
-  const fileInfoText = editor?.fileInfoText ?? '';
-  const displayInfoText = useMemo(() => {
-    if (!fileInfoText) return '';
-    try {
-      const parsed = JSON.parse(fileInfoText) as unknown;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const record = parsed as Record<string, unknown>;
-        DERIVED_INFO_KEYS.forEach((key) => {
-          delete record[key];
-        });
-        return JSON.stringify(record, null, 2);
-      }
-    } catch {
-      /* 非 JSON 原样展示 */
-    }
-    return fileInfoText;
-  }, [fileInfoText]);
+  const displayInfoText = editor?.fileInfoText ?? '';
 
   return (
     <Sheet
@@ -127,7 +101,7 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
       size="md"
       closeDisabled={editor?.saving === true}
       eyebrow={t('auth_files.prefix_proxy_button')}
-      title={editor?.fileName ?? ''}
+      title={editor ? `${sourceScope.source.label} · ${editor.fileName}` : ''}
       footer={
         <>
           <Button
@@ -228,7 +202,8 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                           settingsLink: (
                             <Link
                               className={styles.settingsLink}
-                              to="/config?field=routingStrategy"
+                              to={settingsPath}
+                              state={{ sourceOwner: sourceScope.session.owner }}
                               onClick={handleSettingsLinkClick}
                             />
                           ),

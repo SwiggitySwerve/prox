@@ -1,3 +1,5 @@
+import { authFileDisplayMetadata } from '../metadata';
+import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import {
   applyCredentialPolicyPatch,
   buildCredentialPolicyPatch,
@@ -9,10 +11,10 @@ import {
 } from '@/features/authFiles/credentialPolicy';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { apiClient, authFilesApi, type AuthFileFieldsPatch } from '@/services/api';
+import type { AuthFileFieldsPatch } from '@/services/api/authFiles';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import type { AuthFileItem } from '@/types';
-import { useNotificationStore } from '@/stores';
+
 import {
   applyAuthFileWebsockets,
   applyAuthFileUsingApi,
@@ -485,10 +487,12 @@ export function useAuthFilesPrefixProxyEditor(
   options: UseAuthFilesPrefixProxyEditorOptions
 ): UseAuthFilesPrefixProxyEditorResult {
   const { disableControls, loadFiles, onFilesMutated } = options;
-  const editorConnectionRef = useRef(apiClient.getConnectionRevision());
   const editorRequestRef = useRef(0);
+  const sourceScope = useAuthFilesSource();
+  const authFilesApi = sourceScope.api;
+  const editorConnectionRef = useRef(sourceScope.getRevision());
   const { t } = useTranslation();
-  const showNotification = useNotificationStore((state) => state.showNotification);
+  const showNotification = useAuthFilesNotifications().showNotification;
 
   const [prefixProxyEditor, setPrefixProxyEditor] = useState<PrefixProxyEditorState | null>(null);
 
@@ -524,15 +528,15 @@ export function useAuthFilesPrefixProxyEditor(
       closePrefixProxyEditor();
       return;
     }
-    const revision = apiClient.getConnectionRevision();
+    const revision = sourceScope.getRevision();
     editorConnectionRef.current = revision;
     const requestId = ++editorRequestRef.current;
     const isCurrentEditor = () =>
-      revision === apiClient.getConnectionRevision() && requestId === editorRequestRef.current;
+      revision === sourceScope.getRevision() && requestId === editorRequestRef.current;
 
     setPrefixProxyEditor({
       fileName: name,
-      fileInfoText: JSON.stringify(file, null, 2),
+      fileInfoText: JSON.stringify(authFileDisplayMetadata(file), null, 2),
       loading: true,
       saving: false,
       error: null,
@@ -565,6 +569,7 @@ export function useAuthFilesPrefixProxyEditor(
 
     try {
       const rawText = await authFilesApi.downloadText(name);
+      sourceScope.assertCurrent();
       if (!isCurrentEditor()) return;
       const trimmed = rawText.trim();
 
@@ -572,6 +577,7 @@ export function useAuthFilesPrefixProxyEditor(
       try {
         parsed = JSON.parse(trimmed) as unknown;
       } catch {
+        if (!sourceScope.isCurrent()) return;
         setPrefixProxyEditor((prev) => {
           if (!prev || prev.fileName !== name) return prev;
           return {
@@ -653,6 +659,7 @@ export function useAuthFilesPrefixProxyEditor(
         };
       });
     } catch (err: unknown) {
+      if (!sourceScope.isCurrent()) return;
       if (!isCurrentEditor()) return;
       const errorMessage = err instanceof Error ? err.message : t('notification.download_failed');
       setPrefixProxyEditor((prev) => {
@@ -735,7 +742,7 @@ export function useAuthFilesPrefixProxyEditor(
     const revision = editorConnectionRef.current;
     const requestId = editorRequestRef.current;
     const isCurrentEditor = () =>
-      revision === apiClient.getConnectionRevision() && requestId === editorRequestRef.current;
+      revision === sourceScope.getRevision() && requestId === editorRequestRef.current;
     if (!isCurrentEditor()) return;
     if (!prefixProxyDirty || hasBlockingValidationError) return;
 
@@ -744,6 +751,7 @@ export function useAuthFilesPrefixProxyEditor(
     try {
       payload = buildAuthFileFieldsPatch(prefixProxyEditor, (key) => t(key));
     } catch (err: unknown) {
+      if (!sourceScope.isCurrent()) return;
       const errorMessage = err instanceof Error ? err.message : 'Invalid format';
       showNotification(errorMessage, 'error');
       return;
@@ -757,13 +765,16 @@ export function useAuthFilesPrefixProxyEditor(
 
     try {
       await authFilesApi.patchFields(name, payload);
+      sourceScope.assertCurrent();
       if (!isCurrentEditor()) return;
       onFilesMutated?.([name]);
-      notifyAuthFilesChanged();
+      notifyAuthFilesChanged(sourceScope.session.owner);
       showNotification(t('auth_files.prefix_proxy_saved_success', { name }), 'success');
       await loadFiles();
+      sourceScope.assertCurrent();
       if (isCurrentEditor()) closePrefixProxyEditor();
     } catch (err: unknown) {
+      if (!sourceScope.isCurrent()) return;
       if (!isCurrentEditor()) return;
       const errorMessage = err instanceof Error ? err.message : '';
       showNotification(`${t('notification.update_failed')}: ${errorMessage}`, 'error');

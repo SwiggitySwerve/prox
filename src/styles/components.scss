@@ -1,4 +1,3 @@
-@use 'sass:color';
 @use './variables.scss' as *;
 
 .btn {
@@ -49,12 +48,12 @@
   }
 
   &.btn-danger {
-    background-color: $error-color;
-    border-color: $error-color;
+    background-color: var(--danger-solid);
+    border-color: var(--danger-solid);
     color: #fff;
 
     &:hover {
-      background-color: color.adjust($error-color, $lightness: -5%);
+      background-color: var(--danger-solid-hover);
     }
   }
 
@@ -70,17 +69,6 @@
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-  }
-}
-
-[data-theme='dark'] {
-  .btn {
-    color: #fff;
-  }
-
-  .btn.btn-secondary,
-  .btn.btn-ghost {
-    color: #fff;
   }
 }
 
@@ -144,7 +132,7 @@ textarea {
     flex: 1 1 auto;
     min-width: 0;
     font-size: 18px;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text-primary);
   }
 }
@@ -359,7 +347,7 @@ textarea {
   border-bottom: 1px solid var(--border-color);
 
   .modal-title {
-    font-weight: 700;
+    font-weight: 600;
     font-size: 18px;
     color: var(--text-primary);
   }
@@ -471,7 +459,8 @@ textarea {
   }
 
   .empty-title {
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 500;
     color: var(--text-primary);
   }
 
@@ -518,7 +507,7 @@ textarea {
   }
 
   .item-title {
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text-primary);
   }
 

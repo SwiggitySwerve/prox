@@ -236,6 +236,11 @@
     "card_toggle": "啟用驗證檔案 {{name}}",
     "card_requests": "請求記錄",
     "cooldown_unknown": "冷卻狀態未知",
+    "status_weekly_limit": "已達每週額度上限",
+    "status_five_hour_limit": "已達 5 小時額度上限",
+    "status_usage_limit": "已達用量上限",
+    "status_limit_resets": "{{limit}} · {{time}} 重置",
+    "status_rate_limited": "請求受限 · 請稍後重試",
     "cooldown_models": "{{count}} 個模型冷卻",
     "cooldown_credential": "憑證級冷卻",
     "cooldown_credential_and_models": "憑證及 {{count}} 個模型冷卻",
@@ -433,7 +438,8 @@
     "quota_refresh_single": "重新整理配額",
     "quota_refresh_hint": "僅重新整理該驗證檔案的配額",
     "quota_refresh_success": "已重新整理「{{name}}」的配額",
-    "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}"
+    "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}",
+    "source_authentication_required": "請登入此代理執行個體以檢視驗證檔案。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
@@ -549,7 +555,6 @@
     "reset_confirm_button": "確認重置",
     "reset_not_confirmed": "尚未確認額度重置成功，請重新整理額度後再決定是否重試。",
     "reset_cooldown_failed": "額度已重置，但代理冷卻清除失敗。請在原連線的認證檔案頁面使用「清除冷卻」，不要再次消耗重置卡。",
-
     "reset_success": "已重置「{{name}}」的 Codex 配額",
     "reset_failed": "重置「{{name}}」的 Codex 配額失敗：{{message}}",
     "plan_plus": "Plus",
@@ -1807,7 +1812,9 @@
     "gate_step2_action": "我已閱讀並理解上述風險",
     "gate_step3_prompt": "如需確認，請在下方輸入框中鍵入 “{{token}}”",
     "gate_step3_action": "安裝此插件",
-    "gate_step3_hint": "請輸入上方顯示的完整識別碼以啟用安裝。"
+    "gate_step3_hint": "請輸入上方顯示的完整識別碼以啟用安裝。",
+    "destination": "目標執行個體",
+    "select_destination": "請選擇目標執行個體"
   },
   "plugin_resource": {
     "page_count": "{{count}} 個頁面",
@@ -1816,7 +1823,8 @@
     "not_found": "找不到插件頁面",
     "not_found_desc": "目前後端插件清單未宣告此插件頁面。",
     "empty_src": "插件頁面位址為空",
-    "empty_src_desc": "此插件選單未提供可嵌入的頁面位址。"
+    "empty_src_desc": "此插件選單未提供可嵌入的頁面位址。",
+    "source_embedding_unsupported": "此部署尚未驗證外掛頁面的執行個體路由，因此無法嵌入外掛頁面。"
   },
   "system_info": {
     "title": "管理中心資訊",
@@ -2339,6 +2347,15 @@
     "expired": "綁定工作階段已過期，請重新開始。"
   },
   "quota_pool": {
+    "total_unavailable_title": "總量無法使用",
+    "window_unavailable": "{{window}}配額無法使用",
+    "saved_observation": "已儲存的觀測",
+    "forecast_unavailable": "無法使用",
+    "total_unavailable": "總量無法使用：部分餘額缺失。",
+    "saved_forecast": "已儲存的預測",
+    "snapshot": "快照",
+    "saved_snapshot": "已儲存的快照",
+    "load_error_initial": "請檢查連線後重試。",
     "window_remaining": "{{window}}剩餘額度",
     "history_forecast": "歷史與預測",
     "forecast_status": "預測：{{state}}",
@@ -2371,26 +2388,26 @@
     "next": "後一天",
     "today": "今天",
     "recorded_only": "速率僅顯示已記錄的觀測值。未來使用量僅影響剩餘額度預測。",
-    "normalized": "每個符合條件的帳號計為100個標準化點數。點數表示額度，而非權杖數量或方案權重。",
+    "normalized": "100 點 = 一個基礎方案（Claude Pro 或 ChatGPT Plus）的配額。每個帳戶依其方案倍數計入：Max 20x = 2,000，Pro 500 = 2,500。配額點數不是權杖。",
     "disconnected": "連線至後端以查看共用額度。",
-    "refresh_error": "重新整理失敗。仍顯示先前載入的觀測值。",
+    "refresh_error": "仍顯示先前載入的觀測。請重試以重新整理。",
     "load_error": "無法載入額度池。目前顯示的資料來自上次成功的請求。",
     "retry": "重試",
     "loading": "正在載入共用額度…",
-    "polling": "每15秒更新",
+    "polling": "儀表板每 15 秒檢查更新",
     "history_since": "歷史起始時間",
-    "last_refresh": "上次重新整理",
-    "next_refresh": "下次可重新整理時間",
+    "last_refresh": "上次收集嘗試",
+    "next_refresh": "下次可收集時間",
     "account_count": "{{count}}個帳號",
     "of_capacity": "共{{capacity}}點",
     "coverage": "已載入{{loaded}}個 · 符合條件{{eligible}}個",
     "pool_empty": "額度池耗盡",
-    "first_empty": "首個帳號耗盡",
+    "first_empty": "首個帳戶耗盡",
     "next_reset": "下次重設",
     "burn_last": "最近{{hours}}小時消耗",
     "points": "點",
     "points_hour": "點/小時",
-    "not_predicted": "未預測",
+    "not_predicted": "此範圍內不會耗盡",
     "reset": "重設",
     "now": "現在",
     "accounts": "帳號",
@@ -2398,10 +2415,12 @@
     "no_observation": "無觀測值",
     "recorded": "已記錄",
     "projected": "預測",
-    "inspect_hint": "使用滑桿或方向鍵查看樣本。",
+    "inspect_hint": "將指標停在圖表上，或聚焦圖表後使用方向鍵查看樣本。",
+    "move_up": "上移 {{pool}}",
+    "move_down": "下移 {{pool}}",
     "inspect": "查看圖表",
     "chart_title": "{{provider}} · {{mode}}",
-    "chart_description": "實線表示已記錄的觀測值；虛線表示剩餘額度模式下的伺服器預測。空白表示缺失資料。重設標記表示增加的點數。使用滑桿讀取精確值。",
+    "chart_description": "實線表示已記錄的觀測值；虛線表示剩餘額度模式下的伺服器預測。空白表示缺失資料。重設標記表示增加的點數。停留指標或使用方向鍵讀取精確值。",
     "no_history": "此範圍內無觀測值",
     "scenario": {
       "same": "維持目前",
@@ -2418,8 +2437,8 @@
     },
     "state_note": {
       "collecting": "正在收集歷史。觀測值充足後顯示預測。",
-      "partial": "部分帳號缺少額度資料。總量和預測可能不完整。",
-      "stale": "觀測值已過期。目前預測可能不再準確。",
+      "partial": "總量和預測無法使用：部分符合條件的帳戶沒有目前配額資料。",
+      "stale": "請重新整理過期觀測後查看總量和預測。",
       "no-accounts": "此供應商沒有可用帳號。請在帳號檢視中新增憑證。"
     },
     "account_status": {
@@ -2432,6 +2451,29 @@
     "issue": {
       "inventory-unavailable": "無法載入帳號清單。",
       "quota-unavailable": "一個或多個帳號的額度無法使用。"
-    }
+    },
+    "rate_no_projection": "僅顯示已記錄速率",
+    "projection_unavailable": "預測無法使用",
+    "scheduled_reset": "排定重設",
+    "single_sample": "一個已記錄樣本",
+    "recorded_rate": "已記錄{{rate}} · {{hours}}小時",
+    "remaining_forecast": "剩餘配額預測",
+    "predicted_empty": "預計耗盡",
+    "normalized_short": "每個基礎方案（Claude Pro / ChatGPT Plus）100 點 · 帳戶依方案加權，並非權杖。",
+    "account_plan": "{{plan}} · {{points}} 點",
+    "account_plan_unknown": "方案未知 · {{points}} 點",
+    "awaiting_data": "等待資料",
+    "refresh_failed_title": "重新整理失敗",
+    "load_failed_title": "無法載入配額",
+    "no_accounts_title": "尚未連接帳戶",
+    "no_accounts_help": "連接帳戶以查看彙總配額。",
+    "add_credentials": "新增憑證"
+  },
+  "provider_sources": {
+    "discovery_error": "無法取得代理執行個體清單。請重新載入以重試。",
+    "authentication_required": "請登入此代理執行個體以繼續。",
+    "separate_pools": "每個 {{provider}} 執行個體分別顯示配額池。尚未驗證共用額度，因此無法提供合計。",
+    "unresolved_history": "部分歷史帳號尚未確認所屬執行個體。歷史記錄已保留，不計入目前合計。",
+    "mutation_unconfirmed": "無法確認操作結果。重試前請檢查重新整理後的狀態。"
   }
 }

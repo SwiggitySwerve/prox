@@ -4,6 +4,7 @@
 
 import type { ApiError } from '@/types';
 import { apiClient } from './client';
+import type { SourceSession, ManagementTransport } from './sourceSession';
 import { parseApiErrorResponse } from './apiError';
 import { LOGS_TIMEOUT_MS } from '@/utils/constants';
 import { isRecord } from '@/utils/helpers';
@@ -103,9 +104,13 @@ export const responseDataToText = async (data: unknown): Promise<string> => {
   }
 };
 
-const downloadLog = async (path: string, options: LogsRequestOptions) => {
+const downloadLog = async (
+  client: ManagementTransport,
+  path: string,
+  options: LogsRequestOptions
+) => {
   try {
-    return await apiClient.getRaw(path, {
+    return await client.getRaw(path, {
       ...options,
       responseType: 'blob',
       timeout: LOGS_TIMEOUT_MS,
@@ -132,29 +137,40 @@ const downloadLog = async (path: string, options: LogsRequestOptions) => {
   }
 };
 
-export const logsApi = {
-  async fetchLogs(params: LogsQuery = {}, options: LogsRequestOptions = {}): Promise<LogsResponse> {
-    const data = await apiClient.get('/observability/logs', {
-      ...options,
-      params,
-      timeout: LOGS_TIMEOUT_MS,
-    });
-    return normalizeLogsResponse(data);
-  },
+function buildLogsApi(client: ManagementTransport) {
+  return {
+    async fetchLogs(
+      params: LogsQuery = {},
+      options: LogsRequestOptions = {}
+    ): Promise<LogsResponse> {
+      const data = await client.get('/observability/logs', {
+        ...options,
+        params,
+        timeout: LOGS_TIMEOUT_MS,
+      });
+      return normalizeLogsResponse(data);
+    },
 
-  clearLogs: (options: LogsRequestOptions = {}) => apiClient.delete('/observability/logs', options),
+    clearLogs: (options: LogsRequestOptions = {}) => client.delete('/observability/logs', options),
 
-  async fetchErrorLogs(options: LogsRequestOptions = {}): Promise<ErrorLogsResponse> {
-    const data = await apiClient.get('/observability/logs/errors', {
-      ...options,
-      timeout: LOGS_TIMEOUT_MS,
-    });
-    return normalizeErrorLogsResponse(data);
-  },
+    async fetchErrorLogs(options: LogsRequestOptions = {}): Promise<ErrorLogsResponse> {
+      const data = await client.get('/observability/logs/errors', {
+        ...options,
+        timeout: LOGS_TIMEOUT_MS,
+      });
+      return normalizeErrorLogsResponse(data);
+    },
 
-  downloadErrorLog: (filename: string, options: LogsRequestOptions = {}) =>
-    downloadLog(`/observability/logs/errors/${encodeURIComponent(filename)}`, options),
+    downloadErrorLog: (filename: string, options: LogsRequestOptions = {}) =>
+      downloadLog(client, `/observability/logs/errors/${encodeURIComponent(filename)}`, options),
 
-  downloadRequestLogById: (id: string, options: LogsRequestOptions = {}) =>
-    downloadLog(`/observability/logs/requests/${encodeURIComponent(id)}`, options),
-};
+    downloadRequestLogById: (id: string, options: LogsRequestOptions = {}) =>
+      downloadLog(client, `/observability/logs/requests/${encodeURIComponent(id)}`, options),
+  };
+}
+
+export function createLogsApi(session: SourceSession) {
+  return buildLogsApi(session.management);
+}
+
+export const logsApi = buildLogsApi(apiClient);

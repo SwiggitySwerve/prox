@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
-import { logsApi } from '@/services/api/logs';
+import { useNotificationStore } from '@/stores';
+import { createLogsApi } from '@/services/api/logs';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
 import { getErrorMessage } from '@/utils/helpers';
 import {
   applyLogPage,
@@ -40,18 +41,26 @@ const isLoggingToFileDisabledError = (err: unknown): boolean => {
 
 type LogStreamOptions = {
   active: boolean;
+  loggingToFileEnabled: boolean;
   isFollowing: () => boolean;
   onFollow: () => void;
 };
 
 /** Owns application-log requests and invalidates synchronously, including A→B→A switches. */
-export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions) {
+export function useLogStream({
+  active,
+  isFollowing,
+  onFollow,
+  loggingToFileEnabled,
+}: LogStreamOptions) {
   const { t } = useTranslation();
   const { showNotification, showConfirmation } = useNotificationStore();
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
-  const managementKey = useAuthStore((state) => state.managementKey);
-  const loggingToFileEnabled = useConfigStore((state) => state.config?.loggingToFile ?? false);
+  const sourceSession = useSelectedSourceSession();
+  const logsApi = useMemo(() => createLogsApi(sourceSession), [sourceSession]);
+  const loggingEnabledRef = useRef(loggingToFileEnabled);
+  useLayoutEffect(() => {
+    loggingEnabledRef.current = loggingToFileEnabled;
+  }, [loggingToFileEnabled]);
   const cpaNeedsFileLogging = !loggingToFileEnabled;
   const [fileLoggingRequired, setFileLoggingRequired] = useState(false);
   const showFileLoggingRequired = cpaNeedsFileLogging || fileLoggingRequired;
@@ -89,12 +98,12 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
 
   async function loadLogs(incremental = false) {
     // Queued reloads must read live context, not the render that started the old request.
-    if (useAuthStore.getState().connectionStatus !== 'connected') {
+    if (sourceSession.signal.aborted) {
       setLoading(false);
       return;
     }
 
-    if (!useConfigStore.getState().config?.loggingToFile) {
+    if (!loggingEnabledRef.current) {
       if (!incremental) {
         resetLogPosition();
         setFileLoggingRequired(false);
@@ -114,7 +123,7 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
       for (let page = 0; page < 3; page++) {
         const cursor = logBufferRef.current.cursor;
         const data = await logsApi.fetchLogs(buildLogsQuery(cursor));
-        if (!requests.logs.isCurrent(request)) return;
+        if (sourceSession.signal.aborted || !requests.logs.isCurrent(request)) return;
         const stickToBottom = isFollowing();
         const next = applyLogPage(logBufferRef.current, data, cursor);
         const added = next.nextId - logBufferRef.current.nextId;
@@ -137,7 +146,7 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
         if (!more || (incremental && !autoRefreshRef.current)) break;
       }
     } catch (err: unknown) {
-      if (!requests.logs.isCurrent(request)) return;
+      if (sourceSession.signal.aborted || !requests.logs.isCurrent(request)) return;
       setCatchingUp(false);
       if (isLoggingToFileDisabledError(err)) {
         setFileLoggingRequired(true);
@@ -148,7 +157,7 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
       nextReadAtRef.current = Date.now() + retryDelayRef.current;
       retryDelayRef.current = Math.min(retryDelayRef.current * 2, 60000);
     } finally {
-      if (requests.logs.isCurrent(request)) {
+      if (!sourceSession.signal.aborted && requests.logs.isCurrent(request)) {
         setLoading(false);
         if (requests.logs.finish(request)) void loadLogs(false);
       }
@@ -172,8 +181,8 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
       confirmText: t('common.confirm'),
       onConfirm: async () => {
         if (!requests.session.isCurrent(session)) return;
-        if (useAuthStore.getState().connectionStatus !== 'connected') return;
-        if (!useConfigStore.getState().config?.loggingToFile) return;
+        if (sourceSession.signal.aborted) return;
+        if (!loggingEnabledRef.current) return;
         const request = requests.logs.startClear();
         if (request === null) return;
         setClearingLogs(true);
@@ -182,12 +191,12 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
         let clearFailed = false;
         try {
           await logsApi.clearLogs();
-          if (!requests.logs.isCurrent(request)) return;
+          if (sourceSession.signal.aborted || !requests.logs.isCurrent(request)) return;
           resetLogPosition();
           setFileLoggingRequired(false);
           showNotification(t('logs.clear_success'), 'success');
         } catch (err: unknown) {
-          if (!requests.logs.isCurrent(request)) return;
+          if (sourceSession.signal.aborted || !requests.logs.isCurrent(request)) return;
           clearFailed = true;
           const message = getErrorMessage(err);
           showNotification(
@@ -195,7 +204,7 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
             'error'
           );
         } finally {
-          if (requests.logs.isCurrent(request)) {
+          if (!sourceSession.signal.aborted && requests.logs.isCurrent(request)) {
             setClearingLogs(false);
             // Clear superseded the old read; recover it even when deletion fails.
             if (requests.logs.finish(request, clearFailed)) void loadLogs(false);
@@ -218,39 +227,30 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
       requests.session.invalidate();
       requests.logs.invalidate();
     };
-    // Invalidate at store notification time, not after React commits a new render.
-    const unsubscribeAuth = useAuthStore.subscribe((next, previous) => {
-      if (
-        next.apiBase === previous.apiBase &&
-        next.managementKey === previous.managementKey &&
-        next.connectionStatus === previous.connectionStatus &&
-        next.isAuthenticated === previous.isAuthenticated
-      )
-        return;
+    const invalidate = () => {
       invalidateSession();
       resetLogs();
-    });
-    const unsubscribeConfig = useConfigStore.subscribe((next, previous) => {
-      if (next.config?.loggingToFile !== previous.config?.loggingToFile) resetLogs();
-    });
+    };
+    sourceSession.signal.addEventListener('abort', invalidate);
     return () => {
-      unsubscribeAuth();
-      unsubscribeConfig();
+      sourceSession.signal.removeEventListener('abort', invalidate);
       invalidateSession();
     };
-  }, [requests]);
+  }, [requests, sourceSession]);
 
   useEffect(() => {
-    if (connectionStatus === 'connected') {
+    requests.session.invalidate();
+    requests.logs.invalidate();
+    if (!sourceSession.signal.aborted) {
       resetLogPosition();
       setFileLoggingRequired(false);
       loadLogs(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionStatus, apiBase, managementKey, loggingToFileEnabled]);
+  }, [sourceSession, loggingToFileEnabled]);
 
   useEffect(() => {
-    if (!autoRefresh || !active || connectionStatus !== 'connected' || showFileLoggingRequired) {
+    if (!autoRefresh || !active || sourceSession.signal.aborted || showFileLoggingRequired) {
       return;
     }
     const id = window.setInterval(() => {
@@ -259,7 +259,7 @@ export function useLogStream({ active, isFollowing, onFollow }: LogStreamOptions
     }, 1000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh, active, connectionStatus, showFileLoggingRequired]);
+  }, [autoRefresh, active, sourceSession, showFileLoggingRequired]);
 
   return {
     logBuffer,

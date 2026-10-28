@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeEach, afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -11,6 +11,8 @@ import zhTW from '@/i18n/locales/zh-TW.json';
 import ru from '@/i18n/locales/ru.json';
 import ko from '@/i18n/locales/ko.json';
 import vi from '@/i18n/locales/vi.json';
+import { SelectedSourceBoundary } from '@/components/sources/SelectedSourceBoundary';
+import { providerSources } from '@/stores/useProviderSources';
 import { OAuthPage } from '@/features/oauth/OAuthPage';
 import { resolveCallbackUrl, XAI_CALLBACK_URL } from '@/features/oauth/callbackUrl';
 import { resolveFlowView, splitAuthUrl } from '@/features/oauth/flowView';
@@ -120,6 +122,14 @@ describe('plugin OAuth tiles', () => {
 });
 
 describe('OAuth provider gallery', () => {
+  beforeEach(async () => {
+    await providerSources.connect(
+      'https://oauth-fixture.invalid',
+      'synthetic-key',
+      'https://app-fixture.invalid'
+    );
+  });
+  afterEach(() => providerSources.reset());
   const locales = { en, 'zh-CN': zhCN, 'zh-TW': zhTW, ru, ko, vi } as const;
 
   for (const [lng, translation] of Object.entries(locales)) {
@@ -130,7 +140,11 @@ describe('OAuth provider gallery', () => {
         createElement(
           I18nextProvider,
           { i18n },
-          createElement(MemoryRouter, null, createElement(OAuthPage))
+          createElement(
+            MemoryRouter,
+            null,
+            createElement(SelectedSourceBoundary, { children: createElement(OAuthPage) })
+          )
         )
       );
       for (const provider of OAUTH_PROVIDERS) {
@@ -153,7 +167,11 @@ describe('OAuth provider gallery', () => {
       createElement(
         I18nextProvider,
         { i18n },
-        createElement(MemoryRouter, null, createElement(OAuthPage))
+        createElement(
+          MemoryRouter,
+          null,
+          createElement(SelectedSourceBoundary, { children: createElement(OAuthPage) })
+        )
       )
     );
     // 一张品牌卡（role=group），卡内两个站点登录入口 + 两个开放平台注册链接
@@ -203,7 +221,11 @@ describe('OAuth provider gallery', () => {
       createElement(
         I18nextProvider,
         { i18n },
-        createElement(MemoryRouter, null, createElement(OAuthPage))
+        createElement(
+          MemoryRouter,
+          null,
+          createElement(SelectedSourceBoundary, { children: createElement(OAuthPage) })
+        )
       )
     );
     for (const url of [KIMI_CHINESE_AFFILIATE_URL, KIMI_INTERNATIONAL_AFFILIATE_URL]) {

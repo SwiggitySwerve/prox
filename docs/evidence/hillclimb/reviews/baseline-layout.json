@@ -1,0 +1,129 @@
+{
+  "reviewer": "layout",
+  "scores": {
+    "wide": {"hierarchy": 6, "layout": 7, "type_numbers": 7, "colour": 9, "content": 7, "controls_states": 7, "consistency": 7, "responsive_accessible": 8},
+    "laptop": {"hierarchy": 6, "layout": 6, "type_numbers": 7, "colour": 9, "content": 7, "controls_states": 7, "consistency": 7, "responsive_accessible": 8},
+    "narrow": {"hierarchy": 5, "layout": 5, "type_numbers": 7, "colour": 9, "content": 7, "controls_states": 6, "consistency": 7, "responsive_accessible": 5},
+    "empty": {"hierarchy": 7, "layout": 6, "type_numbers": 7, "colour": 8, "content": 7, "controls_states": 7, "consistency": 7, "responsive_accessible": 8},
+    "loading": {"hierarchy": 6, "layout": 6, "type_numbers": 7, "colour": 9, "content": 9, "controls_states": 5, "consistency": 7, "responsive_accessible": 8},
+    "error": {"hierarchy": 7, "layout": 7, "type_numbers": 7, "colour": 9, "content": 8, "controls_states": 7, "consistency": 7, "responsive_accessible": 8},
+    "partial": {"hierarchy": 6, "layout": 7, "type_numbers": 7, "colour": 7, "content": 8, "controls_states": 7, "consistency": 7, "responsive_accessible": 8},
+    "stale": {"hierarchy": 6, "layout": 7, "type_numbers": 7, "colour": 7, "content": 8, "controls_states": 7, "consistency": 7, "responsive_accessible": 8},
+    "collecting": {"hierarchy": 7, "layout": 7, "type_numbers": 7, "colour": 9, "content": 9, "controls_states": 7, "consistency": 7, "responsive_accessible": 8},
+    "long-narrow": {"hierarchy": 5, "layout": 5, "type_numbers": 7, "colour": 9, "content": 8, "controls_states": 6, "consistency": 7, "responsive_accessible": 5},
+    "details-narrow": {"hierarchy": 5, "layout": 4, "type_numbers": 7, "colour": 9, "content": 7, "controls_states": 4, "consistency": 5, "responsive_accessible": 4},
+    "drain": {"hierarchy": 5, "layout": 5, "type_numbers": 6, "colour": 9, "content": 7, "controls_states": 7, "consistency": 7, "responsive_accessible": 7},
+    "burn-narrow": {"hierarchy": 5, "layout": 5, "type_numbers": 5, "colour": 8, "content": 7, "controls_states": 6, "consistency": 7, "responsive_accessible": 4},
+    "refresh-error": {"hierarchy": 6, "layout": 7, "type_numbers": 7, "colour": 9, "content": 8, "controls_states": 7, "consistency": 7, "responsive_accessible": 8}
+  },
+  "findings": [
+    {
+      "states": ["wide", "laptop", "narrow", "long-narrow", "details-narrow", "refresh-error"],
+      "aspects": ["hierarchy", "layout", "content", "consistency"],
+      "element": "Collapsed History and forecast section below the account list in both provider cards",
+      "fix": "Default the ready forecast section open and place its plot and summary immediately after the balance, retaining the visible account list below. The reference gives the orange and blue plots the main visual area; these captures conceal every plot and the pool-empty, first-empty and burn summaries. Keep normalized point units rather than copying the reference's percentage totals."
+    },
+    {
+      "states": ["wide", "laptop", "partial", "stale", "collecting", "drain", "refresh-error"],
+      "aspects": ["hierarchy", "layout", "consistency"],
+      "element": "Desktop two-column provider-card composition and detached next-reset block",
+      "fix": "Use one full-width provider card per row, matching the reference, and align reset and forecast summaries in its header. Keep account rows visible below. This gives the plots room, reduces the empty horizontal gap between each balance and reset, and removes the ragged card bottoms caused by different account counts."
+    },
+    {
+      "states": ["narrow", "long-narrow", "details-narrow", "burn-narrow"],
+      "aspects": ["hierarchy", "layout"],
+      "element": "Mobile header, filter stack and explanatory paragraphs before the first provider card",
+      "fix": "Remove the eyebrow and excess vertical gaps, put quota window and future-usage selectors in one labeled two-column row, and group the retained unit and provider caveats into one compact text block. Keep 44-pixel control targets. The first card currently starts around y=693, or y=745 in burn mode, so nearly the whole first screen is setup rather than quota information."
+    },
+    {
+      "states": ["wide", "laptop", "narrow", "empty", "loading", "error", "partial", "stale", "collecting", "long-narrow", "details-narrow", "drain", "burn-narrow", "refresh-error"],
+      "aspects": ["type_numbers"],
+      "element": "Weekly quota label, loaded/eligible counts, account status labels and refresh metadata",
+      "fix": "Raise the 11-pixel supporting labels to at least 12 pixels on desktop and 13 pixels on mobile, with consistent line spacing. Keep the strong balance numerals and their adjacent point units. The current large-number-to-metadata size jump makes essential account and freshness context look like footnotes; sampled contrast generally passes, but the text remains visually small."
+    },
+    {
+      "states": ["wide", "laptop", "narrow", "empty", "loading", "error", "partial", "stale", "collecting", "long-narrow", "details-narrow", "drain", "burn-narrow", "refresh-error"],
+      "aspects": ["controls_states", "responsive_accessible"],
+      "element": "Show emails checkbox and label",
+      "fix": "Give the entire checkbox-label control a minimum 24-pixel-high desktop hit area and 44-pixel-high touch hit area, vertically centered beside Refresh all. Its measured label/control height is only 19.5 pixels in every state. Preserve the email-visibility toggle and its explicit text."
+    },
+    {
+      "states": ["narrow", "long-narrow", "details-narrow", "burn-narrow"],
+      "aspects": ["controls_states", "responsive_accessible"],
+      "element": "Provider tabs, rate and hour segments, Account view link, selectors and date arrows",
+      "fix": "Expand touch targets to at least 44 by 44 pixels without adding empty inter-row gaps. Rate/hour segments are 34 pixels high, selectors 40, provider tabs 42, and date arrows about 31 pixels wide. Keep clear spacing between adjacent targets and preserve all provider and account access."
+    },
+    {
+      "states": ["wide", "laptop", "narrow", "empty", "loading", "error", "partial", "stale", "collecting", "long-narrow", "details-narrow", "drain", "burn-narrow", "refresh-error"],
+      "aspects": ["consistency"],
+      "element": "Uppercase Prox eyebrow, heavy Refresh all glyph and native checkbox styling",
+      "fix": "Remove the extra eyebrow, use the same restrained outline refresh icon as the utility toolbar, and give Show emails the reference's compact dark pill treatment while retaining its checked state. These small changes bring the chrome closer to the supplied quiet, regular-weight design language."
+    },
+    {
+      "states": ["empty"],
+      "aspects": ["hierarchy", "layout", "colour", "content", "controls_states"],
+      "element": "Half-width amber no-accounts message beneath All pools",
+      "fix": "Use a neutral empty-state card aligned to the full content width, add a short No accounts heading and an Add credentials link to account view, and make the copy describe all pools when All pools is selected. Reserve the amber warning treatment for failures and incomplete data. Keep the explanation of why no quota is displayed."
+    },
+    {
+      "states": ["loading"],
+      "aspects": ["hierarchy", "layout", "controls_states"],
+      "element": "Small centered Loading pooled quota message in a large blank region with fully styled filters",
+      "fix": "Put the loading label at the top of a muted provider-card placeholder region so the pending content has a clear location. Visibly disable data-dependent rate/date controls until the first result, and show Refresh all as busy. Preserve the readable loading message under reduced motion."
+    },
+    {
+      "states": ["error"],
+      "aspects": ["hierarchy", "layout", "content", "controls_states"],
+      "element": "Single-line initial-load error banner and inline Try again button",
+      "fix": "Give the banner a short Quota unavailable title and place Try again at its trailing edge, with aligned padding. Show the retained-data sentence only when retained data is actually visible; this capture has no account cards. Keep the failure explanation and retry action together."
+    },
+    {
+      "states": ["partial", "stale"],
+      "aspects": ["hierarchy", "type_numbers", "colour", "content", "controls_states", "consistency"],
+      "element": "Large unqualified dash, muted warning sentence, affected account status and neutral Forecast badge",
+      "fix": "Replace the dominant dash with a clearly labeled Incomplete or Stale total state while retaining the point capacity. Put an amber warning icon and concise status beside the provider heading, and use the same warning treatment for the affected row and forecast badge. Keep the full missing-data or stale-data explanation visible; do not recolor the orange Claude or blue Codex identity."
+    },
+    {
+      "states": ["collecting"],
+      "aspects": ["hierarchy", "controls_states"],
+      "element": "Collecting history sentence and tiny Forecast: Collecting badge below account rows",
+      "fix": "Move a neutral Collecting history status directly beside the provider heading or quota label, with the existing explanatory sentence immediately below the balance. Keep it visually distinct from amber failures and keep the balance and all accounts visible."
+    },
+    {
+      "states": ["long-narrow"],
+      "aspects": ["layout", "type_numbers", "content", "responsive_accessible"],
+      "element": "Three-line credential names and Window unavailable status competing in the same account row",
+      "fix": "At narrow widths, put the full account name on its own first line and align status and quota value together on a second line. Preserve the full wrapping label and unavailable status rather than truncating either; this gives long names a predictable reading order and keeps the status from squeezing the name column."
+    },
+    {
+      "states": ["details-narrow"],
+      "aspects": ["hierarchy", "layout", "controls_states", "consistency", "responsive_accessible"],
+      "element": "Floating hamburger and utility toolbar across the Remaining/Drain/Burn selector",
+      "fix": "Keep the utility controls in a reserved top header row or a sticky header with matching content offset. In this actual capture they sit around y=343-390 and overlap the rate selector; expanding an account must not move global controls over page content."
+    },
+    {
+      "states": ["drain", "burn-narrow"],
+      "aspects": ["hierarchy", "layout", "content", "consistency"],
+      "element": "Selected rate mode still dominated by Weekly quota remaining and account rows above the rate plot",
+      "fix": "Promote the selected recorded rate and its points/h unit into the provider summary and move its plot above the account list, keeping remaining quota as a secondary value and retaining every account. In drain the plots only begin at the bottom of the captured viewport; on mobile the first plot is far below the selected mode. Keep the recorded-only explanation and disabled future-usage state."
+    },
+    {
+      "states": ["drain", "burn-narrow"],
+      "aspects": ["type_numbers", "controls_states", "responsive_accessible"],
+      "element": "Rate-chart tick labels and Inspect chart range control",
+      "fix": "Keep chart labels at a readable rendered size rather than scaling text with the plot, and give the range control a minimum 24-pixel desktop or 44-pixel touch hit area. Its measured height is 16 pixels. Preserve orange Claude and blue Codex strokes and the points/h legend. Only the top of the drain plots is visible in its PNG; the mobile PNG supplies the visible full-chart evidence."
+    },
+    {
+      "states": ["burn-narrow"],
+      "aspects": ["layout", "type_numbers", "colour", "responsive_accessible"],
+      "element": "Both mobile rate plots' tiny axes and clipped rightmost date tick",
+      "fix": "Fit the plotting bounds and tick anchors inside the card, reduce date-tick density, and render axis text at 11-12 actual pixels with at least 4.5:1 contrast. The visible labels are extremely small and the final date disappears at the right edge; measurements corroborate two clipped labels and a 4.07:1 zero tick. Do not brighten the grid to compensate or alter the provider line hues."
+    },
+    {
+      "states": ["refresh-error"],
+      "aspects": ["hierarchy", "layout", "content", "controls_states"],
+      "element": "Refresh-failure banner followed by ordinary balances and Forecast: Ready badges",
+      "fix": "Give the banner a short Refresh failed heading, place Try again at the trailing edge, and surface the last successful observation time beside the retained-data explanation. Add a Saved data qualifier beside the existing forecast status so the preserved values are clearly distinguished from a successful refresh. Keep all balances, warnings and accounts visible."
+    }
+  ]
+}

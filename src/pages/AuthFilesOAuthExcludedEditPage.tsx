@@ -14,8 +14,11 @@ import {
 import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
 import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { useAuthStore, useNotificationStore } from '@/stores';
-import { authFilesApi } from '@/services/api';
+import { useAuthStore } from '@/stores';
+import {
+  useAuthFilesSource,
+  useAuthFilesNotifications,
+} from '@/features/authFiles/AuthFilesSourceContext';
 import { buildOAuthProviderOptions, normalizeProviderKey } from '@/features/authFiles/constants';
 import { getStringSetSignature, isOAuthEditorDirty } from '@/features/authFiles/oauthEditorState';
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
@@ -30,7 +33,8 @@ export function AuthFilesOAuthExcludedEditPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { showConfirmation, showNotification } = useNotificationStore();
+  const { showConfirmation, showNotification } = useAuthFilesNotifications();
+  const { api: authFilesApi } = useAuthFilesSource();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const disableControls = connectionStatus !== 'connected';
 
@@ -197,7 +201,7 @@ export function AuthFilesOAuthExcludedEditPage() {
         setInitialLoading(false);
       }
     }
-  }, []);
+  }, [authFilesApi]);
 
   useEffect(() => {
     void loadInitialData();
@@ -258,7 +262,7 @@ export function AuthFilesOAuthExcludedEditPage() {
     return () => {
       cancelled = true;
     };
-  }, [excludedUnsupported, resolvedProviderKey, showNotification, t]);
+  }, [authFilesApi, excludedUnsupported, resolvedProviderKey, showNotification, t]);
 
   const applyProviderChange = useCallback(
     (value: string) => {
@@ -322,7 +326,16 @@ export function AuthFilesOAuthExcludedEditPage() {
     } finally {
       setSaving(false);
     }
-  }, [allowNextNavigation, effectiveRules, handleBack, isEditing, provider, showNotification, t]);
+  }, [
+    authFilesApi,
+    allowNextNavigation,
+    effectiveRules,
+    handleBack,
+    isEditing,
+    provider,
+    showNotification,
+    t,
+  ]);
 
   const canSave =
     !disableControls &&

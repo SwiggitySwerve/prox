@@ -1,10 +1,13 @@
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import type { DeploymentSource } from '../../src/domain/providerSources/types';
+import { loadSourceManifest } from '../providerSources/config';
+import { LEGACY_SOURCE_MAPPING, legacyAccountId } from './identity';
 import type { TFunction } from 'i18next';
 import type { PoolDashboard, PoolProviderId, PoolWindow } from '../../src/domain/quotaPool/types';
 import { buildClaudeQuotaWindows } from '../../src/domain/quotaWindows/claude';
 import { buildCodexQuotaWindows } from '../../src/domain/quotaWindows/codex';
 import {
+  CLAUDE_PROFILE_URL,
   CLAUDE_USAGE_URL,
   CLAUDE_USAGE_WINDOW_KEYS,
   CLAUDE_REQUEST_HEADERS,
@@ -13,19 +16,36 @@ import {
 } from '../../src/utils/quota/constants';
 import { parseClaudeUsagePayload, parseCodexUsagePayload } from '../../src/utils/quota/parsers';
 import { isRecord } from '../../src/utils/helpers';
+import { planFromClaudeProfile, planFromCodexUsage } from './plans';
 import { QuotaStore } from './store';
 import {
   MANUAL_REFRESH_INTERVAL_MS,
   REFRESH_INTERVAL_MS,
+  QUOTA_PROVIDERS,
   type QuotaSample,
+  type QuotaSourceView,
   type StoredAccount,
 } from './types';
 
-interface CollectorOptions {
-  keyFile: string;
-  origins?: Record<PoolProviderId, string>;
+const PLAN_REFRESH_MS = 6 * 60 * 60 * 1000;
+
+interface CollectorDependencies {
   fetcher?: typeof fetch;
   now?: () => number;
+}
+type CollectorOptions = CollectorDependencies &
+  (
+    | { sources: readonly DeploymentSource[]; revision: string }
+    // Compatibility for existing injected tests only. Production always supplies the manifest.
+    | { keyFile: string; origins?: Record<PoolProviderId, string>; fetcher: typeof fetch }
+  );
+
+interface CollectionSource {
+  instanceId?: string;
+  label: string;
+  upstreamOrigin: string;
+  managementKeyFile: string;
+  providers: readonly PoolProviderId[];
 }
 
 interface InventoryAccount {
@@ -33,11 +53,6 @@ interface InventoryAccount {
   authIndex: string;
 }
 
-const PROVIDERS: PoolProviderId[] = ['claude', 'codex'];
-const DEFAULT_ORIGINS: Record<PoolProviderId, string> = {
-  claude: 'http://127.0.0.1:8319',
-  codex: 'http://127.0.0.1:8317',
-};
 const REQUEST_TIMEOUT_MS = 20_000;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 // Builders require i18next's branded function; labels are not persisted or exposed here.
@@ -88,9 +103,7 @@ function inventory(payload: unknown, provider: PoolProviderId, nowMs: number): I
       throw new Error('Invalid quota inventory');
     }
     seen.add(file.auth_index);
-    const id = `${provider}:${createHash('sha256')
-      .update(`${provider}\0${file.auth_index}`)
-      .digest('hex')}`;
+    const id = legacyAccountId(provider, file.auth_index);
     accounts.push({
       authIndex: file.auth_index,
       account: {
@@ -187,9 +200,10 @@ function quotaSamples(
   return samples;
 }
 
-/** Collects read-only quota observations from the two management services. */
+/** Enumerates each instance once, then collects supported read-only quota observations. */
 export class QuotaCollector {
-  private readonly origins: Record<PoolProviderId, string>;
+  private readonly collectionSources: readonly CollectionSource[];
+  readonly revision: string | undefined;
   private readonly fetcher: typeof fetch;
   private readonly now: () => number;
   private inFlight: Promise<void> | null = null;
@@ -197,15 +211,44 @@ export class QuotaCollector {
   private lastRefresh: number | null = null;
   private nextRefresh: number;
   private currentIssues: PoolDashboard['issues'] = [];
+  private readonly profileAttempts = new Map<string, number>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private controller: AbortController | null = null;
 
   constructor(
     private readonly store: QuotaStore,
-    private readonly options: CollectorOptions
+    options: CollectorOptions
   ) {
-    this.origins = options.origins ?? DEFAULT_ORIGINS;
+    if ('sources' in options) {
+      this.revision = options.revision;
+      const seen = new Set<string>();
+      this.collectionSources = options.sources.map((source) => {
+        if (!source.instanceId || seen.has(source.instanceId))
+          throw new Error('Duplicate quota source');
+        seen.add(source.instanceId);
+        return Object.freeze({ ...source, providers: QUOTA_PROVIDERS });
+      });
+    } else {
+      if (!options.fetcher) throw new Error('Legacy quota injection requires a fetcher');
+      const manifest = options.origins
+        ? undefined
+        : loadSourceManifest(
+            new URL('../../deploy/provider-sources.json', import.meta.url).pathname
+          ).manifest;
+      this.collectionSources = LEGACY_SOURCE_MAPPING.map(({ provider, instanceId }) => {
+        const upstreamOrigin =
+          options.origins?.[provider] ??
+          manifest?.sources.find((source) => source.instanceId === instanceId)?.upstreamOrigin;
+        if (!upstreamOrigin) throw new Error('Missing injected quota source');
+        return {
+          label: provider,
+          upstreamOrigin,
+          managementKeyFile: options.keyFile,
+          providers: [provider],
+        };
+      });
+    }
     this.fetcher = options.fetcher ?? fetch;
     this.now = options.now ?? Date.now;
     this.nextRefresh = this.now();
@@ -221,7 +264,17 @@ export class QuotaCollector {
     return this.nextRefresh;
   }
   get issues(): PoolDashboard['issues'] {
-    return this.currentIssues.map((issue) => ({ ...issue }));
+    // Providers are collected concurrently; report issues in a stable order, not completion order.
+    return this.currentIssues
+      .map((issue) => ({ ...issue }))
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  }
+  get sources(): QuotaSourceView[] | undefined {
+    if (this.revision === undefined) return undefined;
+    return this.collectionSources.map((source) => ({
+      instanceId: source.instanceId!,
+      sourceLabel: source.label,
+    }));
   }
 
   refresh(): Promise<void> {
@@ -238,7 +291,12 @@ export class QuotaCollector {
     this.controller = new AbortController();
     this.inFlight = this.collect(this.controller.signal)
       .catch(() => {
-        this.currentIssues = PROVIDERS.map((provider) => ({ provider, code: 'quota-unavailable' }));
+        if (!this.currentIssues.length) {
+          for (const source of this.collectionSources) {
+            for (const provider of source.providers)
+              this.addIssue(source, provider, 'quota-unavailable');
+          }
+        }
         // Never propagate fetch, filesystem, or SQLite messages containing upstream data.
         throw new Error('Quota refresh failed');
       })
@@ -280,21 +338,83 @@ export class QuotaCollector {
     this.timer.unref?.();
   }
 
-  private addIssue(provider: PoolProviderId, code: PoolDashboard['issues'][number]['code']): void {
-    if (!this.currentIssues.some((issue) => issue.provider === provider && issue.code === code)) {
-      this.currentIssues.push({ provider, code });
+  /** Plan weight is best-effort: a failed lookup leaves the stored plan as it was. */
+  private async recordPlan(
+    account: { id: string; provider: PoolProviderId },
+    authIndex: string,
+    source: CollectionSource,
+    key: string,
+    signal: AbortSignal,
+    usageBody: unknown,
+    storedPlans: Map<string, number | null>
+  ): Promise<void> {
+    let plan: string | null = null;
+    if (account.provider === 'codex') {
+      plan = planFromCodexUsage(usageBody);
+    } else {
+      // Claude names the plan only in its profile; plans change rarely, so ask every few hours.
+      const observedAt = storedPlans.get(account.id) ?? null;
+      const attemptedAt = this.profileAttempts.get(account.id) ?? null;
+      const last = Math.max(observedAt ?? -Infinity, attemptedAt ?? -Infinity);
+      if (this.now() - last < PLAN_REFRESH_MS) return;
+      this.profileAttempts.set(account.id, this.now());
+      try {
+        const response = await this.request(source, 'requests/api-call', key, signal, {
+          authIndex,
+          method: 'GET',
+          url: CLAUDE_PROFILE_URL,
+          header: CLAUDE_REQUEST_HEADERS,
+        });
+        if (isRecord(response) && response.status_code === 200) {
+          plan = planFromClaudeProfile(response.body);
+        }
+      } catch {
+        return;
+      }
+    }
+    if (!plan || signal.aborted) return;
+    try {
+      this.store.recordPlan(account.id, plan, this.now());
+    } catch {
+      // The plan only weights points; keep the samples and try again next collection.
+    }
+  }
+
+  private addIssue(
+    source: CollectionSource,
+    provider: PoolProviderId,
+    code: PoolDashboard['issues'][number]['code']
+  ): void {
+    if (
+      !this.currentIssues.some(
+        (issue) =>
+          issue.instanceId === source.instanceId &&
+          issue.provider === provider &&
+          issue.code === code
+      )
+    ) {
+      this.currentIssues.push({
+        provider,
+        code,
+        ...(source.instanceId === undefined
+          ? {}
+          : {
+              instanceId: source.instanceId,
+              sourceLabel: source.label,
+            }),
+      });
     }
   }
 
   private async request(
-    provider: PoolProviderId,
+    source: CollectionSource,
     path: string,
     key: string,
     signal: AbortSignal,
     body?: Record<string, unknown>
   ): Promise<unknown> {
     signal.throwIfAborted();
-    const response = await this.fetcher(new URL(`/v8/management/${path}`, this.origins[provider]), {
+    const response = await this.fetcher(new URL(`/v8/management/${path}`, source.upstreamOrigin), {
       method: body ? 'POST' : 'GET',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
@@ -327,52 +447,75 @@ export class QuotaCollector {
   private async collect(signal: AbortSignal): Promise<void> {
     this.currentIssues = [];
     this.store.prune(this.now());
-    let key: string;
-    try {
-      key = (await readFile(this.options.keyFile, 'utf8')).trim();
-      if (!boundedString(key, 8192)) throw new Error('Invalid management key');
-    } catch {
-      this.currentIssues = PROVIDERS.map((provider) => ({
-        provider,
-        code: 'inventory-unavailable',
-      }));
-      return;
-    }
     const inventories = await Promise.allSettled(
-      PROVIDERS.map(async (provider) => {
-        let accounts: InventoryAccount[];
+      this.collectionSources.map(async (source) => {
+        let key: string;
+        let groups: { provider: PoolProviderId; accounts: InventoryAccount[] }[];
         try {
-          accounts = inventory(
-            await this.request(provider, 'credentials', key, signal),
+          key = (await readFile(source.managementKeyFile, 'utf8')).trim();
+          if (!boundedString(key, 8192)) throw new Error('Invalid management key');
+          const payload = await this.request(source, 'credentials', key, signal);
+          // Validate every supported kind before retiring any part of this inventory.
+          groups = source.providers.map((provider) => ({
             provider,
-            this.now()
-          );
+            accounts: inventory(payload, provider, this.now()),
+          }));
         } catch {
-          if (!signal.aborted) this.addIssue(provider, 'inventory-unavailable');
+          if (!signal.aborted) {
+            for (const provider of source.providers)
+              this.addIssue(source, provider, 'inventory-unavailable');
+          }
           return [];
         }
         if (signal.aborted) return [];
-        this.store.recordInventory(
-          provider,
-          accounts.map(({ account }) => account),
-          this.now()
-        );
-        return accounts.filter(({ account }) => !account.disabled);
+        const pending: (InventoryAccount & { source: CollectionSource; key: string })[] = [];
+        for (const { provider, accounts } of groups) {
+          try {
+            for (const entry of accounts) {
+              if (source.instanceId !== undefined) {
+                entry.account.instanceId = source.instanceId;
+                entry.account.id = this.store.accountIdFor(
+                  source.instanceId,
+                  provider,
+                  entry.authIndex
+                );
+              }
+            }
+            this.store.recordInventory(
+              provider,
+              accounts.map(({ account }) => account),
+              this.now(),
+              source.instanceId
+            );
+            pending.push(
+              ...accounts
+                .filter(({ account }) => !account.disabled)
+                .map((entry) => ({ ...entry, source, key }))
+            );
+          } catch {
+            this.addIssue(source, provider, 'inventory-unavailable');
+          }
+        }
+        return pending;
       })
     );
-    const accounts: InventoryAccount[] = [];
+    const accounts: (InventoryAccount & { source: CollectionSource; key: string })[] = [];
     for (const result of inventories) {
       if (result.status === 'rejected') throw new Error('Quota inventory persistence failed');
       accounts.push(...result.value);
     }
+    const storedPlans = new Map(
+      this.store.listAccounts().map((stored) => [stored.id, stored.planObservedAtMs ?? null])
+    );
     let cursor = 0;
     const worker = async () => {
       while (cursor < accounts.length && !signal.aborted) {
-        const { account, authIndex } = accounts[cursor++];
+        const { account, authIndex, source, key } = accounts[cursor++];
         let samples: QuotaSample[];
+        let usageBody: unknown;
         try {
           const claude = account.provider === 'claude';
-          const response = await this.request(account.provider, 'requests/api-call', key, signal, {
+          const response = await this.request(source, 'requests/api-call', key, signal, {
             authIndex,
             method: 'GET',
             url: claude ? CLAUDE_USAGE_URL : CODEX_USAGE_URL,
@@ -386,14 +529,23 @@ export class QuotaCollector {
             throw new Error('Quota request unavailable');
           }
           samples = quotaSamples(account.provider, account.id, response.body, this.now());
+          usageBody = response.body;
         } catch {
           if (!signal.aborted) {
+            this.addIssue(source, account.provider, 'quota-unavailable');
             this.store.markAccountError(account.id, this.now());
-            this.addIssue(account.provider, 'quota-unavailable');
           }
           continue;
         }
-        if (!signal.aborted) this.store.recordSamples(samples);
+        if (!signal.aborted) {
+          try {
+            this.store.recordSamples(samples);
+          } catch {
+            this.addIssue(source, account.provider, 'quota-unavailable');
+            throw new Error('Quota sample persistence failed');
+          }
+          await this.recordPlan(account, authIndex, source, key, signal, usageBody, storedPlans);
+        }
       }
     };
     const workers = await Promise.allSettled([worker(), worker()]);

@@ -1,0 +1,284 @@
+{
+  "reviewer": "layout",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "narrow": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "empty": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 8,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "details-narrow": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "drain": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "refresh-error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The provider summaries now put the forecast badge beside the provider heading and move loaded/eligible counts into the Accounts heading. In wide, the Claude plot begins around y=422 rather than y=461 while retaining roughly 204px of plotting depth; the second card starts around y=829 rather than y=874. This brings the chart closer to the reference's roughly y=405 start, although its plot remains deeper than this dashboard's. Laptop also brings the chart and account rows higher into its viewport. Refresh-error preserves its saved-snapshot timestamp while tightening the summary. These changes resolve enough of the previous excess summary spacing to raise layout from 8 to 9 in all three states.",
+      "fix": "Preserve the compact provider/badge row and the relocated loaded/eligible counts. Keep the complete capacity, reset increment, forecast dates and separate Burn, last 3h field. Retain the failure banner, Saved forecast badge, Saved observation account qualifiers and Saved snapshot: Oct 27, 12:00 PM UTC in refresh-error; the selected Oct 24 historical readout remains a separate observation. Further chart enlargement should come from available space, without deleting this context."
+    },
+    {
+      "states": [
+        "laptop"
+      ],
+      "aspects": [
+        "controls_states",
+        "layout"
+      ],
+      "element": "The 1280px toolbar now keeps Remaining/Drain rate/Burn rate, Rate interval, Future usage and Quota window together on one aligned row, followed by date navigation. Round 4 separated the mode buttons from the interval/window group across a large empty middle and wrapped Future usage to another row. The labeled 3h selector gives the compact interval control an explicit role. This resolves the prior controls_states finding, raising that aspect from 8 to 9. The narrower sidebar wraps Management Center Info onto two readable lines without clipping it.",
+      "fix": "Keep the related selectors together and retain their visible labels as the toolbar wraps. The PNG supports improved grouping and visible selected values only; it does not verify the available interval options or selector operation."
+    },
+    {
+      "states": [
+        "narrow",
+        "details-narrow"
+      ],
+      "aspects": [
+        "layout",
+        "responsive_accessible",
+        "content"
+      ],
+      "element": "Both 390px views replace the separate full-width interval row with three labeled selectors, lift the forecast badge into the provider heading and put loaded/eligible counts beside Accounts. The exact historical readout and its slider now sit beside one another instead of consuming separate full-width rows. Narrow shrinks from 2446px to 2290px and details-narrow from 2616px to 2460px. All three Claude and both Codex rows remain visible, with their 82.8% and 71.4% values. The expanded account still shows Last observed, Next reset, Predicted empty and Burn, last 3h, with dates wrapping deliberately and a clear column gutter. These changes resolve the previous layout finding sufficiently to raise layout from 8 to 9.",
+      "fix": "Preserve the full timestamps, Recorded qualifiers, points units, Scheduled reset legend, five account rows and expanded detail values. Keep the readout column wide enough for the existing two-line wrapping and retain a visible gap before the slider. Do not obtain further height savings by hiding account rows or reducing the readable text size."
+    },
+    {
+      "states": [
+        "partial",
+        "stale",
+        "collecting"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Unavailable forecast labels and values now share compact rows rather than reserving a full label/value block for each missing metric. The Claude plot grows from roughly 114px to 144px deep, while starting about 40px higher. Loaded/eligible counts remain visible in the Accounts heading. Partial and stale retain their historical traces, explicit Forecast unavailable area and known next reset. Collecting retains its single observation and One recorded sample readout. The summary and chart now have a better balance, raising layout from 8 to 9 in these three states.",
+      "fix": "Keep the compact label/value alignment without conflating Pool empty, First account empty and Next reset. Preserve Total unavailable in partial/stale, the valid 248.4 and 142.8 balances in collecting, and the distinction between observed history and unavailable forecasts."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "hierarchy"
+      ],
+      "element": "Collecting history. A forecast appears when enough observations are available. remains one regular-weight sentence in a muted strip. The forecast badge is now closer to the provider name, but the reason for the unavailable forecast still competes with two Unavailable metrics and the in-chart Forecast unavailable caption. The previous hierarchy concern remains; hierarchy stays at 8.",
+      "fix": "Make Collecting history a visibly stronger short heading within the existing notice, with the explanatory sentence subordinate to it. Keep the valid balance as the primary number and retain the known reset, single observed point, exact Oct 27 sample readout and One recorded sample label."
+    },
+    {
+      "states": [
+        "long-narrow"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The full capture improves only from 2518px to 2478px. Each unavailable provider card now places Forecast unavailable on its own row above Total unavailable, then adds two quota/capacity lines, a two-column unavailable-metric grid and an amber explanation before a roughly 144px-high plot. That summary remains more than twice the plot's height. The added badge row absorbs part of the spacing savings. Full long credential labels, all five accounts, Weekly quota unavailable rows, known resets and exact recorded readouts remain visible. Layout stays at 8.",
+      "fix": "Place the forecast badge beside the primary status where space permits, or group the unavailable status and its explanation in one compact block below the provider heading. Reduce the gaps around the quota/capacity context and unavailable metrics, while preserving the known Next reset value and all account rows. Keep totals and projections unavailable when account windows are missing; never substitute a partial sum to simplify this layout."
+    },
+    {
+      "states": [
+        "drain"
+      ],
+      "aspects": [
+        "layout",
+        "content"
+      ],
+      "element": "The provider badge and counts move to their shared locations, and the recorded-rate plot grows from roughly 114px to 144px deep. The summary-to-plot distance reduces by about 20px; the plot now has more comparable weight to its context, resolving the earlier layout concern sufficiently for layout 9. The 3.7/2.7 points/h recorded Drain rate headlines remain distinct from the weekly remaining balances, Remaining-quota forecast group and separate Burn, last 3h field. The future region still says Recorded rates only and Future usage remains visually disabled.",
+      "fix": "Preserve the rate units, Recorded qualifier, weekly remaining balances, forecast dates, reset increments and separate Burn field. Keep future-usage projections confined to remaining quota; do not add a projected rate trace merely to fill the empty future region."
+    },
+    {
+      "states": [
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The mobile capture shortens from 2494px to 2373px and the rate plot grows from roughly 114px to 144px. Nevertheless, each card still stacks the large recorded rate, weekly remaining balance, Remaining-quota forecast heading and a multi-row date grid before the plot. The Claude card has roughly 310px from its top to the plot, over twice the plotting depth. The context still outweighs the recorded-rate chart, so layout remains at 8.",
+      "fix": "Tighten the vertical gaps around the weekly balance and Remaining-quota forecast heading. Present the secondary Pool empty, First account empty and Next reset context in a more compact aligned block, retaining full dates and the +100 points reset increment, and assign the recovered height to the recorded-rate plot. Preserve the 3h interval, 3.7/2.7 points/h readouts, five account rows, visibly disabled Future usage and Recorded rates only caption."
+    },
+    {
+      "states": [
+        "empty",
+        "loading",
+        "error",
+        "stale",
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Empty retains the clear No accounts connected heading, Add credentials action and two-column collection metadata. Loading keeps a distinct Loading pooled quota panel and Loading button state; error keeps its amber Could not load quotas banner and Try again action. Their compact new selector row introduces no visible clipping. Stale retains the 82.8% value with its adjacent amber Stale qualifier and complete Last observed: Oct 27, 11:00 AM UTC timestamp. Refresh-error retains its failure notice and saved-data qualifiers. These aspects remain at 9 without a visible regression.",
+      "fix": "Preserve the distinct empty, loading, initial-error, stale-data and saved-after-refresh-error presentations. Keep Last collection attempt labeled as an attempt wherever shown, and keep Saved snapshot distinct from account observations and the selected historical sample. No backend timestamp meaning or retry behavior is established by these PNGs."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "type_numbers",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "Evidence scope: all 14 actual round-4/round-5 PNG pairs were inspected side by side, along with the supplied design reference, for branch feat/prox-quota-visual-polish at commit 36e2d79b53fef909958a197e6a55f16ab403cee3. The reference's dark surfaces, orange Claude and blue Codex identities remain visible, as do solid Recorded and dashed Projected remaining-quota traces. Exact numerical readouts retain points or points/h as appropriate. The complete mobile captures preserve all five account rows, long names, unavailable-window labels and footer collection timestamps. Desktop captures show an internally scrolling viewport; lower Codex content outside it cannot be judged missing. No fixture changes are credited, and no score drops from my round-4 review are warranted by the observed pairs.",
+      "fix": "Keep the visible numbers, labels, colours, units, account identities and timestamps when making further spacing changes. Ratings concern screenshot presentation only: no interaction, keyboard, focus, screen-reader, measured-contrast, live API or offscreen-content verification is claimed."
+    }
+  ],
+  "drops": []
+}

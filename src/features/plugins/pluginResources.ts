@@ -8,6 +8,7 @@ export const notifyPluginResourcesChanged = () => {
 };
 
 export interface PluginResourceEntry {
+  instanceId?: string;
   pluginID: string;
   pluginTitle: string;
   pluginLogo: string;
@@ -21,8 +22,12 @@ export interface PluginResourceEntry {
 export const getPluginTitle = (plugin: PluginListEntry) =>
   plugin.metadata?.name.trim() || plugin.id;
 
-export const buildPluginResourceRoute = (pluginID: string, menuIndex: number) =>
-  `/plugin-pages/${encodeURIComponent(pluginID)}/${menuIndex}`;
+export const buildPluginResourceRoute = (
+  pluginID: string,
+  menuIndex: number,
+  instanceId?: string
+) =>
+  `/plugin-pages/${encodeURIComponent(pluginID)}/${menuIndex}${instanceId === undefined ? '' : `?source=${encodeURIComponent(instanceId)}`}`;
 
 export const resolvePluginAssetURL = (value: string, apiBase: string) => {
   const trimmed = value.trim();
@@ -84,7 +89,10 @@ export const isDefaultPluginStoreSource = (
 export const getPluginConfirmToken = (entry: PluginStoreEntry): string =>
   getPluginRepositorySlug(entry.repository) || entry.id;
 
-export const collectPluginResourceEntries = (plugins: PluginListEntry[]): PluginResourceEntry[] =>
+export const collectPluginResourceEntries = (
+  plugins: PluginListEntry[],
+  instanceId?: string
+): PluginResourceEntry[] =>
   plugins.flatMap((plugin) => {
     if (!plugin.effectiveEnabled) return [];
 
@@ -98,6 +106,7 @@ export const collectPluginResourceEntries = (plugins: PluginListEntry[]): Plugin
 
         const menuLabel = menu.menu.trim();
         return {
+          ...(instanceId === undefined ? {} : { instanceId }),
           pluginID: plugin.id,
           pluginTitle,
           pluginLogo,
@@ -105,7 +114,7 @@ export const collectPluginResourceEntries = (plugins: PluginListEntry[]): Plugin
           menu: { ...menu, path },
           label: menuLabel || pluginTitle,
           description: menu.description.trim() || pluginTitle,
-          route: buildPluginResourceRoute(plugin.id, menuIndex),
+          route: buildPluginResourceRoute(plugin.id, menuIndex, instanceId),
         };
       })
       .filter((entry): entry is PluginResourceEntry => Boolean(entry));

@@ -2,7 +2,11 @@ import { memo, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { useAuthStore, useNotificationStore } from '@/stores';
+import { useNotificationStore } from '@/stores';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
+import { useProviderSources } from '@/stores/useProviderSources';
+import { selectSource } from '@/services/providerSources/selection';
+import { sourceOwnerKey, type SourceSession } from '@/services/api/sourceSession';
 import { apiKeyNameFingerprint, readApiKeyNames, saveApiKeyName } from '../../apiKeyNames';
 import { copyToClipboard } from '@/utils/clipboard';
 import { makeClientId } from '@/types/visualConfig';
@@ -19,8 +23,18 @@ interface ApiKeysCardEditorProps {
 }
 
 export const ApiKeysCardEditor = memo(function ApiKeysCardEditor(props: ApiKeysCardEditorProps) {
-  const apiBase = useAuthStore((state) => state.apiBase);
-  return <ScopedApiKeysCardEditor key={apiBase} {...props} apiBase={apiBase} />;
+  const session = useSelectedSourceSession();
+  const registry = useProviderSources();
+  const destination = selectSource(registry, session.owner.instanceId, session.owner);
+  if (!destination) return null;
+  return (
+    <ScopedApiKeysCardEditor
+      key={sourceOwnerKey(session.owner)}
+      {...props}
+      apiBase={destination.source.apiBase}
+      session={session}
+    />
+  );
 });
 
 function ScopedApiKeysCardEditor({
@@ -28,7 +42,8 @@ function ScopedApiKeysCardEditor({
   disabled,
   onChange,
   apiBase,
-}: ApiKeysCardEditorProps & { apiBase: string }) {
+  session,
+}: ApiKeysCardEditorProps & { apiBase: string; session: SourceSession }) {
   const [names, setNames] = useState(() => readApiKeyNames(apiBase));
   const [nameValue, setNameValue] = useState('');
   const { t } = useTranslation();
@@ -103,6 +118,7 @@ function ScopedApiKeysCardEditor({
   };
 
   const handleSave = () => {
+    if (session.signal.aborted) return;
     const trimmed = inputValue.trim();
     if (!trimmed) {
       setFormError(t('config_management.visual.api_keys.error_empty'));
@@ -134,7 +150,9 @@ function ScopedApiKeysCardEditor({
   };
 
   const handleCopy = async (apiKey: string) => {
+    if (session.signal.aborted) return;
     const copied = await copyToClipboard(apiKey);
+    if (session.signal.aborted) return;
     showNotification(
       t(copied ? 'notification.link_copied' : 'notification.copy_failed'),
       copied ? 'success' : 'error'

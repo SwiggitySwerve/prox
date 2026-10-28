@@ -8,7 +8,13 @@ import type {
   QuotaPool,
 } from '../../src/domain/quotaPool/types';
 import { DAY_MS, HOUR_MS, MIN_RATE_SPAN_MS, REFRESH_INTERVAL_MS, STALE_MS } from './types';
-import type { QuotaSample, StoredAccount } from './types';
+import { planWeight, POINTS_PER_UNIT } from './plans';
+import {
+  QUOTA_PROVIDERS,
+  type QuotaSample,
+  type QuotaSourceView,
+  type StoredAccount,
+} from './types';
 
 export interface DashboardOptions {
   nowMs: number;
@@ -24,6 +30,7 @@ export interface CollectionState {
   nextRefreshAtMs: number;
   refreshing: boolean;
   issues: PoolDashboard['issues'];
+  sources?: readonly QuotaSourceView[];
 }
 type Rates = { burn: number | null; drain: number | null };
 
@@ -100,6 +107,8 @@ interface ForecastInput {
   rate: number;
   resetAtMs: number;
   periodHours: number;
+  /** Points restored at each reset. */
+  capacity: number;
 }
 export function projectPool(inputs: ForecastInput[], nowMs: number, toMs: number) {
   const accounts = inputs.map((input) => ({ ...input }));
@@ -143,8 +152,8 @@ export function projectPool(inputs: ForecastInput[], nowMs: number, toMs: number
     let gain = 0;
     for (const account of accounts) {
       if (account.resetAtMs <= time) {
-        gain += 100 - account.remaining;
-        account.remaining = 100;
+        gain += account.capacity - account.remaining;
+        account.remaining = account.capacity;
         account.resetAtMs += account.periodHours * HOUR_MS;
       }
     }
@@ -170,6 +179,10 @@ function buildPool(
     .filter((a) => a.provider === provider && !a.retired)
     .sort((a, b) => a.id.localeCompare(b.id));
   const active = accounts.filter((a) => !a.disabled);
+  // Percent of one account's window times its plan weight gives pool points.
+  const weight = new Map(accounts.map((a) => [a.id, planWeight(provider, a.plan).multiplier]));
+  const scale = (id: string, value: number | null) =>
+    value === null ? null : value * weight.get(id)!;
   const histories = new Map<string, QuotaSample[]>();
   for (const a of accounts) histories.set(a.id, []);
   for (const sample of samples) histories.get(sample.accountId)?.push(sample);
@@ -203,26 +216,33 @@ function buildPool(
       rates.burn !== null
     ) {
       forecastInputs.push({
-        remaining: sample.remainingPercent,
-        rate: rates.burn * multiplier,
+        remaining: scale(account.id, sample.remainingPercent)!,
+        rate: scale(account.id, rates.burn)! * multiplier,
         resetAtMs: sample.resetAtMs,
         periodHours: sample.periodHours,
+        capacity: POINTS_PER_UNIT * weight.get(account.id)!,
       });
     }
     const emptyAt =
       sample && rates.burn !== null && rates.burn * multiplier > 0
         ? nowMs + (sample.remainingPercent / (rates.burn * multiplier)) * HOUR_MS
         : null;
+    const plan = planWeight(provider, account.plan);
     return {
       id: account.id,
       label: `${provider === 'claude' ? 'Claude' : 'Codex'} ${index + 1}`,
+      plan: {
+        label: plan.label,
+        capacityPoints: POINTS_PER_UNIT * plan.multiplier,
+        known: plan.known,
+      },
       ...(options.reveal ? { email: account.email || account.name } : {}),
       disabled: account.disabled,
       status,
       observedAtMs: latest?.observedAtMs ?? null,
       remainingPercent: latest?.remainingPercent ?? null,
       resetAtMs: latest?.resetAtMs ?? null,
-      burnPointsPerHour: rates.burn,
+      burnPointsPerHour: scale(account.id, rates.burn),
       emptyAtMs:
         status !== 'ok'
           ? null
@@ -236,7 +256,10 @@ function buildPool(
   const eligible = accountViews.filter((a) => !a.disabled);
   const loaded = eligible.filter((a) => a.status === 'ok');
   const complete = loaded.length === eligible.length && !inventoryFailed;
-  const rates = active.map((a) => measuredRates(histories.get(a.id)!, nowMs, lookbackHours));
+  const rates = active.map((a) => {
+    const measured = measuredRates(histories.get(a.id)!, nowMs, lookbackHours);
+    return { burn: scale(a.id, measured.burn), drain: scale(a.id, measured.drain) };
+  });
   const forecastState: QuotaPool['forecastState'] = !eligible.length
     ? inventoryFailed
       ? 'partial'
@@ -266,13 +289,16 @@ function buildPool(
   const recorded = [...bucketTimes.values()]
     .sort((a, b) => a - b)
     .map((time): PoolPoint => {
-      const snapshots = active.map((a) => currentSample(histories.get(a.id)!, time));
-      const historicalRates = active.map((a) =>
-        measuredRates(histories.get(a.id)!, time, lookbackHours)
+      const snapshots = active.map((a) =>
+        scale(a.id, currentSample(histories.get(a.id)!, time)?.remainingPercent ?? null)
       );
+      const historicalRates = active.map((a) => {
+        const measured = measuredRates(histories.get(a.id)!, time, lookbackHours);
+        return { burn: scale(a.id, measured.burn), drain: scale(a.id, measured.drain) };
+      });
       return {
         atMs: time,
-        remainingPoints: sumKnown(snapshots.map((s) => s?.remainingPercent ?? null)),
+        remainingPoints: sumKnown(snapshots),
         burnPointsPerHour: sumKnown(historicalRates.map((r) => r.burn)),
         drainPointsPerHour: sumKnown(historicalRates.map((r) => r.drain)),
       };
@@ -300,8 +326,10 @@ function buildPool(
     accountCount: accounts.length,
     eligibleCount: eligible.length,
     loadedCount: loaded.length,
-    capacityPoints: eligible.length * 100,
-    remainingPoints: complete ? sumKnown(eligible.map((a) => a.remainingPercent)) : null,
+    capacityPoints: eligible.reduce((sum, a) => sum + a.plan.capacityPoints, 0),
+    remainingPoints: complete
+      ? sumKnown(eligible.map((a) => scale(a.id, a.remainingPercent)))
+      : null,
     burnPointsPerHour: complete ? sumKnown(rates.map((r) => r.burn)) : null,
     drainPointsPerHour: complete ? sumKnown(rates.map((r) => r.drain)) : null,
     forecastState,
@@ -325,6 +353,50 @@ export function buildDashboard(
   const fromMs = Math.floor(options.nowMs / DAY_MS) * DAY_MS + (options.offsetDays - 3) * DAY_MS;
   const toMs = fromMs + 14 * DAY_MS;
   const filtered = samples.filter((s) => s.window === options.window);
+  const { sources, ...state } = collection;
+  const scopes = new Map<string, QuotaSourceView>();
+  for (const source of sources ?? []) scopes.set(source.instanceId, source);
+  for (const entry of [...accounts, ...collection.issues]) {
+    if (entry.instanceId !== undefined && !scopes.has(entry.instanceId)) {
+      scopes.set(entry.instanceId, {
+        instanceId: entry.instanceId,
+        sourceLabel: ('sourceLabel' in entry ? entry.sourceLabel : undefined) ?? entry.instanceId,
+      });
+    }
+  }
+  const scoped = sources !== undefined || scopes.size > 0;
+  const allPools = (scoped ? [...scopes.values()] : [undefined]).flatMap((source) =>
+    QUOTA_PROVIDERS.map((provider) => ({
+      ...buildPool(
+        provider,
+        accounts.filter((account) => account.instanceId === source?.instanceId),
+        filtered,
+        options,
+        fromMs,
+        toMs,
+        (sources !== undefined &&
+          !sources.some((entry) => entry.instanceId === source?.instanceId)) ||
+          collection.issues.some(
+            (issue) =>
+              issue.instanceId === source?.instanceId &&
+              issue.provider === provider &&
+              issue.code === 'inventory-unavailable'
+          )
+      ),
+      ...source,
+    }))
+  );
+  // A source containing one supported provider does not create an empty sibling-provider card.
+  // Retain empty results when the entire source is empty, and preserve failure visibility.
+  const pools = allPools.filter(
+    (pool) =>
+      !scoped ||
+      pool.accountCount > 0 ||
+      !allPools.some((other) => other.instanceId === pool.instanceId && other.accountCount > 0) ||
+      collection.issues.some(
+        (issue) => issue.instanceId === pool.instanceId && issue.provider === pool.provider
+      )
+  );
   return {
     nowMs: options.nowMs,
     fromMs,
@@ -332,19 +404,41 @@ export function buildDashboard(
     window: options.window,
     lookbackHours: options.lookbackHours,
     multiplier: options.multiplier,
-    ...collection,
-    pools: (['claude', 'codex'] as const).map((provider) =>
-      buildPool(
-        provider,
-        accounts,
-        filtered,
-        options,
-        fromMs,
-        toMs,
-        collection.issues.some(
-          (issue) => issue.provider === provider && issue.code === 'inventory-unavailable'
-        )
-      )
-    ),
+    ...state,
+    pools,
+    ...(scoped
+      ? {
+          unresolvedHistoryAccountCount: accounts.filter(
+            (account) => account.instanceId === undefined
+          ).length,
+          combinations: QUOTA_PROVIDERS.flatMap((provider) => {
+            const local = pools.filter(
+              (pool) =>
+                pool.provider === provider &&
+                (pool.accountCount > 0 ||
+                  collection.issues.some(
+                    (issue) => issue.instanceId === pool.instanceId && issue.provider === provider
+                  ))
+            );
+            return local.length < 2
+              ? []
+              : [
+                  {
+                    provider,
+                    reason: 'cross-source-combination-unverified' as const,
+                    occurrenceCount: local.reduce((count, pool) => count + pool.accountCount, 0),
+                    capacityPoints: null,
+                    remainingPoints: null,
+                    burnPointsPerHour: null,
+                    drainPointsPerHour: null,
+                    firstEmptyAtMs: null,
+                    poolEmptyAtMs: null,
+                    recorded: [] as [],
+                    projected: [] as [],
+                  },
+                ];
+          }),
+        }
+      : {}),
   };
 }

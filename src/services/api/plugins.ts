@@ -1,5 +1,6 @@
 import { apiClient } from './client';
-import { getConfigValue, guardConfigConnection } from './configValue';
+import type { ManagementTransport, SourceSession } from './sourceSession';
+import { createConfigValueApi, guardConfigConnection } from './configValue';
 import { isRecord } from '@/utils/helpers';
 import {
   isManagementOAuthProviderKey,
@@ -121,8 +122,27 @@ const normalizePluginEntry = (value: unknown): PluginListEntry | null => {
   };
 };
 
+export class PluginInventoryError extends Error {
+  constructor() {
+    super('Invalid plugin inventory');
+    this.name = 'PluginInventoryError';
+  }
+}
+
+// Never report a malformed or truncated inventory as complete-empty.
+function validatePluginInventory(value: unknown): Record<string, unknown> & { plugins: unknown[] } {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.plugins) ||
+    value.plugins.some((item) => !isRecord(item) || typeof item.id !== 'string' || !item.id.trim())
+  ) {
+    throw new PluginInventoryError();
+  }
+  return { ...value, plugins: value.plugins };
+}
+
 const normalizePluginList = (value: unknown): PluginListResponse => {
-  const source = isRecord(value) ? value : {};
+  const source = validatePluginInventory(value);
   const plugins = Array.isArray(source.plugins)
     ? (source.plugins
         .map((item) => normalizePluginEntry(item))
@@ -217,7 +237,7 @@ const normalizeStoreSourceError = (value: unknown): PluginStoreSourceError | nul
 };
 
 const normalizeStoreList = (value: unknown): PluginStoreResponse => {
-  const source = isRecord(value) ? value : {};
+  const source = validatePluginInventory(value);
   const plugins = Array.isArray(source.plugins)
     ? (source.plugins
         .map((item) => normalizeStoreEntry(item))
@@ -258,59 +278,105 @@ export interface PluginStoreInstallOptions {
   version?: string;
 }
 
-export const pluginsApi = {
-  async list(): Promise<PluginListResponse> {
-    const data = await apiClient.get('/plugins');
-    return normalizePluginList(data);
-  },
+export function createPluginsApi(session: SourceSession) {
+  const api = buildPluginsApi(guardPluginTransport(session), () => () => session.assertCurrent());
+  return { ...api, list: () => api.list() };
+}
 
-  updateEnabled: (id: string, enabled: boolean) =>
-    apiClient.put(`/config/plugins/configs/${encodeURIComponent(id)}/enabled`, enabled),
+function buildPluginsApi(transport: ManagementTransport, captureGuard: () => () => void) {
+  const { getConfigValue } = createConfigValueApi(transport, captureGuard);
+  const api = {
+    async list(listTransport: ManagementTransport = transport): Promise<PluginListResponse> {
+      const data = await listTransport.get('/plugins');
+      return normalizePluginList(data);
+    },
 
-  async deletePlugin(id: string): Promise<PluginDeleteResult> {
-    const data = await apiClient.delete(`/plugins/${encodeURIComponent(id)}`);
-    return normalizeDeleteResult(data);
-  },
+    updateEnabled: (id: string, enabled: boolean) =>
+      transport.put(`/config/plugins/configs/${encodeURIComponent(id)}/enabled`, enabled),
 
-  async getConfig(id: string): Promise<PluginConfigObject> {
-    const data = await getConfigValue(`/config/plugins/configs/${encodeURIComponent(id)}`, {});
-    return normalizePluginConfig(data);
-  },
+    async deletePlugin(id: string): Promise<PluginDeleteResult> {
+      const data = await transport.delete(`/plugins/${encodeURIComponent(id)}`);
+      return normalizeDeleteResult(data);
+    },
 
-  async patchConfig(id: string, changes: PluginConfigObject) {
-    // Form fields are complete values: clearing removes a field and editing an
-    // object replaces that object. A v8 PATCH would instead retain nulls and
-    // recursively merge objects, so merge touched fields into the latest object
-    // and replace only this plugin instance (never the complete config tree).
-    const assertConnection = guardConfigConnection();
-    const next = { ...(await pluginsApi.getConfig(id)) };
-    assertConnection();
-    for (const [key, value] of Object.entries(changes)) {
-      if (value === null) delete next[key];
-      else next[key] = value;
-    }
-    return apiClient.put(`/config/plugins/configs/${encodeURIComponent(id)}`, next);
-  },
-};
+    async getConfig(id: string): Promise<PluginConfigObject> {
+      const data = await getConfigValue(`/config/plugins/configs/${encodeURIComponent(id)}`, {});
+      return normalizePluginConfig(data);
+    },
 
-export const pluginStoreApi = {
-  async list(): Promise<PluginStoreResponse> {
-    const data = await apiClient.get('/plugins/store');
-    return normalizeStoreList(data);
-  },
+    async patchConfig(id: string, changes: PluginConfigObject) {
+      // Form fields are complete values: clearing removes a field and editing an
+      // object replaces that object. A v8 PATCH would instead retain nulls and
+      // recursively merge objects, so merge touched fields into the latest object
+      // and replace only this plugin instance (never the complete config tree).
+      const assertConnection = captureGuard();
+      const next = { ...(await api.getConfig(id)) };
+      assertConnection();
+      for (const [key, value] of Object.entries(changes)) {
+        if (value === null) delete next[key];
+        else next[key] = value;
+      }
+      return transport.put(`/config/plugins/configs/${encodeURIComponent(id)}`, next);
+    },
+  };
 
-  async install(
-    id: string,
-    options: PluginStoreInstallOptions = {}
-  ): Promise<PluginStoreInstallResult> {
-    const path = `/plugins/store/${encodeURIComponent(id)}/install`;
-    const params = new URLSearchParams();
-    const sourceId = options.sourceId?.trim();
-    const version = options.version?.trim();
-    if (sourceId) params.set('source', sourceId);
-    if (version) params.set('version', version);
-    const query = params.size > 0 ? `?${params.toString()}` : '';
-    const data = await apiClient.post(`${path}${query}`, version ? { version } : undefined);
-    return normalizeInstallResult(data);
-  },
-};
+  return api;
+}
+
+export function createPluginStoreApi(session: SourceSession) {
+  return buildPluginStoreApi(guardPluginTransport(session));
+}
+
+function buildPluginStoreApi(transport: ManagementTransport) {
+  return {
+    async list(): Promise<PluginStoreResponse> {
+      const data = await transport.get('/plugins/store');
+      return normalizeStoreList(data);
+    },
+
+    async install(
+      id: string,
+      options: PluginStoreInstallOptions = {}
+    ): Promise<PluginStoreInstallResult> {
+      const path = `/plugins/store/${encodeURIComponent(id)}/install`;
+      const params = new URLSearchParams();
+      const sourceId = options.sourceId?.trim();
+      const version = options.version?.trim();
+      if (sourceId) params.set('source', sourceId);
+      if (version) params.set('version', version);
+      const query = params.size > 0 ? `?${params.toString()}` : '';
+      const data = await transport.post(`${path}${query}`, version ? { version } : undefined);
+      return normalizeInstallResult(data);
+    },
+  };
+}
+
+// Compatibility entry points for existing single-backend consumers, including list(transport).
+export const pluginsApi = buildPluginsApi(apiClient, guardConfigConnection);
+export const pluginStoreApi = buildPluginStoreApi(apiClient);
+
+function guardPluginTransport(session: SourceSession): ManagementTransport {
+  const guard = async <T>(request: () => Promise<T>): Promise<T> => {
+    session.assertCurrent();
+    const result = await request();
+    session.assertCurrent();
+    return result;
+  };
+  const transport = session.management;
+  return {
+    get: <T>(...args: Parameters<ManagementTransport['get']>) =>
+      guard(() => transport.get<T>(...args)),
+    post: <T>(...args: Parameters<ManagementTransport['post']>) =>
+      guard(() => transport.post<T>(...args)),
+    put: <T>(...args: Parameters<ManagementTransport['put']>) =>
+      guard(() => transport.put<T>(...args)),
+    patch: <T>(...args: Parameters<ManagementTransport['patch']>) =>
+      guard(() => transport.patch<T>(...args)),
+    delete: <T>(...args: Parameters<ManagementTransport['delete']>) =>
+      guard(() => transport.delete<T>(...args)),
+    getRaw: (...args: Parameters<ManagementTransport['getRaw']>) =>
+      guard(() => transport.getRaw(...args)),
+    postForm: <T>(...args: Parameters<ManagementTransport['postForm']>) =>
+      guard(() => transport.postForm<T>(...args)),
+  };
+}

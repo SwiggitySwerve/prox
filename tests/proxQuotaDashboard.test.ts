@@ -5,7 +5,11 @@ import { readFileSync } from 'node:fs';
 import i18n from '../src/i18n';
 import type { PoolDashboard, PoolPoint, QuotaPool } from '../src/domain/quotaPool/types';
 import type { PoolQuery, PoolRefresh } from '../src/services/api/quotaPool';
-import { chartGeometry, chartSamples } from '../src/features/quotaPool/chartGeometry';
+import {
+  chartGeometry,
+  chartSamples,
+  fitChartFrame,
+} from '../src/features/quotaPool/chartGeometry';
 import { createPoolResource } from '../src/features/quotaPool/poolResource';
 import { createPoolSessionObserver } from '../src/features/quotaPool/poolSession';
 import { useAuthStore } from '../src/stores/useAuthStore';
@@ -47,6 +51,7 @@ const pool: QuotaPool = {
       resetAtMs: 800,
       burnPointsPerHour: 3,
       emptyAtMs: null,
+      plan: { label: 'Max 20x', capacityPoints: 2000, known: true },
     },
   ],
 };
@@ -263,6 +268,29 @@ describe('pool request lifetime', () => {
 });
 
 describe('honest chart geometry', () => {
+  test('phone frame keeps the complete time range inside the available width', () => {
+    const frame = fitChartFrame(320);
+    const geometry = chartGeometry(
+      chartSamples(pool.recorded, pool.projected, 'remaining'),
+      'remaining',
+      200,
+      0,
+      1000,
+      frame
+    );
+    expect([geometry.x(0), geometry.x(1000)]).toEqual([40, 308]);
+    expect(geometry.y(0)).toBe(frame.bottom);
+    expect(geometry.y(200)).toBe(frame.top);
+    expect(geometry.segments(true)[0]).toContain(
+      `L${geometry.x(800)},${geometry.y(70)} L${geometry.x(800)},${geometry.y(170)}`
+    );
+  });
+  test('shared frame preserves established plot coordinates', () => {
+    const geometry = chartGeometry([], 'remaining', 200, 0, 1000);
+    expect([geometry.x(0), geometry.x(1000), geometry.y(0), geometry.y(200)]).toEqual([
+      64, 976, 254, 38,
+    ]);
+  });
   test('null observations split paths and preserve same-time reset jumps', () => {
     const geometry = chartGeometry(
       chartSamples(pool.recorded, pool.projected, 'remaining'),
@@ -301,7 +329,7 @@ describe('honest chart geometry', () => {
 });
 
 describe('pool presentation', () => {
-  test('shows authenticated accounts before collapsed forecasts and labels the balance window', async () => {
+  test('exposes charts before account rows while retaining balances and the quota window', async () => {
     await i18n.changeLanguage('en');
     const markup = renderToStaticMarkup(
       createElement(PoolCard, {
@@ -314,10 +342,11 @@ describe('pool presentation', () => {
     expect(markup).toContain('Weekly quota remaining');
     expect(markup).toContain('Forecast: Ready');
     expect(markup).not.toContain('>Ready<');
-    const accounts = markup.slice(markup.indexOf('<section'), markup.indexOf('</section>'));
+    const accounts = markup.slice(markup.search(/<section[^>]*aria-labelledby="[^"]+-accounts"/));
     expect(accounts).toContain('Claude account 1');
     expect(accounts).toContain('73%');
-    expect(markup.indexOf('</section>')).toBeLessThan(markup.indexOf('History and forecast'));
+    expect(markup.indexOf('<svg')).toBeLessThan(markup.indexOf('Claude account 1'));
+    expect(markup).not.toMatch(/<details[^>]*forecast/);
     expect(markup).not.toMatch(/<details[^>]*\bopen[\s=>]/);
   });
 
@@ -339,12 +368,16 @@ describe('pool presentation', () => {
       createElement(PoolCard, { pool, dashboard, mode: 'remaining', reveal: false })
     );
     expect(markup).toContain('of 200 points');
-    expect(markup).toContain('Not predicted');
-    expect(markup).toContain('may be incomplete');
+    expect(markup).toContain('Unavailable');
+    expect(markup).toContain('Total and forecast unavailable');
     expect(markup).toContain('Claude account 1');
+    expect(markup).toContain('Max 20x · 2,000 pts');
     expect(markup).not.toContain('private@example.test');
-    expect(markup).toContain('type="range"');
-    expect(markup).toContain('aria-valuetext=');
+    // The chart itself is inspected by pointer or arrow keys; no separate slider.
+    expect(markup).not.toContain('type="range"');
+    const chart = markup.match(/<svg[^>]*role="img"[^>]*>/)?.[0] ?? '';
+    expect(chart).toContain('tabindex="0"');
+    expect(chart).toMatch(/aria-describedby="[^"]*-readout"/);
     expect(markup).toContain('stroke-dasharray="7 5"');
     expect(markup).toContain('<summary>');
     const revealed = renderToStaticMarkup(
@@ -352,6 +385,42 @@ describe('pool presentation', () => {
     );
     expect(revealed).toContain('private@example.test');
   });
+  test('saved data qualifies forecasts and account freshness while retaining rate balances', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, forecastState: 'ready' },
+        dashboard,
+        mode: 'burn',
+        reveal: false,
+        savedData: true,
+      })
+    );
+    expect(markup).toContain('Saved forecast');
+    expect(markup).toContain('Saved snapshot');
+    expect(markup).toContain('Saved observation');
+    expect(markup).not.toContain('Forecast: Ready');
+    expect(markup).not.toContain('>Current<');
+    expect(markup).toContain('Weekly quota remaining: <strong>73</strong>');
+    expect(markup).toContain('of 200 points');
+    expect(markup).toContain('3 points/h · Recorded');
+  });
+
+  test('absent projections have no projected legend or implied depletion estimate', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, projected: [] },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).not.toContain('>Projected<');
+    expect(markup).toContain('Unavailable');
+    expect(markup).not.toContain('Not in this range');
+  });
+
   test('rate chart excludes future reset/empty markers and projection legend', async () => {
     await i18n.changeLanguage('en');
     const markup = renderToStaticMarkup(
@@ -378,7 +447,7 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toContain('<strong>—</strong>');
+    expect(markup).toContain('<strong>Total unavailable</strong>');
     expect(markup).toContain('Collecting history');
     expect(markup).toContain('No observations in this range');
   });

@@ -1,3 +1,8 @@
+import { useProviderSources } from '@/stores/useProviderSources';
+import {
+  ProviderSourceProvider,
+  useProviderSource,
+} from '@/features/providers/ProviderSourceContext';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +14,6 @@ import {
   IconSidebarQuota,
   IconSidebarSystem,
 } from '@/components/ui/icons';
-import { useAuthStore } from '@/stores';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { formatCompactNumber, formatDateValue, formatPercent } from '@/utils/format';
 import { useDashboardOverview } from './hooks/useDashboardOverview';
@@ -36,9 +40,38 @@ const formatHeadline = (value: number): string =>
   value < 100_000 ? value.toLocaleString() : formatCompactNumber(value);
 
 export function DashboardPage() {
+  const registry = useProviderSources();
+  const { t } = useTranslation();
+  return (
+    <div>
+      {registry.status === 'loading' && <p role="status">{t('common.loading')}</p>}
+      {registry.status === 'error' && <p role="alert">{t('provider_sources.discovery_error')}</p>}
+      {registry.sources.map((view) => (
+        <section key={view.source.instanceId} aria-label={view.source.label}>
+          <h2>{view.source.label}</h2>
+          {view.session && view.status === 'ready' ? (
+            <ProviderSourceProvider source={view.source} session={view.session}>
+              <SourceDashboard />
+            </ProviderSourceProvider>
+          ) : (
+            <p role="alert">{t('provider_sources.authentication_required')}</p>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function SourceDashboard() {
   const { t, i18n } = useTranslation();
-  const serverVersion = useAuthStore((state) => state.serverVersion);
-  const serverBuildDate = useAuthStore((state) => state.serverBuildDate);
+  const scope = useProviderSource();
+  const registry = useProviderSources();
+  const serverVersion = registry.sources.find(
+    (view) => view.source.instanceId === scope.source.instanceId
+  )?.version;
+  const serverBuildDate = registry.sources.find(
+    (view) => view.source.instanceId === scope.source.instanceId
+  )?.buildDate;
 
   const { connectionStatus, connected, config, counts, traffic, providers, credentials, refresh } =
     useDashboardOverview();

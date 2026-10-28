@@ -1,3 +1,11 @@
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
+import { useProviderSources } from '@/stores/useProviderSources';
+import {
+  ProviderSourceProvider,
+  useProviderSource,
+  useProviderNotifications,
+} from '@/features/providers/ProviderSourceContext';
+import { createVersionApi } from '@/services/api/version';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
@@ -5,14 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconGithub, IconBookOpen, IconExternalLink, IconCode } from '@/components/ui/icons';
-import {
-  useAuthStore,
-  useConfigStore,
-  useNotificationStore,
-  useModelsStore,
-  useThemeStore,
-} from '@/stores';
-import { configApi, versionApi } from '@/services/api';
+import { useAuthStore, useThemeStore } from '@/stores';
 import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
 import { formatDateTimeValue } from '@/utils/format';
 import { classifyModels } from '@/utils/models';
@@ -76,10 +77,39 @@ const compareVersions = (latest?: string | null, current?: string | null) => {
 };
 
 export function SystemPage() {
+  const session = useSelectedSourceSession();
+  const registry = useProviderSources();
+  const view = registry.sources.find(
+    (entry) => entry.source.instanceId === session.owner.instanceId
+  );
+  if (!view) return null;
+  return (
+    <ProviderSourceProvider source={view.source} session={session}>
+      <SourceSystemPage />
+    </ProviderSourceProvider>
+  );
+}
+
+function SourceSystemPage() {
+  const scope = useProviderSource();
+  const useConfigStore = scope.configStore;
+  const useModelsStore = scope.modelsStore;
+  const configApi = scope.configApi;
+  const versionApi = useMemo(() => createVersionApi(scope.session), [scope.session]);
+  const registry = useProviderSources();
   const { t, i18n } = useTranslation();
-  const { showNotification, showConfirmation } = useNotificationStore();
+  const { showNotification, showConfirmation } = useProviderNotifications();
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
-  const auth = useAuthStore();
+  const baseAuth = useAuthStore();
+  const view = registry.sources.find(
+    (entry) => entry.source.instanceId === scope.source.instanceId
+  );
+  const auth = {
+    ...baseAuth,
+    apiBase: scope.source.apiBase,
+    serverVersion: view?.version ?? null,
+    serverBuildDate: view?.buildDate ?? null,
+  };
   const config = useConfigStore((state) => state.config);
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
   const clearCache = useConfigStore((state) => state.clearCache);
@@ -180,7 +210,7 @@ export function SystemPage() {
     setRequestLogTouched(false);
     setRequestLogDraft(requestLogEnabled);
     setRequestLogModalOpen(true);
-  }, [requestLogEnabled]);
+  }, [requestLogEnabled, setRequestLogTouched, setRequestLogDraft, setRequestLogModalOpen]);
 
   const handleInfoVersionTap = useCallback(() => {
     versionTapCount.current += 1;
@@ -204,7 +234,7 @@ export function SystemPage() {
   const handleRequestLogClose = useCallback(() => {
     setRequestLogModalOpen(false);
     setRequestLogTouched(false);
-  }, []);
+  }, [setRequestLogModalOpen, setRequestLogTouched]);
 
   const handleRequestLogSave = async () => {
     if (!canEditRequestLog) return;
@@ -235,7 +265,7 @@ export function SystemPage() {
     }
   };
 
-  const handleVersionCheck = useCallback(async () => {
+  const handleVersionCheck = async () => {
     setCheckingVersion(true);
     try {
       const data = await versionApi.checkLatest();
@@ -266,7 +296,7 @@ export function SystemPage() {
     } finally {
       setCheckingVersion(false);
     }
-  }, [auth.serverVersion, showNotification, t]);
+  };
 
   useEffect(() => {
     fetchConfig().catch(() => {

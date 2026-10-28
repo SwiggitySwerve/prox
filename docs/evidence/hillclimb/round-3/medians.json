@@ -1,0 +1,142 @@
+{
+  "wide": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "laptop": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "narrow": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 8
+  },
+  "empty": {
+    "hierarchy": 9,
+    "layout": 9,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "loading": {
+    "hierarchy": 9,
+    "layout": 9,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "error": {
+    "hierarchy": 9,
+    "layout": 9,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "partial": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "stale": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "collecting": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "long-narrow": {
+    "hierarchy": 8,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 8
+  },
+  "details-narrow": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 8
+  },
+  "drain": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "burn-narrow": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 8
+  },
+  "refresh-error": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  }
+}

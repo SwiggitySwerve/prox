@@ -1,10 +1,11 @@
+import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { apiClient, authFilesApi } from '@/services/api';
+
 import type { AuthFileRefreshResult } from '@/services/api/authFiles';
 import { getAuthFileRefreshKey } from '@/features/authFiles/manualRefresh';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
-import { useNotificationStore } from '@/stores';
+
 import type { AuthFileItem } from '@/types';
 import { formatFileSize } from '@/utils/format';
 import { MAX_AUTH_FILE_SIZE } from '@/utils/constants';
@@ -76,8 +77,10 @@ export type UseAuthFilesDataResult = {
 };
 
 export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFilesDataResult {
+  const sourceScope = useAuthFilesSource();
+  const authFilesApi = sourceScope.api;
   const { t } = useTranslation();
-  const { showNotification, showConfirmation } = useNotificationStore();
+  const { showNotification, showConfirmation } = useAuthFilesNotifications();
   const onFilesMutated = options?.onFilesMutated;
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
@@ -209,10 +212,9 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
     async (options?: LoadFilesOptions) => {
       const background = options?.background === true;
       const requestId = ++loadRequestIdRef.current;
-      const connectionRevision = apiClient.getConnectionRevision();
+      const connectionRevision = sourceScope.getRevision();
       const isCurrentRequest = () =>
-        requestId === loadRequestIdRef.current &&
-        connectionRevision === apiClient.getConnectionRevision();
+        requestId === loadRequestIdRef.current && connectionRevision === sourceScope.getRevision();
 
       if (background) {
         setRefreshing(true);
@@ -223,10 +225,12 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
 
       try {
         const data = await authFilesApi.list();
+        sourceScope.assertCurrent();
         if (!isCurrentRequest()) return; // 已被更新的请求/连接/变更取代
         setFiles(data?.files || []);
         setError('');
       } catch (err: unknown) {
+        if (!sourceScope.isCurrent()) return;
         if (!isCurrentRequest()) return;
         const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
         setError(errorMessage);
@@ -237,7 +241,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         }
       }
     },
-    [t]
+    [authFilesApi, sourceScope, t]
   );
 
   const handleUploadClick = useCallback(() => {
@@ -290,6 +294,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
       setUploading(true);
       try {
         const result = await authFilesApi.uploadFiles(validFiles);
+        sourceScope.assertCurrent();
         const successCount = result.uploaded;
 
         if (successCount > 0) {
@@ -298,9 +303,10 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             `${t('auth_files.upload_success')}${suffix}`,
             result.failed.length ? 'warning' : 'success'
           );
-          notifyAuthFilesChanged();
+          notifyAuthFilesChanged(sourceScope.session.owner);
           onFilesMutatedRef.current?.(result.files.length > 0 ? result.files : undefined);
           await loadFiles({ background: true });
+          sourceScope.assertCurrent();
         }
 
         if (result.failed.length > 0) {
@@ -308,6 +314,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
           showNotification(`${t('notification.upload_failed')}: ${details}`, 'error');
         }
       } catch (err: unknown) {
+        if (!sourceScope.isCurrent()) return;
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         showNotification(`${t('notification.upload_failed')}: ${errorMessage}`, 'error');
       } finally {
@@ -316,7 +323,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         event.target.value = '';
       }
     },
-    [loadFiles, showNotification, t]
+    [authFilesApi, loadFiles, showNotification, sourceScope, t]
   );
 
   const handleDelete = useCallback(
@@ -330,10 +337,12 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
           setDeleting(name);
           try {
             const result = await authFilesApi.deleteFile(name);
+            sourceScope.assertCurrent();
             showNotification(t('auth_files.delete_success'), 'success');
             applyDeletedFiles(result.files.length > 0 ? result.files : [name]);
-            if (result.deleted > 0) notifyAuthFilesChanged();
+            if (result.deleted > 0) notifyAuthFilesChanged(sourceScope.session.owner);
           } catch (err: unknown) {
+            if (!sourceScope.isCurrent()) return;
             const errorMessage = err instanceof Error ? err.message : '';
             showNotification(`${t('notification.delete_failed')}: ${errorMessage}`, 'error');
           } finally {
@@ -342,7 +351,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         },
       });
     },
-    [applyDeletedFiles, showConfirmation, showNotification, t]
+    [applyDeletedFiles, authFilesApi, showConfirmation, showNotification, sourceScope, t]
   );
 
   const handleDeleteAll = useCallback(
@@ -381,107 +390,99 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         onConfirm: async () => {
           setDeletingAll(true);
           try {
-            if (!isFiltered && !isProblemOnly && !isDisabledOnly && !isEnabledOnly) {
-              await authFilesApi.deleteAll();
-              showNotification(t('auth_files.delete_all_success'), 'success');
-              invalidateInFlightLoads();
-              onFilesMutatedRef.current?.();
-              setFiles((prev) => prev.filter((file) => isRuntimeOnlyAuthFile(file)));
-              deselectAll();
-              notifyAuthFilesChanged();
-            } else {
-              const filesToDelete = files.filter((file) => {
-                if (isRuntimeOnlyAuthFile(file)) return false;
-                if (
-                  isFiltered &&
-                  normalizeProviderKey(String(file.type ?? file.provider ?? '')) !== filter
-                ) {
-                  return false;
-                }
-                if (isProblemOnly && !isProblemAuthFile(file)) return false;
-                if (isDisabledOnly && file.disabled !== true) return false;
-                if (isEnabledOnly && file.disabled === true) return false;
-                return true;
-              });
-
-              if (filesToDelete.length === 0) {
-                let emptyMessage = t('auth_files.delete_filtered_none', { type: typeLabel });
-                if (isDisabledOnly || isEnabledOnly) {
-                  emptyMessage = t('auth_files.delete_filtered_result_none');
-                } else if (isProblemOnly) {
-                  emptyMessage = isFiltered
-                    ? t('auth_files.delete_problem_filtered_none', { type: typeLabel })
-                    : t('auth_files.delete_problem_none');
-                }
-                showNotification(emptyMessage, 'info');
-                setDeletingAll(false);
-                return;
+            const filesToDelete = files.filter((file) => {
+              if (isRuntimeOnlyAuthFile(file)) return false;
+              if (
+                isFiltered &&
+                normalizeProviderKey(String(file.type ?? file.provider ?? '')) !== filter
+              ) {
+                return false;
               }
+              if (isProblemOnly && !isProblemAuthFile(file)) return false;
+              if (isDisabledOnly && file.disabled !== true) return false;
+              if (isEnabledOnly && file.disabled === true) return false;
+              return true;
+            });
 
-              const result = await authFilesApi.deleteFiles(filesToDelete.map((file) => file.name));
-              const success = result.deleted;
-              const failed = result.failed.length;
-
-              applyDeletedFiles(result.files);
-              if (result.deleted > 0) notifyAuthFilesChanged();
-
-              if (failed === 0 && (isDisabledOnly || isEnabledOnly)) {
-                showNotification(
-                  t('auth_files.delete_filtered_result_success', { count: success }),
-                  'success'
-                );
-              } else if (failed === 0 && isProblemOnly) {
-                showNotification(
-                  isFiltered
-                    ? t('auth_files.delete_problem_filtered_success', {
-                        count: success,
-                        type: typeLabel,
-                      })
-                    : t('auth_files.delete_problem_success', { count: success }),
-                  'success'
-                );
-              } else if (failed === 0) {
-                showNotification(
-                  t('auth_files.delete_filtered_success', { count: success, type: typeLabel }),
-                  'success'
-                );
-              } else if (isDisabledOnly || isEnabledOnly) {
-                showNotification(
-                  t('auth_files.delete_filtered_result_partial', { success, failed }),
-                  'warning'
-                );
+            if (filesToDelete.length === 0) {
+              let emptyMessage = t('auth_files.delete_filtered_none', { type: typeLabel });
+              if (isDisabledOnly || isEnabledOnly) {
+                emptyMessage = t('auth_files.delete_filtered_result_none');
               } else if (isProblemOnly) {
-                showNotification(
-                  isFiltered
-                    ? t('auth_files.delete_problem_filtered_partial', {
-                        success,
-                        failed,
-                        type: typeLabel,
-                      })
-                    : t('auth_files.delete_problem_partial', { success, failed }),
-                  'warning'
-                );
-              } else {
-                showNotification(
-                  t('auth_files.delete_filtered_partial', { success, failed, type: typeLabel }),
-                  'warning'
-                );
+                emptyMessage = isFiltered
+                  ? t('auth_files.delete_problem_filtered_none', { type: typeLabel })
+                  : t('auth_files.delete_problem_none');
               }
+              showNotification(emptyMessage, 'info');
+              setDeletingAll(false);
+              return;
+            }
 
-              if (isFiltered) {
-                onResetFilterToAll();
-              }
-              if (isProblemOnly) {
-                onResetProblemOnly();
-              }
-              if (isDisabledOnly) {
-                onResetDisabledOnly();
-              }
-              if (isEnabledOnly) {
-                onResetEnabledOnly();
-              }
+            const result = await authFilesApi.deleteFiles(filesToDelete.map((file) => file.name));
+            sourceScope.assertCurrent();
+            const success = result.deleted;
+            const failed = result.failed.length;
+
+            applyDeletedFiles(result.files);
+            if (result.deleted > 0) notifyAuthFilesChanged(sourceScope.session.owner);
+
+            if (failed === 0 && (isDisabledOnly || isEnabledOnly)) {
+              showNotification(
+                t('auth_files.delete_filtered_result_success', { count: success }),
+                'success'
+              );
+            } else if (failed === 0 && isProblemOnly) {
+              showNotification(
+                isFiltered
+                  ? t('auth_files.delete_problem_filtered_success', {
+                      count: success,
+                      type: typeLabel,
+                    })
+                  : t('auth_files.delete_problem_success', { count: success }),
+                'success'
+              );
+            } else if (failed === 0) {
+              showNotification(
+                t('auth_files.delete_filtered_success', { count: success, type: typeLabel }),
+                'success'
+              );
+            } else if (isDisabledOnly || isEnabledOnly) {
+              showNotification(
+                t('auth_files.delete_filtered_result_partial', { success, failed }),
+                'warning'
+              );
+            } else if (isProblemOnly) {
+              showNotification(
+                isFiltered
+                  ? t('auth_files.delete_problem_filtered_partial', {
+                      success,
+                      failed,
+                      type: typeLabel,
+                    })
+                  : t('auth_files.delete_problem_partial', { success, failed }),
+                'warning'
+              );
+            } else {
+              showNotification(
+                t('auth_files.delete_filtered_partial', { success, failed, type: typeLabel }),
+                'warning'
+              );
+            }
+
+            if (isFiltered) {
+              onResetFilterToAll();
+            }
+            if (isProblemOnly) {
+              onResetProblemOnly();
+            }
+            if (isDisabledOnly) {
+              onResetDisabledOnly();
+            }
+            if (isEnabledOnly) {
+              onResetEnabledOnly();
             }
           } catch (err: unknown) {
+            if (!sourceScope.isCurrent()) return;
             const errorMessage = err instanceof Error ? err.message : '';
             showNotification(`${t('notification.delete_failed')}: ${errorMessage}`, 'error');
           } finally {
@@ -490,29 +491,23 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         },
       });
     },
-    [
-      applyDeletedFiles,
-      deselectAll,
-      files,
-      invalidateInFlightLoads,
-      showConfirmation,
-      showNotification,
-      t,
-    ]
+    [applyDeletedFiles, authFilesApi, files, showConfirmation, showNotification, sourceScope, t]
   );
 
   const handleDownload = useCallback(
     async (name: string) => {
       try {
         const blob = await authFilesApi.download(name);
+        sourceScope.assertCurrent();
         downloadBlob({ filename: name, blob });
         showNotification(t('auth_files.download_success'), 'success');
       } catch (err: unknown) {
+        if (!sourceScope.isCurrent()) return;
         const errorMessage = err instanceof Error ? err.message : '';
         showNotification(`${t('notification.download_failed')}: ${errorMessage}`, 'error');
       }
     },
-    [showNotification, t]
+    [authFilesApi, showNotification, sourceScope, t]
   );
 
   const handleManualRefresh = useCallback(
@@ -520,7 +515,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
       const name = item.name.trim();
       const provider = item.type ?? item.provider;
       const key = getAuthFileRefreshKey(item);
-      const connectionRevision = apiClient.getConnectionRevision();
+      const connectionRevision = sourceScope.getRevision();
       if (
         !name ||
         item.disabled === true ||
@@ -540,39 +535,42 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
           name,
           String(item.authIndex ?? '').trim() || undefined
         );
-        if (connectionRevision !== apiClient.getConnectionRevision()) return;
+        sourceScope.assertCurrent();
+        if (connectionRevision !== sourceScope.getRevision()) return;
         invalidateInFlightLoads();
         showNotification(t('auth_files.manual_refresh_requested', { name }), 'info');
-        notifyAuthFilesChanged();
+        notifyAuthFilesChanged(sourceScope.session.owner);
         onFilesMutatedRef.current?.([name]);
         await loadFiles({ background: true });
+        sourceScope.assertCurrent();
       } catch (err: unknown) {
-        if (connectionRevision !== apiClient.getConnectionRevision()) return;
+        if (!sourceScope.isCurrent()) return;
+        if (connectionRevision !== sourceScope.getRevision()) return;
         const message = err instanceof Error ? err.message : t('notification.update_failed');
         showNotification(t('auth_files.manual_refresh_failed', { name, message }), 'error');
       } finally {
         manualRefreshPendingRef.current.delete(key);
         setManualRefreshing((prev) => {
-          if (connectionRevision !== apiClient.getConnectionRevision() || !prev[key]) return prev;
+          if (connectionRevision !== sourceScope.getRevision() || !prev[key]) return prev;
           const next = { ...prev };
           delete next[key];
           return next;
         });
       }
     },
-    [invalidateInFlightLoads, loadFiles, showNotification, t]
+    [authFilesApi, invalidateInFlightLoads, loadFiles, showNotification, sourceScope, t]
   );
 
   const handleRefreshAllCredentials = useCallback(() => {
     if (refreshAllPendingRef.current || manualRefreshPendingRef.current.size > 0) return;
-    const connectionRevision = apiClient.getConnectionRevision();
+    const connectionRevision = sourceScope.getRevision();
     showConfirmation({
       title: t('auth_files.refresh_all_button'),
       message: t('auth_files.refresh_all_confirm'),
       confirmText: t('auth_files.refresh_all_button'),
       onConfirm: async () => {
         if (
-          connectionRevision !== apiClient.getConnectionRevision() ||
+          connectionRevision !== sourceScope.getRevision() ||
           refreshAllPendingRef.current ||
           manualRefreshPendingRef.current.size > 0
         )
@@ -582,26 +580,37 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         setRefreshResults(null);
         try {
           const results = await authFilesApi.requestAllManualRefresh();
-          if (connectionRevision !== apiClient.getConnectionRevision()) return;
+          sourceScope.assertCurrent();
+          if (connectionRevision !== sourceScope.getRevision()) return;
           setRefreshResults(results);
         } catch (err: unknown) {
-          if (connectionRevision !== apiClient.getConnectionRevision()) return;
+          if (!sourceScope.isCurrent()) return;
+          if (connectionRevision !== sourceScope.getRevision()) return;
           const message = err instanceof Error ? err.message : t('notification.update_failed');
           showNotification(t('auth_files.refresh_all_failed', { message }), 'error');
         } finally {
           refreshAllPendingRef.current = false;
-          if (connectionRevision === apiClient.getConnectionRevision()) {
+          if (connectionRevision === sourceScope.getRevision()) {
             setRefreshingAllCredentials(false);
             // Even a timeout can follow partial backend mutations.
             invalidateInFlightLoads();
             onFilesMutatedRef.current?.();
-            notifyAuthFilesChanged();
+            notifyAuthFilesChanged(sourceScope.session.owner);
             await loadFiles({ background: true });
+            sourceScope.assertCurrent();
           }
         }
       },
     });
-  }, [invalidateInFlightLoads, loadFiles, showConfirmation, showNotification, t]);
+  }, [
+    authFilesApi,
+    invalidateInFlightLoads,
+    loadFiles,
+    showConfirmation,
+    showNotification,
+    sourceScope,
+    t,
+  ]);
 
   const handleCooldownReset = useCallback(
     (item: AuthFileItem) => {
@@ -614,7 +623,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         return;
       }
 
-      const connectionRevision = apiClient.getConnectionRevision();
+      const connectionRevision = sourceScope.getRevision();
       showConfirmation({
         title: t('auth_files.cooldown_reset_title'),
         message: t('auth_files.cooldown_reset_confirm', { name: item.name }),
@@ -622,7 +631,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         variant: 'primary',
         onConfirm: async () => {
           if (
-            connectionRevision !== apiClient.getConnectionRevision() ||
+            connectionRevision !== sourceScope.getRevision() ||
             cooldownResetPendingRef.current.has(authIndex)
           ) {
             return;
@@ -632,7 +641,8 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
 
           try {
             await authFilesApi.resetCooldown(authIndex);
-            if (connectionRevision !== apiClient.getConnectionRevision()) return;
+            sourceScope.assertCurrent();
+            if (connectionRevision !== sourceScope.getRevision()) return;
             invalidateInFlightLoads();
             setFiles((prev) =>
               prev.map((file) =>
@@ -653,8 +663,10 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
               'success'
             );
             await loadFiles({ background: true });
+            sourceScope.assertCurrent();
           } catch (err: unknown) {
-            if (connectionRevision !== apiClient.getConnectionRevision()) return;
+            if (!sourceScope.isCurrent()) return;
+            if (connectionRevision !== sourceScope.getRevision()) return;
             const message = err instanceof Error ? err.message : t('notification.update_failed');
             showNotification(
               t('auth_files.cooldown_reset_failed', { name: item.name, message }),
@@ -672,12 +684,20 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         },
       });
     },
-    [invalidateInFlightLoads, loadFiles, showConfirmation, showNotification, t]
+    [
+      authFilesApi,
+      invalidateInFlightLoads,
+      loadFiles,
+      showConfirmation,
+      showNotification,
+      sourceScope,
+      t,
+    ]
   );
 
   const handleStatusToggle = useCallback(
     async (item: AuthFileItem, enabled: boolean) => {
-      const revision = apiClient.getConnectionRevision();
+      const revision = sourceScope.getRevision();
       if (statusPendingRef.current.revision !== revision) {
         statusPendingRef.current = { revision, keys: new Set() };
         batchStatusPendingRef.current = false;
@@ -703,10 +723,11 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
           nextDisabled,
           String(item.authIndex ?? '').trim() || undefined
         );
-        if (revision !== apiClient.getConnectionRevision()) return;
+        sourceScope.assertCurrent();
+        if (revision !== sourceScope.getRevision()) return;
         invalidateInFlightLoads();
         setFiles((prev) =>
-          revision !== apiClient.getConnectionRevision()
+          revision !== sourceScope.getRevision()
             ? prev
             : prev.map((f) =>
                 getAuthFileRefreshKey(f) === key ? { ...f, disabled: res.disabled } : f
@@ -719,10 +740,11 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
           'success'
         );
       } catch (err: unknown) {
-        if (revision !== apiClient.getConnectionRevision()) return;
+        if (!sourceScope.isCurrent()) return;
+        if (revision !== sourceScope.getRevision()) return;
         const errorMessage = err instanceof Error ? err.message : '';
         setFiles((prev) =>
-          revision !== apiClient.getConnectionRevision()
+          revision !== sourceScope.getRevision()
             ? prev
             : prev.map((f) =>
                 getAuthFileRefreshKey(f) === key ? { ...f, disabled: previousDisabled } : f
@@ -730,10 +752,10 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         );
         showNotification(`${t('notification.update_failed')}: ${errorMessage}`, 'error');
       } finally {
-        if (revision === apiClient.getConnectionRevision()) {
+        if (revision === sourceScope.getRevision()) {
           statusPendingRef.current.keys.delete(key);
           setStatusUpdating((prev) => {
-            if (revision !== apiClient.getConnectionRevision()) return prev;
+            if (revision !== sourceScope.getRevision()) return prev;
             const next = { ...prev };
             delete next[key];
             return next;
@@ -741,12 +763,12 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         }
       }
     },
-    [invalidateInFlightLoads, showNotification, t]
+    [authFilesApi, invalidateInFlightLoads, showNotification, sourceScope, t]
   );
 
   const batchSetStatus = useCallback(
     async (names: string[], enabled: boolean) => {
-      const revision = apiClient.getConnectionRevision();
+      const revision = sourceScope.getRevision();
       if (statusPendingRef.current.revision !== revision) {
         statusPendingRef.current = { revision, keys: new Set() };
         batchStatusPendingRef.current = false;
@@ -799,7 +821,8 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             );
           })
         );
-        if (revision !== apiClient.getConnectionRevision()) return;
+        sourceScope.assertCurrent();
+        if (revision !== sourceScope.getRevision()) return;
         invalidateInFlightLoads();
 
         let successCount = 0;
@@ -819,7 +842,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         });
 
         setFiles((prev) =>
-          revision !== apiClient.getConnectionRevision()
+          revision !== sourceScope.getRevision()
             ? prev
             : prev.map((file) => {
                 const key = getAuthFileRefreshKey(file);
@@ -847,12 +870,12 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
 
         deselectAll();
       } finally {
-        if (revision === apiClient.getConnectionRevision()) {
+        if (revision === sourceScope.getRevision()) {
           batchStatusPendingRef.current = false;
           targetNameList.forEach((key) => statusPendingRef.current.keys.delete(key));
           setBatchStatusUpdating(false);
           setStatusUpdating((prev) => {
-            if (revision !== apiClient.getConnectionRevision()) return prev;
+            if (revision !== sourceScope.getRevision()) return prev;
             const next = { ...prev };
             targetNameList.forEach((key) => {
               delete next[key];
@@ -862,7 +885,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         }
       }
     },
-    [deselectAll, files, invalidateInFlightLoads, showNotification, t]
+    [authFilesApi, deselectAll, files, invalidateInFlightLoads, showNotification, sourceScope, t]
   );
 
   const batchDownload = useCallback(
@@ -876,9 +899,11 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
       for (const name of uniqueNames) {
         try {
           const blob = await authFilesApi.download(name);
+          sourceScope.assertCurrent();
           downloadBlob({ filename: name, blob });
           successCount++;
         } catch {
+          if (!sourceScope.isCurrent()) return;
           failCount++;
         }
       }
@@ -898,7 +923,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
       // 与 batchSetStatus 保持一致：批量动作完成后清空选择
       deselectAll();
     },
-    [deselectAll, showNotification, t]
+    [authFilesApi, deselectAll, showNotification, sourceScope, t]
   );
 
   const batchDelete = useCallback(
@@ -914,8 +939,9 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         onConfirm: async () => {
           try {
             const result = await authFilesApi.deleteFiles(uniqueNames);
+            sourceScope.assertCurrent();
             applyDeletedFiles(result.files);
-            if (result.deleted > 0) notifyAuthFilesChanged();
+            if (result.deleted > 0) notifyAuthFilesChanged(sourceScope.session.owner);
 
             if (result.failed.length === 0) {
               showNotification(
@@ -933,13 +959,14 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
               );
             }
           } catch (err: unknown) {
+            if (!sourceScope.isCurrent()) return;
             const errorMessage = err instanceof Error ? err.message : '';
             showNotification(`${t('notification.delete_failed')}: ${errorMessage}`, 'error');
           }
         },
       });
     },
-    [applyDeletedFiles, showConfirmation, showNotification, t]
+    [applyDeletedFiles, authFilesApi, showConfirmation, showNotification, sourceScope, t]
   );
 
   return {

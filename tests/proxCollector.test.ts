@@ -6,7 +6,11 @@ import { QuotaCollector } from '../server/quota/collector';
 import { QuotaStore } from '../server/quota/store';
 import { MANUAL_REFRESH_INTERVAL_MS, REFRESH_INTERVAL_MS } from '../server/quota/types';
 import type { PoolProviderId } from '../src/domain/quotaPool/types';
-import { CLAUDE_USAGE_URL, CODEX_USAGE_URL } from '../src/utils/quota/constants';
+import {
+  CLAUDE_PROFILE_URL,
+  CLAUDE_USAGE_URL,
+  CODEX_USAGE_URL,
+} from '../src/utils/quota/constants';
 
 const NOW = 1_800_000_000_000;
 const RESET = NOW + 86_400_000;
@@ -118,11 +122,11 @@ describe('QuotaCollector', () => {
       collector.start();
       await collector.refresh();
       expect(scheduled).toHaveLength(1);
-      expect(calls).toHaveLength(4);
+      expect(calls).toHaveLength(5);
       advance(REFRESH_INTERVAL_MS);
       scheduled[0].fire();
       await collector.refresh();
-      expect(calls).toHaveLength(8);
+      expect(calls).toHaveLength(9);
       expect(scheduled).toHaveLength(2);
       expect(collector.nextRefreshAtMs).toBe(NOW + 2 * REFRESH_INTERVAL_MS);
       collector.stop();
@@ -199,7 +203,7 @@ describe('QuotaCollector', () => {
       ['codex', 'five-hour', 80, 5, RESET],
       ['codex', 'weekly', 90, 168, RESET],
     ]);
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(5);
     for (const call of calls) {
       expect(new Headers(call.init.headers).get('authorization')).toBe(
         'Bearer synthetic-management-key'
@@ -212,7 +216,12 @@ describe('QuotaCollector', () => {
         expect(call.body).toEqual({
           authIndex: 'synthetic-index',
           method: 'GET',
-          url: call.provider === 'claude' ? CLAUDE_USAGE_URL : CODEX_USAGE_URL,
+          url:
+            call.provider === 'codex'
+              ? CODEX_USAGE_URL
+              : call.body.url === CLAUDE_PROFILE_URL
+                ? CLAUDE_PROFILE_URL
+                : CLAUDE_USAGE_URL,
           header: expect.objectContaining({ Authorization: 'Bearer $TOKEN$' }),
         });
       } else {
@@ -239,7 +248,7 @@ describe('QuotaCollector', () => {
     await collector.refresh();
     const ids = store.listAccounts().map((account) => account.id);
     expect(store.listAccounts().filter((account) => account.disabled)).toHaveLength(2);
-    expect(calls.filter((call) => call.body)).toHaveLength(2);
+    expect(calls.filter((call) => call.body)).toHaveLength(3);
     renamed = true;
     advance(MANUAL_REFRESH_INTERVAL_MS);
     await collector.refresh();
@@ -274,12 +283,12 @@ describe('QuotaCollector', () => {
     await collector.refresh();
     advance(MANUAL_REFRESH_INTERVAL_MS - 1);
     await collector.refresh();
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(5);
     writeFileSync(keyFile, 'rotated-synthetic-key\n');
     advance(1);
     await collector.refresh();
-    expect(calls).toHaveLength(8);
-    expect(new Headers(calls[4].init.headers).get('authorization')).toBe(
+    expect(calls).toHaveLength(9);
+    expect(new Headers(calls[5].init.headers).get('authorization')).toBe(
       'Bearer rotated-synthetic-key'
     );
   });
@@ -435,7 +444,7 @@ describe('QuotaCollector', () => {
     expect(quotaCalls).toBe(2);
     gate.release();
     await refresh;
-    expect(quotaCalls).toBe(6);
+    expect(quotaCalls).toBe(9);
     expect(maximum).toBe(2);
     expect(store.listSamples(NOW, NOW)).toHaveLength(12);
   });
@@ -448,7 +457,7 @@ describe('QuotaCollector', () => {
     advance(MANUAL_REFRESH_INTERVAL_MS);
     await collector.refresh();
     expect(store.listAccounts()).toEqual(before);
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(5);
     expect(collector.issues).toEqual([
       { provider: 'claude', code: 'inventory-unavailable' },
       { provider: 'codex', code: 'inventory-unavailable' },
@@ -480,5 +489,30 @@ describe('QuotaCollector', () => {
     expect(store.listAccounts().every((account) => account.lastErrorAtMs === null)).toBe(true);
     expect(calls.filter((call) => !call.body)).toHaveLength(2);
     expect(calls.filter((call) => call.body).every((call) => call.init.signal?.aborted)).toBe(true);
+  });
+  test('records each account plan; the Claude profile is asked at most every six hours', async () => {
+    const { collector, store, calls, advance } = harness((request) => {
+      if (request.body?.url === CLAUDE_PROFILE_URL) {
+        return Response.json({
+          status_code: 200,
+          body: JSON.stringify({ organization: { rate_limit_tier: 'default_claude_max_20x' } }),
+        });
+      }
+      if (request.body && request.provider === 'codex') {
+        return Response.json({ status_code: 200, body: { ...codexBody, plan_type: 'promax' } });
+      }
+      return respond(request);
+    });
+    await collector.refresh();
+    const plans = Object.fromEntries(store.listAccounts().map((a) => [a.provider, a.plan]));
+    expect(plans).toEqual({ claude: 'default_claude_max_20x', codex: 'promax' });
+    const profileCalls = () => calls.filter((c) => c.body?.url === CLAUDE_PROFILE_URL);
+    expect(profileCalls()).toHaveLength(1);
+    advance(MANUAL_REFRESH_INTERVAL_MS);
+    await collector.refresh();
+    expect(profileCalls()).toHaveLength(1);
+    advance(6 * 60 * 60 * 1000);
+    await collector.refresh();
+    expect(profileCalls()).toHaveLength(2);
   });
 });

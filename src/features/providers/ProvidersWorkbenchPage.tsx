@@ -1,9 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useAuthStore, useNotificationStore } from '@/stores';
+import { useProviderSources } from '@/stores/useProviderSources';
+import { sourceOwnerKey } from '@/services/api/sourceSession';
+import {
+  ProviderSourceProvider,
+  useProviderSource,
+  useProviderNotifications,
+} from './ProviderSourceContext';
 import { useProviderRecentRequests } from '@/components/providers/hooks/useProviderRecentRequests';
 import {
   getOpenAIProviderRecentWindowStats,
@@ -98,15 +104,59 @@ const getResourceRecentSuccess = (
 };
 
 export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPageProps = {}) {
-  const { t, i18n } = useTranslation();
-  const connectionStatus = useAuthStore((s) => s.connectionStatus);
-  const { showNotification, showConfirmation } = useNotificationStore();
+  const registry = useProviderSources();
+  const { t } = useTranslation();
+  const refreshers = useRef(new Map<string, () => Promise<void>>());
+  const registerRefresh = useCallback((key: string, refresh: () => Promise<void>) => {
+    refreshers.current.set(key, refresh);
+    return () => {
+      refreshers.current.delete(key);
+    };
+  }, []);
+  const refreshAll = useCallback(async () => {
+    await Promise.allSettled([...refreshers.current.values()].map((refresh) => refresh()));
+  }, []);
+  const layer = usePageTransitionLayer();
+  useHeaderRefresh(refreshAll, !layer || layer.status === 'current');
+  if (registry.status === 'loading') return <p role="status">{t('common.loading')}</p>;
+  if (registry.status !== 'ready')
+    return <p role="alert">{t('provider_sources.discovery_error')}</p>;
+  return (
+    <div className={styles.sources}>
+      {registry.sources.map(({ source, session, status }) => (
+        <section
+          key={source.instanceId}
+          aria-label={source.label}
+          data-source-id={source.instanceId}
+        >
+          <h2 className={styles.sourceTitle}>{source.label}</h2>
+          {session && status === 'ready' ? (
+            <ProviderSourceProvider source={source} session={session}>
+              <ProviderSourcePanel fixedBrand={fixedBrand} registerRefresh={registerRefresh} />
+            </ProviderSourceProvider>
+          ) : (
+            <p role="alert">{t('provider_sources.authentication_required')}</p>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
 
-  const pageTransitionLayer = usePageTransitionLayer();
-  const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
+function ProviderSourcePanel({
+  fixedBrand,
+  registerRefresh,
+}: ProvidersWorkbenchPageProps & {
+  registerRefresh: (key: string, refresh: () => Promise<void>) => () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const scope = useProviderSource();
+  const { showNotification, showConfirmation } = useProviderNotifications();
 
   const workbench = useProviderWorkbench();
-  const [uiState, setUiState] = useState<ProvidersWorkbenchUiState>(readProvidersWorkbenchUiState);
+  const [uiState, setUiState] = useState<ProvidersWorkbenchUiState>(() =>
+    readProvidersWorkbenchUiState(scope.source.instanceId)
+  );
   const [sheetState, setSheetState] = useState<SheetState>({
     open: false,
     brand: 'gemini',
@@ -115,7 +165,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
   });
   const sheetRef = useRef<ProviderSheetHandle>(null);
 
-  const connected = connectionStatus === 'connected';
+  const connected = scope.isCurrent();
   const { usageByProvider, refreshRecentRequests } = useProviderRecentRequests({
     enabled: connected,
   });
@@ -124,23 +174,23 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
     await Promise.allSettled([workbench.refetch(), refreshRecentRequests().catch(() => undefined)]);
   }, [refreshRecentRequests, workbench]);
 
-  useHeaderRefresh(handleRefresh, isCurrentLayer);
+  useEffect(
+    () => registerRefresh(sourceOwnerKey(scope.session.owner), handleRefresh),
+    [scope, registerRefresh, handleRefresh]
+  );
 
   const disableMutations =
-    connectionStatus !== 'connected' ||
-    workbench.mutating ||
-    workbench.isFetching ||
-    workbench.isError;
+    !connected || workbench.mutating || workbench.isFetching || workbench.isError;
 
   const persistUiState = useCallback(
     (updater: (prev: ProvidersWorkbenchUiState) => ProvidersWorkbenchUiState) => {
       setUiState((prev) => {
         const next = updater(prev);
-        writeProvidersWorkbenchUiState(next);
+        writeProvidersWorkbenchUiState(next, scope.source.instanceId);
         return next;
       });
     },
-    []
+    [scope.source.instanceId]
   );
 
   const setActiveBrand = useCallback(

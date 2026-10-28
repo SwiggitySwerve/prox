@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { modelsApi } from '@/services/api';
+import { useProviderSource } from '../../ProviderSourceContext';
 import { buildHeaderObject } from '@/utils/headers';
 import { getErrorMessage } from '@/utils/helpers';
 import type { ModelInfo } from '@/utils/models';
@@ -40,6 +40,7 @@ export interface UseModelDiscoveryResult {
 }
 
 export function useModelDiscovery(args: UseModelDiscoveryArgs): UseModelDiscoveryResult {
+  const { modelsApi } = useProviderSource();
   const {
     brand,
     baseUrl,
@@ -135,6 +136,7 @@ export function useModelDiscovery(args: UseModelDiscoveryArgs): UseModelDiscover
       setLoading(false);
     }
   }, [
+    modelsApi,
     available,
     apiKey,
     apiKeyEntries,

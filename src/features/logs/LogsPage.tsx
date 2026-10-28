@@ -25,8 +25,10 @@ import {
 } from '@/components/ui/icons';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
-import { logsApi, responseDataToText, type ErrorLogFile } from '@/services/api/logs';
+import { useNotificationStore } from '@/stores';
+import { createLogsApi, responseDataToText, type ErrorLogFile } from '@/services/api/logs';
+import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
+import { useLogSettings } from './hooks/useLogSettings';
 import { INITIAL_VISIBLE_LINES } from './model/logBuffer';
 import { useLogStream } from './hooks/useLogStream';
 import { copyToClipboard } from '@/utils/clipboard';
@@ -55,10 +57,9 @@ type TabType = 'logs' | 'errors';
 export function LogsPage() {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
-  const managementKey = useAuthStore((state) => state.managementKey);
-  const config = useConfigStore((state) => state.config);
+  const sourceSession = useSelectedSourceSession();
+  const logsApi = useMemo(() => createLogsApi(sourceSession), [sourceSession]);
+  const { config, error: settingsError, refreshSettings } = useLogSettings(sourceSession);
   const requestLogEnabled = config?.requestLog ?? false;
 
   const [activeTab, setActiveTab] = useState<TabType>('logs');
@@ -106,23 +107,25 @@ export function LogsPage() {
     clearLogs,
   } = useLogStream({
     active: activeTab === 'logs',
+    loggingToFileEnabled: config?.loggingToFile ?? false,
     isFollowing: () => isNearBottom(logViewerRef.current),
     onFollow: () => requestScrollToBottom(),
   });
 
-  const disableControls = connectionStatus !== 'connected';
+  const disableControls = sourceSession.signal.aborted;
   const refreshDisabled = disableControls || loading || clearingLogs || cpaNeedsFileLogging;
   const autoRefreshDisabled = disableControls || showFileLoggingRequired;
   const clearDisabled = disableControls || clearingLogs || showFileLoggingRequired;
 
   const downloadLogs = () => {
+    if (sourceSession.signal.aborted) return;
     const text = logBuffer.buffer.join('\n');
     downloadBlob({ filename: 'logs.txt', blob: new Blob([text], { type: 'text/plain' }) });
     showNotification(t('logs.download_success'), 'success');
   };
 
   const loadErrorLogs = async () => {
-    if (useAuthStore.getState().connectionStatus !== 'connected') {
+    if (sourceSession.signal.aborted) {
       setLoadingErrors(false);
       return;
     }
@@ -131,11 +134,11 @@ export function LogsPage() {
     setErrorLogsError('');
     try {
       const res = await logsApi.fetchErrorLogs();
-      if (!requests.errors.isCurrent(request)) return;
+      if (sourceSession.signal.aborted || !requests.errors.isCurrent(request)) return;
       // API 返回 { files: [...] }
       setErrorLogs(Array.isArray(res.files) ? res.files : []);
     } catch (err: unknown) {
-      if (!requests.errors.isCurrent(request)) return;
+      if (sourceSession.signal.aborted || !requests.errors.isCurrent(request)) return;
       console.error('Failed to load error logs:', err);
       setErrorLogs([]);
       const message = getErrorMessage(err);
@@ -143,21 +146,27 @@ export function LogsPage() {
         message ? `${t('logs.error_logs_load_error')}: ${message}` : t('logs.error_logs_load_error')
       );
     } finally {
-      if (requests.errors.isCurrent(request)) setLoadingErrors(false);
+      if (!sourceSession.signal.aborted && requests.errors.isCurrent(request))
+        setLoadingErrors(false);
     }
   };
 
-  useHeaderRefresh(() => (activeTab === 'errors' ? loadErrorLogs() : loadLogs(false)));
+  useHeaderRefresh(async () => {
+    await refreshSettings();
+    if (sourceSession.signal.aborted) return;
+    if (activeTab === 'errors') await loadErrorLogs();
+    else await loadLogs(false);
+  });
 
   const downloadErrorLog = async (name: string) => {
     const session = requests.session.capture();
     try {
       const response = await logsApi.downloadErrorLog(name);
-      if (!requests.session.isCurrent(session)) return;
+      if (sourceSession.signal.aborted || !requests.session.isCurrent(session)) return;
       downloadBlob({ filename: name, blob: new Blob([response.data], { type: 'text/plain' }) });
       showNotification(t('logs.error_log_download_success'), 'success');
     } catch (err: unknown) {
-      if (!requests.session.isCurrent(session)) return;
+      if (sourceSession.signal.aborted || !requests.session.isCurrent(session)) return;
       const message = getErrorMessage(err);
       showNotification(
         `${t('notification.download_failed')}${message ? `: ${message}` : ''}`,
@@ -180,10 +189,10 @@ export function LogsPage() {
         throw new Error(t('logs.preview_too_large'));
       }
       const text = await responseDataToText(response.data);
-      if (!requests.viewer.isCurrent(requestId)) return;
+      if (sourceSession.signal.aborted || !requests.viewer.isCurrent(requestId)) return;
       dispatchErrorLogViewer({ type: 'ready', text });
     } catch (err: unknown) {
-      if (!requests.viewer.isCurrent(requestId)) return;
+      if (sourceSession.signal.aborted || !requests.viewer.isCurrent(requestId)) return;
       const message =
         byRequestId &&
         typeof err === 'object' &&
@@ -210,7 +219,7 @@ export function LogsPage() {
     if (errorLogViewer.status !== 'ready' || !errorLogViewer.text) return;
     const session = requests.session.capture();
     const ok = await copyToClipboard(errorLogViewer.text);
-    if (!requests.session.isCurrent(session)) return;
+    if (sourceSession.signal.aborted || !requests.session.isCurrent(session)) return;
     showNotification(
       ok
         ? t('logs.error_log_copy_success')
@@ -220,49 +229,24 @@ export function LogsPage() {
   };
 
   useEffect(() => {
-    const resetErrors = () => {
-      requests.errors.invalidate();
-      setErrorLogs([]);
-      setLoadingErrors(false);
-      setErrorLogsError('');
-    };
     const invalidateSession = () => {
       requests.session.invalidate();
       requests.errors.invalidate();
       requests.viewer.invalidate();
     };
-
-    // Store subscriptions invalidate synchronously, before a response can beat effect cleanup.
-    const unsubscribeAuth = useAuthStore.subscribe((next, previous) => {
-      if (
-        next.apiBase === previous.apiBase &&
-        next.managementKey === previous.managementKey &&
-        next.connectionStatus === previous.connectionStatus &&
-        next.isAuthenticated === previous.isAuthenticated
-      )
-        return;
-      invalidateSession();
-      resetErrors();
-      dispatchErrorLogViewer({ type: 'close' });
-      setViewerRequestId(null);
-      setRequestLogDownloading(false);
-    });
-    const unsubscribeConfig = useConfigStore.subscribe((next, previous) => {
-      if (next.config?.requestLog !== previous.config?.requestLog) resetErrors();
-    });
+    sourceSession.signal.addEventListener('abort', invalidateSession);
     return () => {
-      unsubscribeAuth();
-      unsubscribeConfig();
+      sourceSession.signal.removeEventListener('abort', invalidateSession);
       invalidateSession();
     };
-  }, [requests]);
+  }, [requests, sourceSession]);
 
   useEffect(() => {
     if (activeTab !== 'errors') return;
-    if (connectionStatus !== 'connected') return;
+    if (sourceSession.signal.aborted) return;
     void loadErrorLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, connectionStatus, apiBase, managementKey, requestLogEnabled]);
+  }, [activeTab, sourceSession, requestLogEnabled]);
 
   const [parseEntries] = useState(createLogParserCache);
   const entries = useMemo(() => parseEntries(logBuffer), [logBuffer, parseEntries]);
@@ -359,21 +343,22 @@ export function LogsPage() {
     setRequestLogDownloading(true);
     try {
       const response = await logsApi.downloadRequestLogById(id);
-      if (!requests.session.isCurrent(session)) return;
+      if (sourceSession.signal.aborted || !requests.session.isCurrent(session)) return;
       downloadBlob({
         filename: `request-${id}.log`,
         blob: new Blob([response.data], { type: 'text/plain' }),
       });
       showNotification(t('logs.request_log_download_success'), 'success');
     } catch (err: unknown) {
-      if (!requests.session.isCurrent(session)) return;
+      if (sourceSession.signal.aborted || !requests.session.isCurrent(session)) return;
       const message = getErrorMessage(err);
       showNotification(
         `${t('notification.download_failed')}${message ? `: ${message}` : ''}`,
         'error'
       );
     } finally {
-      if (requests.session.isCurrent(session)) setRequestLogDownloading(false);
+      if (!sourceSession.signal.aborted && requests.session.isCurrent(session))
+        setRequestLogDownloading(false);
     }
   };
 
@@ -424,6 +409,11 @@ export function LogsPage() {
         </div>
       </header>
 
+      {settingsError && (
+        <div className="error-box" role="alert">
+          {settingsError}
+        </div>
+      )}
       <div className={styles.content}>
         {activeTab === 'logs' && (
           <Card

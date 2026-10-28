@@ -2,7 +2,9 @@ import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
-import { apiCallApi, type ApiCallRequest } from '../src/services/api/apiCall';
+import { type ApiCallRequest } from '../src/services/api/apiCall';
+import { ProviderSourceProvider } from '../src/features/providers/ProviderSourceContext';
+import type { ManagementTransport, SourceSession } from '../src/services/api/sourceSession';
 import { normalizeProviderGroups } from '../src/services/api/transformers';
 import type { ProviderKeyConfig } from '../src/types/provider';
 import {
@@ -18,7 +20,20 @@ function captureHook<T>(hook: () => T): T {
     result = hook();
     return null;
   }
-  renderToStaticMarkup(createElement(Harness));
+  renderToStaticMarkup(
+    createElement(ProviderSourceProvider, {
+      source: {
+        instanceId: 'test',
+        label: 'Test',
+        apiBase: 'https://source.invalid',
+        publicBasePath: '',
+        aliases: [],
+        authScope: 'test',
+      },
+      session,
+      children: createElement(Harness),
+    })
+  );
   return result!;
 }
 
@@ -30,8 +45,37 @@ const messages: ConnectivityErrorMessages = {
   timeout: () => 'timeout',
   requestFailed: 'failed',
 };
-const success = { statusCode: 200, header: {}, bodyText: '', body: { data: [] } };
-let requestSpy: ReturnType<typeof spyOn<typeof apiCallApi, 'request'>> | undefined;
+const success = { status_code: 200, header: {}, body: { data: [] } };
+const transport: ManagementTransport = {
+  get: async () => {
+    throw new Error('Unexpected GET');
+  },
+  post: async () => {
+    throw new Error('Unexpected POST');
+  },
+  put: async () => {
+    throw new Error('Unexpected PUT');
+  },
+  patch: async () => {
+    throw new Error('Unexpected PATCH');
+  },
+  delete: async () => {
+    throw new Error('Unexpected DELETE');
+  },
+  getRaw: async () => {
+    throw new Error('Unexpected raw GET');
+  },
+  postForm: async () => {
+    throw new Error('Unexpected form');
+  },
+};
+const session: SourceSession = {
+  owner: { instanceId: 'test', sessionEpoch: 1, sourceGeneration: 1 },
+  signal: new AbortController().signal,
+  assertCurrent: () => {},
+  management: transport,
+};
+let requestSpy: ReturnType<typeof spyOn<typeof transport, 'post'>> | undefined;
 afterEach(() => requestSpy?.mockRestore());
 
 const args: UseConnectivityTestArgs = {
@@ -47,17 +91,19 @@ describe('provider probe proxy forwarding', () => {
   test.each(['codex', 'meta', 'xai', 'gemini', 'interactions', 'claude'] as const)(
     '%s connectivity uses the current form proxy',
     async (brand) => {
-      requestSpy = spyOn(apiCallApi, 'request').mockResolvedValue(success);
+      requestSpy = spyOn(transport, 'post').mockResolvedValue(success);
       const hook = captureHook(() => useConnectivityTest({ ...args, brand }, messages));
       if (brand === 'claude') await hook.runClaude();
       else if (brand === 'gemini' || brand === 'interactions') await hook.runGemini();
       else await hook.runCodex();
-      expect(requestSpy.mock.calls[0][0].proxy_url).toBe('socks5://proxy.example:1080');
+      expect((requestSpy.mock.calls[0][1] as ApiCallRequest).proxy_url).toBe(
+        'socks5://proxy.example:1080'
+      );
     }
   );
 
   test('OpenAI batch tests preserve each key proxy, including direct and blank', async () => {
-    requestSpy = spyOn(apiCallApi, 'request').mockResolvedValue(success);
+    requestSpy = spyOn(transport, 'post').mockResolvedValue(success);
     const hook = captureHook(() =>
       useConnectivityTest(
         {
@@ -72,17 +118,15 @@ describe('provider probe proxy forwarding', () => {
       )
     );
     await hook.runOpenAIAllKeys();
-    expect(requestSpy.mock.calls.map(([request]) => request.proxy_url)).toEqual([
-      'http://one.example:8080',
-      'direct',
-      undefined,
-    ]);
+    expect(
+      requestSpy.mock.calls.map(([, request]) => (request as ApiCallRequest).proxy_url)
+    ).toEqual(['http://one.example:8080', 'direct', undefined]);
   });
 
   test.each(['codex', 'meta', 'xai', 'gemini', 'interactions', 'claude'] as const)(
     '%s discovery forwards the effective inherited proxy',
     async (brand) => {
-      requestSpy = spyOn(apiCallApi, 'request').mockResolvedValue(success);
+      requestSpy = spyOn(transport, 'post').mockResolvedValue(success);
       const [config] = normalizeProviderGroups([
         { 'base-url': args.baseUrl, 'proxy-url': 'direct', keys: [{ 'api-key': 'fixture-key' }] },
       ]) as ProviderKeyConfig[];
@@ -90,15 +134,15 @@ describe('provider probe proxy forwarding', () => {
         useModelDiscovery({ ...args, brand, proxyUrl: config.proxyUrl })
       );
       await hook.fetch();
-      expect(requestSpy.mock.calls[0][0].proxy_url).toBe('direct');
+      expect((requestSpy.mock.calls[0][1] as ApiCallRequest).proxy_url).toBe('direct');
     }
   );
 
   test('OpenAI unauthenticated discovery retry keeps the selected key proxy', async () => {
     const requests: ApiCallRequest[] = [];
-    requestSpy = spyOn(apiCallApi, 'request').mockImplementation(async (request) => {
-      requests.push(request);
-      return requests.length === 1 ? { ...success, statusCode: 401 } : success;
+    requestSpy = spyOn(transport, 'post').mockImplementation(async (_path, request) => {
+      requests.push(request as ApiCallRequest);
+      return requests.length === 1 ? { ...success, status_code: 401 } : success;
     });
     const hook = captureHook(() =>
       useModelDiscovery({

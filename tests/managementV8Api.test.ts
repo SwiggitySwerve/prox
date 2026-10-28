@@ -266,6 +266,7 @@ describe('v8 management API contracts', () => {
     });
     await pluginsApi.updateEnabled('example', false);
     expect(put).toHaveBeenLastCalledWith('/config/plugins/configs/example/enabled', false);
+    get.mockResolvedValueOnce({ plugins_enabled: true, plugins_dir: 'plugins', plugins: [] });
     await pluginStoreApi.list();
     expect(get).toHaveBeenLastCalledWith('/plugins/store');
     await pluginStoreApi.install('example', { sourceId: 'official', version: '1.2.3' });

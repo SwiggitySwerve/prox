@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { ManagementTransport } from './sourceSession';
 
 /** Capture before a config read and check immediately before its dependent write. */
 export function guardConfigConnection(): () => void {
@@ -19,11 +20,21 @@ export const isMissingConfigValue = (error: unknown): boolean =>
   'apiCode' in error &&
   error.apiCode === 'not_found';
 
-export async function getConfigValue<T>(path: string, defaultValue: T): Promise<T> {
-  try {
-    return await apiClient.get<T>(path);
-  } catch (error) {
-    if (isMissingConfigValue(error)) return defaultValue;
-    throw error;
+/** Keep config reads and dependent-write guards bound to the same connection. */
+export function createConfigValueApi(
+  transport: Pick<ManagementTransport, 'get'>,
+  captureGuard: () => () => void
+) {
+  async function getConfigValue<T>(path: string, defaultValue: T): Promise<T> {
+    try {
+      return await transport.get<T>(path);
+    } catch (error) {
+      if (isMissingConfigValue(error)) return defaultValue;
+      throw error;
+    }
   }
+
+  return { getConfigValue, guardConfigConnection: captureGuard };
 }
+
+export const { getConfigValue } = createConfigValueApi(apiClient, guardConfigConnection);

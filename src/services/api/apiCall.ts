@@ -4,6 +4,7 @@
 
 import type { AxiosRequestConfig } from 'axios';
 import { apiClient } from './client';
+import type { ManagementTransport, SourceSession } from './sourceSession';
 import { isRecord } from '@/utils/helpers';
 
 export interface ApiCallRequest {
@@ -76,22 +77,35 @@ export const getApiCallErrorMessage = (result: ApiCallResult): string => {
   return message || 'Request failed';
 };
 
-export const apiCallApi = {
-  request: async (payload: ApiCallRequest, config?: AxiosRequestConfig): Promise<ApiCallResult> => {
-    const response = await apiClient.post<Record<string, unknown>>(
-      '/requests/api-call',
-      payload,
-      config
-    );
-    const statusCode = Number(response?.status_code ?? 0);
-    const header = (response?.header ?? {}) as Record<string, string[]>;
-    const { bodyText, body } = normalizeBody(response?.body);
+export function createApiCallApi(session: SourceSession) {
+  return buildApiCallApi(session.management, () => session.assertCurrent());
+}
 
-    return {
-      statusCode,
-      header,
-      bodyText,
-      body,
-    };
-  },
-};
+function buildApiCallApi(transport: ManagementTransport, assertCurrent: () => void = () => {}) {
+  return {
+    request: async (
+      payload: ApiCallRequest,
+      config?: AxiosRequestConfig
+    ): Promise<ApiCallResult> => {
+      assertCurrent();
+      const response = await transport.post<Record<string, unknown>>(
+        '/requests/api-call',
+        payload,
+        config
+      );
+      assertCurrent();
+      const statusCode = Number(response?.status_code ?? 0);
+      const header = (response?.header ?? {}) as Record<string, string[]>;
+      const { bodyText, body } = normalizeBody(response?.body);
+
+      return {
+        statusCode,
+        header,
+        bodyText,
+        body,
+      };
+    },
+  };
+}
+
+export const apiCallApi = buildApiCallApi(apiClient);

@@ -18,8 +18,10 @@ import {
   IconShield,
 } from '@/components/ui/icons';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { pluginStoreApi } from '@/services/api';
-import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
+import { createPluginStoreApi } from '@/services/api/plugins';
+import type { SourceSession } from '@/services/api/sourceSession';
+import { PluginDestination, type PluginSourceProps } from './PluginSourceScope';
+import { usePluginSource } from './usePluginSource';
 import { getErrorMessage, isRecord } from '@/utils/helpers';
 import type { PluginStoreEntry, PluginStoreResponse } from '@/types';
 import {
@@ -32,12 +34,12 @@ import {
 import { PluginInstallGateModal } from './components/PluginInstallGateModal';
 import {
   buildGitHubReleasesPageURL,
-  fetchPluginReleaseVersions,
+  createPluginReleaseVersionsApi,
   isValidManualReleaseTag,
   supportsPluginVersionSelection,
   type PluginReleaseVersion,
 } from './pluginReleaseVersions';
-import { waitForPluginStoreState } from './pluginPolling';
+import { createPluginPolling } from './pluginPolling';
 import styles from './PluginStorePage.module.scss';
 
 type StoreStatusFilter = 'all' | 'installed' | 'notInstalled' | 'updates';
@@ -77,7 +79,6 @@ const formatInstallType = (installType: string) =>
     .split('-')
     .map((part) => (part ? `${part[0].toUpperCase()}${part.slice(1)}` : part))
     .join(' ');
-const releaseVersionsCache = new Map<string, PluginReleaseVersion[]>();
 
 const formatReleaseDate = (value: string, locale: string) => {
   if (!value) return '';
@@ -102,6 +103,7 @@ function StoreCardLogo({ src }: { src: string }) {
 }
 
 interface PluginInstallOptionsModalProps {
+  session: SourceSession;
   entry: PluginStoreEntry | null;
   isUpdate: boolean;
   version: string;
@@ -112,6 +114,7 @@ interface PluginInstallOptionsModalProps {
 }
 
 function PluginInstallOptionsModal({
+  session,
   entry,
   isUpdate,
   version,
@@ -121,6 +124,12 @@ function PluginInstallOptionsModal({
   onConfirm,
 }: PluginInstallOptionsModalProps) {
   const { i18n, t } = useTranslation();
+  // The destination boundary remounts this modal for every source session.
+  const [releaseVersionsCache] = useState(() => new Map<string, PluginReleaseVersion[]>());
+  const { fetchPluginReleaseVersions } = useMemo(
+    () => createPluginReleaseVersionsApi(session),
+    [session]
+  );
   const [versionMode, setVersionMode] = useState<InstallVersionMode>('latest');
   const [showPrerelease, setShowPrerelease] = useState(false);
   const [releaseVersions, setReleaseVersions] = useState<PluginReleaseVersion[]>([]);
@@ -178,7 +187,16 @@ function PluginInstallOptionsModal({
     return () => {
       active = false;
     };
-  }, [entryKey, entryRepository, releaseCacheKey, releasePageURL, supportsVersionSelection, t]);
+  }, [
+    entryKey,
+    entryRepository,
+    releaseCacheKey,
+    releasePageURL,
+    supportsVersionSelection,
+    t,
+    fetchPluginReleaseVersions,
+    releaseVersionsCache,
+  ]);
 
   const stableReleaseVersions = useMemo(
     () => releaseVersions.filter((release) => !release.prerelease),
@@ -460,12 +478,16 @@ function PluginInstallOptionsModal({
 }
 
 export function PluginStorePage() {
+  return <PluginDestination>{(scope) => <SourcePluginStorePage {...scope} />}</PluginDestination>;
+}
+
+function SourcePluginStorePage({ session: owner, apiBase }: PluginSourceProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
-  const clearConfigCache = useConfigStore((state) => state.clearCache);
-  const showNotification = useNotificationStore((state) => state.showNotification);
+  const lease = usePluginSource(owner);
+  const { session, showNotification } = lease;
+  const pluginStoreApi = useMemo(() => createPluginStoreApi(session), [session]);
+  const { waitForPluginStoreState } = useMemo(() => createPluginPolling(session), [session]);
 
   const [data, setData] = useState<PluginStoreResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -488,9 +510,11 @@ export function PluginStorePage() {
   const [installOptionsIsUpdate, setInstallOptionsIsUpdate] = useState(false);
   const [installVersion, setInstallVersion] = useState('');
 
-  const connected = connectionStatus === 'connected';
+  const connected = !session.signal.aborted;
 
   const loadStore = useCallback(async () => {
+    const revision = lease.getRevision();
+    if (revision < 0) return;
     if (!connected) {
       setLoading(false);
       setError({ kind: 'generic', message: t('notification.connection_required') });
@@ -499,10 +523,13 @@ export function PluginStorePage() {
 
     setLoading(true);
     setError(null);
+    setData(null);
     try {
       const store = await pluginStoreApi.list();
+      if (lease.getRevision() !== revision) return;
       setData(store);
     } catch (err: unknown) {
+      if (lease.getRevision() !== revision) return;
       const status = getErrorStatus(err);
       if (status === 404) {
         setError({ kind: 'unsupported', message: t('plugin_store.unsupported_backend') });
@@ -521,9 +548,9 @@ export function PluginStorePage() {
         });
       }
     } finally {
-      setLoading(false);
+      if (lease.getRevision() === revision) setLoading(false);
     }
-  }, [connected, t]);
+  }, [connected, pluginStoreApi, lease, t]);
 
   useHeaderRefresh(loadStore, connected);
 
@@ -664,7 +691,7 @@ export function PluginStorePage() {
           sourceId: entry.sourceId || undefined,
           version: version || undefined,
         });
-        clearConfigCache();
+
         const sourceId = result.sourceId || entry.sourceId;
         const installedState = await waitForPluginStoreState(
           entry.id,
@@ -674,6 +701,7 @@ export function PluginStorePage() {
             plugin.configured &&
             (!version || pluginVersionMatches(plugin.installedVersion, version))
         );
+        session.assertCurrent();
         setData(installedState.response);
         if (
           installedState.timedOut ||
@@ -711,6 +739,7 @@ export function PluginStorePage() {
             sourceId,
             (plugin) => plugin.registered && plugin.effectiveEnabled
           );
+          session.assertCurrent();
           setData(registeredState.response);
           if (
             registeredState.timedOut ||
@@ -728,13 +757,17 @@ export function PluginStorePage() {
           'success'
         );
       } catch (err: unknown) {
+        if (!lease.isCurrent()) throw err;
+        await loadStore();
+        if (lease.isCurrent())
+          showNotification(t('provider_sources.mutation_unconfirmed'), 'warning');
         showNotification(`${t(failedKey)}: ${getErrorMessage(err, t(failedKey))}`, 'error');
         throw err;
       } finally {
-        setInstallingKey('');
+        if (lease.isCurrent()) setInstallingKey('');
       }
     },
-    [clearConfigCache, showNotification, t]
+    [pluginStoreApi, waitForPluginStoreState, showNotification, lease, session, t, loadStore]
   );
 
   const handleInstall = (entry: PluginStoreEntry) => {
@@ -945,7 +978,13 @@ export function PluginStorePage() {
                     {t('plugin_store.update')}
                   </Button>
                 ) : null}
-                <Button variant="secondary" size="sm" onClick={() => navigate('/plugins')}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    navigate(`/plugins?source=${encodeURIComponent(session.owner.instanceId)}`)
+                  }
+                >
                   <IconSettings size={14} />
                   {t('plugin_store.manage')}
                 </Button>
@@ -1173,6 +1212,7 @@ export function PluginStorePage() {
       )}
 
       <PluginInstallGateModal
+        apiBase={apiBase}
         open={gateOpen}
         entry={gateEntry}
         isUpdate={gateIsUpdate}
@@ -1181,6 +1221,7 @@ export function PluginStorePage() {
         onConfirm={handleGateConfirm}
       />
       <PluginInstallOptionsModal
+        session={session}
         entry={installOptionsEntry}
         isUpdate={installOptionsIsUpdate}
         version={installVersion}

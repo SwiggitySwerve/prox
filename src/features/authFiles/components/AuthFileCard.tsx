@@ -20,6 +20,7 @@ import { formatDateTimeValue, formatFileSize } from '@/utils/format';
 import {
   formatModified,
   getAuthFileStatusMessage,
+  summarizeAuthFileStatusMessage,
   hasAuthFileStatusWarning,
   getTypeColor,
   getTypeLabel,
@@ -27,6 +28,7 @@ import {
   normalizeProviderKey,
   supportsAuthFileManualRefresh,
   type AuthFileQuotaFilter,
+  type AuthFileStatusSummary,
   type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
@@ -108,6 +110,23 @@ export function AuthFileCard(props: AuthFileCardProps) {
     statusBarDataFromRecentRequests(file.recentRequests ?? []);
 
   const rawStatusMessage = getAuthFileStatusMessage(file);
+  const describeStatus = (summary: AuthFileStatusSummary): string => {
+    if (summary.kind === 'message') return summary.text;
+    if (summary.kind === 'rate_limit') return t('auth_files.status_rate_limited');
+    const limit = t(
+      summary.window === 'weekly'
+        ? 'auth_files.status_weekly_limit'
+        : summary.window === 'five_hour'
+          ? 'auth_files.status_five_hour_limit'
+          : 'auth_files.status_usage_limit'
+    );
+    return summary.resetsAt
+      ? t('auth_files.status_limit_resets', {
+          limit,
+          time: formatDateTimeValue(summary.resetsAt, i18n.language),
+        })
+      : limit;
+  };
   const hasStatusWarning = hasAuthFileStatusWarning(file);
 
   const priorityValue = Number.isSafeInteger(file.priority) ? file.priority : undefined;
@@ -185,7 +204,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
       {rawStatusMessage && hasStatusWarning && (
         <div className={styles.warning} title={rawStatusMessage}>
           <IconInfo className={styles.warningIcon} size={14} />
-          <span>{rawStatusMessage}</span>
+          <span>{describeStatus(summarizeAuthFileStatusMessage(rawStatusMessage))}</span>
         </div>
       )}
 

@@ -235,8 +235,12 @@ export function anthropicResetGrantBlocker(
   return null;
 }
 
-async function readAccount(authIndex: string, path: string): Promise<Record<string, unknown>> {
-  const response = await apiCallApi.request(
+async function readAccount(
+  authIndex: string,
+  path: string,
+  client: typeof apiCallApi
+): Promise<Record<string, unknown>> {
+  const response = await client.request(
     {
       authIndex,
       method: 'GET',
@@ -254,15 +258,15 @@ async function readAccount(authIndex: string, path: string): Promise<Record<stri
   return response.body;
 }
 
-export async function readClaudeResetGrants(authIndex: string) {
-  const body = await readAccount(authIndex, ANTHROPIC_RESET_GRANT_STATUS_PATH);
+export async function readClaudeResetGrants(authIndex: string, client = apiCallApi) {
+  const body = await readAccount(authIndex, ANTHROPIC_RESET_GRANT_STATUS_PATH, client);
   const status = parseAnthropicResetGrantStatus(body.cedar_ember);
   if (!status) throw new AnthropicResetGrantError('malformed');
   return status;
 }
 
-export async function readClaudeOrganization(authIndex: string) {
-  const body = await readAccount(authIndex, ANTHROPIC_PROFILE_PATH);
+export async function readClaudeOrganization(authIndex: string, client = apiCallApi) {
+  const body = await readAccount(authIndex, ANTHROPIC_PROFILE_PATH, client);
   const uuid = isRecord(body.organization) ? body.organization.uuid : undefined;
   if (typeof uuid !== 'string' || !ORGANIZATION_UUID_RE.test(uuid)) {
     throw new AnthropicResetGrantError('malformed');
@@ -274,7 +278,8 @@ export async function claimClaudeResetGrant(
   authIndex: string,
   organization: string,
   grantId: string,
-  requestId: string
+  requestId: string,
+  client = apiCallApi
 ): Promise<AnthropicResetSettledCode> {
   if (
     !ORGANIZATION_UUID_RE.test(organization) ||
@@ -283,7 +288,7 @@ export async function claimClaudeResetGrant(
   )
     throw new AnthropicResetGrantError('malformed');
   try {
-    const response = await apiCallApi.request(
+    const response = await client.request(
       {
         authIndex,
         method: 'POST',

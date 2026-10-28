@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { pluginsApi } from '@/services/api';
-import { useAuthStore } from '@/stores';
+import { useSourceLease } from '@/hooks/useSourceLease';
+import { createPluginsApi } from '@/services/api/plugins';
+import { PluginDestination, type PluginSourceProps } from './PluginSourceScope';
 import { getErrorMessage, isRecord } from '@/utils/helpers';
 import type { PluginListResponse } from '@/types';
 import {
@@ -30,20 +31,31 @@ const parseMenuIndex = (value = '') => {
 };
 
 export function PluginResourcePage() {
+  return (
+    <PluginDestination resource>
+      {(scope) => <SourcePluginResourcePage {...scope} />}
+    </PluginDestination>
+  );
+}
+
+function SourcePluginResourcePage({ session: owner, apiBase }: PluginSourceProps) {
   const { t } = useTranslation();
+  const lease = useSourceLease(owner);
+  const { session } = lease;
   const params = useParams<{ pluginId: string; menuIndex: string }>();
-  const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
+  const pluginsApi = useMemo(() => createPluginsApi(session), [session]);
 
   const [data, setData] = useState<PluginListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const connected = connectionStatus === 'connected';
+  const connected = !session.signal.aborted;
   const pluginID = useMemo(() => safeDecodeURIComponent(params.pluginId), [params.pluginId]);
   const menuIndex = useMemo(() => parseMenuIndex(params.menuIndex), [params.menuIndex]);
 
   const loadResource = useCallback(async () => {
+    const revision = lease.getRevision();
+    if (revision < 0) return;
     if (!connected) {
       setLoading(false);
       setError(t('notification.connection_required'));
@@ -54,17 +66,19 @@ export function PluginResourcePage() {
     setError('');
     try {
       const plugins = await pluginsApi.list();
+      if (lease.getRevision() !== revision) return;
       setData(plugins);
     } catch (err: unknown) {
+      if (lease.getRevision() !== revision) return;
       setError(
         hasStatus(err, 404)
           ? t('plugin_management.unsupported_backend')
           : getErrorMessage(err, t('plugin_resource.load_failed'))
       );
     } finally {
-      setLoading(false);
+      if (lease.getRevision() === revision) setLoading(false);
     }
-  }, [connected, t]);
+  }, [connected, pluginsApi, lease, t]);
 
   useHeaderRefresh(loadResource, connected);
 

@@ -5,7 +5,7 @@
 import { describe, expect, mock, test } from 'bun:test';
 import { join } from 'node:path';
 import { createElement, type ComponentType } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderInSelectedSource as renderToStaticMarkup } from './helpers/selectedSource';
 import { DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
 import { resolveRowSpans } from '@/features/config/components/fields/rowSpans';
 

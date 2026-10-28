@@ -1,0 +1,409 @@
+{
+  "reviewer": "layout",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "narrow": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "empty": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 8,
+      "content": 7,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 6,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 7,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 7,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 7,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 7,
+      "layout": 6,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "details-narrow": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "drain": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 6,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 6,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "refresh-error": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "type_numbers"
+      ],
+      "element": "Small supporting type in quota labels, Forecast badges, account statuses and refresh metadata; in empty/loading/error, the footer carries most of this small type",
+      "fix": "Use a consistent 13px size for essential summary/status/freshness labels and reserve the smaller chart-caption size for axes and legends. Keep the strong balance numerals, exact decimals and adjacent points or points/h units. Current labels are more readable than baseline but still have a steep size jump from the headline numbers."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "partial",
+        "stale",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Provider card space between the balance/status row, the standalone Inspect samples instruction and the top of the plot",
+      "fix": "Move the inspection instruction beside the slider and reduce the intervening top padding by roughly 32-48px. Keep the plots open and accounts visible. At laptop size the first card starts near y=320, the plot near y=565, and the account section only near y=880; in wide the second provider plot is barely reached by the viewport. The reference connects each summary to its plot more tightly."
+    },
+    {
+      "states": [
+        "laptop",
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout"
+      ],
+      "element": "Wrapped date controls on laptop and separate Account view, mode, hour, select and date rows on mobile",
+      "fix": "Place Account view beside the provider tabs where it fits, or use a quieter compact link within that row on mobile; keep its 44px hit area. Tighten vertical gaps around the date row and align the labeled selects. The normal mobile first card now starts near y=535 rather than baseline y=693, but its first plot still starts near y=912. Preserve the improved toolbar offset and all control targets."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "Mobile Account view outlined button on its own row, plus supporting provider metadata above the plot",
+      "fix": "Use the same quiet secondary-link treatment as the reference while retaining a 44px target, and keep essential status text at a consistent readable size. Recover vertical space from gaps and button prominence so the summary and chart are easier to reach; preserve the full wrapping account names, two-line account statuses and expanded detail grid. No clipping or target-size failure is alleged: the supplied measurements report neither."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "long-narrow",
+        "details-narrow"
+      ],
+      "aspects": [
+        "content"
+      ],
+      "element": "Normalized-points explanation is below both provider cards, while points is first used beside the headline balance",
+      "fix": "Repeat only the concise unit definition, 100 normalized points per eligible account, beside the first pool summary or quota-window control. Keep the full provider caveat in the footer. This makes the unit visible before a reader reaches the plots without restoring the baseline paragraphs above the cards or changing any quota values."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "controls_states"
+      ],
+      "element": "Inspect chart slider and its separated instruction, without a visible selected timestamp/value readout in the captured resting state",
+      "fix": "Put the instruction next to the slider and display the selected sample time and existing value beside it, using the same points or points/h unit as the plot. This makes the slider result legible without relying on a transient tooltip. Retain the existing 24px desktop and 44px touch hit areas and arrow-key instruction; this screenshot review does not establish keyboard or screen-reader behavior."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "colour",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Large neutral empty panel contains a single small amber sentence saying this provider under All pools and an Account view button",
+      "fix": "Add a short neutral No accounts heading, describe all pools when All pools is selected, and rename the existing destination action Add credentials. Reduce the excess vertical panel padding slightly. Keep the neutral card surface and reserve amber text for incomplete data or failures; the current amber sentence still reads like a warning."
+    },
+    {
+      "states": [
+        "loading"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Centered loading panel beneath fully active-looking rate/date controls and an ordinary Refresh all button",
+      "fix": "Show Refresh all as busy and visibly disable only the controls that depend on the pending first result. Use a compact loading label near the top of the reserved card region or a restrained static placeholder shape to connect the panel to the future provider cards. Retain the readable loading sentence and reduced-motion presentation. The new bounded panel improves the baseline, but pending-state chrome still looks ready."
+    },
+    {
+      "states": [
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Initial-load amber banner has no short heading; its retained-data sentence appears despite no visible data, and Try again sits in the middle of the banner",
+      "fix": "Add a Quota unavailable heading, omit the retained-data sentence when no cards are displayed, and align the existing retry button to the trailing edge with balanced padding. Keep the failure explanation and retry together. This is presentation of the existing state, not a new retry or quota behavior."
+    },
+    {
+      "states": [
+        "partial",
+        "stale"
+      ],
+      "aspects": [
+        "hierarchy",
+        "type_numbers",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Dominant unqualified dash for the pooled balance and neutral Forecast: Partial / Forecast: Stale outline badges",
+      "fix": "Give the dash an adjacent Incomplete total or Stale total label and apply the existing amber warning treatment to the exceptional forecast badge. Keep the capacity, warning sentence and affected-account status visible, preserving Claude orange and Codex blue. The new amber warning strip and amber account status are clear improvements; the total and badge still resemble the ready state."
+    },
+    {
+      "states": [
+        "partial",
+        "stale"
+      ],
+      "aspects": [
+        "content",
+        "layout"
+      ],
+      "element": "Full future chart grid and Projected legend beneath an entirely absent projected series",
+      "fix": "Retain the recorded line and existing date range, but label the empty future region Projection unavailable and mute or omit the Projected legend entry while that series is absent. Reduce unused chart height in this presentation state rather than allowing the empty future grid to dominate. Preserve every actual observation and the amber explanation."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Full-size open chart shows one recorded dot, reset markers and a Projected legend beneath the Collecting history notice",
+      "fix": "Use a compact collecting chart presentation with the existing dot and an explicit No projection yet caption; omit the absent-series legend and avoid giving empty future grid space the full ready-chart height. Keep the neutral collecting notice, balance, reset information and accounts visible. This screenshot has become less economical than the folded baseline: the one-dot plot pushes the second provider beyond the captured viewport."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "consistency"
+      ],
+      "element": "Rate-mode headline correctly shows 3.7 or 2.7 points/h, but 248.4 of 300 points and 142.8 of 200 points no longer appear as pooled balances; forecast summaries retain equal prominence",
+      "fix": "Keep the rate as the headline and restore the exact pooled remaining balance/capacity as a secondary line beneath it. Visually subordinate pool-empty/first-empty forecast summaries in recorded-rate mode while retaining their labels and values. Keep the recorded-only explanation, disabled future-usage selector, orange/blue strokes and all account percentages. Reusing already available values is sufficient; no quota calculation or feature change is needed."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Recorded-only rate line ends at Now, leaving most of the selected date-range chart empty",
+      "fix": "Keep the date range and observations unchanged but lightly annotate the future region No future rate projection, and reduce the unused top spacing around this chart. This explains the blank region without adding a projected rate or increasing grid contrast. On mobile the instruction-to-chart gap and empty future region consume more area than the recorded line."
+    },
+    {
+      "states": [
+        "refresh-error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Refresh-failure banner now includes a timestamp, but the ordinary Forecast: Ready badge remains on retained provider data and retry is embedded mid-line",
+      "fix": "Add a short Refresh failed heading, align Try again to the trailing edge, and place a Saved data qualifier beside the existing Ready badge. Keep the timestamp beside the retained-data explanation and preserve all balances and account rows. This lets the card retain its forecast status without visually suggesting that the refresh succeeded."
+    }
+  ],
+  "drops": [
+    {
+      "state": "error",
+      "aspect": "content",
+      "previous": 8,
+      "current": 7,
+      "reason": "8 to 7: the initial-load capture still has no data cards, yet retained-data copy is now the primary compact banner message. My baseline 8 understated this ambiguity; the larger retry target does not resolve it."
+    },
+    {
+      "state": "collecting",
+      "aspect": "layout",
+      "previous": 7,
+      "current": 6,
+      "reason": "7 to 6: opening the full-height one-dot chart introduces a large empty future region and moves the second provider beyond the viewport. The baseline folded chart was less informative but more economical in this particular state."
+    },
+    {
+      "state": "collecting",
+      "aspect": "content",
+      "previous": 9,
+      "current": 8,
+      "reason": "9 to 8: the newly visible Projected legend and future reset markers accompany no projected series. The collecting sentence remains clear, but this added chart framing needs an explicit no-projection caption."
+    },
+    {
+      "state": "drain",
+      "aspect": "content",
+      "previous": 7,
+      "current": 6,
+      "reason": "7 to 6: promoting the rate improves hierarchy, but the pooled remaining balance and capacity previously displayed as 248.4 of 300 points and 142.8 of 200 points are no longer shown in the provider summary."
+    },
+    {
+      "state": "burn-narrow",
+      "aspect": "content",
+      "previous": 7,
+      "current": 6,
+      "reason": "7 to 6: the larger rate headline replaces the pooled remaining balance/capacity rather than retaining it as secondary information; account percentages alone do not preserve that visible pooled value."
+    }
+  ]
+}

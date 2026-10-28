@@ -1,68 +1,52 @@
-import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { selectSource } from '@/services/providerSources/selection';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '@/stores/useAuthStore';
-import type { PoolProviderId } from '@/domain/quotaPool/types';
-import { managementRuntime } from './runtimeConnection';
-import { PoolProviderMark } from './PoolProviderMark';
+import { useProviderSources } from '@/stores/useProviderSources';
 import styles from './ManagementRuntime.module.scss';
 
+/** Explicit destination for source-local tools; inventory pages enumerate the same registry. */
 export function ManagementRuntime() {
   const { t } = useTranslation();
-  const { apiBase, managementKey, rememberPassword, connectionStatus, login } = useAuthStore();
-  const [error, setError] = useState(false);
-  const runtime = managementRuntime(apiBase, window.location.origin);
-  if (!runtime) return null;
-
-  const switchTo = async (provider: PoolProviderId) => {
-    if (connectionStatus === 'connecting' || provider === runtime.provider) return;
-    setError(false);
-    try {
-      await login({ apiBase: runtime.baseFor(provider), managementKey, rememberPassword });
-    } catch {
-      // Restore the previous connection only if this attempt still owns the failed session.
-      const current = useAuthStore.getState();
-      if (
-        current.isAuthenticated &&
-        current.connectionStatus === 'error' &&
-        current.apiBase === apiBase &&
-        current.managementKey === managementKey
-      ) {
-        try {
-          await login({ apiBase, managementKey, rememberPassword });
-        } catch {
-          /* The retry remains visible. */
-        }
-      }
-      setError(true);
-    }
-  };
-
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const registry = useProviderSources();
+  if (registry.status === 'loading')
+    return <p role="status">{t('quota_pool.runtime_switching')}</p>;
+  if (registry.status === 'error')
+    return <p role="alert">{t('provider_sources.discovery_error')}</p>;
+  const resolution = registry.resolution;
+  if (!resolution || resolution.sources.length < 2) return null;
+  const selected = selectSource(registry, params.get('source'));
   return (
     <section className={styles.scope} aria-label={t('quota_pool.runtime_source')}>
       <div className={styles.controls} role="group" aria-label={t('quota_pool.runtime_source')}>
         <span>{t('quota_pool.runtime_source')}</span>
-        {(['codex', 'claude'] as const).map((provider) => (
+        {resolution.sources.map((source) => (
           <button
             type="button"
-            key={provider}
-            aria-pressed={runtime.provider === provider}
-            disabled={connectionStatus === 'connecting'}
-            onClick={() => void switchTo(provider)}
+            key={source.instanceId}
+            aria-pressed={selected?.source.instanceId === source.instanceId}
+            disabled={!selectSource(registry, source.instanceId)}
+            title={
+              !selectSource(registry, source.instanceId)
+                ? t('provider_sources.authentication_required')
+                : undefined
+            }
+            onClick={() => {
+              const next = new URLSearchParams(params);
+              next.set('source', source.instanceId);
+              navigate({ search: next.toString() }, { state: null });
+            }}
           >
-            <PoolProviderMark provider={provider} />
-            {t(`quota_pool.${provider}`)}
+            {source.label}
           </button>
         ))}
       </div>
-      <p role="status">
-        {t(
-          connectionStatus === 'connecting'
-            ? 'quota_pool.runtime_switching'
-            : 'quota_pool.runtime_scope',
-          { provider: t(`quota_pool.${runtime.provider}`) }
-        )}
-      </p>
-      {error && <p role="alert">{t('quota_pool.runtime_switch_error')}</p>}
+      {selected ? (
+        <p role="status">{t('quota_pool.runtime_scope', { provider: selected.source.label })}</p>
+      ) : (
+        <p role="alert">{t('provider_sources.authentication_required')}</p>
+      )}
     </section>
   );
 }

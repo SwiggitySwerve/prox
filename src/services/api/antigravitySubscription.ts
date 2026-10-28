@@ -70,8 +70,11 @@ export const parseAntigravitySubscriptionSummary = (
 };
 
 export const antigravitySubscriptionApi = {
-  async get(authIndex: string): Promise<AntigravitySubscriptionSummary | null> {
-    const result = await apiCallApi.request({
+  async get(
+    authIndex: string,
+    client = apiCallApi
+  ): Promise<AntigravitySubscriptionSummary | null> {
+    const result = await client.request({
       authIndex,
       method: 'POST',
       url: ANTIGRAVITY_CODE_ASSIST_URL,

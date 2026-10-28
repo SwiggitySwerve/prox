@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { IconEye, IconRefreshCw, IconChevronLeft, IconFilterAll } from '@/components/ui/icons';
 import type { PoolProviderId } from '@/domain/quotaPool/types';
 import type { PoolQuery } from '@/services/api/quotaPool';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
 import { PoolCard } from './PoolCard';
+import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
 import { PoolProviderMark } from './PoolProviderMark';
 import type { ChartMode } from './chartGeometry';
 import { formatPoolDate } from './presentation';
@@ -26,6 +28,10 @@ export function QuotaPoolPage() {
   const { data, refresh } = state;
   const refreshStatus = state.refreshStatus ?? data;
   const refreshing = state.refreshing || refreshStatus?.refreshing;
+  const initialLoading = state.loading && !data;
+  const chartUnavailable = !data?.pools.length;
+  const { order, setOrder } = usePoolOrder();
+  const orderedPools = data ? orderPools(data.pools, order) : [];
   const refreshFromHeader = useCallback(async () => {
     if (!(await refresh())) throw new Error(t('quota_pool.refresh_error'));
   }, [refresh, t]);
@@ -37,27 +43,33 @@ export function QuotaPoolPage() {
   return (
     <div className={styles.page}>
       <header className={styles.pageHeader}>
-        <div>
-          <p className={styles.eyebrow}>{t('quota_pool.eyebrow')}</p>
+        <div className={styles.titleRow}>
           <h1>{t('quota_pool.title')}</h1>
+          <Link to="/quota/accounts" className={styles.accountLink}>
+            {t('quota_pool.accounts')} <span aria-hidden="true">↗</span>
+          </Link>
         </div>
         <div className={styles.actions}>
           <label className={styles.privacy}>
             <input
               type="checkbox"
               checked={query.reveal}
+              disabled={chartUnavailable}
               onChange={(event) => change('reveal', event.target.checked)}
             />
+            <IconEye size={18} aria-hidden="true" />
             {t('quota_pool.show_emails')}
           </label>
           <button
             type="button"
             className={styles.refresh}
             onClick={() => void state.refresh()}
-            disabled={!state.connected || Boolean(refreshing)}
+            disabled={!state.connected || initialLoading || Boolean(refreshing)}
           >
-            <span aria-hidden="true">↻</span>{' '}
-            {t(`quota_pool.${refreshing ? 'refreshing' : 'refresh_all'}`)}
+            <IconRefreshCw size={18} aria-hidden="true" />
+            {initialLoading
+              ? t('common.loading')
+              : t(`quota_pool.${refreshing ? 'refreshing' : 'refresh_all'}`)}
           </button>
         </div>
       </header>
@@ -67,23 +79,26 @@ export function QuotaPoolPage() {
             type="button"
             key={item}
             aria-pressed={provider === item}
+            disabled={chartUnavailable}
             onClick={() => setProvider(item)}
             className={item === 'all' ? undefined : styles[item]}
           >
             {item !== 'all' && <PoolProviderMark provider={item} />}
+            {item === 'all' && <IconFilterAll size={18} aria-hidden="true" />}
             {t(`quota_pool.${item}`)}
-            {item !== 'all' && (
+            {item !== 'all' && data && (
               <span className={styles.count}>
-                {data?.pools.find((pool) => pool.provider === item)?.accountCount ?? '—'}
+                {data.pools.find((pool) => pool.provider === item)?.accountCount ?? 0}
               </span>
             )}
           </button>
         ))}
-        <Link to="/quota/accounts" className={styles.accountLink}>
-          {t('quota_pool.account_view')} <span aria-hidden="true">↗</span>
-        </Link>
       </div>
-      <div className={styles.toolbar}>
+      <fieldset
+        className={styles.toolbar}
+        disabled={chartUnavailable}
+        aria-label={t('quota_pool.chart_mode')}
+      >
         <div className={styles.segment} role="group" aria-label={t('quota_pool.chart_mode')}>
           {(['remaining', 'drain', 'burn'] as const).map((item) => (
             <button
@@ -96,56 +111,65 @@ export function QuotaPoolPage() {
             </button>
           ))}
         </div>
-        <div className={styles.segment} role="group" aria-label={t('quota_pool.rate_interval')}>
-          {([1, 3, 6] as const).map((hours) => (
-            <button
-              type="button"
-              key={hours}
-              aria-pressed={query.lookback === hours}
-              onClick={() => change('lookback', hours)}
+        <div className={styles.chartSettings}>
+          <label className={styles.selectLabel}>
+            {t('quota_pool.rate_interval')}
+            <select
+              value={query.lookback}
+              onChange={(event) =>
+                change('lookback', Number(event.target.value) as PoolQuery['lookback'])
+              }
             >
-              {t('quota_pool.hours', { hours })}
-            </button>
-          ))}
+              {([1, 3, 6] as const).map((hours) => (
+                <option key={hours} value={hours}>
+                  {t('quota_pool.hours', { hours })}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.selectLabel}>
+            {t('quota_pool.future_usage')}
+            <select
+              value={query.multiplier}
+              disabled={mode !== 'remaining'}
+              aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
+              onChange={(event) =>
+                change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
+              }
+            >
+              {([1, 0.5, 2, 0] as const).map((value) => (
+                <option value={value} key={value}>
+                  {t(
+                    `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
+                  )}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.selectLabel}>
+            {t('quota_pool.window')}
+            <select
+              value={query.window}
+              onChange={(event) => change('window', event.target.value as PoolQuery['window'])}
+            >
+              <option value="weekly">{t('quota_pool.weekly')}</option>
+              <option value="five-hour">{t('quota_pool.five_hour')}</option>
+            </select>
+          </label>
         </div>
-        <label className={styles.selectLabel}>
-          {t('quota_pool.future_usage')}
-          <select
-            value={query.multiplier}
-            disabled={mode !== 'remaining'}
-            aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
-            onChange={(event) =>
-              change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
-            }
-          >
-            {([1, 0.5, 2, 0] as const).map((value) => (
-              <option value={value} key={value}>
-                {t(
-                  `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
-                )}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.selectLabel}>
-          <span className={styles.srOnly}>{t('quota_pool.window')}</span>
-          <select
-            value={query.window}
-            onChange={(event) => change('window', event.target.value as PoolQuery['window'])}
-          >
-            <option value="weekly">{t('quota_pool.weekly')}</option>
-            <option value="five-hour">{t('quota_pool.five_hour')}</option>
-          </select>
-        </label>
         <div className={styles.dateNavigation}>
-          <span>{data ? `${date(data.fromMs, true)} – ${date(data.toMs, true)}` : '—'}</span>
+          <span>
+            {data
+              ? `${date(data.fromMs, true)} – ${date(data.toMs, true)}`
+              : t(`quota_pool.${initialLoading ? 'awaiting_data' : 'forecast_unavailable'}`)}
+          </span>
           <button
             type="button"
             aria-label={t('quota_pool.previous')}
             disabled={query.offsetDays <= -14}
             onClick={() => change('offsetDays', query.offsetDays - 1)}
           >
-            ‹
+            <IconChevronLeft size={18} aria-hidden="true" />
           </button>
           <button type="button" onClick={() => change('offsetDays', 0)}>
             {t('quota_pool.today')}
@@ -156,25 +180,31 @@ export function QuotaPoolPage() {
             disabled={query.offsetDays >= 14}
             onClick={() => change('offsetDays', query.offsetDays + 1)}
           >
-            ›
+            <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
           </button>
         </div>
-      </div>
+      </fieldset>
+      {!chartUnavailable && <p className={styles.method}>{t('quota_pool.normalized_short')}</p>}
       {mode !== 'remaining' && (
         <p id="pool-recorded-only" className={styles.stateNote}>
           {t('quota_pool.recorded_only')}
         </p>
       )}
-      <p className={styles.method}>{t('quota_pool.normalized')}</p>
-      <p className={styles.method}>{t('quota_pool.limit_note')}</p>
       {!state.connected && (
         <div className={styles.notice} role="status">
           {t('quota_pool.disconnected')}
         </div>
       )}
       {(state.error || state.refreshError) && (
-        <div className={styles.notice} role="alert">
-          {t(`quota_pool.${state.refreshError ? 'refresh_error' : 'load_error'}`)}{' '}
+        <div className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+          <div>
+            <h2>{t(`quota_pool.${data ? 'refresh_failed_title' : 'load_failed_title'}`)}</h2>
+            <p>
+              {t(
+                `quota_pool.${state.refreshError ? 'refresh_error' : data ? 'load_error' : 'load_error_initial'}`
+              )}
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => void (state.refreshError ? state.refresh() : state.reload())}
@@ -184,33 +214,74 @@ export function QuotaPoolPage() {
         </div>
       )}
       {data?.issues.map((issue) => (
-        <div className={styles.notice} role="status" key={`${issue.provider}-${issue.code}`}>
+        <div
+          className={styles.notice}
+          role="status"
+          key={`${issue.instanceId ?? 'legacy'}-${issue.provider}-${issue.code}`}
+        >
+          {issue.sourceLabel && `${issue.sourceLabel} · `}
           {t(`quota_pool.${issue.provider}`)}: {t(`quota_pool.issue.${issue.code}`)}
         </div>
       ))}
+      {data?.combinations?.map((combination) => (
+        <p className={styles.notice} role="status" key={combination.provider}>
+          {t('provider_sources.separate_pools', {
+            provider: t(`quota_pool.${combination.provider}`),
+          })}
+        </p>
+      ))}
+      {Boolean(data?.unresolvedHistoryAccountCount) && (
+        <p className={styles.notice} role="status">
+          {t('provider_sources.unresolved_history')}
+        </p>
+      )}
       {!data && state.loading && state.connected && (
         <div className={styles.loading} role="status">
           <span className={styles.loadingDot} />
-          {t('quota_pool.loading')}
+          <h2>{t('quota_pool.loading')}</h2>
         </div>
       )}
       <div className={styles.pools} aria-busy={state.loading}>
-        {data?.pools
-          .filter((pool) => provider === 'all' || provider === pool.provider)
-          .map((pool) => (
-            <PoolCard
-              key={pool.provider}
-              pool={pool}
-              dashboard={data}
-              mode={mode}
-              reveal={query.reveal}
-            />
-          ))}
+        {data &&
+          orderedPools
+            .filter((pool) => provider === 'all' || provider === pool.provider)
+            .map((pool, index, shown) => (
+              <PoolCard
+                key={poolKey(pool)}
+                pool={pool}
+                dashboard={data}
+                mode={mode}
+                reveal={query.reveal}
+                savedData={state.error || state.refreshError}
+                move={
+                  provider === 'all' && shown.length > 1
+                    ? {
+                        up:
+                          index > 0
+                            ? () => setOrder(movePool(shown, poolKey(pool), -1))
+                            : undefined,
+                        down:
+                          index < shown.length - 1
+                            ? () => setOrder(movePool(shown, poolKey(pool), 1))
+                            : undefined,
+                      }
+                    : undefined
+                }
+              />
+            ))}
         {data && data.pools.length === 0 && (
-          <div className={styles.notice}>{t('quota_pool.state_note.no-accounts')}</div>
+          <div className={styles.notice}>
+            <h2>{t('quota_pool.no_accounts_title')}</h2>
+            <p>{t('quota_pool.no_accounts_help')}</p>
+            <Link to="/oauth" className={styles.accountLink}>
+              {t('quota_pool.add_credentials')}
+            </Link>
+          </div>
         )}
       </div>
       <footer className={styles.footer}>
+        <p className={styles.method}>{t('quota_pool.normalized')}</p>
+        <p className={styles.method}>{t('quota_pool.limit_note')}</p>
         <span>{t('quota_pool.polling')}</span>
         {data && (
           <>

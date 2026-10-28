@@ -1,0 +1,268 @@
+{
+  "reviewer": "layout",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "empty": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "details-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "drain": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "refresh-error": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The provider summary still occupies a deep band above a shallow plot. In wide, the first card begins near y=292 and the plot near y=498; its plotting area is about 174px high. The reference puts its first card near y=255 and plot near y=405, with about 270px of plotting depth. Refresh-error adds another metadata line above the plot.",
+      "fix": "Tighten spacing between the provider heading, balance, loaded count and forecast badge before shortening charts further. Give some recovered height to the plot to approach the reference's chart-led balance. Retain the improved laptop two-by-two metric grid: capacity stays beside 248.4 and UTC no longer occupies orphaned lines. Wide's plot moves upward from round 2, but its overall first card is slightly taller. Preserve the dark surfaces, orange Claude and blue Codex series, exact points and points/h units, and separate recorded/projected strokes."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "partial",
+        "stale",
+        "drain",
+        "refresh-error"
+      ],
+      "aspects": [
+        "controls_states"
+      ],
+      "element": "The selected timestamp/value is now below the chart on the left, while the slider and 'Slide or use ← →' hint sit at the far right of the same broad row. In wide these groups remain separated by most of the card width.",
+      "fix": "Place the selected time, value, unit and Recorded/Projected qualifier directly beside the inspection slider, allowing an orderly wrap at laptop width. Moving the readout below the plot and restoring the arrow-key hint improve the visible association over round 2; the remaining horizontal distance warrants an 8. These PNGs establish visible affordances only, not working keyboard access, focus, assistive-technology behavior or API behavior."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Mobile cards still spend many rows on summary metadata and chart furniture. Narrow/details-narrow put Scheduled reset on another legend line, Claude's readout wraps to two lines, and every account repeats Remaining under its percentage. Narrow's full image grows from 2494px to 2590px despite the shorter toolbar.",
+      "fix": "Keep the useful reset legend and the readout near its slider, but tighten their vertical gaps and consider one shared Remaining column label for the account section. Preserve exact timestamps and qualifiers while wrapping them deliberately. The Accounts link and short quota definition bring the first provider and plot upward; repeated labels and the longer footer absorb much of that gain by the second provider. Preserve the full long credential names, missing-window rows and two-column expanded details rather than hiding data to shorten the page. For long-narrow, withheld totals/projections are a fixture correction, not a UI-only gain; this layout score concerns the arrangement of the remaining content."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "responsive_accessible"
+      ],
+      "element": "At 390px the new small Accounts link sits immediately beside the large Quota Management title with little spare horizontal room. In details-narrow, the two exact UTC timestamps in the expanded Last observed/Next reset row also leave a tight inter-column gutter.",
+      "fix": "Give the header link clearer separation and a visually comfortable action area, allowing it to move beside the provider tabs if the title needs the row. Keep a minimum gutter between expanded-detail dates and wrap whole date/time groups when necessary. Text is visibly contained in these captures, including the long names; the 8 concerns crowded adaptive presentation, not a demonstrated clipping, touch-target, contrast or keyboard failure."
+    },
+    {
+      "states": [
+        "empty"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The collection metadata footer lays out three long items on one line, then leaves Next collection available by itself on a second line. It follows two separately spaced explanatory paragraphs below the empty card.",
+      "fix": "Use a deliberate two-column metadata grid or a compact aligned stack so the collection attempt and next availability remain visually paired. Keep the accurate Last collection attempt wording. The smaller left-aligned No accounts connected panel, neutral colour, zero counts and Add credentials action resolve the previous empty-state hierarchy, colour and scope issues; the remaining 8 is footer composition."
+    },
+    {
+      "states": [
+        "partial",
+        "stale",
+        "long-narrow"
+      ],
+      "aspects": [
+        "hierarchy"
+      ],
+      "element": "A large bare dash plus capacity remains the primary balance display; the explanation that the total is unavailable sits later in the amber banner. Partial and long-narrow also repeat the loaded/eligible counts in that banner and under the balance.",
+      "fix": "Make Total unavailable a compact primary status beside the capacity, with the reason and loaded/eligible count stated once underneath. Keep the amber Partial/Stale badges and the in-chart Forecast unavailable caption. Long-narrow must retain its missing-window account and withheld aggregate/projections; the issue is how that state is introduced, not the absence of invented totals. Removing the old adjacent Total unavailable sentence reduced repetition, but did not fully resolve the oversized-dash hierarchy."
+    },
+    {
+      "states": [
+        "partial",
+        "stale",
+        "collecting"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "At 1440px the provider summary, metrics and notice occupy roughly 260-285px before a plot only about 94px high. The two-by-two forecast grid gives unavailable values nearly the same space as useful values, while the sparse plot is visually subordinate.",
+      "fix": "Compact the unavailable metric group and notice spacing, retaining the known next-reset date and all recorded observations. Keep the selected readout below the plot and preserve the date range. The new Forecast unavailable caption explains the future region; that caption and the summary arrangement can be judged visually. The disappearance of unsupported reset markers reflects the corrected fixtures and earns no UI-only score increase."
+    },
+    {
+      "states": [
+        "stale"
+      ],
+      "aspects": [
+        "content",
+        "consistency"
+      ],
+      "element": "Claude account 3 now correctly retains 82.8% with an amber Stale / Last observed timestamp, but the percentage still uses the same bright figure plus neutral Remaining label as the Current rows. Its observation time wraps in a separate left-hand text block.",
+      "fix": "Keep the observed 82.8% and exact observation time, and qualify the number locally as Last observed remaining or pair it with a compact Stale label. Give that status the same clear association with the value as the Current rows have. The fixture correction itself is not a gain or a regression: this 8 concerns the visual relationship between an older value and its qualifier. Last collection attempt is accurate for the collection timestamp; do not relabel it Last successful refresh."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "hierarchy"
+      ],
+      "element": "Forecast: Collecting, two Unavailable forecast values, the long neutral collecting notice and the lone recorded point still compete without a clear Collecting history heading.",
+      "fix": "Use a short Collecting history heading with the existing explanation below, and visually subordinate forecast values that are not available yet. Keep the valid balance, single recorded sample, Forecast unavailable caption and One recorded sample label. Replacing the one-sample slider with that label is a visible control-state improvement; removing the fixture's invented reset markers is not credited as a frontend improvement."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout"
+      ],
+      "element": "The 3.7/2.7 points/h headline is repeated in Burn, last 3h within Remaining-quota forecast. Burn-narrow adds that forecast heading as a separate row, and its metadata block remains much taller than the rate plot.",
+      "fix": "Keep the recorded rate and its 3h interval as the primary result. Group the exact remaining balance, capacity and forecast dates as secondary context, and reduce the prominence or duplication of the repeated burn value without losing its meaning. The new Remaining-quota forecast heading and Recorded rates only caption improve interpretation, but the hierarchy remains dense. Preserve the orange/blue recorded traces and the disabled future-usage selector; do not add a future rate series."
+    }
+  ],
+  "drops": []
+}

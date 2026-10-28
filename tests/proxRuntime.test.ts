@@ -1,25 +1,36 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { managementRuntime } from '../src/features/quotaPool/runtimeConnection';
+import { resolveConnectionSources } from '../src/domain/providerSources/resolution';
+import { loadSourceManifest } from '../server/providerSources/config';
 import { useAuthStore } from '../src/stores/useAuthStore';
 import { useConfigStore } from '../src/stores/useConfigStore';
 import { apiClient } from '../src/services/api/client';
 
 describe('Prox management runtime routes', () => {
-  test('root and named routes expose both same-origin provider destinations', () => {
+  const { discovery } = loadSourceManifest(
+    new URL('../deploy/provider-sources.json', import.meta.url).pathname
+  );
+  test('root aliases resolve to the same enumerated owner', () => {
     const origin = 'https://prox.example.test';
     for (const path of ['', '/codex', '/claude', '/claude/v8/management']) {
-      const runtime = managementRuntime(origin + path, origin);
-      expect(runtime?.provider).toBe(path.startsWith('/claude') ? 'claude' : 'codex');
-      expect(runtime?.baseFor('claude')).toBe(origin + '/claude');
-      expect(runtime?.baseFor('codex')).toBe(origin + '/codex');
+      const result = resolveConnectionSources(origin + path, origin, discovery);
+      expect(result.selectedInstanceId).toBe(
+        path.startsWith('/claude') ? 'claude-primary' : 'codex-primary'
+      );
+      expect(result.sources).toHaveLength(2);
     }
   });
   test('does not invent sibling routes for arbitrary backend connections', () => {
-    expect(managementRuntime('http://localhost:8317', 'http://localhost:18318')).toBeNull();
     expect(
-      managementRuntime('https://prox.example.test/other', 'https://prox.example.test')
-    ).toBeNull();
-    expect(managementRuntime('', 'https://prox.example.test')).toBeNull();
+      resolveConnectionSources('http://localhost:8317', 'http://localhost:18318', discovery).mode
+    ).toBe('external');
+    expect(
+      resolveConnectionSources(
+        'https://prox.example.test/other',
+        'https://prox.example.test',
+        discovery
+      ).mode
+    ).toBe('external');
+    expect(() => resolveConnectionSources('', 'https://prox.example.test', discovery)).toThrow();
   });
 });
 

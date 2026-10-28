@@ -10,8 +10,11 @@ import { OAuthAliasMappingRow } from '@/features/authFiles/components/OAuthAlias
 import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
 import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { useAuthStore, useNotificationStore } from '@/stores';
-import { authFilesApi } from '@/services/api';
+import { useAuthStore } from '@/stores';
+import {
+  useAuthFilesSource,
+  useAuthFilesNotifications,
+} from '@/features/authFiles/AuthFilesSourceContext';
 import { buildOAuthProviderOptions, normalizeProviderKey } from '@/features/authFiles/constants';
 import {
   getModelAliasDraftSignature,
@@ -53,7 +56,8 @@ export function AuthFilesOAuthModelAliasEditPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { showConfirmation, showNotification } = useNotificationStore();
+  const { showConfirmation, showNotification } = useAuthFilesNotifications();
+  const { api: authFilesApi } = useAuthFilesSource();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const disableControls = connectionStatus !== 'connected';
 
@@ -216,7 +220,7 @@ export function AuthFilesOAuthModelAliasEditPage() {
         setInitialLoading(false);
       }
     }
-  }, []);
+  }, [authFilesApi]);
 
   useEffect(() => {
     void loadInitialData();
@@ -276,7 +280,7 @@ export function AuthFilesOAuthModelAliasEditPage() {
     return () => {
       cancelled = true;
     };
-  }, [modelAliasUnsupported, resolvedProviderKey, showNotification, t]);
+  }, [authFilesApi, modelAliasUnsupported, resolvedProviderKey, showNotification, t]);
 
   const applyProviderChange = useCallback(
     (value: string) => {
@@ -382,7 +386,16 @@ export function AuthFilesOAuthModelAliasEditPage() {
     } finally {
       setSaving(false);
     }
-  }, [allowNextNavigation, handleBack, isEditing, mappings, provider, showNotification, t]);
+  }, [
+    authFilesApi,
+    allowNextNavigation,
+    handleBack,
+    isEditing,
+    mappings,
+    provider,
+    showNotification,
+    t,
+  ]);
 
   const canSave =
     !disableControls &&

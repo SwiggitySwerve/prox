@@ -1,3 +1,5 @@
+import { AuthFileEditorBoundary } from '@/components/sources/AuthFileEditorBoundary';
+import { SelectedSourceBoundary } from '@/components/sources/SelectedSourceBoundary';
 import { Navigate, useRoutes, type Location } from 'react-router-dom';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { ProvidersWorkbenchPage } from '@/features/providers/ProvidersWorkbenchPage';
@@ -13,9 +15,8 @@ import { PluginStorePage } from '@/features/plugins/PluginStorePage';
 import { ConfigPage } from '@/features/config/ConfigPage';
 import { LogsPage } from '@/features/logs/LogsPage';
 import { SystemPage } from '@/pages/SystemPage';
-import { useAuthStore } from '@/stores';
 
-const createMainRoutes = (supportsPlugin: boolean) => [
+const createMainRoutes = () => [
   { path: '/', element: <Navigate to="/quota" replace /> },
   { path: '/dashboard', element: <DashboardPage /> },
   { path: '/settings', element: <Navigate to="/config" replace /> },
@@ -25,30 +26,63 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/ai-providers', element: <ProvidersWorkbenchPage /> },
   { path: '/ai-providers/*', element: <Navigate to="/ai-providers" replace /> },
   { path: '/auth-files', element: <AuthFilesPage /> },
-  { path: '/auth-files/oauth-excluded', element: <AuthFilesOAuthExcludedEditPage /> },
-  { path: '/auth-files/oauth-model-alias', element: <AuthFilesOAuthModelAliasEditPage /> },
-  { path: '/oauth', element: <OAuthPage /> },
+  {
+    path: '/auth-files/oauth-excluded',
+    element: (
+      <AuthFileEditorBoundary>
+        <AuthFilesOAuthExcludedEditPage />
+      </AuthFileEditorBoundary>
+    ),
+  },
+  {
+    path: '/auth-files/oauth-model-alias',
+    element: (
+      <AuthFileEditorBoundary>
+        <AuthFilesOAuthModelAliasEditPage />
+      </AuthFileEditorBoundary>
+    ),
+  },
+  {
+    path: '/oauth',
+    element: (
+      <SelectedSourceBoundary>
+        <OAuthPage />
+      </SelectedSourceBoundary>
+    ),
+  },
   { path: '/quota', element: <QuotaPoolPage /> },
   { path: '/quota/accounts', element: <QuotaPage /> },
-  ...(supportsPlugin
-    ? [
-        { path: '/plugin-pages/:pluginId/:menuIndex', element: <PluginResourcePage /> },
-        { path: '/plugins', element: <PluginsPage /> },
-        { path: '/plugin-store', element: <PluginStorePage /> },
-        { path: '/plugins/*', element: <Navigate to="/plugins" replace /> },
-      ]
-    : [
-        { path: '/plugin-pages/*', element: <Navigate to="/" replace /> },
-        { path: '/plugins/*', element: <Navigate to="/" replace /> },
-        { path: '/plugin-store', element: <Navigate to="/" replace /> },
-      ]),
-  { path: '/config', element: <ConfigPage /> },
-  { path: '/logs', element: <LogsPage /> },
-  { path: '/system', element: <SystemPage /> },
+  { path: '/plugin-pages/:pluginId/:menuIndex', element: <PluginResourcePage /> },
+  { path: '/plugins', element: <PluginsPage /> },
+  { path: '/plugin-store', element: <PluginStorePage /> },
+  { path: '/plugins/*', element: <Navigate to="/plugins" replace /> },
+  {
+    path: '/config',
+    element: (
+      <SelectedSourceBoundary>
+        <ConfigPage />
+      </SelectedSourceBoundary>
+    ),
+  },
+  {
+    path: '/logs',
+    element: (
+      <SelectedSourceBoundary>
+        <LogsPage />
+      </SelectedSourceBoundary>
+    ),
+  },
+  {
+    path: '/system',
+    element: (
+      <SelectedSourceBoundary>
+        <SystemPage />
+      </SelectedSourceBoundary>
+    ),
+  },
   { path: '*', element: <Navigate to="/" replace /> },
 ];
 
 export function MainRoutes({ location }: { location?: Location }) {
-  const supportsPlugin = useAuthStore((state) => state.supportsPlugin);
-  return useRoutes(createMainRoutes(supportsPlugin), location);
+  return useRoutes(createMainRoutes(), location);
 }

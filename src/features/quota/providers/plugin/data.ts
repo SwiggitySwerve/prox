@@ -7,11 +7,10 @@ import type {
   PluginQuotaMetric,
   PluginQuotaState,
 } from '@/types';
-import { apiClient } from '@/services/api/client';
-import { pluginsApi } from '@/services/api/plugins';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import { buildAntigravityQuotaGroups, isDisabledAuthFile, isPluginQuotaFile } from '@/utils/quota';
 import type { QuotaProviderData } from '../types';
+import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
 
 type PluginQuotaPayload = AntigravityQuotaSummaryPayload & {
   subscription?: Partial<AntigravityQuotaSubscription> | null;
@@ -84,77 +83,91 @@ export const resolveQuotaPluginId = (
   return match?.id ?? null;
 };
 
-const PLUGIN_LIST_TTL_MS = 30_000;
-let pluginListCache: {
-  revision: number;
-  expiresAt: number;
-  promise: Promise<PluginListEntry[]>;
-} | null = null;
+export function createPluginQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+  const { management } = deps;
 
-/** Refresh-all fans out per credential; share one plugin list per connection. */
-const loadQuotaPlugins = (): Promise<PluginListEntry[]> => {
-  const revision = apiClient.getConnectionRevision();
-  const now = Date.now();
-  if (pluginListCache && pluginListCache.revision === revision && pluginListCache.expiresAt > now) {
-    return pluginListCache.promise;
-  }
-  const promise = pluginsApi.list().then((response) => response.plugins);
-  const entry = { revision, expiresAt: now + PLUGIN_LIST_TTL_MS, promise };
-  pluginListCache = entry;
-  promise.catch(() => {
-    if (pluginListCache === entry) pluginListCache = null;
-  });
-  return promise;
-};
+  const PLUGIN_LIST_TTL_MS = 30_000;
+  let pluginListCache: {
+    revision: number;
+    expiresAt: number;
+    promise: Promise<PluginListEntry[]>;
+  } | null = null;
 
-export const resetPluginQuotaRouteCache = () => {
-  pluginListCache = null;
-};
-
-export const fetchPluginQuota = async (
-  file: AuthFileItem,
-  t: TFunction
-): Promise<PluginQuotaData> => {
-  const authIndex = normalizeAuthIndex(file.authIndex ?? file['auth_index']);
-  if (!authIndex) throw new Error(t('plugin_quota.missing_auth_index'));
-
-  const provider = String(file.quotaProvider ?? file['quota_provider'] ?? '').trim();
-  // New v8 credentials carry the host's authoritative selection, including multi-provider
-  // plugins and healthy alternatives. Do not re-resolve it against a stale plugin list.
-  let pluginId = file.quotaPluginId;
-  if (!pluginId) {
-    // Older v8 servers may advertise declarative probes, which have no v8 quota route.
-    if (!provider) throw new Error(t('plugin_quota.probe_unsupported'));
-    pluginId = resolveQuotaPluginId(await loadQuotaPlugins(), provider) ?? undefined;
-  }
-  if (!pluginId) throw new Error(t('plugin_quota.plugin_not_found', { provider }));
-
-  const payload = await apiClient.post<PluginQuotaPayload>(
-    `/plugins/${encodeURIComponent(pluginId)}/quota`,
-    { auth_index: authIndex }
-  );
-  return {
-    groups: buildAntigravityQuotaGroups(payload),
-    subscription: normalizeSubscription(payload.subscription),
-    summary: normalizePluginQuotaSummary(payload.summary),
+  /** Refresh-all fans out per credential; share one plugin list per connection. */
+  const loadQuotaPlugins = (): Promise<PluginListEntry[]> => {
+    const revision = deps.revision();
+    const now = Date.now();
+    if (
+      pluginListCache &&
+      pluginListCache.revision === revision &&
+      pluginListCache.expiresAt > now
+    ) {
+      return pluginListCache.promise;
+    }
+    const promise = deps.loadPlugins().then((response) => response.plugins);
+    const entry = { revision, expiresAt: now + PLUGIN_LIST_TTL_MS, promise };
+    pluginListCache = entry;
+    promise.catch(() => {
+      if (pluginListCache === entry) pluginListCache = null;
+    });
+    return promise;
   };
-};
 
-export const PLUGIN_CONFIG: QuotaProviderData<PluginQuotaState, PluginQuotaData> = {
-  type: 'plugin',
-  i18nPrefix: 'plugin_quota',
-  filterFn: (file) => isPluginQuotaFile(file) && !isDisabledAuthFile(file),
-  fetchQuota: fetchPluginQuota,
-  storeSelector: (state) => state.pluginQuota,
-  storeSetter: 'setPluginQuota',
-  buildLoadingState: () => ({ status: 'loading', groups: [], subscription: null, summary: [] }),
-  buildSuccessState: (data) => ({ status: 'success', ...data }),
-  buildErrorState: (error, errorStatus) => ({
-    status: 'error',
-    groups: [],
-    subscription: null,
-    summary: [],
-    error,
-    errorStatus,
-  }),
-};
+  const resetPluginQuotaRouteCache = () => {
+    pluginListCache = null;
+  };
+
+  const fetchPluginQuota = async (file: AuthFileItem, t: TFunction): Promise<PluginQuotaData> => {
+    const assertCurrent = deps.guardConfigConnection();
+    const authIndex = normalizeAuthIndex(file.authIndex ?? file['auth_index']);
+    if (!authIndex) throw new Error(t('plugin_quota.missing_auth_index'));
+
+    const provider = String(file.quotaProvider ?? file['quota_provider'] ?? '').trim();
+    // New v8 credentials carry the host's authoritative selection, including multi-provider
+    // plugins and healthy alternatives. Do not re-resolve it against a stale plugin list.
+    let pluginId = file.quotaPluginId;
+    if (!pluginId) {
+      // Older v8 servers may advertise declarative probes, which have no v8 quota route.
+      if (!provider) throw new Error(t('plugin_quota.probe_unsupported'));
+      pluginId = resolveQuotaPluginId(await loadQuotaPlugins(), provider) ?? undefined;
+    }
+    if (!pluginId) throw new Error(t('plugin_quota.plugin_not_found', { provider }));
+
+    assertCurrent();
+    const payload = await management.post<PluginQuotaPayload>(
+      `/plugins/${encodeURIComponent(pluginId)}/quota`,
+      { auth_index: authIndex }
+    );
+    assertCurrent();
+    return {
+      groups: buildAntigravityQuotaGroups(payload),
+      subscription: normalizeSubscription(payload.subscription),
+      summary: normalizePluginQuotaSummary(payload.summary),
+    };
+  };
+
+  const config: QuotaProviderData<PluginQuotaState, PluginQuotaData> = {
+    type: 'plugin',
+    i18nPrefix: 'plugin_quota',
+    filterFn: (file) => isPluginQuotaFile(file) && !isDisabledAuthFile(file),
+    fetchQuota: fetchPluginQuota,
+    storeSelector: (state) => state.pluginQuota,
+    storeSetter: 'setPluginQuota',
+    buildLoadingState: () => ({ status: 'loading', groups: [], subscription: null, summary: [] }),
+    buildSuccessState: (data) => ({ status: 'success', ...data }),
+    buildErrorState: (error, errorStatus) => ({
+      status: 'error',
+      groups: [],
+      subscription: null,
+      summary: [],
+      error,
+      errorStatus,
+    }),
+  };
+
+  return Object.assign(config, { resetRouteCache: resetPluginQuotaRouteCache });
+}
+
+export const PLUGIN_CONFIG = createPluginQuotaConfig();
+export const fetchPluginQuota = PLUGIN_CONFIG.fetchQuota;
+export const resetPluginQuotaRouteCache = PLUGIN_CONFIG.resetRouteCache;

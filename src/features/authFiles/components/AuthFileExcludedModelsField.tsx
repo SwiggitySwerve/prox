@@ -1,3 +1,4 @@
+import { useAuthFilesSource } from '../AuthFilesSourceContext';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -6,7 +7,7 @@ import {
   parseExcludedRulesText,
   type ExcludedModelsCatalogState,
 } from '@/components/excludedModels';
-import { authFilesApi } from '@/services/api';
+
 import type { AuthFileModelItem } from '@/features/authFiles/constants';
 
 interface AuthFileExcludedModelsFieldProps {
@@ -23,6 +24,8 @@ export function AuthFileExcludedModelsField({
   disabled,
   onChange,
 }: AuthFileExcludedModelsFieldProps) {
+  const sourceScope = useAuthFilesSource();
+  const authFilesApi = sourceScope.api;
   const { t } = useTranslation();
   // 凭证文件名可能含点/斜杠等字符，不适合直接当 HTML id。
   const labelId = `${useId()}-excluded-models-label`;
@@ -72,7 +75,7 @@ export function AuthFileExcludedModelsField({
     return () => {
       cancelled = true;
     };
-  }, [fileName]);
+  }, [authFilesApi, fileName]);
 
   const rules = useMemo(() => parseExcludedRulesText(value), [value]);
   const candidates = useMemo(

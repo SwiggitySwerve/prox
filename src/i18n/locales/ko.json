@@ -236,6 +236,11 @@
     "card_toggle": "{{name}} 자격 증명 활성화",
     "card_requests": "요청",
     "cooldown_unknown": "쿨다운 상태 알 수 없음",
+    "status_weekly_limit": "주간 한도 도달",
+    "status_five_hour_limit": "5시간 한도 도달",
+    "status_usage_limit": "사용 한도 도달",
+    "status_limit_resets": "{{limit}} · {{time}}에 초기화",
+    "status_rate_limited": "요청 제한됨 · 잠시 후 다시 시도하세요",
     "cooldown_models_one": "{{count}}개 모델 쿨다운 중",
     "cooldown_models_other": "{{count}}개 모델 쿨다운 중",
     "cooldown_credential": "자격 증명 전체 쿨다운",
@@ -435,7 +440,8 @@
     "quota_refresh_single": "할당량 새로 고침",
     "quota_refresh_hint": "이 자격 증명의 할당량만 새로 고침합니다",
     "quota_refresh_success": "\"{{name}}\"의 할당량을 새로 고쳤습니다",
-    "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}"
+    "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}",
+    "source_authentication_required": "인증 파일을 보려면 이 소스에 로그인하세요."
   },
   "antigravity_subscription": {
     "plan_unknown": "알 수 없음",
@@ -1780,7 +1786,9 @@
     "gate_step2_action": "이러한 위험을 읽었으며 이해했습니다",
     "gate_step3_prompt": "확인하려면 아래 입력란에 \"{{token}}\"을(를) 입력하세요",
     "gate_step3_action": "이 플러그인 설치",
-    "gate_step3_hint": "설치를 활성화하려면 위에 표시된 식별자를 정확히 입력하세요."
+    "gate_step3_hint": "설치를 활성화하려면 위에 표시된 식별자를 정확히 입력하세요.",
+    "destination": "대상",
+    "select_destination": "대상 소스를 선택하세요"
   },
   "plugin_resource": {
     "page_count": "페이지 {{count}}개",
@@ -1789,7 +1797,8 @@
     "not_found": "플러그인 페이지를 찾을 수 없습니다",
     "not_found_desc": "이 플러그인 페이지는 현재 백엔드 플러그인 목록에 선언되어 있지 않습니다.",
     "empty_src": "플러그인 페이지 URL이 비어 있습니다",
-    "empty_src_desc": "이 플러그인 메뉴는 포함 가능한 페이지 URL을 제공하지 않습니다."
+    "empty_src_desc": "이 플러그인 메뉴는 포함 가능한 페이지 URL을 제공하지 않습니다.",
+    "source_embedding_unsupported": "이 배포의 소스 라우팅이 확인되지 않아 플러그인 페이지를 삽입할 수 없습니다."
   },
   "system_info": {
     "title": "관리 센터 정보",
@@ -2312,6 +2321,15 @@
     "expired": "바인딩 세션이 만료되었습니다. 다시 시작하세요."
   },
   "quota_pool": {
+    "total_unavailable_title": "합계 사용 불가",
+    "window_unavailable": "{{window}} 할당량 사용 불가",
+    "saved_observation": "저장된 관측값",
+    "forecast_unavailable": "사용 불가",
+    "total_unavailable": "일부 잔여량이 없어 합계를 표시할 수 없습니다.",
+    "saved_forecast": "저장된 예측",
+    "snapshot": "스냅샷",
+    "saved_snapshot": "저장된 스냅샷",
+    "load_error_initial": "연결을 확인하고 다시 시도하세요.",
     "window_remaining": "{{window}} 남은 할당량",
     "history_forecast": "기록 및 예측",
     "forecast_status": "예측: {{state}}",
@@ -2344,16 +2362,16 @@
     "next": "다음 날짜",
     "today": "오늘",
     "recorded_only": "소모율은 기록된 관측값만 표시합니다. 향후 사용량은 잔여 할당량 예측에 적용됩니다.",
-    "normalized": "적격 계정당 정규화된 100포인트입니다. 포인트는 할당량이며 토큰 수나 요금제 가중치가 아닙니다.",
+    "normalized": "100포인트 = 기본 요금제(Claude Pro 또는 ChatGPT Plus) 하나의 할당량. 각 계정은 요금제 배수로 계산됩니다: Max 20x = 2,000, Pro 500 = 2,500. 할당량 포인트는 토큰이 아닙니다.",
     "disconnected": "통합 할당량을 보려면 백엔드에 연결하세요.",
-    "refresh_error": "새로고침에 실패했습니다. 이전에 불러온 관측값이 표시됩니다.",
+    "refresh_error": "이전에 불러온 관측값을 표시합니다. 다시 시도하여 새로고침하세요.",
     "load_error": "할당량 대시보드를 불러오지 못했습니다. 표시된 데이터는 마지막으로 성공한 요청의 결과입니다.",
     "retry": "다시 시도",
     "loading": "통합 할당량 불러오는 중…",
-    "polling": "15초마다 업데이트",
+    "polling": "대시보드가 15초마다 업데이트 확인",
     "history_since": "기록 시작",
-    "last_refresh": "최근 새로고침",
-    "next_refresh": "다음 새로고침 가능 시간",
+    "last_refresh": "마지막 수집 시도",
+    "next_refresh": "다음 수집 가능 시간",
     "account_count": "계정 {{count}}개",
     "of_capacity": "전체 {{capacity}}포인트",
     "coverage": "{{loaded}}개 로드됨 · {{eligible}}개 적격",
@@ -2363,7 +2381,7 @@
     "burn_last": "최근 {{hours}}시간 소모율",
     "points": "포인트",
     "points_hour": "포인트/시간",
-    "not_predicted": "예측 없음",
+    "not_predicted": "이 범위에서는 소진되지 않음",
     "reset": "초기화",
     "now": "현재",
     "accounts": "계정",
@@ -2371,10 +2389,12 @@
     "no_observation": "관측값 없음",
     "recorded": "기록",
     "projected": "예측",
-    "inspect_hint": "슬라이더나 방향키로 표본을 확인하세요.",
+    "inspect_hint": "차트에 포인터를 올리거나 차트를 선택한 뒤 방향키로 표본을 확인하세요.",
+    "move_up": "{{pool}} 위로 이동",
+    "move_down": "{{pool}} 아래로 이동",
     "inspect": "차트 살펴보기",
     "chart_title": "{{provider}} · {{mode}}",
-    "chart_description": "실선은 기록된 관측값이며 점선은 잔여량 모드에서 서버가 예측한 값입니다. 빈 구간은 누락된 데이터입니다. 초기화 표시는 추가 포인트를 나타냅니다. 슬라이더로 정확한 값을 확인하세요.",
+    "chart_description": "실선은 기록된 관측값이며 점선은 잔여량 모드에서 서버가 예측한 값입니다. 빈 구간은 누락된 데이터입니다. 초기화 표시는 추가 포인트를 나타냅니다. 포인터를 올리거나 방향키로 정확한 값을 확인하세요.",
     "no_history": "이 구간에 관측값이 없습니다",
     "scenario": {
       "same": "현재와 동일",
@@ -2391,8 +2411,8 @@
     },
     "state_note": {
       "collecting": "기록을 수집 중입니다. 관측값이 충분해지면 예측이 표시됩니다.",
-      "partial": "일부 계정의 할당량 데이터가 없습니다. 합계와 예측이 불완전할 수 있습니다.",
-      "stale": "관측값이 오래되었습니다. 표시된 예측이 현재 상태와 다를 수 있습니다.",
+      "partial": "일부 적격 계정의 현재 할당량 데이터가 없어 합계와 예측을 표시할 수 없습니다.",
+      "stale": "오래된 관측값을 새로고침할 때까지 합계와 예측을 표시할 수 없습니다.",
       "no-accounts": "이 제공업체에 계정이 없습니다. 계정 보기에서 인증 정보를 추가하세요."
     },
     "account_status": {
@@ -2405,6 +2425,29 @@
     "issue": {
       "inventory-unavailable": "계정 목록을 불러올 수 없습니다.",
       "quota-unavailable": "하나 이상의 계정에서 할당량을 사용할 수 없습니다."
-    }
+    },
+    "rate_no_projection": "기록된 속도만 표시",
+    "projection_unavailable": "예측 사용 불가",
+    "scheduled_reset": "예정된 재설정",
+    "single_sample": "기록된 표본 1개",
+    "recorded_rate": "기록된 {{rate}} · {{hours}}시간",
+    "remaining_forecast": "잔여 할당량 예측",
+    "predicted_empty": "예상 소진",
+    "normalized_short": "기본 요금제(Claude Pro / ChatGPT Plus)당 100포인트 · 요금제별 가중치 적용, 토큰 아님.",
+    "account_plan": "{{plan}} · {{points}}포인트",
+    "account_plan_unknown": "요금제 알 수 없음 · {{points}}포인트",
+    "awaiting_data": "데이터 대기 중",
+    "refresh_failed_title": "새로고침 실패",
+    "load_failed_title": "할당량을 불러올 수 없음",
+    "no_accounts_title": "연결된 계정 없음",
+    "no_accounts_help": "계정을 연결하여 합산 할당량을 확인하세요.",
+    "add_credentials": "인증 정보 추가"
+  },
+  "provider_sources": {
+    "discovery_error": "소스 목록을 불러올 수 없습니다. 새로고침하여 다시 시도하세요.",
+    "authentication_required": "계속하려면 이 소스에 로그인하세요.",
+    "separate_pools": "각 {{provider}} 소스의 할당량을 별도로 표시합니다. 공유 한도가 확인되지 않아 합계를 제공하지 않습니다.",
+    "unresolved_history": "일부 과거 계정의 소스가 확인되지 않았습니다. 기록은 보존되며 현재 합계에서 제외됩니다.",
+    "mutation_unconfirmed": "작업 결과를 확인할 수 없습니다. 다시 시도하기 전에 새로 불러온 상태를 확인하세요."
   }
 }

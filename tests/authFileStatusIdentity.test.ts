@@ -23,7 +23,14 @@ function harness() {
   const env = {
     files: original,
     getAuthFileRefreshKey,
-    apiClient: { getConnectionRevision: () => revision },
+    // Exercise the callbacks' request-revision guards; real view disposal/dispatch is
+    // covered with SourceSessions in authFilesSourceView.test.ts.
+    sourceScope: {
+      getRevision: () => revision,
+      isCurrent: () => true,
+      assertCurrent: () => {},
+      session: { owner: { instanceId: 'fixture', sessionEpoch: 0, sourceGeneration: 1 } },
+    },
     authFilesApi: {
       setStatus: (...args: unknown[]) =>
         new Promise<{ disabled: boolean }>((resolve, reject) =>
@@ -89,7 +96,7 @@ describe('auth file status identity', () => {
       compilerOptions: { target: ts.ScriptTarget.ES2022 },
     }).outputText;
     const calls: unknown[][] = [];
-    const api = new Function('apiClient', js)({ patch: (...args: unknown[]) => calls.push(args) });
+    const api = new Function('transport', js)({ patch: (...args: unknown[]) => calls.push(args) });
     api.setStatus('shared.json', true, 'b');
     api.setStatus('ordinary.json', false);
     expect(calls).toEqual([

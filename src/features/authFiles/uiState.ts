@@ -1,10 +1,5 @@
 export const AUTH_FILES_SORT_MODES = ['default', 'az', 'priority'] as const;
-export const AUTH_FILES_STATUS_FILTER_MODES = [
-  'all',
-  'enabled',
-  'disabled',
-  'problem',
-] as const;
+export const AUTH_FILES_STATUS_FILTER_MODES = ['all', 'enabled', 'disabled', 'problem'] as const;
 
 export type AuthFilesSortMode = (typeof AUTH_FILES_SORT_MODES)[number];
 export type AuthFilesStatusFilterMode = (typeof AUTH_FILES_STATUS_FILTER_MODES)[number];
@@ -38,36 +33,40 @@ export const isAuthFilesStatusFilterMode = (value: unknown): value is AuthFilesS
   AUTH_FILES_STATUS_FILTER_MODE_SET.has(value as AuthFilesStatusFilterMode);
 
 const readAuthFilesUiStateFromStorage = (
-  storage: Pick<Storage, 'getItem'> | null | undefined
+  storage: Pick<Storage, 'getItem'> | null | undefined,
+  key: string
 ): AuthFilesUiState | null => {
   if (!storage) return null;
-  const raw = storage.getItem(AUTH_FILES_UI_STATE_KEY);
+  const raw = storage.getItem(key);
   if (!raw) return null;
   const parsed = JSON.parse(raw) as AuthFilesUiState;
   return parsed && typeof parsed === 'object' ? parsed : null;
 };
 
-export const readAuthFilesUiState = (): AuthFilesUiState | null => {
+const uiStateKey = (source?: string) =>
+  source ? `${AUTH_FILES_UI_STATE_KEY}:${encodeURIComponent(source)}` : AUTH_FILES_UI_STATE_KEY;
+
+export const readAuthFilesUiState = (source?: string): AuthFilesUiState | null => {
   if (typeof window === 'undefined') return null;
   try {
     return (
-      readAuthFilesUiStateFromStorage(window.localStorage) ??
-      readAuthFilesUiStateFromStorage(window.sessionStorage)
+      readAuthFilesUiStateFromStorage(window.localStorage, uiStateKey(source)) ??
+      readAuthFilesUiStateFromStorage(window.sessionStorage, uiStateKey(source))
     );
   } catch {
     return null;
   }
 };
 
-export const writeAuthFilesUiState = (state: AuthFilesUiState) => {
+export const writeAuthFilesUiState = (state: AuthFilesUiState, source?: string) => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(AUTH_FILES_UI_STATE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(uiStateKey(source), JSON.stringify(state));
   } catch {
     // ignore
   }
   try {
-    window.sessionStorage.removeItem(AUTH_FILES_UI_STATE_KEY);
+    window.sessionStorage.removeItem(uiStateKey(source));
   } catch {
     // ignore
   }

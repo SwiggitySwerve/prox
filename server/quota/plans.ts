@@ -1,0 +1,58 @@
+import type { PoolProviderId } from '../../src/domain/quotaPool/types';
+import { isRecord } from '../../src/utils/helpers';
+import { normalizePlanType, parseCodexUsagePayload } from '../../src/utils/quota/parsers';
+
+/**
+ * Subscription weight in base-plan units: one unit is the provider's $20 plan (Claude Pro,
+ * ChatGPT Plus), and 100 quota points equal one unit. Multipliers are the providers' published
+ * "N times Pro/Plus" allowances (Oct 2026): Claude Max 5x/20x; ChatGPT Pro 200 is 10x Plus and
+ * Pro 500 ("promax") 25x. ChatGPT reports both Pro 100 and Pro 200 as "pro"; it is counted as
+ * the $200 plan. Unknown plans count as one unit and are marked unknown.
+ */
+const PLANS: Record<PoolProviderId, Record<string, { multiplier: number; label: string }>> = {
+  claude: {
+    claude_pro: { multiplier: 1, label: 'Pro' },
+    default_claude_pro: { multiplier: 1, label: 'Pro' },
+    default_claude_max_5x: { multiplier: 5, label: 'Max 5x' },
+    default_claude_max_20x: { multiplier: 20, label: 'Max 20x' },
+  },
+  codex: {
+    plus: { multiplier: 1, label: 'Plus' },
+    pro: { multiplier: 10, label: 'Pro' },
+    promax: { multiplier: 25, label: 'Pro 500' },
+  },
+};
+
+export const POINTS_PER_UNIT = 100;
+
+export function planWeight(
+  provider: PoolProviderId,
+  plan: string | null | undefined
+): { multiplier: number; label: string | null; known: boolean } {
+  const entry = plan ? PLANS[provider][plan] : undefined;
+  return entry ? { ...entry, known: true } : { multiplier: 1, label: plan || null, known: false };
+}
+
+/** ChatGPT's usage response names the plan, e.g. "pro" or "promax". */
+export function planFromCodexUsage(body: unknown): string | null {
+  return normalizePlanType(parseCodexUsagePayload(body)?.plan_type);
+}
+
+/** Claude's OAuth profile names the plan as a rate-limit tier or an organization type; prefer
+ * whichever the table knows (Pro accounts report a generic tier but a "claude_pro" type). */
+export function planFromClaudeProfile(body: unknown): string | null {
+  let profile: unknown = body;
+  if (typeof body === 'string') {
+    try {
+      profile = JSON.parse(body);
+    } catch {
+      return null;
+    }
+  }
+  const organization = isRecord(profile) ? profile.organization : null;
+  if (!isRecord(organization)) return null;
+  const candidates = [organization.rate_limit_tier, organization.organization_type]
+    .map(normalizePlanType)
+    .filter((plan): plan is string => plan !== null);
+  return candidates.find((plan) => planWeight('claude', plan).known) ?? candidates[0] ?? null;
+}

@@ -3,8 +3,12 @@ import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { PoolProviderId, PoolWindow } from '../../src/domain/quotaPool/types';
 import { DAY_MS, type QuotaSample, type StoredAccount } from './types';
+import { legacyAccountId, sourceAccountId, type LegacySourceMapping } from './identity';
 
-type AccountRow = Omit<StoredAccount, 'disabled' | 'retired'> & {
+type AccountRow = Omit<
+  StoredAccount,
+  'disabled' | 'retired' | 'instanceId' | 'plan' | 'planObservedAtMs'
+> & {
   disabled: number;
   retired: number;
 };
@@ -49,14 +53,115 @@ export class QuotaStore {
       CREATE INDEX IF NOT EXISTS quota_samples_time ON quota_samples(observedAtMs);
       CREATE INDEX IF NOT EXISTS quota_samples_window_time
         ON quota_samples(window, observedAtMs);
+      CREATE TABLE IF NOT EXISTS quota_account_sources (
+        accountId TEXT PRIMARY KEY REFERENCES quota_accounts(id),
+        instanceId TEXT NOT NULL,
+        sourceAccountId TEXT NOT NULL UNIQUE
+      );
+      CREATE INDEX IF NOT EXISTS quota_account_sources_instance
+        ON quota_account_sources(instanceId);
+      CREATE TABLE IF NOT EXISTS quota_legacy_sources (
+        provider TEXT PRIMARY KEY CHECK (provider IN ('claude', 'codex')),
+        instanceId TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS quota_account_plans (
+        accountId TEXT PRIMARY KEY REFERENCES quota_accounts(id),
+        plan TEXT NOT NULL,
+        observedAtMs INTEGER NOT NULL
+      );
     `);
   }
 
   listAccounts(): StoredAccount[] {
     return this.db
-      .query<AccountRow, []>('SELECT * FROM quota_accounts ORDER BY provider, id')
+      .query<
+        AccountRow & {
+          instanceId: string | null;
+          plan: string | null;
+          planObservedAtMs: number | null;
+        },
+        []
+      >(
+        `
+        SELECT a.*, s.instanceId, p.plan, p.observedAtMs AS planObservedAtMs
+        FROM quota_accounts a
+        LEFT JOIN quota_account_sources s ON s.accountId = a.id
+        LEFT JOIN quota_account_plans p ON p.accountId = a.id
+        ORDER BY a.provider, a.id
+      `
+      )
       .all()
-      .map((row) => ({ ...row, disabled: row.disabled === 1, retired: row.retired === 1 }));
+      .map(({ instanceId, plan, planObservedAtMs, ...row }) => ({
+        ...row,
+        ...(instanceId === null ? {} : { instanceId }),
+        ...(plan === null || planObservedAtMs === null ? {} : { plan, planObservedAtMs }),
+        disabled: row.disabled === 1,
+        retired: row.retired === 1,
+      }));
+  }
+
+  /** Add ownership only. Unknown legacy providers remain unresolved and untouched.
+   * A conflicting attribution or alias collision rolls back the entire mapping.
+   */
+  migrateLegacySources(
+    mappings: readonly LegacySourceMapping[],
+    knownInstanceIds: readonly string[]
+  ): void {
+    const providers = new Set<PoolProviderId>();
+    for (const mapping of mappings) {
+      if (providers.has(mapping.provider) || !knownInstanceIds.includes(mapping.instanceId)) {
+        throw new Error('Ambiguous or unknown legacy quota source');
+      }
+      providers.add(mapping.provider);
+    }
+    this.db
+      .transaction(() => {
+        for (const { provider, instanceId } of mappings) {
+          const previous = this.db
+            .query<{ instanceId: string }, [string]>(
+              'SELECT instanceId FROM quota_legacy_sources WHERE provider = ?'
+            )
+            .get(provider);
+          if (previous && previous.instanceId !== instanceId) {
+            throw new Error('Conflicting legacy quota source');
+          }
+          this.db
+            .query(
+              `
+          INSERT INTO quota_legacy_sources (provider, instanceId) VALUES (?, ?)
+          ON CONFLICT(provider) DO NOTHING
+        `
+            )
+            .run(provider, instanceId);
+          const unresolved = this.db
+            .query<{ id: string }, [string]>(
+              `
+          SELECT id FROM quota_accounts WHERE provider = ?
+          AND NOT EXISTS (SELECT 1 FROM quota_account_sources WHERE accountId = id)
+        `
+            )
+            .all(provider);
+          const insert = this.db.query(`
+          INSERT INTO quota_account_sources (accountId, instanceId, sourceAccountId)
+          VALUES (?, ?, ?)
+        `);
+          for (const { id } of unresolved)
+            insert.run(id, instanceId, sourceAccountId(instanceId, id));
+        }
+      })
+      .immediate();
+  }
+
+  /** Resolve a source-local occurrence, including explicitly attributed legacy IDs. */
+  accountIdFor(instanceId: string, provider: PoolProviderId, authIndex: string): string {
+    const id = sourceAccountId(instanceId, legacyAccountId(provider, authIndex));
+    return (
+      this.db
+        .query<{ accountId: string }, [string]>(
+          'SELECT accountId FROM quota_account_sources WHERE sourceAccountId = ?'
+        )
+        .get(id)?.accountId ?? id
+    );
   }
 
   listSamples(fromMs: number, toMs: number, window?: PoolWindow): QuotaSample[] {
@@ -88,20 +193,46 @@ export class QuotaStore {
     );
   }
 
-  /** Call only with a validated, complete inventory for this provider. */
-  recordInventory(provider: PoolProviderId, accounts: StoredAccount[], nowMs: number): void {
+  /** Call only with a validated, complete inventory for this instance/provider.
+   * Omitting instanceId supports legacy fixtures and touches only unresolved rows.
+   */
+  recordInventory(
+    provider: PoolProviderId,
+    accounts: StoredAccount[],
+    nowMs: number,
+    instanceId?: string
+  ): void {
     const ids = new Set<string>();
     for (const account of accounts) {
-      if (account.provider !== provider || ids.has(account.id)) {
+      if (
+        account.provider !== provider ||
+        account.instanceId !== instanceId ||
+        ids.has(account.id)
+      ) {
         throw new Error('Invalid quota inventory');
       }
       ids.add(account.id);
     }
     this.db.transaction(() => {
-      this.db.query('UPDATE quota_accounts SET retired = 1 WHERE provider = ?').run(provider);
-      const existing = this.db.query<{ provider: PoolProviderId }, [string]>(
-        'SELECT provider FROM quota_accounts WHERE id = ?'
-      );
+      this.db
+        .query(
+          `
+        UPDATE quota_accounts SET retired = 1 WHERE provider = ? AND
+        ${
+          instanceId === undefined
+            ? 'NOT EXISTS (SELECT 1 FROM quota_account_sources WHERE accountId = id)'
+            : 'id IN (SELECT accountId FROM quota_account_sources WHERE instanceId = ?)'
+        }
+      `
+        )
+        .run(...(instanceId === undefined ? [provider] : [provider, instanceId]));
+      const existing = this.db.query<
+        { provider: PoolProviderId; instanceId: string | null },
+        [string]
+      >(`
+        SELECT a.provider, s.instanceId FROM quota_accounts a
+        LEFT JOIN quota_account_sources s ON s.accountId = a.id WHERE a.id = ?
+      `);
       const upsert = this.db.query(`
         INSERT INTO quota_accounts
           (id, provider, name, email, disabled, retired, lastSeenAtMs, lastErrorAtMs)
@@ -111,7 +242,19 @@ export class QuotaStore {
       `);
       for (const account of accounts) {
         const previous = existing.get(account.id);
-        if (previous && previous.provider !== provider) throw new Error('Invalid quota identity');
+        if (
+          previous &&
+          (previous.provider !== provider || (previous.instanceId ?? undefined) !== instanceId)
+        ) {
+          throw new Error('Invalid quota identity');
+        }
+        if (
+          !previous &&
+          instanceId !== undefined &&
+          !account.id.startsWith(`${instanceId}:${provider}:`)
+        ) {
+          throw new Error('Invalid quota identity');
+        }
         upsert.run(
           account.id,
           provider,
@@ -121,6 +264,16 @@ export class QuotaStore {
           nowMs,
           account.lastErrorAtMs
         );
+        if (!previous && instanceId !== undefined) {
+          this.db
+            .query(
+              `
+            INSERT INTO quota_account_sources (accountId, instanceId, sourceAccountId)
+            VALUES (?, ?, ?)
+          `
+            )
+            .run(account.id, instanceId, account.id);
+        }
       }
     })();
   }
@@ -157,6 +310,15 @@ export class QuotaStore {
         clearError.run(sample.accountId, sample.observedAtMs);
       }
     })();
+  }
+
+  recordPlan(accountId: string, plan: string, nowMs: number): void {
+    this.db
+      .query(
+        `INSERT INTO quota_account_plans (accountId, plan, observedAtMs) VALUES (?, ?, ?)
+         ON CONFLICT(accountId) DO UPDATE SET plan = excluded.plan, observedAtMs = excluded.observedAtMs`
+      )
+      .run(accountId, plan, nowMs);
   }
 
   markAccountError(id: string, nowMs: number): void {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiCallApi, getApiCallErrorMessage } from '@/services/api';
+import { getApiCallErrorMessage } from '@/services/api/apiCall';
+import { useProviderSource } from '../../ProviderSourceContext';
 import {
   buildCodexResponsesEndpoint,
   buildClaudeMessagesEndpoint,
@@ -93,6 +94,7 @@ export function useConnectivityTest(
   args: UseConnectivityTestArgs,
   messages: ConnectivityErrorMessages
 ): UseConnectivityTestResult {
+  const { apiCallApi } = useProviderSource();
   const {
     brand,
     baseUrl,
@@ -270,6 +272,7 @@ export function useConnectivityTest(
       }
     },
     [
+      apiCallApi,
       apiKeyEntries,
       authIndex,
       baseUrl,
@@ -365,6 +368,7 @@ export function useConnectivityTest(
       setInFlight((n) => n - 1);
     }
   }, [
+    apiCallApi,
     apiKey,
     authIndex,
     baseUrl,
@@ -456,6 +460,7 @@ export function useConnectivityTest(
       setInFlight((n) => n - 1);
     }
   }, [
+    apiCallApi,
     apiKey,
     authIndex,
     baseUrl,
@@ -539,6 +544,7 @@ export function useConnectivityTest(
       setInFlight((n) => n - 1);
     }
   }, [
+    apiCallApi,
     apiKey,
     authIndex,
     baseUrl,

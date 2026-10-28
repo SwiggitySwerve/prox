@@ -75,7 +75,7 @@ describe('pooled forecast scenarios', () => {
     expect(pool.firstEmptyAtMs).toBeCloseTo(now + (14 / 318) * HOUR_MS, 0);
     expect(pool.projected.some((point) => point.remainingPoints === 0)).toBe(true);
     const tiny = projectPool(
-      [{ remaining: 2e-8, rate: 600, resetAtMs: now + HOUR_MS, periodHours: 5 }],
+      [{ remaining: 2e-8, rate: 600, resetAtMs: now + HOUR_MS, periodHours: 5, capacity: 100 }],
       now,
       now + HOUR_MS
     );
@@ -84,7 +84,7 @@ describe('pooled forecast scenarios', () => {
   });
   test('records reset jumps at the same instant and caps each account at 100', () => {
     const result = projectPool(
-      [{ remaining: 50, rate: 10, resetAtMs: now + HOUR_MS, periodHours: 5 }],
+      [{ remaining: 50, rate: 10, resetAtMs: now + HOUR_MS, periodHours: 5, capacity: 100 }],
       now,
       now + 2 * HOUR_MS
     );
@@ -98,8 +98,8 @@ describe('pooled forecast scenarios', () => {
   test('distinguishes first account empty from the entire pool empty', () => {
     const result = projectPool(
       [
-        { remaining: 10, rate: 10, resetAtMs: now + 5 * HOUR_MS, periodHours: 168 },
-        { remaining: 40, rate: 20, resetAtMs: now + 5 * HOUR_MS, periodHours: 168 },
+        { remaining: 10, rate: 10, resetAtMs: now + 5 * HOUR_MS, periodHours: 168, capacity: 100 },
+        { remaining: 40, rate: 20, resetAtMs: now + 5 * HOUR_MS, periodHours: 168, capacity: 100 },
       ],
       now,
       now + 3 * HOUR_MS
@@ -110,7 +110,7 @@ describe('pooled forecast scenarios', () => {
   });
   test('idle retains remaining balance until the observed reset', () => {
     const result = projectPool(
-      [{ remaining: 30, rate: 0, resetAtMs: now + HOUR_MS, periodHours: 168 }],
+      [{ remaining: 30, rate: 0, resetAtMs: now + HOUR_MS, periodHours: 168, capacity: 100 }],
       now,
       now + 2 * HOUR_MS
     );

@@ -373,6 +373,11 @@
     "card_toggle": "Bật credential {{name}}",
     "card_requests": "Yêu cầu",
     "cooldown_unknown": "Trạng thái cooldown không xác định",
+    "status_weekly_limit": "Đã hết hạn mức tuần",
+    "status_five_hour_limit": "Đã hết hạn mức 5 giờ",
+    "status_usage_limit": "Đã hết hạn mức sử dụng",
+    "status_limit_resets": "{{limit}} · đặt lại lúc {{time}}",
+    "status_rate_limited": "Bị giới hạn tốc độ · thử lại sau",
     "cooldown_models_one": "{{count}} model đang cooldown",
     "cooldown_models_other": "{{count}} model đang cooldown",
     "cooldown_credential": "Cooldown toàn bộ credential",
@@ -435,7 +440,8 @@
     "policy_rules_hint": "Các quy tắc tùy chỉnh được ưu tiên theo thứ tự danh sách. Kế thừa hoặc danh sách trống sẽ sử dụng quy tắc kế thừa; điều này không vô hiệu hóa chúng. Mẫu biểu thức chính quy (Regex) dùng cú pháp của Go.",
     "policy_retry_invalid": "Nhập một số nguyên an toàn không âm, hoặc chọn Kế thừa.",
     "policy_aliases_invalid": "Nhập tên model và bí danh không để trống cho mỗi hàng mới hoặc đã chỉnh sửa.",
-    "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống."
+    "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống.",
+    "source_authentication_required": "Đăng nhập vào nguồn này để xem tệp xác thực."
   },
   "antigravity_subscription": {
     "plan_unknown": "Không rõ",
@@ -1736,7 +1742,9 @@
     "gate_step2_action": "Tôi đã đọc và hiểu các rủi ro này",
     "gate_step3_prompt": "Để xác nhận, nhập \"{{token}}\" vào ô bên dưới",
     "gate_step3_action": "Cài đặt plugin này",
-    "gate_step3_hint": "Nhập chính xác mã định danh hiển thị ở trên để cho phép cài đặt."
+    "gate_step3_hint": "Nhập chính xác mã định danh hiển thị ở trên để cho phép cài đặt.",
+    "destination": "Đích đến",
+    "select_destination": "Chọn nguồn đích"
   },
   "plugin_resource": {
     "page_count": "{{count}} trang",
@@ -1745,7 +1753,8 @@
     "not_found": "Không tìm thấy trang plugin",
     "not_found_desc": "Trang plugin này không được khai báo trong danh sách plugin backend hiện tại.",
     "empty_src": "URL trang plugin trống",
-    "empty_src_desc": "Menu plugin này không cung cấp URL trang nhúng được."
+    "empty_src_desc": "Menu plugin này không cung cấp URL trang nhúng được.",
+    "source_embedding_unsupported": "Không thể nhúng trang tiện ích vì định tuyến đến nguồn chưa được xác minh cho triển khai này."
   },
   "system_info": {
     "title": "Thông tin Trung tâm Quản lý",
@@ -2318,6 +2327,15 @@
     "expired": "Phiên liên kết đã hết hạn. Hãy bắt đầu lại."
   },
   "quota_pool": {
+    "total_unavailable_title": "Không có tổng",
+    "window_unavailable": "Không có hạn mức {{window}}",
+    "saved_observation": "Quan sát đã lưu",
+    "forecast_unavailable": "Không khả dụng",
+    "total_unavailable": "Không có tổng — thiếu một số số dư.",
+    "saved_forecast": "Dự báo đã lưu",
+    "snapshot": "Ảnh chụp dữ liệu",
+    "saved_snapshot": "Ảnh chụp đã lưu",
+    "load_error_initial": "Kiểm tra kết nối và thử lại.",
     "window_remaining": "Hạn mức còn lại: {{window}}",
     "history_forecast": "Lịch sử và dự báo",
     "forecast_status": "Dự báo: {{state}}",
@@ -2350,26 +2368,26 @@
     "next": "Ngày sau",
     "today": "Hôm nay",
     "recorded_only": "Tốc độ chỉ hiển thị dữ liệu đã ghi nhận. Mức dùng tương lai áp dụng cho hạn mức còn lại.",
-    "normalized": "100 điểm chuẩn hóa cho mỗi tài khoản đủ điều kiện. Điểm biểu thị hạn mức, không phải token hay trọng số gói.",
+    "normalized": "100 điểm = hạn mức của một gói cơ bản (Claude Pro hoặc ChatGPT Plus). Mỗi tài khoản được tính theo bội số của gói: Max 20x = 2.000, Pro 500 = 2.500. Điểm hạn mức không phải token.",
     "disconnected": "Kết nối máy chủ để xem hạn mức gộp.",
-    "refresh_error": "Làm mới thất bại. Vẫn hiển thị dữ liệu đã tải trước đó.",
+    "refresh_error": "Vẫn hiển thị quan sát đã tải trước đó. Thử lại để làm mới.",
     "load_error": "Không thể tải bảng hạn mức. Dữ liệu đang hiển thị đến từ lần yêu cầu thành công gần nhất.",
     "retry": "Thử lại",
     "loading": "Đang tải hạn mức gộp…",
-    "polling": "Cập nhật mỗi 15 giây",
+    "polling": "Bảng điều khiển kiểm tra cập nhật mỗi 15 giây",
     "history_since": "Lịch sử bắt đầu",
-    "last_refresh": "Làm mới gần nhất",
-    "next_refresh": "Lần làm mới tiếp theo",
+    "last_refresh": "Lần thử thu thập gần nhất",
+    "next_refresh": "Lần thu thập tiếp theo khả dụng",
     "account_count": "{{count}} tài khoản",
     "of_capacity": "trên {{capacity}} điểm",
     "coverage": "Đã tải {{loaded}} · Đủ điều kiện {{eligible}}",
     "pool_empty": "Nhóm cạn hạn mức",
-    "first_empty": "Tài khoản cạn đầu tiên",
+    "first_empty": "Tài khoản đầu tiên hết hạn mức",
     "next_reset": "Đặt lại tiếp theo",
     "burn_last": "Tiêu thụ trong {{hours}} giờ",
     "points": "điểm",
     "points_hour": "điểm/giờ",
-    "not_predicted": "Chưa có dự đoán",
+    "not_predicted": "Không trong khoảng này",
     "reset": "Đặt lại",
     "now": "Bây giờ",
     "accounts": "Tài khoản",
@@ -2377,10 +2395,12 @@
     "no_observation": "Không có dữ liệu",
     "recorded": "Đã ghi nhận",
     "projected": "Dự đoán",
-    "inspect_hint": "Dùng thanh trượt hoặc phím mũi tên để xem mẫu.",
+    "inspect_hint": "Di chuột lên biểu đồ, hoặc chọn biểu đồ và dùng phím mũi tên để xem mẫu.",
+    "move_up": "Chuyển {{pool}} lên",
+    "move_down": "Chuyển {{pool}} xuống",
     "inspect": "Xem biểu đồ",
     "chart_title": "{{provider}} · {{mode}}",
-    "chart_description": "Đường liền hiển thị dữ liệu đã ghi nhận; đường đứt hiển thị dự đoán từ máy chủ trong chế độ còn lại. Khoảng trống biểu thị dữ liệu thiếu. Dấu đặt lại hiển thị điểm được thêm. Dùng thanh trượt để đọc giá trị chính xác.",
+    "chart_description": "Đường liền hiển thị dữ liệu đã ghi nhận; đường đứt hiển thị dự đoán từ máy chủ trong chế độ còn lại. Khoảng trống biểu thị dữ liệu thiếu. Dấu đặt lại hiển thị điểm được thêm. Di chuột hoặc dùng phím mũi tên để đọc giá trị chính xác.",
     "no_history": "Không có dữ liệu trong khoảng này",
     "scenario": {
       "same": "Như hiện tại",
@@ -2397,8 +2417,8 @@
     },
     "state_note": {
       "collecting": "Đang thu thập lịch sử. Dự đoán sẽ xuất hiện khi có đủ dữ liệu.",
-      "partial": "Một số tài khoản thiếu dữ liệu hạn mức. Tổng và dự đoán có thể chưa đầy đủ.",
-      "stale": "Dữ liệu đã cũ. Dự đoán hiển thị có thể không còn chính xác.",
+      "partial": "Không có tổng và dự báo: một số tài khoản đủ điều kiện thiếu dữ liệu hạn mức hiện tại.",
+      "stale": "Tổng và dự báo chưa khả dụng cho đến khi các quan sát cũ được làm mới.",
       "no-accounts": "Nhà cung cấp này chưa có tài khoản. Thêm thông tin xác thực trong phần tài khoản."
     },
     "account_status": {
@@ -2411,6 +2431,29 @@
     "issue": {
       "inventory-unavailable": "Không thể tải danh sách tài khoản.",
       "quota-unavailable": "Hạn mức không khả dụng cho một hoặc nhiều tài khoản."
-    }
+    },
+    "rate_no_projection": "Chỉ tốc độ đã ghi",
+    "projection_unavailable": "Không có dự báo",
+    "scheduled_reset": "Đặt lại theo lịch",
+    "single_sample": "Một mẫu đã ghi",
+    "recorded_rate": "{{rate}} đã ghi · {{hours}}h",
+    "remaining_forecast": "Dự báo hạn mức còn lại",
+    "predicted_empty": "Dự kiến hết hạn mức",
+    "normalized_short": "100 điểm cho mỗi gói cơ bản (Claude Pro / ChatGPT Plus) · tài khoản tính trọng số theo gói, không phải token.",
+    "account_plan": "{{plan}} · {{points}} điểm",
+    "account_plan_unknown": "Không rõ gói · {{points}} điểm",
+    "awaiting_data": "Đang chờ dữ liệu",
+    "refresh_failed_title": "Làm mới thất bại",
+    "load_failed_title": "Không thể tải hạn mức",
+    "no_accounts_title": "Chưa kết nối tài khoản",
+    "no_accounts_help": "Kết nối tài khoản để xem tổng hạn mức.",
+    "add_credentials": "Thêm thông tin xác thực"
+  },
+  "provider_sources": {
+    "discovery_error": "Không thể tải danh sách nguồn. Hãy tải lại trang để thử lại.",
+    "authentication_required": "Đăng nhập vào nguồn này để tiếp tục.",
+    "separate_pools": "Mỗi nguồn {{provider}} có nhóm hạn mức riêng. Chưa xác minh hạn mức dùng chung nên không hiển thị tổng.",
+    "unresolved_history": "Một số tài khoản lịch sử chưa xác nhận nguồn. Lịch sử được giữ lại và không tính vào tổng hiện tại.",
+    "mutation_unconfirmed": "Chưa xác nhận được kết quả thao tác. Kiểm tra trạng thái vừa tải lại trước khi thử lại."
   }
 }

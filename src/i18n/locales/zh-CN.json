@@ -236,6 +236,11 @@
     "card_toggle": "启用认证文件 {{name}}",
     "card_requests": "请求记录",
     "cooldown_unknown": "冷却状态未知",
+    "status_weekly_limit": "已达每周额度上限",
+    "status_five_hour_limit": "已达 5 小时额度上限",
+    "status_usage_limit": "已达用量上限",
+    "status_limit_resets": "{{limit}} · {{time}} 重置",
+    "status_rate_limited": "请求受限 · 请稍后重试",
     "cooldown_models": "{{count}} 个模型冷却",
     "cooldown_credential": "凭证级冷却",
     "cooldown_credential_and_models": "凭证及 {{count}} 个模型冷却",
@@ -433,7 +438,8 @@
     "quota_refresh_single": "刷新额度",
     "quota_refresh_hint": "仅刷新该认证文件的额度",
     "quota_refresh_success": "已刷新 \"{{name}}\" 的额度",
-    "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}"
+    "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}",
+    "source_authentication_required": "请登录此代理实例以查看认证文件。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
@@ -549,7 +555,6 @@
     "reset_confirm_button": "确认重置",
     "reset_not_confirmed": "未确认额度重置成功，请刷新额度后再决定是否重试。",
     "reset_cooldown_failed": "额度已重置，但代理冷却清除失败。请在原连接的认证文件页面使用“清除冷却”，不要再次消耗重置卡。",
-
     "reset_success": "已重置 \"{{name}}\" 的 Codex 额度",
     "reset_failed": "重置 \"{{name}}\" 的 Codex 额度失败：{{message}}",
     "plan_plus": "Plus",
@@ -1779,7 +1784,9 @@
     "gate_step2_action": "我已阅读并理解上述风险",
     "gate_step3_prompt": "如需确认，请在下方输入框中键入 “{{token}}”",
     "gate_step3_action": "安装此插件",
-    "gate_step3_hint": "请输入上方显示的完整标识以启用安装。"
+    "gate_step3_hint": "请输入上方显示的完整标识以启用安装。",
+    "destination": "目标实例",
+    "select_destination": "请选择目标实例"
   },
   "plugin_resource": {
     "page_count": "{{count}} 个页面",
@@ -1788,7 +1795,8 @@
     "not_found": "未找到插件页面",
     "not_found_desc": "该插件页面未在当前后端插件列表中声明。",
     "empty_src": "插件页面地址为空",
-    "empty_src_desc": "该插件菜单未提供可嵌入的页面地址。"
+    "empty_src_desc": "该插件菜单未提供可嵌入的页面地址。",
+    "source_embedding_unsupported": "此部署尚未验证插件页面的实例路由，因此无法嵌入插件页面。"
   },
   "system_info": {
     "title": "管理中心信息",
@@ -2311,6 +2319,15 @@
     "expired": "绑定会话已过期，请重新开始。"
   },
   "quota_pool": {
+    "total_unavailable_title": "总量不可用",
+    "window_unavailable": "{{window}}配额不可用",
+    "saved_observation": "已保存的观测",
+    "forecast_unavailable": "不可用",
+    "total_unavailable": "总量不可用：部分余额缺失。",
+    "saved_forecast": "已保存的预测",
+    "snapshot": "快照",
+    "saved_snapshot": "已保存的快照",
+    "load_error_initial": "请检查连接后重试。",
     "window_remaining": "{{window}}剩余额度",
     "history_forecast": "历史与预测",
     "forecast_status": "预测：{{state}}",
@@ -2343,26 +2360,26 @@
     "next": "后一天",
     "today": "今天",
     "recorded_only": "速率仅显示已记录的观测值。未来使用量仅影响剩余额度预测。",
-    "normalized": "每个符合条件的账号计为100个标准化点数。点数表示额度，不是令牌数量或套餐权重。",
+    "normalized": "100 点 = 一个基础套餐（Claude Pro 或 ChatGPT Plus）的配额。每个账户按其套餐倍数计入：Max 20x = 2,000，Pro 500 = 2,500。配额点数不是令牌。",
     "disconnected": "连接后端以查看共享额度。",
-    "refresh_error": "刷新失败。仍显示之前加载的观测值。",
+    "refresh_error": "仍显示先前加载的观测。请重试以刷新。",
     "load_error": "无法加载额度池。当前可见数据来自上次成功的请求。",
     "retry": "重试",
     "loading": "正在加载共享额度…",
-    "polling": "每15秒更新",
+    "polling": "仪表板每 15 秒检查更新",
     "history_since": "历史起始时间",
-    "last_refresh": "上次刷新",
-    "next_refresh": "下次可刷新时间",
+    "last_refresh": "上次采集尝试",
+    "next_refresh": "下次可采集时间",
     "account_count": "{{count}}个账号",
     "of_capacity": "共{{capacity}}点",
     "coverage": "已加载{{loaded}}个 · 符合条件{{eligible}}个",
     "pool_empty": "额度池耗尽",
-    "first_empty": "首个账号耗尽",
+    "first_empty": "首个账户耗尽",
     "next_reset": "下次重置",
     "burn_last": "最近{{hours}}小时消耗",
     "points": "点",
     "points_hour": "点/小时",
-    "not_predicted": "未预测",
+    "not_predicted": "此范围内不会耗尽",
     "reset": "重置",
     "now": "现在",
     "accounts": "账号",
@@ -2370,10 +2387,12 @@
     "no_observation": "无观测值",
     "recorded": "已记录",
     "projected": "预测",
-    "inspect_hint": "使用滑块或方向键查看样本。",
+    "inspect_hint": "将指针悬停在图表上，或聚焦图表后使用方向键查看样本。",
+    "move_up": "上移 {{pool}}",
+    "move_down": "下移 {{pool}}",
     "inspect": "查看图表",
     "chart_title": "{{provider}} · {{mode}}",
-    "chart_description": "实线表示已记录的观测值；虚线表示剩余额度模式下的服务器预测。空白表示缺失数据。重置标记表示增加的点数。使用滑块读取精确值。",
+    "chart_description": "实线表示已记录的观测值；虚线表示剩余额度模式下的服务器预测。空白表示缺失数据。重置标记表示增加的点数。悬停或使用方向键读取精确值。",
     "no_history": "此范围内无观测值",
     "scenario": {
       "same": "保持当前",
@@ -2390,8 +2409,8 @@
     },
     "state_note": {
       "collecting": "正在收集历史。观测值充足后显示预测。",
-      "partial": "部分账号缺少额度数据。总量和预测可能不完整。",
-      "stale": "观测值已过期。当前预测可能不再准确。",
+      "partial": "总量和预测不可用：部分符合条件的账户没有当前配额数据。",
+      "stale": "请刷新过期观测后查看总量和预测。",
       "no-accounts": "此服务商没有可用账号。请在账号视图中添加凭据。"
     },
     "account_status": {
@@ -2404,6 +2423,29 @@
     "issue": {
       "inventory-unavailable": "无法加载账号列表。",
       "quota-unavailable": "一个或多个账号的额度不可用。"
-    }
+    },
+    "rate_no_projection": "仅显示已记录速率",
+    "projection_unavailable": "预测不可用",
+    "scheduled_reset": "计划重置",
+    "single_sample": "一个已记录样本",
+    "recorded_rate": "已记录{{rate}} · {{hours}}小时",
+    "remaining_forecast": "剩余配额预测",
+    "predicted_empty": "预计耗尽",
+    "normalized_short": "每个基础套餐（Claude Pro / ChatGPT Plus）100 点 · 账户按套餐加权，并非令牌。",
+    "account_plan": "{{plan}} · {{points}} 点",
+    "account_plan_unknown": "套餐未知 · {{points}} 点",
+    "awaiting_data": "等待数据",
+    "refresh_failed_title": "刷新失败",
+    "load_failed_title": "无法加载配额",
+    "no_accounts_title": "尚未连接账户",
+    "no_accounts_help": "连接账户以查看汇总配额。",
+    "add_credentials": "添加凭据"
+  },
+  "provider_sources": {
+    "discovery_error": "无法获取代理实例列表。请重新加载以重试。",
+    "authentication_required": "请登录此代理实例以继续。",
+    "separate_pools": "每个 {{provider}} 实例分别显示配额池。尚未验证共享额度，因此无法提供合计。",
+    "unresolved_history": "部分历史账号尚未确认所属实例。历史记录已保留，不计入当前合计。",
+    "mutation_unconfirmed": "无法确认操作结果。重试前请检查刷新后的状态。"
   }
 }

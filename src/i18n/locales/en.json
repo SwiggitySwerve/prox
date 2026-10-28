@@ -236,6 +236,11 @@
     "card_toggle": "Enable credential {{name}}",
     "card_requests": "Requests",
     "cooldown_unknown": "Cooldown state unknown",
+    "status_weekly_limit": "Weekly limit reached",
+    "status_five_hour_limit": "5-hour limit reached",
+    "status_usage_limit": "Usage limit reached",
+    "status_limit_resets": "{{limit}} · resets {{time}}",
+    "status_rate_limited": "Rate limited · try again later",
     "cooldown_models_one": "{{count}} model cooling down",
     "cooldown_models_other": "{{count}} models cooling down",
     "cooldown_credential": "Credential-wide cooldown",
@@ -435,7 +440,8 @@
     "quota_refresh_single": "Refresh quota",
     "quota_refresh_hint": "Refresh quota only for this credential",
     "quota_refresh_success": "Quota refreshed for \"{{name}}\"",
-    "quota_refresh_failed": "Failed to refresh quota for \"{{name}}\": {{message}}"
+    "quota_refresh_failed": "Failed to refresh quota for \"{{name}}\": {{message}}",
+    "source_authentication_required": "Sign in to this source to view its auth files."
   },
   "antigravity_subscription": {
     "plan_unknown": "Unknown",
@@ -1780,7 +1786,9 @@
     "gate_step2_action": "I have read and understand these risks",
     "gate_step3_prompt": "To confirm, type \"{{token}}\" in the box below",
     "gate_step3_action": "Install this plugin",
-    "gate_step3_hint": "Enter the exact identifier shown above to enable installation."
+    "gate_step3_hint": "Enter the exact identifier shown above to enable installation.",
+    "destination": "Destination",
+    "select_destination": "Select a destination source"
   },
   "plugin_resource": {
     "page_count": "{{count}} pages",
@@ -1789,7 +1797,8 @@
     "not_found": "Plugin page not found",
     "not_found_desc": "This plugin page is not declared by the current backend plugin list.",
     "empty_src": "Plugin page URL is empty",
-    "empty_src_desc": "This plugin menu does not provide an embeddable page URL."
+    "empty_src_desc": "This plugin menu does not provide an embeddable page URL.",
+    "source_embedding_unsupported": "Embedded plugin pages are unavailable for this deployment because their source routing has not been verified."
   },
   "system_info": {
     "title": "Management Center Info",
@@ -2312,6 +2321,15 @@
     "expired": "The binding session expired. Please start over."
   },
   "quota_pool": {
+    "total_unavailable_title": "Total unavailable",
+    "window_unavailable": "{{window}} quota unavailable",
+    "saved_observation": "Saved observation",
+    "forecast_unavailable": "Unavailable",
+    "total_unavailable": "Total unavailable — some balances are missing.",
+    "saved_forecast": "Saved forecast",
+    "snapshot": "Snapshot",
+    "saved_snapshot": "Saved snapshot",
+    "load_error_initial": "Check the connection and try again.",
     "window_remaining": "{{window}} quota remaining",
     "history_forecast": "History and forecast",
     "forecast_status": "Forecast: {{state}}",
@@ -2344,26 +2362,26 @@
     "next": "Next day",
     "today": "Today",
     "recorded_only": "Rates show recorded observations only. Future usage applies to remaining quota.",
-    "normalized": "100 normalized points per eligible account. Points represent quota, not tokens or plan weights.",
+    "normalized": "100 points = one base plan’s quota (Claude Pro or ChatGPT Plus). Each account counts as its plan’s multiple: Max 20x = 2,000, Pro 500 = 2,500. Quota points are not tokens.",
     "disconnected": "Connect to a backend to view pooled quota.",
-    "refresh_error": "Refresh failed. Previously loaded observations are still shown.",
+    "refresh_error": "Previously loaded observations are still shown. Try again to refresh them.",
     "load_error": "Could not load the pool dashboard. Any visible data is from the last successful request.",
     "retry": "Try again",
     "loading": "Loading pooled quota…",
-    "polling": "Updates every 15 seconds",
+    "polling": "Dashboard checks for updates every 15 seconds",
     "history_since": "History since",
-    "last_refresh": "Last refresh",
-    "next_refresh": "Next refresh available",
+    "last_refresh": "Last collection attempt",
+    "next_refresh": "Next collection available",
     "account_count": "{{count}} accounts",
     "of_capacity": "of {{capacity}} points",
     "coverage": "{{loaded}} loaded · {{eligible}} eligible",
     "pool_empty": "Pool empty",
-    "first_empty": "First empty",
+    "first_empty": "First account empty",
     "next_reset": "Next reset",
     "burn_last": "Burn, last {{hours}}h",
     "points": "points",
     "points_hour": "points/h",
-    "not_predicted": "Not predicted",
+    "not_predicted": "Not in this range",
     "reset": "Reset",
     "now": "Now",
     "accounts": "Accounts",
@@ -2371,10 +2389,12 @@
     "no_observation": "No observation",
     "recorded": "Recorded",
     "projected": "Projected",
-    "inspect_hint": "Inspect samples with the slider or arrow keys.",
+    "inspect_hint": "Hover the chart, or focus it and use the arrow keys, to inspect samples.",
+    "move_up": "Move {{pool}} up",
+    "move_down": "Move {{pool}} down",
     "inspect": "Inspect chart",
     "chart_title": "{{provider}} · {{mode}}",
-    "chart_description": "Solid lines show recorded observations; dashed lines show server projections in remaining mode. Gaps indicate missing data. Reset markers show added points. Use the sample slider to read exact values.",
+    "chart_description": "Solid lines show recorded observations; dashed lines show server projections in remaining mode. Gaps indicate missing data. Reset markers show added points. Hover or use the arrow keys to read exact values.",
     "no_history": "No observations in this range",
     "scenario": {
       "same": "Same as now",
@@ -2391,8 +2411,8 @@
     },
     "state_note": {
       "collecting": "Collecting history. A forecast appears when enough observations are available.",
-      "partial": "Some accounts have missing quota data. Totals and forecasts may be incomplete.",
-      "stale": "Observations are stale. Treat the displayed forecast as out of date.",
+      "partial": "Total and forecast unavailable: some eligible accounts have no current quota data.",
+      "stale": "Total and forecast unavailable until stale observations are refreshed.",
       "no-accounts": "No accounts are available for this provider. Add credentials in the account view."
     },
     "account_status": {
@@ -2405,6 +2425,29 @@
     "issue": {
       "inventory-unavailable": "Account inventory could not be loaded.",
       "quota-unavailable": "Quota is unavailable for one or more accounts."
-    }
+    },
+    "rate_no_projection": "Recorded rates only",
+    "projection_unavailable": "Forecast unavailable",
+    "scheduled_reset": "Scheduled reset",
+    "single_sample": "One recorded sample",
+    "recorded_rate": "Recorded {{rate}} · {{hours}}h",
+    "remaining_forecast": "Remaining-quota forecast",
+    "predicted_empty": "Predicted empty",
+    "normalized_short": "100 points per base plan (Claude Pro / ChatGPT Plus) · accounts weighted by plan, not tokens.",
+    "account_plan": "{{plan}} · {{points}} pts",
+    "account_plan_unknown": "Plan unknown · {{points}} pts",
+    "awaiting_data": "Awaiting data",
+    "refresh_failed_title": "Refresh failed",
+    "load_failed_title": "Could not load quotas",
+    "no_accounts_title": "No accounts connected",
+    "no_accounts_help": "Connect your accounts to see their pooled quotas.",
+    "add_credentials": "Add credentials"
+  },
+  "provider_sources": {
+    "discovery_error": "Source discovery is unavailable. Reload to retry.",
+    "authentication_required": "Sign in to this source to continue.",
+    "separate_pools": "Each {{provider}} source has its own quota pool. Combined totals are unavailable because shared allowances have not been verified.",
+    "unresolved_history": "Some historical accounts have no confirmed source. Their history is retained and excluded from current totals.",
+    "mutation_unconfirmed": "The operation could not be confirmed. Review the refreshed state before retrying."
   }
 }

@@ -1,0 +1,315 @@
+{
+  "reviewer": "interaction",
+  "scores": {
+    "wide": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "laptop": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "empty": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "partial": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "stale": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "collecting": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "long-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "details-narrow": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "drain": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "burn-narrow": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "refresh-error": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "findings": [
+    {
+      "states": [
+        "laptop"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "responsive_accessible"
+      ],
+      "element": "In the 1280 x 900 pair, Future usage now shares a row with date navigation instead of leaving the date navigator on a mostly empty row. However, the top of the Claude card remains at roughly the same height, the full sidebar still consumes 255 px, and the screenshot still cuts through the first account rows before their complete status lines. Codex is outside this capture. The mode group and time/window group are also separated by a large empty stretch on their row.",
+      "fix": "Use a compact sidebar at this intermediate width and tighten the provider/control area so the complete Claude account rows and more of the next provider can enter the initial view. Keep mode, lookback and window controls visibly grouped; preserve the date bounds, readable plot labels and all account rows. The capture establishes limited visible coverage, not removal of offscreen accounts."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout"
+      ],
+      "element": "At 390 px, the title is smaller and the Accounts button is clearer, but the first provider card still starts around 492 px down, only slightly earlier than round 3. The longer points explanation now wraps to two lines. The utility strip, title/actions, provider selection and four rows of chart controls continue to occupy nearly the first half-screen before any quota result. The first account starts around 1170 px down in narrow; the second provider follows the complete first plot and account list.",
+      "fix": "Reduce the vertical gaps between the mobile utility strip, action row and control groups. Give the quota result earlier visual priority, and shorten the repeated points explanation while retaining eligible-account, unweighted-quota and not-tokens meaning. Keep all five account rows, full long names, exact inspection values and scheduled-reset distinctions."
+    },
+    {
+      "states": [
+        "wide",
+        "partial",
+        "stale",
+        "collecting",
+        "refresh-error"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "The side-by-side pairs show more compact headline/label groups, a shared Remaining account heading and an inspection slider placed beside its readout. Codex starts earlier, but the 1920 x 1280 wide capture still ends before Codex accounts; partial, stale and collecting reach only Codex summary/warning content; refresh-error only begins the next card at its bottom edge. The gains remain modest because the plot and its surrounding metadata still occupy most of the first card.",
+      "fix": "Tighten the remaining summary-to-plot and legend/readout-to-account gaps and consider a shorter desktop plot where the axes and reset markers remain readable. Bring more of Codex into the overview while preserving both providers, every account, historical values, full dates, warnings and exact units. These screenshots do not establish whether the offscreen rows changed."
+    },
+    {
+      "states": [
+        "drain",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "layout"
+      ],
+      "element": "Burn-narrow correctly removes the repeated Burn, last 3h summary: the 3.7 and 2.7 points/h headlines still carry Recorded Burn rate and 3h, and both remaining balances remain visible. The first account is earlier than round 3, but still roughly 1220 px down; Codex still follows the whole Claude card. Drain remains tall enough that its 1000 px capture shows only the start of Codex, and its forecast group still includes Burn, last 3h beside the recorded Drain rate headline.",
+      "fix": "Compact the rate explanation, remaining-balance and forecast-group spacing and the inspection-to-account gap. Preserve the distinction between recorded drain and forecast burn in drain mode; consolidate only genuinely repeated rate content. Keep the recorded-only plot explanation, exact points/h values, quota balances, reset dates and every account."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "controls_states",
+        "responsive_accessible"
+      ],
+      "element": "Round 4 gives Accounts a filled rectangular button with generous visible space, replacing the small unboxed text. Both provider inspection controls have visibly larger coloured thumbs on clear tracks, retain the Slide or use left/right-arrow cue, and retain the adjacent exact timestamp and value. These changes resolve the specific visible-affordance issues behind the prior controls_states and responsive_accessible scores of 8; both are now 9 in these four states.",
+      "fix": "Preserve the larger thumb, boxed Accounts action, adjacent result and arrow-key cue while tightening spacing. The screenshots support clearer visible affordances only; they do not prove actual touch-target bounds, keyboard operation, focus styling or accessible names."
+    },
+    {
+      "states": [
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "content",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "Across the full-height narrow pairs, all three Claude accounts and both Codex accounts remain visible. Long credential names wrap inside their rows, and long-narrow now explicitly says Weekly quota unavailable for the missing account windows while retaining the other observed percentages. Expanded details retain Last observed, Next reset, Predicted empty and Burn, last 3h; the UTC timestamps wrap onto additional lines in round 4 without clipping. The shared Remaining heading supplies the percentage meaning without repeating it beneath every current value.",
+      "fix": "Preserve these account rows, observed percentages, selected-window wording, expanded numerical details and wrapping. Do not substitute zero for an unavailable window or discard a long account label to reduce height. Assess disclosure behavior separately; only its visible chevron and expanded presentation were inspected."
+    },
+    {
+      "states": [
+        "partial",
+        "long-narrow",
+        "stale"
+      ],
+      "aspects": [
+        "hierarchy",
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "The round-3 dash headline is now the explicit Total unavailable, and the badge says Forecast unavailable. Partial and long-narrow no longer repeat loaded/eligible counts in their warning, while their recorded historical curves, exact sample readouts and missing current-account values remain visible. Stale keeps the older Claude account 3 observation at 82.8%, labels it Stale beside the value, and retains Last observed: Oct 27, 11:00 AM UTC. The warning still says the total and forecast are unavailable until stale observations are refreshed. These are visible communication changes with the supplied fixtures unchanged.",
+      "fix": "Keep withholding the current aggregate and projections for missing required data while retaining historical observations. Preserve the stale percentage with its observation timestamp and keep it distinct from the selected Oct 24 chart sample. Do not treat a missing Weekly window as a failed account collection."
+    },
+    {
+      "states": [
+        "collecting"
+      ],
+      "aspects": [
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "The collecting pair retains the numeric current balance, Forecast: Collecting badge and explanation that more observations are needed. Its chart still shows one observed dot and Forecast unavailable; the exact Oct 27, 12:00 PM UTC readout is now grouped with One recorded sample. No slider is shown for that single sample. The neutral collecting banner remains distinct from the amber failure/unavailable treatments.",
+      "fix": "Preserve the single-sample presentation and the distinction between an available current balance and an unavailable forecast. Introduce the ordinary inspection control only when multiple samples can be inspected. A still image cannot verify collection progress or live updates."
+    },
+    {
+      "states": [
+        "refresh-error",
+        "stale",
+        "narrow",
+        "long-narrow",
+        "details-narrow",
+        "burn-narrow"
+      ],
+      "aspects": [
+        "content",
+        "controls_states",
+        "consistency"
+      ],
+      "element": "Refresh-error retains Refresh failed, the explanation that prior observations are still shown, and Try again. Its card metadata now explicitly reads Saved snapshot: Oct 27, 12:00 PM UTC, alongside Saved forecast, the plot boundary label Saved snapshot and account rows labelled Saved observation. Its selected chart readout separately remains Oct 24, 12:00 PM UTC and 279.6 points. The previous Last collection attempt line is no longer visible inside the stale or refresh-error cards; all four full narrow screenshots still show Last collection attempt in the footer, separately from History since and Next collection available.",
+      "fix": "Preserve Saved snapshot as the server snapshot-generation timestamp and keep it distinct from account observation times and the selected historical sample. Retain Last collection attempt for the footer field, including failed attempts; do not rename it Last successful refresh. The screenshots show the labels and visible values, but cannot verify their underlying timestamp sources or establish what lies below the cropped desktop captures."
+    },
+    {
+      "states": [
+        "empty",
+        "loading",
+        "error"
+      ],
+      "aspects": [
+        "hierarchy",
+        "layout",
+        "content",
+        "controls_states",
+        "colour",
+        "consistency"
+      ],
+      "element": "The empty, loading and initial-error pairs retain their clear, distinct presentations: No accounts connected with zero provider counts and Add credentials; Loading pooled quota with Loading on the main action and Awaiting data in the date area; and Could not load quotas with a separate Try again button. Chart-only controls remain visibly dimmed. The footer is more compact in round 4, and empty places its collection/history times into a readable two-column arrangement.",
+      "fix": "Preserve the neutral empty/loading treatment, explicit failure heading, visible recovery actions and disabled-looking chart controls. Do not infer disabled semantics, animation, reduced-motion support or working retry behavior from these still images."
+    },
+    {
+      "states": [
+        "wide",
+        "laptop",
+        "narrow",
+        "empty",
+        "loading",
+        "error",
+        "partial",
+        "stale",
+        "collecting",
+        "long-narrow",
+        "details-narrow",
+        "drain",
+        "burn-narrow",
+        "refresh-error"
+      ],
+      "aspects": [
+        "colour",
+        "type_numbers",
+        "content",
+        "consistency",
+        "responsive_accessible"
+      ],
+      "element": "All 14 actual round-3/round-4 PNG pairs were inspected side by side, including both upper and lower portions of the full narrow images; the supplied reference PNG was also inspected. Round 4 preserves the dark design, Claude orange, Codex blue, numerical observations visible in each capture, explicit points/points-per-hour units and UTC dates. Provider names, text states, solid/dashed curves and the Scheduled reset legend supplement colour. The shorter headlines remain prominent while their quota/rate labels sit alongside them. No score drops were assigned; every retained 8 has a state-specific element and fix above.",
+      "fix": "Preserve these design and data-meaning cues. This review establishes screenshot-visible presentation only. It does not verify keyboard behavior, focus order or focus visibility during interaction, screen-reader output, actual target dimensions, measured contrast compliance, refresh/retry execution, responsive behavior between captured widths or offscreen content in cropped desktop images."
+    }
+  ],
+  "drops": []
+}
