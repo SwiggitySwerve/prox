@@ -65,10 +65,10 @@ export function chartGeometry(
   const x = (at: number) =>
     frame.left + ((at - from) / (to - from || 1)) * (frame.right - frame.left);
   const y = (value: number) => frame.bottom - ((value - min) / span) * (frame.bottom - frame.top);
-  const segments = (projected: boolean) => {
+  const segments = (projected: boolean, series: ChartSample[] = samples) => {
     const paths: string[] = [];
     let path = '';
-    for (const sample of samples.filter((item) => item.projected === projected)) {
+    for (const sample of series.filter((item) => item.projected === projected)) {
       const value = sample.point[metricField[mode]];
       if (value === null) {
         if (path) paths.push(path);

@@ -13,17 +13,22 @@ import {
 import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
-export function PoolChart({
-  pool,
-  dashboard,
-  mode,
-  savedData = false,
-}: {
-  pool: QuotaPool;
+interface ChartProps {
   dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs'>;
   mode: ChartMode;
   savedData?: boolean;
-}) {
+}
+
+export function PoolChart({ pool, ...props }: ChartProps & { pool: QuotaPool }) {
+  return <PoolChartView {...props} pools={[pool]} />;
+}
+
+function PoolChartView({
+  pools,
+  dashboard,
+  mode,
+  savedData = false,
+}: ChartProps & { pools: QuotaPool[] }) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -42,16 +47,29 @@ export function PoolChart({
   }, []);
   const chartFrame = fitChartFrame(
     width,
-    savedData || pool.forecastState !== 'ready' || mode !== 'remaining'
+    savedData || pools.some((pool) => pool.forecastState !== 'ready') || mode !== 'remaining'
   );
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
   const [inspected, setInspected] = useState<number | null>(null);
   const { fromMs, toMs, nowMs } = dashboard;
-  const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
-    ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
+  const series = pools.map((pool) => ({
+    pool,
+    samples: chartSamples(pool.recorded, pool.projected, mode).filter(
+      ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
+    ),
+  }));
+  const samples = series.flatMap(({ pool, samples }) =>
+    samples.map((sample) => ({ ...sample, pool }))
   );
-  const geometry = chartGeometry(samples, mode, pool.capacityPoints, fromMs, toMs, chartFrame);
+  const geometry = chartGeometry(
+    samples,
+    mode,
+    Math.max(0, ...pools.map((pool) => pool.capacityPoints)),
+    fromMs,
+    toMs,
+    chartFrame
+  );
   const { x, y, min, max, segments } = geometry;
   const field = metricField[mode];
   const latestRecorded = samples.reduce(
@@ -66,7 +84,8 @@ export function PoolChart({
   const visible = (at: number | null): at is number => at !== null && at >= fromMs && at <= toMs;
   // Keep dense five-hour reset labels legible; every reset still has a tick and title.
   let lastLabelX = -Infinity;
-  const resetMarkers = pool.resets
+  const resetMarkers = pools
+    .flatMap((pool) => pool.resets)
     .filter((reset) => visible(reset.atMs) && reset.gainPoints > 0)
     .map((reset) => {
       const showLabel =
@@ -124,7 +143,7 @@ export function PoolChart({
       >
         <title id={`${id}-title`}>
           {t('quota_pool.chart_title', {
-            provider: t(`quota_pool.${pool.provider}`),
+            provider: t(`quota_pool.${pools[0].provider}`),
             mode: t(`quota_pool.${mode}`),
           })}
         </title>
@@ -173,43 +192,47 @@ export function PoolChart({
           );
         })}
         <g clipPath={`url(#${id}-clip)`}>
-          {[false, true].map((projected) =>
-            segments(projected).map((path, index) => {
-              const firstX = path.slice(1).split(',')[0];
-              const lastX = path.split(' L').slice(-1)[0]?.replace(/^M/, '').split(',')[0];
-              return (
-                <g key={`${projected}-${index}`}>
-                  {mode === 'remaining' && (
-                    <path
-                      d={`${path} L${lastX},${y(0)} L${firstX},${y(0)} Z`}
-                      fill={`url(#${id}-fill)`}
-                    />
-                  )}
-                  <path
-                    d={path}
-                    fill="none"
-                    stroke="var(--pool-accent)"
-                    strokeWidth="2.4"
-                    strokeDasharray={projected ? '7 5' : undefined}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+          {series.map(({ pool, samples: seriesSamples }, seriesIndex) => (
+            <g key={seriesIndex} className={styles[pool.provider]}>
+              {[false, true].map((projected) =>
+                segments(projected, seriesSamples).map((path, index) => {
+                  const firstX = path.slice(1).split(',')[0];
+                  const lastX = path.split(' L').slice(-1)[0]?.replace(/^M/, '').split(',')[0];
+                  return (
+                    <g key={`${projected}-${index}`}>
+                      {mode === 'remaining' && (
+                        <path
+                          d={`${path} L${lastX},${y(0)} L${firstX},${y(0)} Z`}
+                          fill={`url(#${id}-fill)`}
+                        />
+                      )}
+                      <path
+                        d={path}
+                        fill="none"
+                        stroke="var(--pool-accent)"
+                        strokeWidth="2.4"
+                        strokeDasharray={projected ? '7 5' : undefined}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </g>
+                  );
+                })
+              )}
+              {seriesSamples.map(({ point, projected }, index) =>
+                point[field] === null ? null : (
+                  <circle
+                    key={index}
+                    cx={x(point.atMs)}
+                    cy={y(point[field])}
+                    r={seriesSamples.length < 3 ? 3 : 1.5}
+                    fill="var(--pool-accent)"
+                    opacity={projected ? 0.6 : 1}
                   />
-                </g>
-              );
-            })
-          )}
-          {samples.map(({ point, projected }, index) =>
-            point[field] === null ? null : (
-              <circle
-                key={index}
-                cx={x(point.atMs)}
-                cy={y(point[field])}
-                r={samples.length < 3 ? 3 : 1.5}
-                fill="var(--pool-accent)"
-                opacity={projected ? 0.6 : 1}
-              />
-            )
-          )}
+                )
+              )}
+            </g>
+          ))}
           {visible(nowMs) && (
             <line
               x1={x(nowMs)}
@@ -220,7 +243,7 @@ export function PoolChart({
             />
           )}
           {sample && sample.point[field] !== null && (
-            <>
+            <g className={styles[sample.pool.provider]}>
               <line
                 x1={x(sample.point.atMs)}
                 x2={x(sample.point.atMs)}
@@ -237,20 +260,26 @@ export function PoolChart({
                 stroke="#111"
                 strokeWidth="2"
               />
-            </>
+            </g>
           )}
-          {mode === 'remaining' && visible(pool.poolEmptyAtMs) && (
-            <circle
-              cx={x(pool.poolEmptyAtMs)}
-              cy={y(0)}
-              r="5"
-              fill="#111"
-              stroke="var(--pool-accent)"
-              strokeWidth="2"
-            >
-              <title>{`${t('quota_pool.pool_empty')}: ${date(pool.poolEmptyAtMs)}`}</title>
-            </circle>
-          )}
+          {mode === 'remaining' &&
+            pools.map(
+              (pool, index) =>
+                visible(pool.poolEmptyAtMs) && (
+                  <circle
+                    key={index}
+                    className={styles[pool.provider]}
+                    cx={x(pool.poolEmptyAtMs)}
+                    cy={y(0)}
+                    r="5"
+                    fill="#111"
+                    stroke="var(--pool-accent)"
+                    strokeWidth="2"
+                  >
+                    <title>{`${t('quota_pool.pool_empty')}: ${date(pool.poolEmptyAtMs)}`}</title>
+                  </circle>
+                )
+            )}
         </g>
         {visible(nowMs) && (
           <text
