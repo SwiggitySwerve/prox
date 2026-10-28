@@ -92,6 +92,8 @@ export function PageTransition({
   const currentLayer =
     layers.find((layer) => layer.status === 'current') ?? layers[layers.length - 1];
   const currentLayerKey = currentLayer?.key ?? location.key;
+  // Same-path navigation swaps a layer's location but keeps its React key.
+  const currentLocationKey = currentLayer?.location.key ?? location.key;
   const currentLayerPathname = currentLayer?.location.pathname;
 
   const resolveScrollContainer = useCallback(() => {
@@ -102,8 +104,16 @@ export function PageTransition({
 
   useLayoutEffect(() => {
     if (isAnimating) return;
-    if (location.key === currentLayerKey) return;
-    if (currentLayerPathname === location.pathname) return;
+    if (location.key === currentLocationKey) return;
+    if (currentLayerPathname === location.pathname) {
+      // Same page with a new query or state (e.g. ?source=): render it in place, no transition.
+      setLayers((prev) =>
+        prev.some((layer) => layer.status === 'current' && layer.location !== location)
+          ? prev.map((layer) => (layer.status === 'current' ? { ...layer, location } : layer))
+          : prev
+      );
+      return;
+    }
     const scrollContainer = resolveScrollContainer();
     const exitScrollOffset = scrollContainer?.scrollTop ?? 0;
     exitScrollOffsetRef.current = exitScrollOffset;
@@ -214,6 +224,7 @@ export function PageTransition({
     isAnimating,
     location,
     currentLayerKey,
+    currentLocationKey,
     currentLayerPathname,
     getRouteOrder,
     getTransitionVariant,

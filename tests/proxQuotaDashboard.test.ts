@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, jest, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
@@ -243,6 +243,48 @@ describe('pool request lifetime', () => {
     expect(await failure.refresh()).toBe(false);
     expect(failure.getSnapshot().refreshError).toBe(true);
     expect(failure.getSnapshot().data).toEqual(dashboard);
+  });
+
+  test('collects fresh quota every 60 seconds only while graphs are on screen', async () => {
+    jest.useFakeTimers();
+    const run = async (data: PoolDashboard, hidden = false) => {
+      const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');
+      Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: { visibilityState: hidden ? 'hidden' : 'visible' },
+      });
+      let refreshes = 0;
+      const resource = createPoolResource(
+        {
+          get: async () => data,
+          refresh: async () => {
+            refreshes++;
+            return data;
+          },
+        },
+        query,
+        () => true
+      );
+      const unsubscribe = resource.subscribe(() => {});
+      try {
+        for (let minute = 0; minute < 2; minute++) {
+          jest.advanceTimersByTime(60_000);
+          for (let i = 0; i < 5; i++) await Promise.resolve();
+        }
+        return refreshes;
+      } finally {
+        unsubscribe();
+        if (previous) Object.defineProperty(globalThis, 'document', previous);
+        else delete (globalThis as { document?: unknown }).document;
+      }
+    };
+    try {
+      expect(await run(dashboard)).toBe(2);
+      expect(await run({ ...dashboard, pools: [] })).toBe(0);
+      expect(await run(dashboard, true)).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('poll failure keeps last data and reports it as failed, never a successful empty result', async () => {

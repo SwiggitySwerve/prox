@@ -148,13 +148,22 @@ async def destination_smoke(page,out,results):
     owners=await page.evaluate('window.__sourceSmoke.owners()')
     group=page.get_by_role('group',name='Management source',exact=True)
     before=await group.get_by_role('button',name='Beta fixture',exact=True).get_attribute('aria-pressed')
+    await page.evaluate('window.__sourceSmoke.requests.length=0')
     await group.get_by_role('button',name='Alpha fixture',exact=True).click()
     await page.wait_for_function("location.hash.includes('source=alpha')")
     await page.wait_for_timeout(500)
+    # The routed page, not just the toolbar, must follow the switch (same-path navigation).
+    reloaded=sorted({r['source'] for r in await page.evaluate('window.__sourceSmoke.requests')})
     after=await group.get_by_role('button',name='Alpha fixture',exact=True).get_attribute('aria-pressed')
     current=await page.evaluate('window.__sourceSmoke.owners()')
     await page.screenshot(path=str(out/'system-source-switch-1440.png'),full_page=True)
-    results['destinationSwitch']={'pass':before=='true' and after=='true' and current==owners,'ownersBefore':owners,'ownersAfter':current,'hash':await page.evaluate('location.hash'),'screenshot':'system-source-switch-1440.png'}
+    # Browser Back must restore the page's source along with the URL.
+    await page.evaluate('window.__sourceSmoke.requests.length=0')
+    await page.go_back()
+    await page.wait_for_function("location.hash.includes('source=beta')")
+    await page.wait_for_timeout(500)
+    reloadedBack=sorted({r['source'] for r in await page.evaluate('window.__sourceSmoke.requests')})
+    results['destinationSwitch']={'pass':before=='true' and after=='true' and current==owners and reloaded==['alpha'] and reloadedBack==['beta'],'reloadedSources':reloaded,'reloadedBackSources':reloadedBack,'ownersBefore':owners,'ownersAfter':current,'hash':await page.evaluate('location.hash'),'screenshot':'system-source-switch-1440.png'}
 
 if __name__=='__main__':
     raise SystemExit(asyncio.run(main()))

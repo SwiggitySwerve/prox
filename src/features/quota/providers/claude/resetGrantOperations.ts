@@ -59,10 +59,17 @@ const defaultDependencies = {
  * No automatic retry. Expired ambiguous operations stay blocked until session end.
  * This is not a cross-tab or durable backend spending ledger.
  */
-export function createResetGrantOperations(deps = defaultDependencies) {
+export type ResetGrantJournal = { operations: Map<string, Operation>; busy: Set<string> };
+export const createResetGrantJournal = (): ResetGrantJournal => ({
+  operations: new Map(),
+  busy: new Set(),
+});
+
+export function createResetGrantOperations(
+  deps = defaultDependencies,
+  { operations, busy } = createResetGrantJournal()
+) {
   let revision = deps.revision();
-  const operations = new Map<string, Operation>();
-  const busy = new Set<string>();
   const syncSession = () => {
     if (revision !== deps.revision()) {
       revision = deps.revision();

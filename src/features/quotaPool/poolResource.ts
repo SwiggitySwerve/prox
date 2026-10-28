@@ -31,6 +31,7 @@ export function createPoolResource(
   let read: AbortController | undefined;
   let mutation: AbortController | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
+  let collector: ReturnType<typeof setInterval> | undefined;
   const listeners = new Set<() => void>();
   const publish = (patch: Partial<PoolSnapshot>) => {
     snapshot = { ...snapshot, ...patch };
@@ -86,6 +87,12 @@ export function createPoolResource(
           // A slow backend must get a chance to finish before the next poll.
           if (!snapshot.loading) void reload();
         }, 15_000);
+        // While graphs are on screen, ask the server to collect fresh usage every minute
+        // (the server's own schedule is 5 minutes and it allows one collection per minute).
+        collector = setInterval(() => {
+          const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+          if (visible && snapshot.data?.pools.length) void refresh();
+        }, 60_000);
       }
       return () => {
         listeners.delete(listener);
@@ -96,6 +103,7 @@ export function createPoolResource(
         mutation?.abort();
         mutation = undefined;
         clearInterval(timer);
+        clearInterval(collector);
         // Discard revealed data on privacy/filter/session changes and unmount.
         snapshot = EMPTY;
       };
