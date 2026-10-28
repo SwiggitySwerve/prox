@@ -45,7 +45,7 @@ export function PoolChart({
   );
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
-  const [inspected, setSelected] = useState<number | null>(null);
+  const [inspected, setInspected] = useState<number | null>(null);
   const { fromMs, toMs, nowMs } = dashboard;
   const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
     ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
@@ -91,7 +91,7 @@ export function PoolChart({
       )
         closest = index;
     }
-    if (samples.length) setSelected(closest);
+    if (samples.length) setInspected(closest);
   };
 
   return (
@@ -118,7 +118,7 @@ export function PoolChart({
                     : null;
           if (next === null || last < 1) return;
           event.preventDefault();
-          setSelected(next);
+          setInspected(next);
         }}
       >
         <title id={`${id}-title`}>
