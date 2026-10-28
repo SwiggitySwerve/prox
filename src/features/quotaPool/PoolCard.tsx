@@ -182,6 +182,14 @@ export function PoolCard({
                 <summary>
                   <span className={styles.accountName}>
                     {reveal && account.email ? account.email : account.label}
+                    <small className={styles.accountPlan}>
+                      {account.plan.known && account.plan.label
+                        ? t('quota_pool.account_plan', {
+                            plan: account.plan.label,
+                            points: number(account.plan.capacityPoints),
+                          })
+                        : t('quota_pool.account_plan_unknown')}
+                    </small>
                   </span>
                   <span className={styles.accountStatus}>
                     {savedData && account.status === 'ok'

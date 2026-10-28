@@ -51,6 +51,7 @@ const pool: QuotaPool = {
       resetAtMs: 800,
       burnPointsPerHour: 3,
       emptyAtMs: null,
+      plan: { label: 'Max 20x', capacityPoints: 2000, known: true },
     },
   ],
 };
@@ -370,6 +371,7 @@ describe('pool presentation', () => {
     expect(markup).toContain('Unavailable');
     expect(markup).toContain('Total and forecast unavailable');
     expect(markup).toContain('Claude account 1');
+    expect(markup).toContain('Max 20x · 2,000 pts');
     expect(markup).not.toContain('private@example.test');
     // The chart itself is inspected by pointer or arrow keys; no separate slider.
     expect(markup).not.toContain('type="range"');

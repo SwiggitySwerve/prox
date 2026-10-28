@@ -10,6 +10,9 @@ export interface StoredAccount {
   retired: boolean;
   lastSeenAtMs: number;
   lastErrorAtMs: number | null;
+  /** Latest plan the provider reported, e.g. "promax" or "default_claude_max_20x". */
+  plan?: string;
+  planObservedAtMs?: number;
 }
 
 export const QUOTA_PROVIDERS: readonly PoolProviderId[] = Object.freeze(['claude', 'codex']);

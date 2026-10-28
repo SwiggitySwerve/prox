@@ -7,6 +7,7 @@ import type { PoolDashboard, PoolProviderId, PoolWindow } from '../../src/domain
 import { buildClaudeQuotaWindows } from '../../src/domain/quotaWindows/claude';
 import { buildCodexQuotaWindows } from '../../src/domain/quotaWindows/codex';
 import {
+  CLAUDE_PROFILE_URL,
   CLAUDE_USAGE_URL,
   CLAUDE_USAGE_WINDOW_KEYS,
   CLAUDE_REQUEST_HEADERS,
@@ -15,6 +16,7 @@ import {
 } from '../../src/utils/quota/constants';
 import { parseClaudeUsagePayload, parseCodexUsagePayload } from '../../src/utils/quota/parsers';
 import { isRecord } from '../../src/utils/helpers';
+import { planFromClaudeProfile, planFromCodexUsage } from './plans';
 import { QuotaStore } from './store';
 import {
   MANUAL_REFRESH_INTERVAL_MS,
@@ -24,6 +26,8 @@ import {
   type QuotaSourceView,
   type StoredAccount,
 } from './types';
+
+const PLAN_REFRESH_MS = 6 * 60 * 60 * 1000;
 
 interface CollectorDependencies {
   fetcher?: typeof fetch;
@@ -207,6 +211,7 @@ export class QuotaCollector {
   private lastRefresh: number | null = null;
   private nextRefresh: number;
   private currentIssues: PoolDashboard['issues'] = [];
+  private readonly profileAttempts = new Map<string, number>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private controller: AbortController | null = null;
@@ -333,6 +338,43 @@ export class QuotaCollector {
     this.timer.unref?.();
   }
 
+  /** Plan weight is best-effort: a failed lookup leaves the stored plan as it was. */
+  private async recordPlan(
+    account: { id: string; provider: PoolProviderId },
+    authIndex: string,
+    source: CollectionSource,
+    key: string,
+    signal: AbortSignal,
+    usageBody: unknown,
+    storedPlans: Map<string, number | null>
+  ): Promise<void> {
+    let plan: string | null = null;
+    if (account.provider === 'codex') {
+      plan = planFromCodexUsage(usageBody);
+    } else {
+      // Claude names the plan only in its profile; plans change rarely, so ask every few hours.
+      const observedAt = storedPlans.get(account.id) ?? null;
+      const attemptedAt = this.profileAttempts.get(account.id) ?? null;
+      const last = Math.max(observedAt ?? -Infinity, attemptedAt ?? -Infinity);
+      if (this.now() - last < PLAN_REFRESH_MS) return;
+      this.profileAttempts.set(account.id, this.now());
+      try {
+        const response = await this.request(source, 'requests/api-call', key, signal, {
+          authIndex,
+          method: 'GET',
+          url: CLAUDE_PROFILE_URL,
+          header: CLAUDE_REQUEST_HEADERS,
+        });
+        if (isRecord(response) && response.status_code === 200) {
+          plan = planFromClaudeProfile(response.body);
+        }
+      } catch {
+        return;
+      }
+    }
+    if (plan && !signal.aborted) this.store.recordPlan(account.id, plan, this.now());
+  }
+
   private addIssue(
     source: CollectionSource,
     provider: PoolProviderId,
@@ -457,6 +499,9 @@ export class QuotaCollector {
       if (result.status === 'rejected') throw new Error('Quota inventory persistence failed');
       accounts.push(...result.value);
     }
+    const storedPlans = new Map(
+      this.store.listAccounts().map((stored) => [stored.id, stored.planObservedAtMs ?? null])
+    );
     let cursor = 0;
     const worker = async () => {
       while (cursor < accounts.length && !signal.aborted) {
@@ -478,6 +523,15 @@ export class QuotaCollector {
             throw new Error('Quota request unavailable');
           }
           samples = quotaSamples(account.provider, account.id, response.body, this.now());
+          await this.recordPlan(
+            account,
+            authIndex,
+            source,
+            key,
+            signal,
+            response.body,
+            storedPlans
+          );
         } catch {
           if (!signal.aborted) {
             this.addIssue(source, account.provider, 'quota-unavailable');

@@ -594,6 +594,12 @@
   grid-column: 2;
   grid-row: 1;
 }
+.accountPlan {
+  margin-left: 8px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .accountStatus {
   color: #b5b5b5;
   font-size: 13px;

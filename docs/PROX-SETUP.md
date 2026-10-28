@@ -115,8 +115,10 @@ It never reads OAuth files or stores access tokens. Internal account metadata
 and quota samples live only in the private SQLite directory. Email/name fields
 are omitted from responses unless the authenticated caller explicitly reveals them.
 
-Each enabled account contributes 100 normalized points; different plans are not
-treated as equal token capacities. Weekly and five-hour windows are separate.
+Each enabled account contributes 100 points per base plan (Claude Pro or ChatGPT
+Plus) times its plan's published multiple: Claude Max 20x = 2,000, ChatGPT Pro
+200 = 1,000, Pro 500 = 2,500. Unknown plans count as 100 and are labelled.
+Points are not tokens. Weekly and five-hour windows are separate.
 Rates need at least ten minutes of current measured observations; until then the
 view reports that it is collecting history. Forecasts assume each account keeps
 its recent burn rate (or the selected multiplier) and resets on its reported

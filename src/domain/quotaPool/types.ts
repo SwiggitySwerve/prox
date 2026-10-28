@@ -23,6 +23,8 @@ export interface PoolAccount {
   resetAtMs: number | null;
   burnPointsPerHour: number | null;
   emptyAtMs: number | null;
+  /** Subscription weight; capacityPoints is 100 per base plan (Claude Pro / ChatGPT Plus). */
+  plan: { label: string | null; capacityPoints: number; known: boolean };
 }
 export interface QuotaPool {
   instanceId?: string;

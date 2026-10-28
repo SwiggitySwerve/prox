@@ -16,7 +16,11 @@ import {
 } from '../server/quota/types';
 import { validateSourceManifest } from '../src/domain/providerSources/manifest';
 import type { PoolDashboard, PoolProviderId } from '../src/domain/quotaPool/types';
-import { CLAUDE_USAGE_URL, CODEX_USAGE_URL } from '../src/utils/quota/constants';
+import {
+  CLAUDE_PROFILE_URL,
+  CLAUDE_USAGE_URL,
+  CODEX_USAGE_URL,
+} from '../src/utils/quota/constants';
 
 const NOW = 1_800_000_000_000;
 const SENTINEL = 'SYNTHETIC_PRIVATE_INVENTORY_VALUE';
@@ -207,12 +211,12 @@ describe('enumerated quota sources', () => {
       if (call.body) {
         expect(call.url.pathname).toBe('/v8/management/requests/api-call');
         expect(call.body.method).toBe('GET');
-        expect([CLAUDE_USAGE_URL, CODEX_USAGE_URL]).toContain(call.body.url);
+        expect([CLAUDE_USAGE_URL, CLAUDE_PROFILE_URL, CODEX_USAGE_URL]).toContain(call.body.url);
         expect(call.body.authIndex).toBe('same-index');
         expect(Object.keys(call.body).sort()).toEqual(['authIndex', 'header', 'method', 'url']);
       } else expect(call.url.pathname).toBe('/v8/management/credentials');
     }
-    expect(f.calls.filter((call) => call.body)).toHaveLength(4);
+    expect(f.calls.filter((call) => call.body)).toHaveLength(7);
     expect(
       JSON.stringify([f.store.listAccounts(), f.dashboard(), f.collector.issues])
     ).not.toContain(SENTINEL);

@@ -55,6 +55,11 @@ def fixture(state):
                 resetAtMs=NOW + DAY * (i + 1),
                 burnPointsPerHour=burn / count,
                 emptyAtMs=NOW + DAY * (2 + i),
+                plan=dict(
+                    label="Pro" if provider == "claude" else "Plus",
+                    capacityPoints=100,
+                    known=True,
+                ),
             )
             for i in range(count)
         ]

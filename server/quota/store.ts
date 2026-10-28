@@ -5,7 +5,10 @@ import type { PoolProviderId, PoolWindow } from '../../src/domain/quotaPool/type
 import { DAY_MS, type QuotaSample, type StoredAccount } from './types';
 import { legacyAccountId, sourceAccountId, type LegacySourceMapping } from './identity';
 
-type AccountRow = Omit<StoredAccount, 'disabled' | 'retired' | 'instanceId'> & {
+type AccountRow = Omit<
+  StoredAccount,
+  'disabled' | 'retired' | 'instanceId' | 'plan' | 'planObservedAtMs'
+> & {
   disabled: number;
   retired: number;
 };
@@ -61,21 +64,37 @@ export class QuotaStore {
         provider TEXT PRIMARY KEY CHECK (provider IN ('claude', 'codex')),
         instanceId TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS quota_account_plans (
+        accountId TEXT PRIMARY KEY REFERENCES quota_accounts(id),
+        plan TEXT NOT NULL,
+        observedAtMs INTEGER NOT NULL
+      );
     `);
   }
 
   listAccounts(): StoredAccount[] {
     return this.db
-      .query<AccountRow & { instanceId: string | null }, []>(
+      .query<
+        AccountRow & {
+          instanceId: string | null;
+          plan: string | null;
+          planObservedAtMs: number | null;
+        },
+        []
+      >(
         `
-        SELECT a.*, s.instanceId FROM quota_accounts a
-        LEFT JOIN quota_account_sources s ON s.accountId = a.id ORDER BY a.provider, a.id
+        SELECT a.*, s.instanceId, p.plan, p.observedAtMs AS planObservedAtMs
+        FROM quota_accounts a
+        LEFT JOIN quota_account_sources s ON s.accountId = a.id
+        LEFT JOIN quota_account_plans p ON p.accountId = a.id
+        ORDER BY a.provider, a.id
       `
       )
       .all()
-      .map(({ instanceId, ...row }) => ({
+      .map(({ instanceId, plan, planObservedAtMs, ...row }) => ({
         ...row,
         ...(instanceId === null ? {} : { instanceId }),
+        ...(plan === null || planObservedAtMs === null ? {} : { plan, planObservedAtMs }),
         disabled: row.disabled === 1,
         retired: row.retired === 1,
       }));
@@ -291,6 +310,15 @@ export class QuotaStore {
         clearError.run(sample.accountId, sample.observedAtMs);
       }
     })();
+  }
+
+  recordPlan(accountId: string, plan: string, nowMs: number): void {
+    this.db
+      .query(
+        `INSERT INTO quota_account_plans (accountId, plan, observedAtMs) VALUES (?, ?, ?)
+         ON CONFLICT(accountId) DO UPDATE SET plan = excluded.plan, observedAtMs = excluded.observedAtMs`
+      )
+      .run(accountId, plan, nowMs);
   }
 
   markAccountError(id: string, nowMs: number): void {
