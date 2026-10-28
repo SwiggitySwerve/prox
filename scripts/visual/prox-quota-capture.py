@@ -66,7 +66,9 @@ def fixture(state):
                     dict(id="seven-day" if provider == "claude" else "weekly",
                          labelKey="claude_quota.seven_day" if provider == "claude" else "codex_quota.secondary_window",
                          remainingPercent=round(remaining / count, 1), resetAtMs=NOW + DAY * (i + 1)),
-                ] + ([dict(id="seven-day-opus", labelKey="claude_quota.seven_day_opus",
+                ] + ([dict(id="cloud-credits", labelKey="claude_quota.cloud_session_credits",
+                           remainingPercent=0, resetAtMs=None)] if provider == "claude" and i == 0 else [])
+                  + ([dict(id="seven-day-opus", labelKey="claude_quota.seven_day_opus",
                            remainingPercent=45, resetAtMs=None)] if provider == "claude" else []),
             )
             for i in range(count)
@@ -374,6 +376,7 @@ async def main():
                 await page.locator(
                     '[class*="QuotaPoolPage"][class*="__page___"]'
                 ).wait_for()
+                assert await page.title() == "Prox"
                 if state in ("error", "loading", "empty"):
                     await page.locator(
                         '[role="alert"]'
@@ -427,6 +430,19 @@ async def main():
                 # Exercise chart keyboard inspection after capturing the fixed
                 # visual state, so screenshots stay comparable.
                 interaction = {}
+                alignment = await page.locator('article details:not([open]) ul[aria-label="Limits"]').evaluate_all('''lists => lists.flatMap(list => {
+                    const cells = [...list.children].map(li => {
+                        const cell = li.getBoundingClientRect();
+                        const label = li.querySelector(':scope > span').getBoundingClientRect();
+                        const value = li.querySelector(':scope > strong').getBoundingClientRect();
+                        return {row:cell.top, labelLeft:label.left, valueLeft:value.left, valueTop:value.top};
+                    });
+                    return cells.map(cell => ({leftOffset:Math.abs(cell.labelLeft-cell.valueLeft),
+                        rowSpread:Math.max(...cells.filter(other=>Math.abs(other.row-cell.row)<1).map(other=>other.valueTop))-
+                            Math.min(...cells.filter(other=>Math.abs(other.row-cell.row)<1).map(other=>other.valueTop))}));
+                })''')
+                assert all(cell['leftOffset'] < 1 and cell['rowSpread'] < 1 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
+                interaction["collapsed_labels_and_values_align"] = "passed"
                 if state == "ready":
                     countdown = page.locator('[class*="__countdown___"]')
                     before = await countdown.inner_text()
