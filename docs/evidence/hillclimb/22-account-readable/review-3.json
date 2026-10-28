@@ -1,0 +1,217 @@
+{
+  "lens": "Interaction and responsive accessibility. All 14 account crops reviewed. Scores concern visible presentation only; keyboard behavior, accessible names, hit areas, and measured contrast are unverified. Outer padding is excluded. Visible data and status are preserved across each pair.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        9,
+        9,
+        7,
+        8,
+        9,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Typography/numbers before 7: enlarge account names and warning descriptions; AFTER visibly improves both while retaining bold percentages.",
+        "Colour both 8: brighten the muted 'Weekly Remaining' and loaded/eligible text slightly against the dark background; preserve amber warnings.",
+        "Controls/states both 8: strengthen the visible disclosure affordance around each account chevron, for example with a subtle bounded control treatment.",
+        "Responsive/accessibility before 7, after 8: BEFORE needs larger secondary text; AFTER still needs a clearer visual association between each chevron and its account heading. Actual activation areas are not visible."
+      ]
+    },
+    "laptop": {
+      "before": [
+        9,
+        9,
+        7,
+        8,
+        9,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Typography/numbers before 7: enlarge account names and quota descriptions; AFTER does so without visible truncation.",
+        "Colour both 8: increase the visual prominence of muted header metadata and quota descriptions while retaining amber 'Low' labels.",
+        "Controls/states both 8: give account disclosure chevrons a clearer control treatment; 'Expand All' has a visibly stronger button affordance.",
+        "Responsive/accessibility before 7, after 8: improve the small secondary text in BEFORE and strengthen account disclosure cues in AFTER. All three accounts and their percentages remain visible."
+      ]
+    },
+    "narrow": {
+      "before": [
+        9,
+        9,
+        7,
+        8,
+        9,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Typography/numbers before 7: enlarge the account headings and warning descriptions; AFTER improves readability while keeping percentages aligned on the right.",
+        "Colour both 8: brighten '3 loaded · 3 eligible' and the muted warning descriptions without changing the amber status treatment.",
+        "Controls/states both 8: make each disclosure chevron read more clearly as a control; retain the explicit 'Expand All' label.",
+        "Responsive/accessibility before 7, after 8: BEFORE needs larger account text; AFTER still needs stronger visible separation or control framing for disclosure affordances. The stacked rows show no visible clipping."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        8,
+        7,
+        8,
+        9,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        8,
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy both 8: give the wrapped credential name and its warning line more distinct grouping, such as a subtle warning inset, so the warning remains clearly subordinate.",
+        "Layout both 8: align the first disclosure chevron with the first line of the long credential name; it currently sits below that line's visual center.",
+        "Typography/numbers before 7: enlarge the long name and quota descriptions; AFTER improves them and retains the complete three-line name.",
+        "Colour both 8: brighten muted quota descriptions and loaded/eligible metadata while preserving the amber unavailable and low-status text.",
+        "Controls/states both 8: strengthen the disclosure treatment beside the multiline heading so the control remains identifiable within the taller row.",
+        "Responsive/accessibility before 7, after 8: BEFORE needs larger text; AFTER needs the corrected chevron alignment and clearer heading grouping. The unavailable dash, explanatory message, and 14% remain visible."
+      ]
+    },
+    "partial": {
+      "before": [
+        9,
+        9,
+        7,
+        8,
+        9,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Typography/numbers before 7: enlarge quota descriptions and 'Weekly quota unavailable'; AFTER makes both easier to read.",
+        "Colour both 8: brighten muted header metadata and ordinary quota descriptions; retain the amber unavailable message and dash.",
+        "Controls/states both 8: strengthen account disclosure affordances, including the third account with unavailable weekly data.",
+        "Responsive/accessibility before 7, after 8: BEFORE needs larger status text; AFTER still needs clearer disclosure controls. The explicit unavailable message usefully supplements the dash and colour."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        9,
+        7,
+        8,
+        9,
+        8,
+        8,
+        7
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy before 8 and consistency before 8: place 'Stale' before the percentage so the weekly values share a right edge; AFTER makes this correction.",
+        "Typography/numbers before 7: enlarge account names and the last-observed timestamp; AFTER improves their legibility.",
+        "Colour both 8: brighten muted header and quota text while preserving the amber stale label and timestamp.",
+        "Controls/states both 8: strengthen the disclosure chevrons' visible control treatment; retain the explicit stale label beside the affected value.",
+        "Responsive/accessibility before 7, after 8: BEFORE needs larger timestamp text; AFTER still needs stronger disclosure affordances. Both versions visibly identify the stale value with text and a timestamp."
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        9,
+        7,
+        8,
+        8,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        8,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy both 8: distinguish the lower observation/forecast section with a concise heading or stronger label grouping; its four fields currently have similar visual emphasis.",
+        "Typography/numbers before 7: enlarge quota labels, reset timestamps, and diagnostic values; AFTER improves these while retaining aligned percentages.",
+        "Colour both 8: brighten muted reset timestamps and diagnostic labels; preserve amber low-state labels and their accompanying percentages.",
+        "Content before 8: clarify 'Next reset' as 'Weekly Reset'; AFTER supplies this more specific label.",
+        "Controls/states both 8: give individual downward disclosure chevrons a clearer control treatment consistent with the visible 'Collapse All' button.",
+        "Responsive/accessibility before 7, after 8: BEFORE needs larger detail text; AFTER still needs more prominent muted timestamps and disclosure cues. This wide expanded crop provides no evidence about expanded behavior at narrow widths.",
+        "AFTER is visibly taller because the details have more generous text sizing and spacing; all displayed quota values, timestamps, forecasts, and burn values remain present. No score drops."
+      ]
+    }
+  }
+}

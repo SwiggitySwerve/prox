@@ -1,0 +1,496 @@
+{
+  "lens": "Layout and typography; screenshot-visible evidence only. All fourteen account crops and the motivating screenshot inspected. No implementation inspection or interaction testing.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        7,
+        6,
+        8,
+        9,
+        7,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        6,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "phase": "comparison",
+          "detail": "Crop height decreases from 171px to 74px. Names and bold balances now form a clear single scan line."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "content",
+            "controls/states"
+          ],
+          "fix": "Remove Pro · 100 pts, Current, and the full metric grid from closed rows. Keep name, balance, and compact warning text; reveal ordinary details on expansion. The right-pointing chevron currently accompanies an already detailed block."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "typography/numbers"
+          ],
+          "fix": "Give Cloud Session Credits enough label width in the expanded details so it does not wrap while adjacent metric labels remain single-line."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "content",
+            "controls/states"
+          ],
+          "fix": "Retain compact amber summaries for account 1's Cloud Session Credits at 0% and account 2's 5-Hour Limit at 14%. Both disappear behind otherwise healthy 82.8% balances.",
+          "drop": "Content falls 7→6 and controls/states 8→7 because visible limit warnings are lost in the closed state."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "fix": "Give Expand All a compact visible button boundary consistent with the narrow screenshot, and make each row chevron easier to distinguish. Preserve the shorter header.",
+          "drop": "Consistency and responsive/accessibility fall 9→8: the outlined desktop control becomes plain text, while the narrow version retains its outline."
+        }
+      ]
+    },
+    "laptop": {
+      "before": [
+        7,
+        5,
+        8,
+        9,
+        7,
+        8,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        6,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "phase": "comparison",
+          "detail": "Crop height decreases from 226px to 74px. Three account summaries remain readable without the baseline's uneven metric grid."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "content",
+            "controls/states",
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "fix": "Move the plan, Current status, and ordinary metrics into expanded details. Account 1's additional Cloud Session Credits cell creates a taller, differently arranged grid than accounts 2 and 3; closed summaries should share one name-and-balance structure with warning exceptions."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "typography/numbers"
+          ],
+          "fix": "Keep Cloud Session Credits together within the expanded metric layout instead of splitting the label above its value in a narrow column."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "content",
+            "controls/states"
+          ],
+          "fix": "Add short amber limit-warning text for account 1's 0% Cloud Session Credits and account 2's 14% 5-Hour Limit beside or below their summaries.",
+          "drop": "Content falls 7→6 and controls/states 8→7 because the compact view hides both amber limit indicators."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "fix": "Restore a compact outline around Expand All to match the narrow presentation, and increase the visible prominence of the small row chevrons without restoring the original header height."
+        }
+      ]
+    },
+    "narrow": {
+      "before": [
+        6,
+        4,
+        8,
+        9,
+        7,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        6,
+        8,
+        8,
+        7
+      ],
+      "findings": [
+        {
+          "phase": "comparison",
+          "detail": "Crop height decreases from 587px to 203px. Names and balances remain readable in three clearly separated rows."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "content",
+            "controls/states"
+          ],
+          "fix": "Collapse the Current line, inline plan, and two-column metric grids into the expanded state. The nominally closed accounts currently occupy most of the crop."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "typography/numbers"
+          ],
+          "fix": "Remove the small Pro · 100 pts suffix from the closed name line and keep each metric label visually close to its value inside expanded details."
+        },
+        {
+          "phase": "both",
+          "aspects": [
+            "responsive/accessibility"
+          ],
+          "fix": "Reflow the account header into a deliberate two-line arrangement: keep 3 eligible together and keep Expand All on one line. The current layout strands eligible and splits the button label."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "layout"
+          ],
+          "fix": "Reduce header height through that deliberate reflow; the wrapped header currently occupies more vertical space than an individual compact account row."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "content",
+            "controls/states"
+          ],
+          "fix": "Preserve short amber warning lines for account 1's 0% Cloud Session Credits and account 2's 14% 5-Hour Limit.",
+          "drop": "Content falls 7→6 because both amber indicators disappear while every displayed balance remains 82.8%."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "consistency"
+          ],
+          "fix": "Use the same compact outlined Expand All treatment at narrow and desktop widths.",
+          "drop": "Consistency falls 9→8 because the after screenshots retain the narrow button outline but remove it at wider widths."
+        }
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        6,
+        4,
+        8,
+        9,
+        7,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        6,
+        8,
+        8,
+        7
+      ],
+      "findings": [
+        {
+          "phase": "comparison",
+          "detail": "Crop height decreases from 626px to 234px. The long credential name remains fully visible over three lines, the balance stays readable, and Weekly quota unavailable remains visible."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "content",
+            "controls/states"
+          ],
+          "fix": "Move Current, plan information, and ordinary metric grids into expanded details. Keep the long name, balance, and Weekly quota unavailable message visible when closed."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "typography/numbers"
+          ],
+          "fix": "Separate Pro · 100 pts from the long credential name by placing the plan in expanded details; it currently shares the final wrapped name line."
+        },
+        {
+          "phase": "both",
+          "aspects": [
+            "responsive/accessibility"
+          ],
+          "fix": "Keep 3 eligible and Expand All as unbroken text units in a deliberately reflowed account header."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "layout"
+          ],
+          "fix": "Reflow the crowded header while preserving the account name's full wrapping and the separate unavailable-warning line."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "content",
+            "controls/states"
+          ],
+          "fix": "Retain account 1's amber 0% Cloud Session Credits and account 2's amber 14% 5-Hour Limit as compact warning text. Keep the existing Weekly quota unavailable message.",
+          "drop": "Content falls 7→6: the unavailable warning survives, but both limit indicators disappear."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "consistency"
+          ],
+          "fix": "Match the outlined narrow Expand All button with a compact outlined treatment in the wider states.",
+          "drop": "Consistency falls 9→8 because button styling now changes across widths."
+        }
+      ]
+    },
+    "partial": {
+      "before": [
+        7,
+        5,
+        8,
+        9,
+        7,
+        8,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        6,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "phase": "comparison",
+          "detail": "Crop height decreases from 226px to 87px. Account 3 retains its amber Unavailable message and missing-balance dash."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "content",
+            "controls/states",
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "fix": "Hide plan information, Current lines, and metric grids in closed accounts. Use the same compact summary structure for all three accounts, with Unavailable retained as account 3's warning."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "typography/numbers"
+          ],
+          "fix": "Keep each metric label close to its corresponding number in expanded details; the closed grid currently spreads labels and values across several competing rows."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "layout"
+          ],
+          "fix": "Align account 3's chevron and balance dash with its name line and the neighboring summaries; place Unavailable beneath that line instead of letting the extra line shift the summary alignment."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "content",
+            "controls/states"
+          ],
+          "fix": "Keep account 1's 0% Cloud Session Credits and account 2's 14% 5-Hour Limit visible as short amber warnings alongside the retained Unavailable state.",
+          "drop": "Content falls 7→6 and controls/states 8→7 because limit-warning visibility regresses even though the unavailable state survives."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "fix": "Give Expand All a compact outline consistent with the narrow state and strengthen the tiny disclosure chevrons."
+        }
+      ]
+    },
+    "stale": {
+      "before": [
+        7,
+        5,
+        8,
+        9,
+        7,
+        8,
+        8,
+        8
+      ],
+      "after": [
+        8,
+        8,
+        9,
+        9,
+        6,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "phase": "comparison",
+          "detail": "Crop height decreases from 246px to 107px. Account 3 retains its amber stale message, observation timestamp, and Stale label beneath the balance."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "content",
+            "controls/states",
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "fix": "Move ordinary metric grids, Current lines, and plan information into expanded details. Keep account 3's stale status and observation time in its closed summary."
+        },
+        {
+          "phase": "before",
+          "aspects": [
+            "typography/numbers"
+          ],
+          "fix": "Separate account 3's stale timestamp from the ordinary metric-label grid so the wrapped timestamp reads as one warning annotation."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "hierarchy",
+            "layout"
+          ],
+          "fix": "Align account 3's chevron and balance with the name line. Keep Stale adjacent to the balance and present Last observed beneath the name without repeating Stale at the start of that annotation."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "content",
+            "controls/states"
+          ],
+          "fix": "Restore compact amber warning text for account 1's 0% Cloud Session Credits and account 2's 14% 5-Hour Limit while preserving account 3's stale information.",
+          "drop": "Content falls 7→6 and controls/states 8→7: stale warnings remain, but the other accounts lose their visible limit warnings."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "fix": "Restore a compact visible boundary around Expand All that matches the narrow state, and increase chevron visibility."
+        }
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "after": [
+        8,
+        8,
+        8,
+        9,
+        9,
+        8,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "phase": "comparison",
+          "detail": "Crop height decreases from 382px to 362px. Both screenshots visibly include plan information, limits, reset times, and amber low-limit values. This demonstrates rendered expanded content, not tested expansion behavior."
+        },
+        {
+          "phase": "both",
+          "aspects": [
+            "hierarchy"
+          ],
+          "fix": "Give the lower Last observed, Next reset, Predicted empty, and Burn metadata a clearer secondary grouping so it competes less with the remaining balance and limit values."
+        },
+        {
+          "phase": "both",
+          "aspects": [
+            "layout",
+            "consistency"
+          ],
+          "fix": "Align the start of the lower metadata grids across the three accounts. Account 1's additional Cloud Session Credits row currently pushes its metadata below the corresponding information in accounts 2 and 3."
+        },
+        {
+          "phase": "both",
+          "aspects": [
+            "typography/numbers"
+          ],
+          "fix": "Increase the small reset-time captions slightly and preserve clear spacing beneath their limit labels; these timestamps are visibly harder to read than the main values."
+        },
+        {
+          "phase": "after",
+          "aspects": [
+            "controls/states",
+            "responsive/accessibility"
+          ],
+          "fix": "Restore a compact outlined Collapse All control and strengthen the small downward disclosure chevrons while retaining the reduced header height.",
+          "drop": "Controls/states falls 9→8 and responsive/accessibility 9→8 because the outlined global control becomes plain text beside the account count."
+        }
+      ]
+    }
+  }
+}

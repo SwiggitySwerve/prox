@@ -1,0 +1,345 @@
+{
+  "lens": "data meaning and status preservation",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "scope": "Account section only. All 14 screenshots visually inspected. Accessibility scores cover visible presentation only; no interaction behavior was tested.",
+  "verdict": "The AFTER crops clarify weekly quota and expose named low-resource warnings while preserving the dark design. Unavailable and stale information remain visible. The stale account heading has an alignment regression.",
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "fix": "Replace the generic 'Remaining' heading with 'Weekly quota remaining' so the bold 82.8% values have an explicit metric. AFTER resolves this."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "fix": "Give 'Expand All' a subtle visible button boundary to distinguish the action from adjacent account counts. AFTER resolves this."
+        },
+        {
+          "version": "after",
+          "observation": "Cloud Session Credits at 0% and 5-Hour Limit at 14% occupy separate named warning rows. Their amber 'Low' labels distinguish these values from the white weekly percentages without relying on colour alone."
+        }
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "fix": "Name the metric in the 'Remaining' heading so each account's 82.8% is interpretable. AFTER supplies 'Weekly quota remaining'."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "fix": "Visually separate 'Expand All' from the status text with a restrained button surface or border. AFTER does this."
+        },
+        {
+          "version": "after",
+          "observation": "All three account names and weekly percentages remain readable. Both warning rows fit within their account columns, with labels and values visibly paired."
+        }
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "fix": "Replace 'Remaining' with an explicit weekly-quota label and give it space separate from the account counts. AFTER resolves this."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "layout",
+            "controls/states",
+            "responsive/accessibility"
+          ],
+          "fix": "Keep '3 eligible' together and keep 'Expand All' on one line by separating the title/count block from the action. AFTER applies this arrangement."
+        },
+        {
+          "version": "after",
+          "observation": "The stacked rows preserve all three weekly values. Indented warning labels remain attached to their account, and both warning percentages fit without truncation."
+        }
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "fix": "Identify the primary percentage as weekly quota in the section heading. Retain the explicit 'Weekly quota unavailable' message beside the missing-value dash. AFTER does both."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "layout",
+            "controls/states",
+            "responsive/accessibility"
+          ],
+          "fix": "Reflow the header so '3 eligible' and 'Expand All' each stay intact. AFTER separates the count block, action, and metric heading."
+        },
+        {
+          "version": "after",
+          "observation": "The long credential name remains fully visible across three lines. Its warning starts below the name. Account 2 retains both 'Weekly quota unavailable' and the dash while separately showing '5-Hour Limit · Low' at 14%; these are visibly different metrics."
+        }
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "fix": "Specify 'Weekly quota remaining' in the header so account 3's 'Unavailable' message and dash have a clear metric context. AFTER resolves this."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "fix": "Give 'Expand All' a visible button boundary. AFTER resolves this."
+        },
+        {
+          "version": "after",
+          "observation": "The '2 loaded · 3 eligible' count, account 3's unavailable status, and its dash remain visible. New warnings belong to accounts 1 and 2 and do not replace the unavailable state."
+        }
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "fix": "Name the weekly metric and consolidate the repeated 'Stale' wording into one status beside the percentage, retaining the complete last-observed timestamp. AFTER does this."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "fix": "Distinguish 'Expand All' from the account summary with a subtle button boundary. AFTER resolves this."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "layout"
+          ],
+          "regression": "Layout falls from 9 to 8: 'Claude account 3' sits below the other account-name baselines and below its own 82.8% value.",
+          "fix": "Align account 3's name and percentage with the first rows of accounts 1 and 2; place 'Stale' beneath the percentage and keep the last-observed timestamp below the heading."
+        },
+        {
+          "version": "after",
+          "observation": "The retained 82.8% remains explicitly marked 'Stale'. 'Last observed: Oct 27, 11:00 AM UTC' remains visible, preserving the age context."
+        }
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "fix": "Label the summary percentage as weekly quota and add explicit 'Low' text to the amber Cloud Session Credits and 5-Hour Limit rows. AFTER supplies both."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "layout"
+          ],
+          "fix": "Align the last-observed and forecast blocks across the three accounts and separate them from the resource rows. AFTER adds aligned dividers and metadata blocks."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "fix": "Increase the small reset-timestamp text beneath the 5-Hour and 7-Day limits while preserving its secondary emphasis. AFTER renders these timestamps more legibly."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "fix": "Give 'Collapse All' a visible button boundary. AFTER resolves this."
+        },
+        {
+          "version": "after",
+          "observation": "Visible percentages, plan points, reset timestamps, last-observed values, predicted-empty values, and burn rates are preserved. 'Current' remains visible, and textual 'Low' warnings supplement the amber resource values."
+        }
+      ]
+    }
+  }
+}

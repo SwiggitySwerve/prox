@@ -66,6 +66,35 @@ describe('combined provider totals', () => {
     expect(data.combined!.claude.series?.remainingPoints).toBe(78);
     expect(data.combined!.codex.series?.remainingPoints).toBe(76);
   });
+  test('returns aligned per-provider contributions with the same totals and no account metadata', () => {
+    const combined = buildDashboard(accounts, samples, options, collection).combined!.all;
+    expect(combined.layers?.map((layer) => layer.provider)).toEqual(['claude', 'codex']);
+    for (const kind of ['recorded', 'projected'] as const) {
+      const total = combined.series![kind];
+      for (const layer of combined.layers!) {
+        expect(layer[kind].map((point) => point.atMs)).toEqual(total.map((point) => point.atMs));
+        expect('accounts' in layer).toBe(false);
+      }
+      total.forEach((point, index) => {
+        if (point.remainingPoints !== null)
+          expect(
+            combined.layers!.reduce((sum, layer) => sum + layer[kind][index].remainingPoints!, 0)
+          ).toBeCloseTo(point.remainingPoints, 8);
+      });
+    }
+    expect(JSON.stringify(combined.layers)).not.toContain('private');
+    const projected = combined.series!.projected;
+    const resetIndex = projected.findIndex(
+      (point, index) => index > 0 && point.atMs === projected[index - 1].atMs
+    );
+    expect(resetIndex).toBeGreaterThan(0);
+    const codex = combined.layers!.find((layer) => layer.provider === 'codex')!;
+    // Claude's first reset must not introduce a jump in Codex's layer.
+    expect(codex.projected[resetIndex].remainingPoints).toBe(
+      codex.projected[resetIndex - 1].remainingPoints
+    );
+  });
+
   test('preserves independent consumption and simultaneous or staggered reset jumps', () => {
     const a = [point(0, 10), point(10, 0), point(10, 100), point(20, 90)];
     const b = [point(0, 30), point(5, 25), point(5, 75), point(20, 60)];
@@ -179,7 +208,9 @@ describe('combined provider totals', () => {
         );
         expect(total.capacityPoints).toBe(4500);
         expect(total.remainingPoints).toBe(3460);
-        expect(total.projected.at(-1)?.atMs).toBe(Math.max(...data.pools.map(pool => pool.projected.at(-1)!.atMs)));
+        expect(total.projected.at(-1)?.atMs).toBe(
+          Math.max(...data.pools.map((pool) => pool.projected.at(-1)!.atMs))
+        );
         expect(total.projected.at(-1)!.atMs).toBeLessThanOrEqual(data.toMs);
       }
   });

@@ -7,6 +7,8 @@ import type { PoolDashboard, PoolPoint, QuotaPool } from '../src/domain/quotaPoo
 import type { PoolQuery, PoolRefresh } from '../src/services/api/quotaPool';
 import {
   chartGeometry,
+  stackSamples,
+  bandSegments,
   chartSamples,
   dayTicks,
   fitChartFrame,
@@ -500,6 +502,109 @@ describe('honest chart geometry', () => {
   });
 });
 
+describe('stacked chart geometry', () => {
+  const sample = (at: number, value: number | null) => ({
+    point: point(at, value),
+    projected: false,
+  });
+  test('each band retains its own thickness as the layer below depletes', () => {
+    const layers = stackSamples(
+      [
+        [sample(0, 70), sample(10, 20)],
+        [sample(0, 30), sample(10, 30)],
+      ],
+      [sample(0, 100), sample(10, 50)],
+      'remaining'
+    );
+    expect(layers[0].map((p) => [p.lower, p.upper])).toEqual([
+      [0, 70],
+      [0, 20],
+    ]);
+    expect(layers[1].map((p) => [p.lower, p.upper])).toEqual([
+      [70, 100],
+      [20, 50],
+    ]);
+    expect(layers[1].map((p) => p.upper! - p.lower!)).toEqual([30, 30]);
+    expect(
+      bandSegments(
+        layers[1],
+        false,
+        (v) => v,
+        (v) => 100 - v
+      )
+    ).toEqual(['M0,0 L10,50 L10,80 L0,30 Z']);
+  });
+  test('unknown or misaligned contributors break every stacked band', () => {
+    const total = [sample(0, 100), sample(5, null), sample(10, 50)];
+    const layers = stackSamples(
+      [
+        [sample(0, 70), sample(5, 50), sample(10, 20)],
+        [sample(0, 30), sample(5, 30), sample(10, 30)],
+      ],
+      total,
+      'remaining'
+    );
+    for (const layer of layers) {
+      expect(layer[1].upper).toBeNull();
+      expect(
+        bandSegments(
+          layer,
+          false,
+          (v) => v,
+          (v) => v
+        )
+      ).toHaveLength(2);
+    }
+    const bad = stackSamples([[sample(1, 70)], [sample(0, 30)]], [sample(0, 100)], 'remaining');
+    expect(bad.flat().every((point) => point.upper === null)).toBe(true);
+  });
+  test('signed drain uses distinct positive and negative baselines', () => {
+    const p = (value: number) => ({
+      point: { ...point(0, 10), drainPointsPerHour: value },
+      projected: false,
+    });
+    const layers = stackSamples([[p(-8)], [p(3)], [p(-2)]], [p(-7)], 'drain');
+    expect(layers.map((layer) => [layer[0].lower, layer[0].upper])).toEqual([
+      [0, -8],
+      [0, 3],
+      [-8, -10],
+    ]);
+  });
+  test('stacked readouts retain the selected provider value and render two distinct colored bands', async () => {
+    await i18n.changeLanguage('en');
+    const a = {
+      ...pool,
+      provider: 'claude' as const,
+      recorded: [point(100, 70), point(500, 20)],
+      projected: [],
+    };
+    const b = {
+      ...pool,
+      provider: 'codex' as const,
+      recorded: [point(100, 30), point(500, 30)],
+      projected: [],
+    };
+    const total = {
+      ...pool,
+      capacityPoints: 400,
+      recorded: [point(100, 100), point(500, 50)],
+      projected: [],
+    };
+    const markup = renderToStaticMarkup(
+      createElement(PoolComparisonChart, {
+        pools: [a, b],
+        stackedTotal: total,
+        dashboard,
+        mode: 'remaining',
+      })
+    );
+    expect(markup.match(/data-stack-band="recorded"/g) ?? []).toHaveLength(2);
+    expect(markup).toContain('Codex ·');
+    expect(markup).toContain('30 points · Recorded');
+    expect(markup).not.toContain('data-series="total"');
+  });
+});
+
 describe('pool presentation', () => {
   test('exposes charts before account rows while retaining balances and the quota window', async () => {
     await i18n.changeLanguage('en');
@@ -619,7 +724,9 @@ describe('pool presentation', () => {
     expect(markup).toContain('Max 20x · 2,000 pts');
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
-    expect(markup).toMatch(/<li data-low="true"><span>5-hour limit<\/span>[\s\S]*?12%/);
+    expect(markup).toMatch(
+      /<li data-low="true"><span>5-hour limit<em[\s\S]*?Low<\/em><\/span>[\s\S]*?12%/
+    );
     expect(markup).toMatch(/<li data-low="false"><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64%/);
     // Accounts start collapsed (numbers only); one control expands the whole section.
     expect(markup).toMatch(

@@ -6,6 +6,8 @@ import {
   fitChartFrame,
   chartGeometry,
   chartSamples,
+  stackSamples,
+  bandSegments,
   dayTicks,
   metricField,
   type ChartMode,
@@ -24,6 +26,7 @@ interface ChartProps {
   mode: ChartMode;
   savedData?: boolean;
   minimized?: boolean;
+  stackedTotal?: PoolTrace;
 }
 
 export function PoolChart({ pool, ...props }: ChartProps & { pool: QuotaPool }) {
@@ -41,6 +44,7 @@ function PoolChartView({
   savedData = false,
   minimized = false,
   comparison = false,
+  stackedTotal,
 }: ChartProps & { pools: ChartPool[]; comparison?: boolean }) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -67,7 +71,8 @@ function PoolChartView({
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
   const [inspected, setInspected] = useState<number | null>(null);
   const { fromMs, toMs, nowMs } = dashboard;
-  const series = pools.map((pool) => {
+  const field = metricField[mode];
+  const rawSeries = pools.map((pool) => {
     const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
       ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
     );
@@ -75,6 +80,38 @@ function PoolChartView({
       pool,
       samples,
       sparseProjection: samples.filter((sample) => sample.projected).length < 3,
+    };
+  });
+  const totalSamples = stackedTotal
+    ? chartSamples(stackedTotal.recorded, stackedTotal.projected, mode).filter(
+        ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
+      )
+    : [];
+  const stacked = stackedTotal
+    ? stackSamples(
+        rawSeries.map((series) => series.samples),
+        totalSamples,
+        mode
+      )
+    : undefined;
+  const series = rawSeries.map((series, index) => {
+    const samples = series.samples.map((sample, at) => {
+      const position = stacked ? (stacked[index][at]?.upper ?? null) : sample.point[field];
+      return {
+        ...sample,
+        position,
+        base: stacked?.[index][at]?.lower ?? 0,
+        point: stacked && position === null ? { ...sample.point, [field]: null } : sample.point,
+      };
+    });
+    return {
+      ...series,
+      samples,
+      plotSamples: samples.map((sample) => ({
+        ...sample,
+        point: { ...sample.point, [field]: sample.position },
+      })),
+      band: stacked?.[index],
     };
   });
   const samples = series.flatMap(({ pool, samples }) =>
@@ -85,15 +122,23 @@ function PoolChartView({
   const poolLabel = (pool: ChartPool) =>
     `${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel || pool.instanceId ? ` · ${pool.sourceLabel ?? pool.instanceId}` : ''}`;
   const geometry = chartGeometry(
-    samples,
+    stacked
+      ? stacked.flatMap((layer) =>
+          layer.flatMap((sample) =>
+            [sample.lower, sample.upper].map((value) => ({
+              ...sample,
+              point: { ...sample.point, [field]: value },
+            }))
+          )
+        )
+      : samples,
     mode,
-    Math.max(0, ...pools.map((pool) => pool.capacityPoints)),
+    stackedTotal?.capacityPoints ?? Math.max(0, ...pools.map((pool) => pool.capacityPoints)),
     fromMs,
     toMs,
     chartFrame
   );
   const { x, y, min, max, segments } = geometry;
-  const field = metricField[mode];
   const latestRecorded = samples.reduce(
     (latest, { point, projected }, index) => (!projected && point.atMs <= nowMs ? index : latest),
     0
@@ -127,10 +172,15 @@ function PoolChartView({
     const cursorX = ((event.clientX - bounds.left) / bounds.width) * chartFrame.width;
     const cursorY = ((event.clientY - bounds.top) / bounds.height) * chartFrame.height;
     const distance = (index: number) => {
-      const { point } = samples[index];
+      const { point, position, base } = samples[index];
       const dx = Math.abs(x(point.atMs) - cursorX);
       // On an overlay, equal timestamps must still allow either provider to be inspected.
-      return comparison && point[field] !== null ? Math.hypot(dx, y(point[field]) - cursorY) : dx;
+      if (stackedTotal && position !== null) {
+        const top = Math.min(y(position), y(base));
+        const bottom = Math.max(y(position), y(base));
+        return Math.hypot(dx, Math.max(top - cursorY, 0, cursorY - bottom));
+      }
+      return comparison && position !== null ? Math.hypot(dx, y(position) - cursorY) : dx;
     };
     let closest = 0;
     for (let index = 1; index < samples.length; index += 1) {
@@ -176,8 +226,10 @@ function PoolChartView({
         </title>
         <desc id={`${id}-desc`}>
           {t(
-            pools[0]?.provider === 'total'
-              ? 'quota_pool.total_description'
+            stackedTotal
+              ? mode === 'remaining'
+                ? 'quota_pool.stacked_description'
+                : 'quota_pool.stacked_rate_description'
               : comparison
                 ? 'quota_pool.combined_description'
                 : 'quota_pool.chart_description'
@@ -227,51 +279,68 @@ function PoolChartView({
           );
         })}
         <g clipPath={`url(#${id}-clip)`}>
-          {series.map(({ pool, samples: seriesSamples, sparseProjection }, seriesIndex) => (
-            <g
-              key={seriesIndex}
-              className={styles[pool.provider]}
-              data-series={pool.instanceId ?? pool.provider}
-            >
-              {[false, true].map((projected) =>
-                segments(projected, seriesSamples).map((path, index) => {
-                  const firstX = path.slice(1).split(',')[0];
-                  const lastX = path.split(' L').slice(-1)[0]?.replace(/^M/, '').split(',')[0];
-                  return (
-                    <g key={`${projected}-${index}`}>
-                      {mode === 'remaining' && !comparison && (
-                        <path
-                          d={`${path} L${lastX},${y(0)} L${firstX},${y(0)} Z`}
-                          fill={`url(#${id}-fill)`}
-                        />
-                      )}
+          {series.map(
+            (
+              { pool, samples: seriesSamples, plotSamples, band, sparseProjection },
+              seriesIndex
+            ) => (
+              <g
+                key={seriesIndex}
+                className={styles[pool.provider]}
+                data-series={pool.instanceId ?? pool.provider}
+              >
+                {band &&
+                  [false, true].flatMap((projected) =>
+                    bandSegments(band, projected, x, y).map((path, index) => (
                       <path
+                        key={`band-${projected}-${index}`}
+                        data-stack-band={projected ? 'projected' : 'recorded'}
                         d={path}
-                        fill="none"
-                        stroke="var(--pool-accent)"
-                        strokeWidth="2.4"
-                        strokeDasharray={projected ? '7 5' : undefined}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                        fill="var(--pool-accent)"
+                        fillOpacity={projected ? 0.14 : 0.3}
                       />
-                    </g>
-                  );
-                })
-              )}
-              {seriesSamples.map(({ point, projected }, index) =>
-                point[field] === null || (projected && !sparseProjection) ? null : (
-                  <circle
-                    key={index}
-                    cx={x(point.atMs)}
-                    cy={y(point[field])}
-                    r={seriesSamples.length < 3 ? 3 : 1.5}
-                    fill="var(--pool-accent)"
-                    opacity={projected ? 0.6 : 1}
-                  />
-                )
-              )}
-            </g>
-          ))}
+                    ))
+                  )}
+                {[false, true].map((projected) =>
+                  segments(projected, plotSamples).map((path, index) => {
+                    const firstX = path.slice(1).split(',')[0];
+                    const lastX = path.split(' L').slice(-1)[0]?.replace(/^M/, '').split(',')[0];
+                    return (
+                      <g key={`${projected}-${index}`}>
+                        {mode === 'remaining' && !comparison && (
+                          <path
+                            d={`${path} L${lastX},${y(0)} L${firstX},${y(0)} Z`}
+                            fill={`url(#${id}-fill)`}
+                          />
+                        )}
+                        <path
+                          d={path}
+                          fill="none"
+                          stroke="var(--pool-accent)"
+                          strokeWidth="2.4"
+                          strokeDasharray={projected ? '7 5' : undefined}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </g>
+                    );
+                  })
+                )}
+                {seriesSamples.map(({ point, projected, position }, index) =>
+                  position === null || (projected && !sparseProjection) ? null : (
+                    <circle
+                      key={index}
+                      cx={x(point.atMs)}
+                      cy={y(position!)}
+                      r={seriesSamples.length < 3 ? 3 : 1.5}
+                      fill="var(--pool-accent)"
+                      opacity={projected ? 0.6 : 1}
+                    />
+                  )
+                )}
+              </g>
+            )
+          )}
           {visible(nowMs) && (
             <line
               x1={x(nowMs)}
@@ -281,7 +350,7 @@ function PoolChartView({
               className={styles.nowLine}
             />
           )}
-          {sample && sample.point[field] !== null && (
+          {sample && sample.position !== null && (
             <g className={styles[sample.pool.provider]}>
               <line
                 x1={x(sample.point.atMs)}
@@ -293,7 +362,7 @@ function PoolChartView({
               />
               <circle
                 cx={x(sample.point.atMs)}
-                cy={y(sample.point[field])}
+                cy={y(sample.position)}
                 r="5"
                 fill="var(--pool-accent)"
                 stroke="#111"
@@ -302,6 +371,7 @@ function PoolChartView({
             </g>
           )}
           {mode === 'remaining' &&
+            !stackedTotal &&
             pools.map(
               (pool, index) =>
                 visible(pool.poolEmptyAtMs) && (

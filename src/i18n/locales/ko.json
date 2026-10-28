@@ -2317,6 +2317,9 @@
     "expired": "바인딩 세션이 만료되었습니다. 다시 시작하세요."
   },
   "quota_pool": {
+    "stacked_rate_description": "각 영역은 한 공급자의 소모율입니다. 양수와 음수 순소모율은 0의 반대쪽에 누적됩니다.",
+    "stacked_providers": "공급자 누적",
+    "stacked_description": "각 색상 영역은 공급자 하나를 나타내며 두께는 해당 공급자의 잔여 할당량입니다. 최상단은 합계를 나타냅니다.",
     "series_view": "차트 보기",
     "provider_lines": "공급자별 선",
     "combined_total": "전체 합계",
@@ -2451,6 +2454,9 @@
     "no_accounts_help": "계정을 연결하여 합산 할당량을 확인하세요.",
     "add_credentials": "인증 정보 추가",
     "limits": "한도",
+    "account_reset": "{{window}} 초기화",
+    "account_remaining": "{{window}} 잔여",
+    "limit_low": "부족",
     "limit_resets": "{{date}} 초기화",
     "expand_accounts": "모두 펼치기",
     "collapse_accounts": "모두 접기"

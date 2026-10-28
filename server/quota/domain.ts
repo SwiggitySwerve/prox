@@ -186,7 +186,8 @@ function recordedHistory(
   options: DashboardOptions,
   fromMs: number,
   toMs: number,
-  { scale, histories }: ReturnType<typeof accountHistories>
+  { scale, histories }: ReturnType<typeof accountHistories>,
+  sharedTimes?: readonly number[]
 ): PoolPoint[] {
   const { nowMs, lookbackHours } = options;
   const bucketTimes = new Map<number, number>();
@@ -200,25 +201,25 @@ function recordedHistory(
     const bucket = Math.floor(sample.observedAtMs / REFRESH_INTERVAL_MS);
     bucketTimes.set(bucket, Math.max(bucketTimes.get(bucket) ?? 0, sample.observedAtMs));
   }
-  const recorded = [...bucketTimes.values()]
-    .sort((a, b) => a - b)
-    .map((time): PoolPoint => {
-      const snapshots = active.map((a) =>
-        scale(a.id, currentSample(histories.get(a.id)!, time)?.remainingPercent ?? null)
-      );
-      const historicalRates = active.map((a) => {
-        const measured = measuredRates(histories.get(a.id)!, time, lookbackHours);
-        return { burn: scale(a.id, measured.burn), drain: scale(a.id, measured.drain) };
-      });
-      return {
-        atMs: time,
-        remainingPoints: sumKnown(snapshots),
-        burnPointsPerHour: sumKnown(historicalRates.map((r) => r.burn)),
-        drainPointsPerHour: sumKnown(historicalRates.map((r) => r.drain)),
-      };
+  const recorded = (
+    sharedTimes ? [...sharedTimes] : [...bucketTimes.values()].sort((a, b) => a - b)
+  ).map((time): PoolPoint => {
+    const snapshots = active.map((a) =>
+      scale(a.id, currentSample(histories.get(a.id)!, time)?.remainingPercent ?? null)
+    );
+    const historicalRates = active.map((a) => {
+      const measured = measuredRates(histories.get(a.id)!, time, lookbackHours);
+      return { burn: scale(a.id, measured.burn), drain: scale(a.id, measured.drain) };
     });
+    return {
+      atMs: time,
+      remainingPoints: sumKnown(snapshots),
+      burnPointsPerHour: sumKnown(historicalRates.map((r) => r.burn)),
+      drainPointsPerHour: sumKnown(historicalRates.map((r) => r.drain)),
+    };
+  });
   // Break lines across unobserved collection gaps; SVG must not connect them.
-  for (let i = recorded.length - 1; i > 0; i--) {
+  for (let i = sharedTimes ? 0 : recorded.length - 1; i > 0; i--) {
     if (recorded[i].atMs - recorded[i - 1].atMs > STALE_MS) {
       recorded.splice(i, 0, {
         atMs: recorded[i - 1].atMs + STALE_MS,
@@ -427,25 +428,31 @@ export function buildDashboard(
           (issue) => issue.instanceId === pool.instanceId && issue.provider === pool.provider
         )
     );
+  const history = (selected: QuotaPool[], times?: number[]) => {
+    const active = accounts.filter(
+      (account) =>
+        !account.retired &&
+        !account.disabled &&
+        selected.some(
+          (pool) => pool.provider === account.provider && pool.instanceId === account.instanceId
+        )
+    );
+    return recordedHistory(
+      active,
+      filtered,
+      options,
+      fromMs,
+      toMs,
+      accountHistories(active, filtered),
+      times
+    );
+  };
   const combined = (selected: QuotaPool[]) =>
-    combinedPools(selected, () => {
-      const active = accounts.filter(
-        (account) =>
-          !account.retired &&
-          !account.disabled &&
-          selected.some(
-            (pool) => pool.provider === account.provider && pool.instanceId === account.instanceId
-          )
-      );
-      return recordedHistory(
-        active,
-        filtered,
-        options,
-        fromMs,
-        toMs,
-        accountHistories(active, filtered)
-      );
-    });
+    combinedPools(
+      selected,
+      () => history(selected),
+      (eligible, times) => eligible.map((pool) => history([pool], times))
+    );
   return {
     nowMs: options.nowMs,
     fromMs,

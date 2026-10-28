@@ -1,0 +1,215 @@
+{
+  "lens": "Interaction and responsive accessibility, visual evidence only. All seven pairs inspected. Scores do not establish keyboard behavior, semantics, target dimensions, or measured contrast. Parent padding is excluded. Visible account values and statuses are preserved.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy 8→9: bold Accounts gives the section a clearer entry point; the before heading needed this distinction from its metadata.",
+        "Typography/numbers 8→8: secondary quota labels remain small beside bold percentages. Increase their text size slightly while preserving the numeric emphasis.",
+        "Controls/states and responsive/accessibility 8→8: individual disclosure chevrons remain visually slight beside the explicit Expand All button. Enlarge the visible chevrons and strengthen their contrast; the screenshots do not establish their clickable area.",
+        "No score drops. Three-column alignment and all displayed values remain intact."
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy 8→9: bold Accounts separates the section name from Weekly Remaining and the loaded count.",
+        "Typography/numbers 8→8: small secondary quota labels are less prominent than the percentages. Increase their text size slightly within the available column space.",
+        "Controls/states and responsive/accessibility 8→8: individual chevrons remain understated. Increase their visible size and contrast so per-account expansion is easier to discover.",
+        "No score drops. All three columns retain readable labels and unobstructed values."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy 8→9: the stronger Accounts heading helps distinguish the wrapped section header from account rows.",
+        "Typography/numbers 8→8: Cloud Session Credits and 5-Hour Limit remain small. Increase their text size while retaining the separate right-aligned values.",
+        "Controls/states and responsive/accessibility 8→8: the tiny row chevrons are visually weaker than Expand All. Enlarge the disclosure marks and give them a clearer reserved space beside each account name.",
+        "No score drops. The stacked layout preserves labels, percentages, and Low text without visible clipping."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        8,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy 8→9: bold Accounts improves the section entry point without obscuring the loaded count.",
+        "Layout 8→8: the long credential occupies three lines beside 82.8%. For lengthy names, place the weekly value on a dedicated summary line to release more width for the name.",
+        "Typography/numbers 8→8: secondary quota labels remain small beneath the wrapped name and unavailable message. Increase their text size slightly.",
+        "Controls/states and responsive/accessibility 8→8: small chevrons are particularly easy to overlook beside multiline content. Enlarge the disclosure marks and maintain a distinct disclosure gutter.",
+        "No score drops. The full credential, unavailable weekly quota, dash, and remaining quota values stay visible."
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy 8→9: bold Accounts creates a clearer section heading.",
+        "Content 8→9: Unavailable becomes Weekly quota unavailable, resolving which datum is missing while preserving the dash.",
+        "Typography/numbers 8→8: secondary quota and unavailable text remain small. Increase their text size slightly while keeping percentages visually dominant.",
+        "Controls/states and responsive/accessibility 8→8: individual expansion still relies on slight chevrons. Enlarge their visible size and strengthen contrast.",
+        "No score drops. The missing weekly value remains distinguishable from the valid 0% quota."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        9,
+        8,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        8,
+        7,
+        8
+      ],
+      "findings": [
+        "Hierarchy 8→9: bold Accounts improves the section heading.",
+        "Layout 8→9: placing Stale beside 82.8% removes an extra status line and brings Last observed closer to the account summary. This addresses the before layout's additional vertical separation.",
+        "Consistency 8→7: inline Stale shifts the third account's percentage left while the other percentages remain at their column edges. Place Stale beside the account name or in a separate status slot so every percentage retains the same alignment.",
+        "Typography/numbers 8→8: quota labels and the observation timestamp remain small. Increase secondary text size while preserving the complete timestamp.",
+        "Controls/states and responsive/accessibility 8→8: enlarge the slight disclosure chevrons and strengthen their contrast. Stale already has an explicit text label, which should remain."
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Hierarchy 8→9: bold Accounts strengthens the section heading above the expanded detail.",
+        "Typography/numbers 8→8: reset timestamps, plan metadata, and detail labels remain small across a dense panel. Increase secondary text size and preserve separation between labels and values.",
+        "Content 8→8: Next reset does not identify its quota, while each account also displays multiple limit-specific reset dates. Name the quota represented by this summary without changing its timestamp.",
+        "Controls/states and responsive/accessibility 8→8: downward chevrons distinguish expanded rows, but remain visually slight. Enlarge them and strengthen contrast; retain the explicit Collapse All label.",
+        "No score drops. Bars, percentages, timestamps, and burn values remain visible. Only a wide expanded screenshot was supplied, so expanded mobile behavior is unassessed."
+      ]
+    }
+  }
+}

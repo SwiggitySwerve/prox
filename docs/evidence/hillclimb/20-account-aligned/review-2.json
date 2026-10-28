@@ -1,0 +1,206 @@
+{
+  "lens": "Data meaning and status preservation. All 14 screenshots inspected. Scores assess visible presentation only; interaction, measured contrast and accessibility compliance were not tested. Parent padding is excluded from judgment.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "All three 82.8% weekly values, the 0% Cloud Session Credits warning, the 14% 5-Hour Limit warning, loaded/eligible counts and Expand All remain visible.",
+        "Moving Weekly Remaining into the section heading preserves the shared meaning of the bold percentages. Warning labels still distinguish the other quota values.",
+        "No score drops or visible information loss."
+      ]
+    },
+    "laptop": {
+      "before": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "The revised heading fits on one line. All account names, percentages, warning types and counts remain readable without visible overlap.",
+        "The two Low warnings retain both amber styling and text, preserving their meaning independently of colour.",
+        "No score drops or visible information loss."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy/layout fix: move the separate right-aligned Weekly quota remaining line into the Accounts heading. The after screenshot implements this and removes a header row while retaining the loaded/eligible line.",
+        "All three account values and both warning rows survive the more compact layout. Expand All remains separate from the heading.",
+        "No score drops."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy/layout fix: combine the detached weekly metric label with Accounts. The after screenshot implements this without hiding the loaded/eligible count.",
+        "The complete long account name remains visible across three lines, with 82.8% kept separate at the right.",
+        "Account 2 preserves the missing weekly value as a dash and explicitly says Weekly quota unavailable while retaining the distinct 5-Hour Limit Low warning and 14%. Missing data is not presented as zero.",
+        "No score drops."
+      ]
+    },
+    "partial": {
+      "before": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        8,
+        9
+      ],
+      "findings": [
+        "Both content/consistency fix: replace account 3's generic Unavailable with Weekly quota unavailable, matching the explicit wording in long-narrow. The current wording does not identify whether the account or its weekly quota is unavailable.",
+        "The dash, amber unavailable status, 2 loaded / 3 eligible count and the other accounts' values and warnings are preserved.",
+        "No score drops; the wording ambiguity is unchanged."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Both hierarchy/controls-states fix: place Stale immediately beside account 3's 82.8%, or qualify it as 82.8% · Stale. Its bold percentage currently resembles the current values, with the freshness qualifier on a separate line.",
+        "The after screenshot aligns account 3's name with the other names while retaining Stale and Last observed: Oct 27, 11:00 AM UTC.",
+        "The stale value, observation time, loaded/eligible count and both Low warnings remain present. No score drops."
+      ]
+    },
+    "expanded": {
+      "before": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Both content fix: explicitly label the expanded quota percentages as remaining, for example with a small Remaining label above the numeric column. Labels such as 5-Hour Limit and 7-Day Opus do not independently specify used versus remaining; the section heading specifies weekly values only.",
+        "All visible quota percentages, bars, Low labels, reset timestamps, Current labels, Pro / 100 pts metadata, observation times, next resets, predicted-empty times and burn rates are preserved.",
+        "Collapse All and downward disclosure indicators retain the visible expanded state. The revised spacing keeps the three detail columns aligned.",
+        "No score drops or visible information loss."
+      ]
+    }
+  }
+}

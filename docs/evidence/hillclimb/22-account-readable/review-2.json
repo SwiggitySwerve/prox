@@ -1,0 +1,212 @@
+{
+  "lens": "Data meaning and status preservation in the existing compact dark design. All 14 crops inspected. AFTER preserves the visible values and status information while enlarging supporting text. Accessibility scores cover visible readability only; outer padding, measured contrast and interaction behavior are unassessed. No score drops.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Both hierarchy 8: the bold 82.8% relies on the section heading for its meaning. Add a compact 'weekly' qualifier beside each headline percentage.",
+        "Both content 8: 'Cloud Session Credits' and '5-Hour Limit' do not explicitly identify their percentages as remaining. Add 'remaining' to those metric labels.",
+        "BEFORE typography/numbers and responsive/accessibility 8: enlarge the secondary metric labels and disclosure chevrons; AFTER visibly addresses both.",
+        "AFTER retains all three 82.8% values, the 0% and 14% warnings, both Low labels, and the 3 loaded / 3 eligible counts."
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Both hierarchy 8: label each bold 82.8% as weekly so its meaning remains local to its account column.",
+        "Both content 8: qualify the Cloud Session Credits and 5-Hour Limit percentages with 'remaining'.",
+        "BEFORE typography/numbers and responsive/accessibility 8: increase the small supporting labels and chevrons; AFTER does so while keeping the warning labels and values on their respective rows.",
+        "AFTER preserves the three-column arrangement, account names, counts, percentages and Low statuses without visible truncation."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Both hierarchy 8: add a compact weekly qualifier to the repeated 82.8% values; their explanation currently appears only above the stacked accounts.",
+        "Both content 8: explicitly label 0% credits and 14% five-hour quota as remaining.",
+        "BEFORE typography/numbers and responsive/accessibility 8: enlarge the supporting warning text and chevrons. AFTER improves their visible readability while keeping percentages right-aligned.",
+        "AFTER preserves all three account rows, both Low warnings, counts and Expand All. The slightly taller stack shows no visible loss of content."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Both hierarchy 8: add a weekly qualifier beside the headline percentages and unavailable dash to identify the same metric consistently.",
+        "Both content 8: add 'remaining' to the Cloud Session Credits and 5-Hour Limit labels.",
+        "BEFORE typography/numbers and responsive/accessibility 8: enlarge the long account name and secondary metric text. AFTER does so; the complete credential label still occupies three lines and stays separate from 82.8%.",
+        "AFTER retains account 2's unavailable weekly quota together with its separate 14% Low five-hour quota. The dash remains distinct from account 1's actual 0% credits.",
+        "The 2 loaded / 3 eligible counts and all three accounts remain visible."
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Both hierarchy 8: give the available headline percentages a compact weekly qualifier, matching the explicit weekly explanation beneath account 3.",
+        "Both content 8: identify the secondary 0% and 14% metrics as remaining.",
+        "BEFORE typography/numbers and responsive/accessibility 8: enlarge the warning and unavailable-quota text; AFTER visibly addresses this.",
+        "AFTER preserves account 3's dash and 'Weekly quota unavailable', the 2 loaded / 3 eligible counts, and both Low warnings. Missing weekly data remains visually distinct from zero credits."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "BEFORE hierarchy and consistency 8: move Stale before account 3's percentage so the warning precedes the value and the percentage aligns with the other account values. AFTER makes this change.",
+        "BEFORE typography/numbers and responsive/accessibility 8: enlarge the last-observed timestamp and supporting warning text; AFTER does so without visible truncation.",
+        "Both content 8: clarify what '2 loaded' counts when three accounts display percentages and one is stale; make the count label explicit while preserving the displayed count. Also qualify the secondary quota percentages as remaining.",
+        "AFTER preserves Stale, 82.8%, and 'Last observed: Oct 27, 11:00 AM UTC' together. The cached-looking value is still visibly qualified by its stale status."
+      ]
+    },
+    "expanded": {
+      "before": [
+        9,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "BEFORE typography/numbers and responsive/accessibility 8: enlarge the quota labels, reset timestamps and lower metadata. AFTER improves all three while preserving their grouping.",
+        "BEFORE content 8: replace 'Next reset' with the specific reset period. The visible five-hour reset dates precede the dates under that label. AFTER's 'Weekly Reset' matches the displayed seven-day reset dates and resolves the ambiguity.",
+        "AFTER preserves Pro / 100 pts, Current labels, all quota percentages and bars, both Low warnings, individual reset timestamps, last-observed times, predicted-empty dates and 1.2 points/h burn values.",
+        "Collapse All and downward disclosure chevrons remain visible. The expanded crop is taller, with all shown information retained and no visible overlap."
+      ]
+    }
+  }
+}

@@ -69,7 +69,10 @@ export type PoolTrace = Pick<
   | 'resets'
   | 'poolEmptyAtMs'
 >;
+export type PoolLayer = PoolTrace & Pick<QuotaPool, 'provider' | 'instanceId' | 'sourceLabel'>;
 export interface CombinedPoolResult {
+  /** Provider contributions on the same history/event timeline; contains no account metadata. */
+  layers?: PoolLayer[];
   series: PoolTrace | null;
   unavailableReason: 'no-accounts' | 'ambiguous-sources' | null;
 }

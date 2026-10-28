@@ -1,0 +1,210 @@
+{
+  "lens": "Layout and typography within the existing dark, compact account section. All 14 screenshots inspected. Responsive/accessibility scores cover visible readability and wrapping only; no keyboard, contrast-measurement, or outer-padding claims.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        9,
+        8,
+        9,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before layout 8: warning percentages sit far from their labels across the wide columns. Group each warning value with its label; the after screenshot resolves this.",
+        "Before content 7: 'Low' understates 0% remaining, and 'loaded / eligible' does not explicitly describe quota freshness. Use 'Exhausted', 'left', and a quota-current count; these improvements are visible after.",
+        "After hierarchy 8, down from 9: account names lose their bold weight while weekly percentages remain bold, weakening the identity anchor above each warning. Restore semibold account names."
+      ]
+    },
+    "laptop": {
+      "before": [
+        9,
+        9,
+        9,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        7,
+        8,
+        9,
+        9,
+        9,
+        8,
+        8
+      ],
+      "findings": [
+        "Before content 7: replace 'Low' at 0% with 'Exhausted' and clarify remaining values and quota freshness. The after copy addresses these points.",
+        "After hierarchy 8, down from 9: regular-weight account names no longer clearly lead the secondary warning text. Restore semibold names.",
+        "After layout 7 and typography/numbers 8, down from 9: account 1 wraps 'Exhausted' onto a separate line while '0% left' remains beside the resource label. Put 'Exhausted · 0% left' together on a second line.",
+        "After consistency 8 and responsive/accessibility 8, down from 9: account 1 uses a detached right-aligned warning value while account 2 keeps 'Low 14% left' inline. Use the same label-then-status/value arrangement for both accounts at this width."
+      ]
+    },
+    "narrow": {
+      "before": [
+        9,
+        9,
+        9,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        7,
+        8,
+        9,
+        9,
+        9,
+        8,
+        8
+      ],
+      "findings": [
+        "Before content 7: 'Low' at 0% and the generic loaded count obscure the specific condition. Use the after wording: 'Exhausted', remaining-value suffixes, and quotas current.",
+        "After hierarchy 8, down from 9: account names have the same regular weight as secondary labels, leaving percentages as the strongest row elements. Restore semibold names.",
+        "After layout 7 and typography/numbers 8, down from 9: the first warning gains a line, but its value stays on the preceding line. Group 'Exhausted · 0% left' beneath 'Cloud Session Credits' so the additional height buys a coherent reading order.",
+        "After consistency 8 and responsive/accessibility 8, down from 9: the first warning value is right-aligned while the second follows 'Low' inline. Apply a common compact warning layout to both rows."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        9,
+        9,
+        9,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        7,
+        8,
+        9,
+        9,
+        9,
+        8,
+        8
+      ],
+      "findings": [
+        "Before content 7: the loaded count does not explain freshness, and 0% is described as merely 'Low'. The after quota-current count and 'Exhausted' label improve meaning.",
+        "After hierarchy 8, down from 9: the three-line credential name loses its stronger weight and blends more closely with the detail text below. Use semibold for the full account name while retaining the separate weekly-value column.",
+        "After layout 7 and typography/numbers 8, down from 9: the already tall first account gains a detached 'Exhausted' line, with '0% left' stranded above it. Put the status and value together beneath the resource label.",
+        "After consistency 8 and responsive/accessibility 8, down from 9: warning values switch between right-aligned and inline placement across adjacent accounts. Standardize their placement at this width; preserve the explicit 'Weekly quota unavailable' message."
+      ]
+    },
+    "partial": {
+      "before": [
+        9,
+        8,
+        9,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before layout 8: warning values sit apart from their labels. Keep each warning label, status, and value together, as shown after.",
+        "Before content 7: '2 loaded · 3 eligible' leaves the counted condition implicit, and 0% is labeled 'Low'. Use the after wording '2/3 quotas current' and 'Exhausted 0% left'.",
+        "After hierarchy 8, down from 9: account names lose emphasis relative to bold weekly values and amber warnings. Restore semibold names.",
+        "The unavailable account retains both its dash and explicit explanation; the improved header makes the partial state easier to understand."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        7,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8, typography/numbers 8, and controls/states 8: the stale 82.8% has the same bold emphasis as current values, while 'Stale' is unbounded inline text. De-emphasize the stale number and give its status a distinct treatment; both changes are visible after.",
+        "Before layout 8: warning percentages are detached from their resource labels. Group them inline, as shown after.",
+        "Before content 7: the header does not explicitly count current quotas, and 0% is labeled 'Low'. Adopt the after quota-current count and exhausted wording.",
+        "After hierarchy remains 8: the stale value is better differentiated, but account names have lost their previous emphasis. Restore semibold account names while retaining the subdued stale percentage."
+      ]
+    },
+    "expanded": {
+      "before": [
+        9,
+        9,
+        9,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        6,
+        6,
+        9
+      ],
+      "findings": [
+        "Before content 7: bare detail percentages leave their direction implicit, 0% is labeled 'Low', and the header count is generic. The after 'left' suffixes, 'Exhausted' label, and quota-current count resolve these issues.",
+        "After hierarchy 8, down from 9: regular-weight account names sit beside similarly weighted plan metadata and above regular-weight detail labels. Restore semibold names to anchor each expanded column.",
+        "After controls/states 6 and consistency 6, down from 9: the Cloud Session Credits bar changes from an empty track before to an apparently full gray bar after despite reading 'Exhausted 0% left'. Restore zero visible fill for 0% remaining, using the same remaining-capacity direction as the other bars.",
+        "The repeated 'left' suffixes fit the expanded numeric columns without visible wrapping; the aligned detail rows and metadata groups remain readable."
+      ]
+    }
+  }
+}

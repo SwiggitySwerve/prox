@@ -1,0 +1,437 @@
+{
+  "lens": "layout and typography; screenshot-only assessment of account sections. Accessibility scores cover visible presentation only. Crop edges are not treated as missing parent padding.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "issue": "The Accounts heading has the same muted treatment as the loaded/eligible metadata; after also gives Weekly Remaining equal emphasis.",
+          "fix": "Give Accounts a slightly stronger weight or brighter text while retaining muted metadata and the existing font size."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "issue": "Weekly quota remaining sits at the far right, visually associating the shared label with the third account.",
+          "fix": "Place the shared label beside Accounts, as the after screenshot does."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "layout",
+            "typography/numbers"
+          ],
+          "observation": "Account names, bold percentages and secondary warning values retain clear aligned rows. No score drops."
+        }
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "issue": "Accounts does not stand out from the adjacent section metadata.",
+          "fix": "Increase only the heading's weight or brightness; keep the compact single-line header."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "issue": "The right-aligned weekly label appears attached to the last column rather than the group.",
+          "fix": "Use the after screenshot's placement beside Accounts."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "layout",
+            "responsive/accessibility"
+          ],
+          "observation": "The longer header still fits, and all three account names and percentage columns remain legible without visible collisions. No score drops."
+        }
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "issue": "The section title remains visually secondary to the account names and Expand All control.",
+          "fix": "Make Accounts semibold while keeping Weekly Remaining and the account counts muted."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "issue": "Weekly quota remaining occupies a separate right-aligned line beneath the header controls, delaying the first account.",
+          "fix": "Combine it with the title line, as shown after."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "layout",
+            "responsive/accessibility"
+          ],
+          "observation": "The header is shorter, the account stack starts sooner, and warning labels and values fit cleanly. No score drops."
+        }
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        7,
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "issue": "The muted Accounts heading provides little separation from the counts and weekly label.",
+          "fix": "Strengthen Accounts alone through weight or brightness."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "hierarchy",
+            "layout"
+          ],
+          "issue": "The standalone weekly-label line adds another header level above an already tall account stack.",
+          "fix": "Keep the weekly label on the title line, as shown after."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "hierarchy",
+            "typography/numbers"
+          ],
+          "issue": "Weekly quota unavailable appears larger than the account name and other warning text, giving this secondary status disproportionate emphasis.",
+          "fix": "Use the same compact text size as the 5-Hour Limit warning while retaining the amber colour and its separate line."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "layout",
+            "responsive/accessibility"
+          ],
+          "observation": "The long account name wraps without colliding with its percentage; the percentage remains aligned with the first name line. No score drops."
+        }
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "issue": "Accounts has the same visual emphasis as the loaded/eligible counts.",
+          "fix": "Make Accounts slightly brighter or heavier without enlarging the header."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "issue": "The shared weekly label sits above the unavailable third account, making its scope visually uneven.",
+          "fix": "Place the label beside the section title, as shown after."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "controls/states",
+            "consistency"
+          ],
+          "observation": "The unavailable account retains the same name/value alignment as the loaded accounts, with an explicit status below and a dash in the value position. No score drops."
+        }
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        7,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "issue": "The section heading blends into the adjacent metadata.",
+          "fix": "Give Accounts a stronger weight or brightness while leaving counts and the weekly descriptor muted."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout",
+            "consistency"
+          ],
+          "issue": "Claude account 3 sits lower than the other account names because its percentage and Stale label occupy a taller right-hand block.",
+          "fix": "Top-align the account name with the percentage and place Stale beneath the percentage, as shown after."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "issue": "The shared weekly descriptor is detached at the far right.",
+          "fix": "Move it beside Accounts, as shown after."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "layout",
+            "controls/states"
+          ],
+          "observation": "All account headings now align; Stale remains associated with its percentage and the timestamp remains readable below. No score drops."
+        }
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "after": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "issue": "Accounts is no more prominent than the section metadata despite introducing a dense set of metrics.",
+          "fix": "Strengthen the heading's weight or brightness without increasing its size."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "layout",
+            "consistency"
+          ],
+          "issue": "7-Day Opus occupies a lower row in the first account because Cloud Session Credits precedes it; horizontally scanning that row compares different metrics.",
+          "fix": "Place the shared 7-Day Opus metric before the account-specific Cloud Session Credits row, preserving the aligned footer divider."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "issue": "Weekly quota remaining is isolated above the far-right account.",
+          "fix": "Use the after screenshot's shared label beside Accounts."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "typography/numbers",
+            "colour",
+            "controls/states"
+          ],
+          "observation": "Bold summary percentages, right-aligned metric values, subdued bars and amber warnings maintain a compact, readable dark presentation. The header improvement does not resolve the metric-row mismatch, so layout remains 8. No score drops."
+        }
+      ]
+    }
+  }
+}

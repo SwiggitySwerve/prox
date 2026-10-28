@@ -1,0 +1,209 @@
+{
+  "lens": "Data meaning and status preservation. Screenshot-only review; responsive/accessibility scores cover visible wrapping, legibility and textual status cues, without interaction testing or measured accessibility claims.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Hierarchy 8→9: the before heading gives Accounts the same emphasis as its qualifier and counts. Make Accounts bold; the after image implements this fix.",
+        "All three 82.8% weekly values remain visible. Cloud Session Credits · Low retains 0%, and 5-Hour Limit · Low retains 14%, separately from the weekly values.",
+        "Expand All and individual collapsed chevrons remain visible. No score drops."
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Hierarchy 8→9: strengthen Accounts against the adjacent qualifier and counts; the after image fixes this with bold type.",
+        "The three-column layout preserves account names, right-aligned weekly percentages and both low-resource rows without visible overlap.",
+        "The 3 loaded · 3 eligible summary and Expand All label remain intact. No score drops."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Hierarchy 8→9: make Accounts a stronger section anchor above the stacked rows; the after image implements the fix.",
+        "Counts wrap onto their own header line while Expand All remains fully visible. Account separators keep each warning and percentage associated with its account.",
+        "All three weekly percentages and both low-resource values survive the narrow layout. No score drops."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Hierarchy 8→9: emphasize Accounts independently of its qualifier; the after image supplies the bold heading.",
+        "The long credential name remains readable across three lines, with its 82.8% weekly value beside the first line and its credits warning below.",
+        "Account 2 retains an em dash and Weekly quota unavailable while still showing 5-Hour Limit · Low at 14%. This preserves the distinction between unavailable weekly data and available short-window data.",
+        "The 2 loaded · 3 eligible count and all account rows remain visible. No score drops."
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Hierarchy 8→9: give Accounts stronger emphasis than its qualifier and counts; fixed in the after image.",
+        "Content 8→9: Unavailable does not identify which account data is missing. Replace it with Weekly quota unavailable; the after image implements this fix.",
+        "The unavailable weekly percentage remains an em dash rather than becoming 0%. The other weekly values, resource warnings and 2 loaded · 3 eligible summary are preserved.",
+        "No score drops."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Hierarchy 8→9: strengthen the Accounts heading; fixed by the after image.",
+        "Controls/states 8→9: the before image places Stale on a separate line below 82.8%. Place the status beside the cached percentage so they are read together; the after image implements this fix.",
+        "Content 8→8: 2 loaded · 3 eligible appears above three numeric weekly values, one stale. Clarify what loaded counts by adding an explicit stale count or replacing loaded with a precise freshness label.",
+        "The after image retains Stale and the full Last observed: Oct 27, 11:00 AM UTC timestamp while removing one vertical line. No score drops."
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Hierarchy 8→9: distinguish Accounts from the header metadata with bold type; implemented in the after image.",
+        "Content 8→8: Next reset is ambiguous because each account shows separate 5-Hour Limit and 7-Day Limit reset dates. Qualify the footer label with the limit it describes; if it refers to the displayed 7-Day Limit date, use 7-Day reset.",
+        "All visible plan labels, percentages, resource names, Low warnings, reset dates, observation timestamps, predicted-empty timestamps and burn values are preserved.",
+        "Collapse All and downward account chevrons visibly distinguish this state from the compact views. The zero-credit row retains both its 0% label and Low text despite its empty bar.",
+        "No score drops. Expanded responsiveness beyond this supplied width is unassessed."
+      ]
+    }
+  }
+}

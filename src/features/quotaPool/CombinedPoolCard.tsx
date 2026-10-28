@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolDashboard, PoolProviderId, QuotaPool } from '@/domain/quotaPool/types';
+import { poolKey } from './poolOrder';
 import { PoolGraph } from './PoolGraph';
 import { PoolGraphToggle } from './PoolGraphToggle';
 import { PoolComparisonChart } from './PoolChart';
@@ -23,13 +24,13 @@ export function CombinedPoolCard({
   const { t } = useTranslation();
   const id = useId();
   const [minimized, setMinimized] = useState(false);
-  const [view, setView] = useState<'providers' | 'total'>('providers');
+  const [view, setView] = useState<'providers' | 'stacked'>('stacked');
   const total = dashboard.combined?.[provider];
   const series =
     view === 'providers'
       ? pools
-      : total?.series
-        ? [{ ...total.series, provider: 'total' as const }]
+      : total?.layers && total.series
+        ? pools.flatMap((pool) => total.layers!.filter((layer) => poolKey(layer) === poolKey(pool)))
         : [];
   return (
     <section className={`${styles.pool} ${styles.combined}`} aria-labelledby={`${id}-title`}>
@@ -49,14 +50,16 @@ export function CombinedPoolCard({
           <span className={styles.srOnly}>{t('quota_pool.series_view')}</span>
           <select value={view} onChange={(event) => setView(event.target.value as typeof view)}>
             <option value="providers">{t('quota_pool.provider_lines')}</option>
-            <option value="total">{t('quota_pool.combined_total')}</option>
+            <option value="stacked">{t('quota_pool.stacked_providers')}</option>
           </select>
         </label>
         <p className={styles.comparisonNote}>
           {t(
             view === 'providers'
               ? 'quota_pool.combined_description'
-              : 'quota_pool.total_description'
+              : mode === 'remaining'
+                ? 'quota_pool.stacked_description'
+                : 'quota_pool.stacked_rate_description'
           )}
         </p>
       </div>
@@ -65,6 +68,7 @@ export function CombinedPoolCard({
           <PoolComparisonChart
             key={`${mode}-${dashboard.fromMs}-${view}`}
             pools={series}
+            stackedTotal={view === 'stacked' ? (total?.series ?? undefined) : undefined}
             dashboard={dashboard}
             mode={mode}
             minimized={minimized}

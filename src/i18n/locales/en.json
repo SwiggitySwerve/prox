@@ -2317,6 +2317,9 @@
     "expired": "The binding session expired. Please start over."
   },
   "quota_pool": {
+    "stacked_rate_description": "Each band shows one provider’s rate. Positive and negative drain stack on opposite sides of zero.",
+    "stacked_providers": "Stacked Providers",
+    "stacked_description": "Each colored band shows one provider; its thickness is that provider’s balance. The top edge shows the total.",
     "series_view": "Chart View",
     "provider_lines": "Provider Lines",
     "combined_total": "Combined Total",
@@ -2451,6 +2454,9 @@
     "no_accounts_help": "Connect your accounts to see their pooled quotas.",
     "add_credentials": "Add credentials",
     "limits": "Limits",
+    "account_reset": "{{window}} Reset",
+    "account_remaining": "{{window}} Remaining",
+    "limit_low": "Low",
     "limit_resets": "Resets {{date}}",
     "expand_accounts": "Expand all",
     "collapse_accounts": "Collapse all"

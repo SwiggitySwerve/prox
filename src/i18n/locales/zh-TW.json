@@ -2343,6 +2343,9 @@
     "expired": "綁定工作階段已過期，請重新開始。"
   },
   "quota_pool": {
+    "stacked_rate_description": "每個色帶表示一個供應商的速率。正負淨消耗速率分別堆疊在零線兩側。",
+    "stacked_providers": "堆疊供應商",
+    "stacked_description": "每個色帶代表一個供應商，厚度表示其配額餘額。頂部邊界表示總量。",
     "series_view": "圖表檢視",
     "provider_lines": "供應商曲線",
     "combined_total": "合計曲線",
@@ -2477,6 +2480,9 @@
     "no_accounts_help": "連接帳戶以查看彙總配額。",
     "add_credentials": "新增憑證",
     "limits": "限額",
+    "account_reset": "{{window}}重設",
+    "account_remaining": "{{window}}剩餘",
+    "limit_low": "低",
     "limit_resets": "{{date}} 重置",
     "expand_accounts": "全部展開",
     "collapse_accounts": "全部收合"

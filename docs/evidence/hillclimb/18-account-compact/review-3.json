@@ -1,0 +1,228 @@
+{
+  "lens": "Data meaning and status clarity; screenshot-visible evidence only",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        7,
+        7,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        7,
+        6,
+        7,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 7 and layout 7: Current, plan metadata and four limit summaries compete with the account name and balance. Move ordinary details into expansion, retaining compact warnings.",
+        "Before content 8 and after content 6: Remaining does not identify the quota period within the account block. The full-page context establishes weekly quota, but rename this local header Weekly remaining for these screenshots.",
+        "Colour drops 9 to 7 and content drops 8 to 6: account 1 loses its amber Cloud Session Credits 0% and account 2 loses its amber 5-Hour Limit 14%; both retain an apparently healthy 82.8%. Keep short amber text warnings naming those affected limits in closed rows.",
+        "Before controls/states 8: right-facing disclosure chevrons coexist with extensive limit details. Reserve full limit details for expanded rows.",
+        "Controls/states drops 8 to 7: closing rows now conceals warning states, while Expand All loses its visible button boundary. Preserve warning summaries and give Expand All a restrained, recognizable control treatment.",
+        "The after screenshot clearly prioritizes names and balances and removes substantial unused detail from closed rows."
+      ]
+    },
+    "laptop": {
+      "before": [
+        7,
+        6,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        7,
+        6,
+        7,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 7 and layout 6: account 1's wrapped Cloud Session Credits label and extra metric extend the closed section below neighboring summaries. Put ordinary metrics and plan information inside expansion.",
+        "Before content 8 and after content 6: label the balance header Weekly remaining so the repeated 82.8% values have an explicit period.",
+        "Colour drops 9 to 7 and content drops 8 to 6: the amber Cloud Session Credits 0% and 5-Hour Limit 14% disappear from accounts 1 and 2. Retain compact, named warning text beside or below their closed-row summaries.",
+        "Before controls/states 8: closed chevrons accompany a substantial detail grid. Make the disclosure boundary correspond to the ordinary details.",
+        "Controls/states drops 8 to 7: warning states disappear behind disclosure and Expand All becomes visually similar to static header text. Preserve warnings and restore a subtle control boundary.",
+        "The after layout keeps all three account names and balances on clean, aligned rows."
+      ]
+    },
+    "narrow": {
+      "before": [
+        7,
+        5,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        7,
+        6,
+        7,
+        9,
+        8
+      ],
+      "findings": [
+        "Before hierarchy 7 and layout 5: three closed accounts occupy tall metric panels, making balance comparison require scanning most of the crop. Hide ordinary metric grids and plan metadata until expansion.",
+        "Before content 8 and after content 6: Remaining does not name the quota period. Use a compact Weekly remaining column label.",
+        "Colour drops 9 to 7 and content drops 8 to 6: account 1's Cloud Session Credits 0% and account 2's 5-Hour Limit 14% warnings vanish. Retain short amber warning lines without restoring the full metric grids.",
+        "Before controls/states 8: closed rows already show substantial details. Reserve those details for expansion.",
+        "Controls/states drops 8 to 7: the after rows no longer communicate the existing low or exhausted sub-limit states. Preserve those warnings in the closed summaries.",
+        "Before and after responsive/accessibility 8: the header breaks 3 eligible across lines and wraps Expand All. Give account counts their own compact header line and keep the action label together.",
+        "The after screenshot preserves readable account names, separated rows and aligned balances at the narrow width."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        7,
+        5,
+        9,
+        9,
+        7,
+        8,
+        7,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        7,
+        6,
+        7,
+        9,
+        8
+      ],
+      "findings": [
+        "Before hierarchy 7 and layout 5: the long credential label, inline plan text, Current and metric grid make the first closed account especially tall. Keep the full wrapping name, balance and essential warnings; move plan and ordinary metrics into expansion.",
+        "Before content 7 and consistency 7: account 2 says Weekly quota unavailable and shows a dash, yet also displays 7-Day Limit 82.8%. If that detail is retained, explicitly identify its different source or age; otherwise keep it inside expansion with its qualification.",
+        "After content 6: the compact account balances still need a Weekly remaining label, and the header's 2 loaded versus 3 eligible should identify whether loaded means available quota data rather than visible accounts.",
+        "Colour drops 9 to 7 and content drops 7 to 6: Cloud Session Credits 0% on the long-named account and 5-Hour Limit 14% on account 2 are hidden. Retain concise amber warnings naming each affected limit.",
+        "Before controls/states 8: substantial ordinary details are visible under closed chevrons. Move those details into expansion.",
+        "Controls/states drops 8 to 7: the explicit Weekly quota unavailable warning survives, but the other existing warnings do not. Preserve both kinds of warning in closed rows.",
+        "Before and after responsive/accessibility 8: the header splits 3 eligible and Expand All across lines. Separate the count summary from the action and balance labels.",
+        "The after screenshot preserves the complete long name over three lines without colliding with its balance, and keeps the unavailable explanation beside the dash."
+      ]
+    },
+    "partial": {
+      "before": [
+        7,
+        6,
+        9,
+        9,
+        7,
+        8,
+        7,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        7,
+        6,
+        7,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 7 and layout 6: closed accounts expose plan text, Current and multi-row metric grids. Move ordinary details into expansion while keeping warning summaries visible.",
+        "Before content 7 and consistency 7: account 3 combines Unavailable and a dash with apparently usable 88%, 82.8% and 45% detail values. Identify exactly which quota is unavailable and qualify the remaining figures if shown.",
+        "After content 6: replace account 3's generic Unavailable with the affected quota's name, label the balance period, and clarify what 2 loaded counts when three account names are visible.",
+        "Colour drops 9 to 7 and content drops 7 to 6: accounts 1 and 2 lose their Cloud Session Credits 0% and 5-Hour Limit 14% warnings. Retain short amber text summaries of those existing states.",
+        "Before controls/states 8: closed chevrons do not clearly separate summary from ordinary details. Reserve the metric grids for expansion.",
+        "Controls/states drops 8 to 7: account 3 retains its unavailable state, but accounts 1 and 2 lose their warnings and Expand All loses its visible button boundary. Preserve all warning summaries and a restrained action affordance.",
+        "The after screenshot correctly uses a dash rather than presenting the unavailable balance as zero."
+      ]
+    },
+    "stale": {
+      "before": [
+        7,
+        6,
+        9,
+        9,
+        7,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        7,
+        6,
+        7,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 7 and layout 6: ordinary limit grids compete with the important stale timestamp. Move ordinary details into expansion and retain the stale explanation in the closed row.",
+        "Before content 7 and after content 6: Remaining omits the quota period, and 2 loaded is unclear beside three numerical balances, one stale. Label the period and make the count's freshness meaning explicit if that is what it represents.",
+        "Colour drops 9 to 7 and content drops 7 to 6: the stale account retains amber warnings, but accounts 1 and 2 lose their amber Cloud Session Credits 0% and 5-Hour Limit 14% warnings. Preserve concise summaries for these states too.",
+        "Before controls/states 8: closed chevrons accompany extensive ordinary metrics. Move those metrics into expansion.",
+        "Controls/states drops 8 to 7: warning retention becomes selective and Expand All loses its visible control boundary. Keep all existing warning types visible and restore a subtle action treatment.",
+        "The after screenshot keeps Stale directly below account 3's 82.8% and retains Last observed: Oct 27, 11:00 AM UTC, clearly distinguishing the old balance from current readings."
+      ]
+    },
+    "expanded": {
+      "before": [
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before and after layout 8: account 1's additional Cloud Session Credits row pushes Last observed, Next reset, Predicted empty and Burn below the corresponding fields in accounts 2 and 3. Align the metadata groups beneath the tallest limit list to support cross-account comparison.",
+        "Before and after content 8: the bold account balances use the generic Remaining header while multiple quota periods appear below. Label the headline balance Weekly remaining and keep the per-limit labels explicit.",
+        "Controls/states drops 9 to 8: Collapse All loses the baseline's visible button boundary and resembles static header text. Restore a restrained button treatment without restoring the previous header height.",
+        "Both screenshots visibly expose plan information, individual limits, reset timestamps and warning colours in expanded rows. The after screenshot preserves these details while shortening the header.",
+        "Only a wide expanded screenshot was supplied; narrow expanded layout, keyboard operation, focus and assistive-technology behavior are unverified."
+      ]
+    }
+  }
+}

@@ -1,0 +1,299 @@
+{
+  "lens": "Layout and typography within the existing compact dark design. All 14 account crops visually inspected. Accessibility scores cover visible readability and wrapping only; interaction behavior, measured contrast, target dimensions, and outer card padding are unassessed. No score drops.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "observation": "Account names and exception descriptions appear small beside the bold weekly percentages.",
+          "fix": "Increase account-name and exception-label text while retaining the bold percentage hierarchy; AFTER visibly applies this."
+        },
+        {
+          "applies_to": "after",
+          "observation": "The three-column arrangement remains compact. All three 82.8% values, the 0% credit warning, and the 14% five-hour warning remain visible."
+        }
+      ]
+    },
+    "laptop": {
+      "before": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "observation": "The Cloud Session Credits and 5-Hour Limit descriptions are visually fine and less readable than their associated percentages.",
+          "fix": "Enlarge the description text and account names as shown in AFTER."
+        },
+        {
+          "applies_to": "after",
+          "observation": "Larger labels still fit on single lines across all three columns. Warning text and right-aligned values remain distinct without visible collisions."
+        }
+      ]
+    },
+    "narrow": {
+      "before": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "observation": "Account names and warning descriptions look small within the stacked rows.",
+          "fix": "Increase their text size while keeping warning descriptions beneath their account names; AFTER does this."
+        },
+        {
+          "applies_to": "after",
+          "observation": "The stacked structure accommodates larger text with slightly more vertical space. Percentages retain a common right edge, and Expand All stays separate from the two-line header."
+        }
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "observation": "The long credential name and secondary quota descriptions use small text despite the existing multiline layout.",
+          "fix": "Enlarge these labels and allow the account row to grow naturally; AFTER visibly applies this."
+        },
+        {
+          "applies_to": "after",
+          "observation": "The complete credential name still occupies three lines, with 82.8% separate at the upper right. Weekly quota unavailable, its dash, the 14% warning, and the 0% credit warning remain visible. The additional height does not introduce a visible overlap."
+        }
+      ]
+    },
+    "partial": {
+      "before": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "observation": "Warning descriptions and Weekly quota unavailable appear small compared with the bold available percentages.",
+          "fix": "Enlarge these secondary text lines while preserving their amber status treatment; AFTER does this."
+        },
+        {
+          "applies_to": "after",
+          "observation": "The unavailable account retains both a dash and an explicit text explanation. The 2 loaded · 3 eligible summary and the other accounts' values remain visible."
+        }
+      ]
+    },
+    "stale": {
+      "before": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "observation": "The Last observed timestamp and warning descriptions appear small.",
+          "fix": "Increase their text size while retaining the full timestamp and warning wording; AFTER does this."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "consistency"
+          ],
+          "observation": "Stale follows 82.8%, placing a status word at the right edge where the other accounts end with their percentage.",
+          "fix": "Place Stale before 82.8% so the percentage ends the row; AFTER applies this."
+        },
+        {
+          "applies_to": "after",
+          "observation": "The stale account preserves its percentage, explicit Stale label, and Last observed timestamp. Amber text keeps the qualification visible beside the bold value."
+        }
+      ]
+    },
+    "expanded": {
+      "before": [
+        9,
+        8,
+        8,
+        9,
+        8,
+        9,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "observation": "Quota labels, reset timestamps, and footer metadata appear small across the expanded columns.",
+          "fix": "Increase detail text and its vertical spacing while keeping the percentage column aligned; AFTER visibly applies this."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "content"
+          ],
+          "observation": "Next reset does not identify which quota it describes, while the same account displays separate five-hour and seven-day reset timestamps.",
+          "fix": "Name the reset period explicitly. AFTER uses Weekly Reset; correctness of the underlying association is outside screenshot evidence."
+        },
+        {
+          "applies_to": "both",
+          "aspects": [
+            "layout",
+            "consistency"
+          ],
+          "observation": "Below each divider, Last observed and Predicted empty start slightly left of the quota labels above, creating two nearby text edges.",
+          "fix": "Align the footer's left text edge with Current and the quota labels in each account column."
+        },
+        {
+          "applies_to": "after",
+          "observation": "The expanded view is taller but retains three columns, aligned percentage values, progress bars, warning labels, timestamps, predictions, and burn figures. Collapse All and downward chevrons visibly identify the expanded state."
+        }
+      ]
+    }
+  }
+}

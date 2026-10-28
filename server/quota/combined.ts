@@ -51,16 +51,22 @@ export function alignProjections(traces: PoolPoint[][]): PoolPoint[][] {
   );
 }
 
-export function combineProjections(traces: PoolPoint[][]): PoolPoint[] {
-  const aligned = alignProjections(traces);
+function sumProjections(aligned: PoolPoint[][]): PoolPoint[] {
   return (aligned[0] ?? []).map((point, index) => ({
     ...point,
     remainingPoints: sumKnown(aligned.map((trace) => trace[index].remainingPoints)),
   }));
 }
+export function combineProjections(traces: PoolPoint[][]): PoolPoint[] {
+  return sumProjections(alignProjections(traces));
+}
 
 /** Only distinct provider allowances are proven independent by the current source contract. */
-export function combinedPools(pools: QuotaPool[], recorded: () => PoolPoint[]): CombinedPoolResult {
+export function combinedPools(
+  pools: QuotaPool[],
+  readRecorded: () => PoolPoint[],
+  readLayers?: (eligible: QuotaPool[], times: number[]) => PoolPoint[][]
+): CombinedPoolResult {
   const eligible = pools.filter(
     (pool) => pool.eligibleCount > 0 || pool.forecastState !== 'no-accounts'
   );
@@ -74,8 +80,14 @@ export function combinedPools(pools: QuotaPool[], recorded: () => PoolPoint[]): 
       : eligible.some((pool) => pool.forecastState !== 'ready')
         ? 'collecting'
         : 'ready';
-  const projected =
-    forecastState === 'ready' ? combineProjections(eligible.map((pool) => pool.projected)) : [];
+  const projectedLayers =
+    forecastState === 'ready' ? alignProjections(eligible.map((pool) => pool.projected)) : [];
+  const projected = sumProjections(projectedLayers);
+  const recorded = eligible.some((pool) => pool.eligibleCount === 0) ? [] : readRecorded();
+  const recordedLayers = readLayers?.(
+    eligible,
+    recorded.map((point) => point.atMs)
+  );
   const resets = new Map<number, number[]>();
   if (forecastState === 'ready')
     for (const pool of eligible)
@@ -84,6 +96,24 @@ export function combinedPools(pools: QuotaPool[], recorded: () => PoolPoint[]): 
       }
   return {
     unavailableReason: null,
+    ...(recordedLayers
+      ? {
+          layers: eligible.map((pool, index) => ({
+            provider: pool.provider,
+            instanceId: pool.instanceId,
+            sourceLabel: pool.sourceLabel,
+            capacityPoints: pool.capacityPoints,
+            remainingPoints: pool.remainingPoints,
+            burnPointsPerHour: pool.burnPointsPerHour,
+            drainPointsPerHour: pool.drainPointsPerHour,
+            forecastState: pool.forecastState,
+            resets: pool.resets,
+            poolEmptyAtMs: pool.poolEmptyAtMs,
+            recorded: recordedLayers[index],
+            projected: projectedLayers[index] ?? [],
+          })),
+        }
+      : {}),
     series: {
       capacityPoints: sumKnown(eligible.map((pool) => pool.capacityPoints))!,
       remainingPoints: sumKnown(eligible.map((pool) => pool.remainingPoints)),
@@ -91,7 +121,7 @@ export function combinedPools(pools: QuotaPool[], recorded: () => PoolPoint[]): 
       drainPointsPerHour: sumKnown(eligible.map((pool) => pool.drainPointsPerHour)),
       forecastState,
       // A failed inventory with no known members is unknown, never a zero-sized pool.
-      recorded: eligible.some((pool) => pool.eligibleCount === 0) ? [] : recorded(),
+      recorded,
       projected,
       resets: [...resets]
         .sort(([a], [b]) => a - b)

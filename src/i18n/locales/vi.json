@@ -2323,6 +2323,9 @@
     "expired": "Phiên liên kết đã hết hạn. Hãy bắt đầu lại."
   },
   "quota_pool": {
+    "stacked_rate_description": "Mỗi dải thể hiện tốc độ của một nhà cung cấp. Tốc độ tiêu hao ròng dương và âm xếp chồng ở hai phía của số không.",
+    "stacked_providers": "Nhà cung cấp xếp chồng",
+    "stacked_description": "Mỗi dải màu thể hiện một nhà cung cấp; độ dày là số dư hạn mức của nhà cung cấp đó. Mép trên thể hiện tổng.",
     "series_view": "Chế độ biểu đồ",
     "provider_lines": "Đường nhà cung cấp",
     "combined_total": "Tổng cộng",
@@ -2457,6 +2460,9 @@
     "no_accounts_help": "Kết nối tài khoản để xem tổng hạn mức.",
     "add_credentials": "Thêm thông tin xác thực",
     "limits": "Giới hạn",
+    "account_reset": "Đặt lại {{window}}",
+    "account_remaining": "{{window}} còn lại",
+    "limit_low": "Thấp",
     "limit_resets": "Đặt lại {{date}}",
     "expand_accounts": "Mở rộng tất cả",
     "collapse_accounts": "Thu gọn tất cả"

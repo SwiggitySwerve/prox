@@ -70,7 +70,7 @@ store and HTTP tests; `tests/proxQuotaSources.test.ts` covers source isolation a
 transactional migration with synthetic data. Samples are private local data;
 never log credentials, upstream bodies or account identifiers.
 
-The combined chart can show provider lines or a server-computed total. Total
+The combined chart can show separate provider lines or stacked provider bands. Total
 recorded values reuse the account history, plan weighting, expiry and gap rules
 above on a shared observation timeline. Forecast totals add the independent
 piecewise-linear provider projections at every event, preserving both sides of
@@ -79,6 +79,14 @@ a provider's trace. Missing constituent values remain unknown. Multiple eligible
 sources for the same provider still withhold the total until allowance identity
 is proven; disabled, retired and unresolved accounts add no capacity.
 
-The browser renders these results without quota arithmetic. Minimize controls
-change plot height only. Completion polling reads dashboard status every second
+The server also exposes each provider's contribution on the total's exact history
+and forecast event timeline. Those layer traces contain no account metadata.
+The browser renders these results without quota arithmetic: stack offsets are
+presentation geometry, and each band's thickness and readout retain its original
+provider value. Any unknown contributor breaks all stacked bands. Signed drain
+uses positive and negative stacks on opposite sides of zero. The former single
+total line is replaced by these distinct layers.
+
+Minimize controls shrink the plot and closed account roster. Account warnings
+remain visible, and opening a row reveals all plan, limit and reset details. Completion polling reads dashboard status every second
 while collection is running, without requesting additional collections.

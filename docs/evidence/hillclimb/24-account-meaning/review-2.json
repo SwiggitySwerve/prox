@@ -1,0 +1,399 @@
+{
+  "lens": "Data meaning and status preservation. All 14 screenshots inspected. Accessibility scores cover visible readability and wrapping only; no keyboard, contrast-measurement, or interaction compliance claims. Crop boundaries are not treated as missing card padding.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        7,
+        8,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "hierarchy"
+          ],
+          "finding": "Bold account names compete with the weekly percentages.",
+          "fix": "Use regular-weight names and retain bold weekly values, as the after screenshot does."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "layout",
+            "typography/numbers"
+          ],
+          "finding": "Warning percentages sit far from their labels and do not explicitly identify remaining capacity.",
+          "fix": "Place each percentage beside its warning and append 'left', as shown after."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "content",
+            "controls/states",
+            "consistency"
+          ],
+          "finding": "'Low' describes both 0% and 14%; 'loaded' does not explicitly communicate freshness.",
+          "fix": "Label zero capacity 'Exhausted' and use the current-quota count, as shown after."
+        },
+        {
+          "applies_to": "after",
+          "finding": "All three weekly values and both warning values remain visible. The changes clarify remaining capacity without introducing a visible regression."
+        }
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        7,
+        8,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        7,
+        8,
+        9,
+        9,
+        9,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "typography/numbers"
+          ],
+          "finding": "Bold names compete with weekly values; warning numbers are detached from their labels.",
+          "fix": "Reduce name weight and group each warning with its explicitly labelled remaining percentage."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "content",
+            "controls/states",
+            "consistency"
+          ],
+          "finding": "Zero capacity is labelled 'Low', and 'loaded' leaves freshness implicit.",
+          "fix": "Use 'Exhausted' for 0% and explicitly identify current quotas."
+        },
+        {
+          "applies_to": "after",
+          "aspects": [
+            "layout",
+            "typography/numbers",
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "finding": "Layout and responsive scores drop because 'Exhausted' wraps alone beneath Cloud Session Credits while '0% left' remains on the preceding line. Account 2 keeps its status and number together.",
+          "fix": "Keep 'Exhausted · 0% left' together and wrap that complete group below the resource label when necessary."
+        }
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        7,
+        8,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        7,
+        8,
+        9,
+        9,
+        9,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "typography/numbers"
+          ],
+          "finding": "Account names and weekly values have equal emphasis; warning percentages are separated from the warning text.",
+          "fix": "Reserve bold emphasis for weekly values and group each warning with a percentage labelled 'left'."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "content",
+            "controls/states",
+            "consistency"
+          ],
+          "finding": "'Low' understates the 0% state, and the summary describes loading rather than freshness.",
+          "fix": "Use 'Exhausted' and the explicit current-quota summary."
+        },
+        {
+          "applies_to": "after",
+          "aspects": [
+            "layout",
+            "typography/numbers",
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "finding": "Layout and responsive scores drop: account 1 gains an isolated 'Exhausted' line, separated from '0% left', while account 2 presents 'Low 14% left' together.",
+          "fix": "Wrap the entire 'Exhausted · 0% left' group beneath Cloud Session Credits. Apply the same grouping rule to every warning."
+        },
+        {
+          "applies_to": "after",
+          "finding": "All three account headings, weekly values, disclosure chevrons, and Expand All remain visible."
+        }
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        7,
+        8,
+        8,
+        9,
+        7,
+        8,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        7,
+        8,
+        9,
+        9,
+        9,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "hierarchy",
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "finding": "The long, bold credential name dominates three lines and competes with the weekly percentage.",
+          "fix": "Use regular-weight account names while retaining the complete name and bold weekly percentage, as shown after."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "layout",
+            "content",
+            "controls/states",
+            "consistency"
+          ],
+          "finding": "Warning values are detached, zero is called 'Low', and the count does not explicitly distinguish current data.",
+          "fix": "Group warning status and remaining percentage, label zero 'Exhausted', and identify current quotas."
+        },
+        {
+          "applies_to": "after",
+          "aspects": [
+            "layout",
+            "typography/numbers",
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "finding": "Layout drops because the already tall first account gains an isolated 'Exhausted' line while its 0% value stays above it.",
+          "fix": "Keep 'Exhausted · 0% left' together on a second warning line instead of splitting the state from its number."
+        },
+        {
+          "applies_to": "after",
+          "finding": "The complete long name remains readable. Account 2 preserves both 'Weekly quota unavailable' with a dash and the separately available 14% five-hour quota."
+        }
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        7,
+        8,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "typography/numbers"
+          ],
+          "finding": "Bold names compete with weekly values, and warning percentages sit apart from their labels.",
+          "fix": "Reduce name weight and place explicitly labelled remaining percentages beside warning text."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "content",
+            "controls/states",
+            "consistency"
+          ],
+          "finding": "'Low' conflates exhausted and low capacity; '2 loaded' leaves freshness implicit.",
+          "fix": "Use 'Exhausted' at zero and '2/3 quotas current', as shown after."
+        },
+        {
+          "applies_to": "after",
+          "finding": "Account 3 retains the dash and 'Weekly quota unavailable'. Missing data remains visibly distinct from account 1's exhausted credits."
+        }
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        8,
+        8,
+        8,
+        7,
+        8,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "typography/numbers"
+          ],
+          "finding": "The stale 82.8% has the same bold emphasis as current values; warning percentages are detached from their labels.",
+          "fix": "Mute the stale percentage and group each warning with its remaining value, as shown after."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "colour",
+            "content",
+            "controls/states",
+            "consistency"
+          ],
+          "finding": "'Stale' is plain amber text beside a strongly emphasized value; the loaded count does not explain freshness, and zero credits remain labelled 'Low'.",
+          "fix": "Give 'Stale' a distinct badge, identify current quotas in the summary, and label zero credits 'Exhausted'."
+        },
+        {
+          "applies_to": "after",
+          "finding": "The stale badge and quieter 82.8% distinguish historical data from current values. The last-observed timestamp remains visible and unchanged."
+        }
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        7,
+        8,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        6,
+        8,
+        7,
+        7,
+        9
+      ],
+      "findings": [
+        {
+          "applies_to": "before",
+          "aspects": [
+            "hierarchy",
+            "typography/numbers"
+          ],
+          "finding": "Bold account names compete with summary values, and detailed percentages do not explicitly say whether they represent remaining capacity.",
+          "fix": "Reduce account-name weight and append 'left' to detailed quota percentages, as shown after."
+        },
+        {
+          "applies_to": "before",
+          "aspects": [
+            "content",
+            "controls/states",
+            "consistency"
+          ],
+          "finding": "Cloud Session Credits shows 'Low' at 0%; the section-wide 'Weekly Remaining' label does not explain every detailed quota row.",
+          "fix": "Use 'Exhausted' at zero and identify remaining capacity on each detailed percentage."
+        },
+        {
+          "applies_to": "after",
+          "aspects": [
+            "colour",
+            "content",
+            "controls/states",
+            "consistency"
+          ],
+          "finding": "Colour, controls/states, and consistency regress because unfilled bar portions become much brighter. The 0% credits row now has a conspicuous full-width grey track, and the 14% row has a long bright grey remainder. These compete with the actual remaining-capacity encoding and weaken the clearer text.",
+          "fix": "Restore dark unfilled tracks and reserve brighter fills for remaining capacity. The exhausted row should have no bright fill, and only the remaining 14% should carry the highlighted fill."
+        },
+        {
+          "applies_to": "after",
+          "finding": "Detailed percentages, plan points, reset dates, observation timestamps, predicted-empty dates, burn rates, and Collapse All remain visible. Text meaning improves, but the bar treatment needs correction."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,212 @@
+{
+  "lens": "Data meaning and status preservation. All seven pairs inspected. Scores cover visible presentation only; no interaction testing or measured accessibility. No score drops.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: regular-weight account names compete with secondary quota labels while percentages dominate. Use semibold account names; the after image addresses this.",
+        "Both layout: the warning labels and their 0% or 14% values are separated by substantial empty space. Bring each warning value closer to its label while preserving the weekly percentage column.",
+        "Both content: Cloud Session Credits at 0% is described only as Low. Use an explicit exhausted or none-remaining label at zero to distinguish it from the 14% warning.",
+        "After preserves all three 82.8% values, both warning values and labels, loaded/eligible counts, chevrons, and Expand All."
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: account names lack a clear weight distinction from quota labels. Use semibold account names; the after image supplies that distinction without visible wrapping.",
+        "Both content: Low understates the distinction between Cloud Session Credits at 0% and the 5-Hour Limit at 14%. Label the zero balance as exhausted or none remaining.",
+        "After preserves the three-column layout, all percentages, warning text, counts, and visible disclosure controls."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: account names and warning descriptions have similar visual emphasis. Use semibold names; the after image improves account identification.",
+        "Both content: Cloud Session Credits at 0% remains labelled Low. Use explicit zero-remaining wording so its meaning differs from the 14% warning.",
+        "After retains all account rows, weekly percentages, warnings, and counts. The header and Expand All remain visible, with no visible text clipping in this crop."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: the multiline credential name has the same weight as supporting text. Use semibold account names; after improves grouping while preserving the full label across three lines.",
+        "Both content: Cloud Session Credits at 0% is labelled Low. Replace that zero-balance status with exhausted or none remaining.",
+        "After preserves the unavailable weekly value as a dash with Weekly quota unavailable, alongside the separate 5-Hour Limit warning at 14%. It does not visually substitute zero for unavailable data.",
+        "The long name wraps differently after, but no text loss, added line, or collision with 82.8% is visible."
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: account identities are less distinct than their percentages and supporting status text. Use semibold names; after addresses this.",
+        "Both content: 2 loaded does not specify what loaded, although three accounts are displayed. Label the count as weekly quotas loaded, or use another precise description of the counted data.",
+        "Both content: Cloud Session Credits at 0% is only Low. Give zero remaining an explicit exhausted status.",
+        "After preserves account 3's dash and Weekly quota unavailable message, the two available weekly percentages, both warnings, and the 2 loaded / 3 eligible counts."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Both hierarchy: the stale 82.8% retains the same strong numeric emphasis as current values, while Stale is lighter-weight text. Group Stale and 82.8% in a distinct status treatment so freshness qualifies the number at first glance.",
+        "Before typography/numbers: account names have insufficient weight distinction from supporting labels. The after image's semibold names resolve this specific issue.",
+        "Both content: 2 loaded is ambiguous when three numeric weekly values are visible, including one marked Stale. State what the count includes and whether stale values are excluded.",
+        "Both content: Cloud Session Credits at 0% is described as Low. Use explicit exhausted or none-remaining wording.",
+        "After preserves Stale, 82.8%, and Last observed: Oct 27, 11:00 AM UTC together. No freshness information visibly disappears."
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        7,
+        9,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        7,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: account names share the regular weight of nearby details. Use semibold names while keeping Pro · 100 pts secondary; after does this.",
+        "Before layout and consistency: footer labels and values start left of the quota-detail text above them. Align footer content with the detail column; after visibly improves that alignment.",
+        "Both content: Predicted empty and Burn, last 3h do not name their quota scope. Label the affected quota, and explain how an empty prediction after Weekly Reset should be interpreted.",
+        "Both content: labels such as 5-Hour Limit and 7-Day Opus do not locally specify whether percentages represent remaining or used allowance. Add Remaining to the detail heading or percentage column.",
+        "Both content: Cloud Session Credits at 0% is labelled Low. Use explicit exhausted or none-remaining wording.",
+        "After preserves all visible quota percentages, bars, reset times, observation times, forecasts, burn rates, plan metadata, Current labels, expanded chevrons, and Collapse All."
+      ]
+    }
+  }
+}

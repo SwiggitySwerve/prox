@@ -1,0 +1,621 @@
+{
+  "lens": "interaction and responsive accessibility",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "scope": "All 14 screenshots visually inspected. Account section only. Scores describe visible presentation; keyboard behavior, semantics, actual hit areas, and measured contrast were not tested.",
+  "verdict": "After improves warning visibility, quota labeling, and control recognition. Refine narrow header height, desktop control presentation, and stale-summary alignment while retaining the dark palette and explicit warning text.",
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        7,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "finding": "The isolated 'Remaining' heading does not identify what the prominent account percentages measure.",
+          "fix": "Name the quantity 'Weekly quota remaining', as After does."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "'Expand All' resembles neighboring metadata rather than a distinct control.",
+          "fix": "Give it a bounded dark button surface and padding, as After does."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "'Expand All' is recognizable but its visible button remains shallow.",
+          "fix": "Increase its vertical padding modestly while keeping it in the header row."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "responsive/accessibility"
+          ],
+          "finding": "The first disclosure indicator and final account percentage sit against the crop's outer edges.",
+          "fix": "Provide a small consistent inline inset inside the account section for disclosure indicators and rightmost values."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "content",
+            "colour"
+          ],
+          "finding": "Named warning rows expose the 0% credits and 14% short-term limit; 'Low' communicates warning meaning alongside amber.",
+          "fix": null
+        }
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        7,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "finding": "'Remaining' leaves the three bold percentages insufficiently identified.",
+          "fix": "Use the explicit weekly-quota heading shown in After."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "'Expand All' has little visual separation from the loaded and eligible counts.",
+          "fix": "Use a padded, bounded button surface."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "The bounded 'Expand All' control remains visually shallow.",
+          "fix": "Increase its vertical padding without adding another header line."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "responsive/accessibility"
+          ],
+          "finding": "The first disclosure indicator and third account's percentage have almost no outer breathing room.",
+          "fix": "Add a small internal inset at both ends of the account section."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "layout",
+            "consistency"
+          ],
+          "finding": "All three accounts remain readable in columns, and both warning labels fit without wrapping.",
+          "fix": null
+        }
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        8,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "finding": "'Remaining' does not explain the account percentages, while the count sentence splits before 'eligible'.",
+          "fix": "Separate the section title from the counts and explicitly label weekly quota."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "finding": "Both the count sentence and 'Expand All' wrap in the narrow header.",
+          "fix": "Keep 'Expand All' on one line and give the title and counts a deliberate two-line arrangement."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "finding": "The full weekly-quota heading occupies a separate third header line, increasing space before the first account.",
+          "fix": "Use 'Weekly quota left' and align it opposite the counts on the second line, retaining the one-line button."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "responsive/accessibility"
+          ],
+          "finding": "Right-aligned percentages touch the section's right edge, while disclosure indicators hug the left edge.",
+          "fix": "Inset both ends consistently without reducing the space reserved for account names."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "controls/states",
+            "colour"
+          ],
+          "finding": "The larger visible button is easy to distinguish, and both warning rows retain explicit 'Low' labels.",
+          "fix": null
+        }
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "finding": "The header's generic 'Remaining' label gives less context than the row's specific 'Weekly quota unavailable' message.",
+          "fix": "Identify weekly quota in the header while retaining the explicit unavailable message."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "finding": "The header wraps both the count sentence and button label before the already tall account rows.",
+          "fix": "Keep the button label on one line and group title and counts deliberately."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "consistency"
+          ],
+          "finding": "The first account's percentage and disclosure indicator sit midway through its multiline name, unlike the single-line account summaries.",
+          "fix": "Align the indicator and percentage with the first line of the account name, as After does."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "layout"
+          ],
+          "finding": "The separate weekly-quota heading adds a third header line above the multiline account.",
+          "fix": "Shorten it to 'Weekly quota left' and place it opposite the counts on the second line."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "responsive/accessibility"
+          ],
+          "finding": "Percentages and the unavailable dash have almost no right inset.",
+          "fix": "Add a small internal right gutter while preserving the long name's full wrapping."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "content",
+            "consistency"
+          ],
+          "finding": "The long name remains complete. 'Weekly quota unavailable' and the separately named 5-hour warning remain distinguishable.",
+          "fix": null
+        }
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        7,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "finding": "The bold account percentages sit beneath an underspecified 'Remaining' heading.",
+          "fix": "Identify weekly quota explicitly in the heading."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "content"
+          ],
+          "finding": "Account 3's standalone 'Unavailable' message leaves the unavailable quantity implicit.",
+          "fix": "Use 'Weekly quota unavailable' beside the existing dash, matching the clearer wording visible in the long-narrow state."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "'Expand All' resembles metadata.",
+          "fix": "Give the control a bounded surface and padding."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "consistency"
+          ],
+          "finding": "Account 3's disclosure indicator and dash are vertically centered across its two-line summary, unlike the neighboring accounts.",
+          "fix": "Align the indicator, name, and dash on the first line, as After does."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "The visible 'Expand All' button remains shallow.",
+          "fix": "Increase its vertical padding modestly."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "responsive/accessibility"
+          ],
+          "finding": "Account 3's dash sits against the right edge, and the first disclosure indicator hugs the left.",
+          "fix": "Add consistent internal inline padding to the account section."
+        }
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        8,
+        7,
+        8,
+        8
+      ],
+      "after": [
+        8,
+        7,
+        9,
+        9,
+        9,
+        8,
+        8,
+        8
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "hierarchy"
+          ],
+          "finding": "'Remaining' does not identify the quota represented by the bold percentages.",
+          "fix": "Use an explicit weekly-quota heading."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "layout",
+            "typography/numbers"
+          ],
+          "finding": "Account 3's 'Stale · Last observed' line wraps the timestamp, making its summary substantially denser than its neighbors.",
+          "fix": "Keep one stale label beside the value and place the observation timestamp on a separate metadata line."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "content"
+          ],
+          "finding": "'Stale' appears both before the observation timestamp and below the percentage.",
+          "fix": "Retain one clear stale label associated with the percentage, as After does."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "consistency"
+          ],
+          "finding": "Account 3's disclosure indicator sits beside its metadata rather than its name.",
+          "fix": "Align the disclosure indicator with the account-name line."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "'Expand All' is visually similar to the counts.",
+          "fix": "Use a bounded button surface with padding."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "consistency"
+          ],
+          "finding": "Account 3's name and disclosure indicator sit lower than the neighboring account names and its own 82.8% value.",
+          "fix": "Top-align Account 3's indicator, name, and percentage on one summary line; keep 'Stale' beneath the percentage and the observation timestamp below.",
+          "regression": "Layout falls from 8 to 7: Before kept Account 3's name approximately aligned with the neighboring names; After visibly lowers it while leaving its percentage on the upper baseline."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "'Expand All' has a clearer surface but remains visually shallow.",
+          "fix": "Increase its vertical padding modestly."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "responsive/accessibility"
+          ],
+          "finding": "Account 3's percentage and 'Stale' label sit against the right edge.",
+          "fix": "Add a small right inset shared by the percentage and its status label."
+        }
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        8,
+        8,
+        8,
+        8,
+        7,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "consistency"
+          ],
+          "finding": "The observation and forecast metadata starts higher in Accounts 2 and 3 than in Account 1, with little separation from the quota rows.",
+          "fix": "Align the metadata sections across columns and introduce a subtle divider, as After does."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "colour",
+            "content"
+          ],
+          "finding": "The 0% credits and 14% 5-hour limit use amber without explicitly naming their warning state; the header also says only 'Remaining'.",
+          "fix": "Add 'Low' to the affected metric labels and identify weekly quota in the header, preserving the amber values."
+        },
+        {
+          "versions": [
+            "before",
+            "after"
+          ],
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "finding": "The reset timestamps beneath quota rows are noticeably smaller than neighboring labels and other timestamp values.",
+          "fix": "Raise reset timestamps to the size used by the other secondary metadata, retaining their subdued colour and close association with each quota."
+        },
+        {
+          "versions": [
+            "before"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "'Collapse All' looks like header metadata.",
+          "fix": "Give it a bounded surface and padding."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "controls/states"
+          ],
+          "finding": "'Collapse All' is recognizable but its visible button remains shallow.",
+          "fix": "Increase its vertical padding modestly while retaining its position in the header."
+        },
+        {
+          "versions": [
+            "after"
+          ],
+          "aspects": [
+            "hierarchy",
+            "colour",
+            "consistency"
+          ],
+          "finding": "Aligned metadata dividers improve scanning, and explicit 'Low' labels preserve warning meaning beyond colour.",
+          "fix": null
+        }
+      ]
+    }
+  }
+}

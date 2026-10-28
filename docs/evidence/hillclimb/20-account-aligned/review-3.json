@@ -1,0 +1,207 @@
+{
+  "lens": "Interaction and responsive accessibility; screenshot-only assessment. Scores concern visible presentation, not measured contrast, hit areas, keyboard behavior, or assistive-technology compliance. No score drops.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: the far-right 'Weekly quota remaining' label is distant from the section title and first account. Group the metric description with the heading; the after screenshot does this.",
+        "Before/after controls/states 8: the small disclosure chevrons are weak visual cues beside the bold percentages. Enlarge the drawn chevrons slightly while retaining the compact rows; actual clickable areas are unknown.",
+        "After retains aligned percentages and readable text labels for amber warnings without increasing the number of account rows."
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: the metric description sits at the opposite end of the header from 'Accounts'. Bring it beside the heading; resolved after.",
+        "Before/after controls/states 8: account disclosure chevrons remain visually slight. Increase their drawn size without increasing row height.",
+        "After keeps all three account names, percentages, warning labels, and the Expand All button visible without apparent collisions."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8 and layout 8: 'Weekly quota remaining' occupies a separate right-aligned line beneath the title and button, delaying the first account. Combine that description with the heading; resolved after.",
+        "Before/after controls/states 8: individual expansion cues are much less prominent than Expand All. Slightly enlarge the chevron glyphs while preserving the compact rows.",
+        "After stacks accounts cleanly, keeps percentages aligned at the right, and retains full warning labels."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8 and layout 8: the separate quota-description line adds header height above an already tall account name. Move it into the heading; resolved after.",
+        "Before/after controls/states 8: the small chevron beside the three-line account name is easy to overlook. Enlarge the glyph and retain its alignment with the first name line.",
+        "After preserves the full long name, its separate percentage column, and the explicit 'Weekly quota unavailable' message without visible overlap."
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: the quota description is detached from the heading. Group them together; resolved after.",
+        "Before/after content 8: account 3 says only 'Unavailable', leaving the unavailable item unclear. Name the affected data explicitly, using 'Weekly quota unavailable' if that is the actual scope.",
+        "Before/after controls/states 8: disclosure chevrons remain visually weak, including beside the unavailable account. Enlarge the glyphs consistently.",
+        "The dash and written unavailable state distinguish missing data from a zero balance without relying only on colour."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: the quota description is distant from the section heading. Group them together; resolved after.",
+        "Before consistency 8: account 3's name sits lower than the other account names because its percentage and Stale label form a taller block. Align all account names and percentages on their first lines; resolved after.",
+        "Before/after controls/states 8: the tiny disclosure marks remain understated. Slightly enlarge their drawn shape while preserving row density.",
+        "After retains the stale percentage, explicit Stale label, and last-observed timestamp, making the qualification visible alongside the value."
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: the weekly metric description is isolated at the far right. Group it with Accounts; resolved after.",
+        "Before/after typography/numbers 8: reset timestamps and inline 'Pro · 100 pts' metadata are small within an already dense presentation. Increase those secondary text sizes slightly while retaining the existing columns and grouping.",
+        "Before/after controls/states 8: downward disclosure chevrons are subtle beside the account names. Enlarge their drawn size consistently with the collapsed state.",
+        "After preserves aligned metric values, text-labelled low states, and common divider positions across accounts. Expanded narrow-screen behavior is not shown."
+      ]
+    }
+  }
+}

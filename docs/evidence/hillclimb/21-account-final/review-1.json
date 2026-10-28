@@ -1,0 +1,210 @@
+{
+  "lens": "Layout and typography. All fourteen crops visually inspected. Responsive/accessibility scores cover visible fit and readability only; interaction, contrast ratios, target sizes and semantics were not measured. Parent padding is excluded from judgment.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: 'Accounts' blends into the adjacent metadata. Give the section name stronger weight; the after image implements this.",
+        "Before and after typography/numbers 8: the quota descriptions and loaded/eligible counts are small beside the bold percentages. Increase those secondary labels one type-size step while retaining the percentage emphasis.",
+        "The after image gives account names and detail lines slightly more separation from their chevrons. The three-column alignment and visible values remain consistent. No score drops."
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: strengthen the 'Accounts' heading relative to 'Weekly Remaining' and the counts; the after image resolves this.",
+        "Before and after typography/numbers 8: 'Cloud Session Credits · Low' and '5-Hour Limit · Low' remain small. Increase their text size one step, keeping the values right-aligned.",
+        "All three account names, percentages and warning lines fit without visible collisions. The added text inset remains workable at this width. No score drops."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: the section title has the same emphasis as its descriptor. Use the stronger 'Accounts' weight visible in the after image.",
+        "Before and after typography/numbers 8: warning descriptions and the loaded/eligible line are small. Increase those labels one type-size step, allowing row height to grow if needed.",
+        "The stacked account rows retain clear separators, aligned percentages and a distinct Expand All control. No visible clipping or score drops."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "findings": [
+        "Before and after hierarchy 8: 'Weekly quota unavailable' competes with the account name because it is larger than the other status descriptions. Reduce it to the secondary status-text size while retaining its amber colour and explicit wording.",
+        "Before and after typography/numbers 8: the long account name wraps legibly, but the smaller quota labels create an uneven type scale beside the unavailable message. Standardize secondary status text at a slightly larger shared size.",
+        "Before and after consistency 8: the unavailable message and Low messages use visibly different type sizes. Apply one secondary-status treatment to both.",
+        "The after heading is stronger. The three-line account name, percentage, unavailable dash and warning values remain visible. No score drops."
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: make 'Accounts' distinct from the metadata; the after image supplies the stronger weight.",
+        "Before content 8: 'Unavailable' does not identify the missing quantity. Use 'Weekly quota unavailable'; the after image implements this clarification.",
+        "Before and after typography/numbers 8: the warning labels and header counts remain small. Increase these secondary labels one type-size step.",
+        "The after image preserves the unavailable dash and the other accounts' displayed values. The longer status still fits within its column. No score drops."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        8,
+        8,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "findings": [
+        "Before hierarchy 8: strengthen the section heading; the after image resolves this.",
+        "Before layout 8: Stale occupies a separate line above the observation timestamp, making this account taller. Place Stale beside the account name while retaining the timestamp beneath it.",
+        "After layout 8: placing Stale after 82.8% shifts the percentage inward relative to the other accounts. Put Stale beside the account name and restore the percentage to the shared right edge.",
+        "Before and after typography/numbers 8: warning labels and the observation timestamp are small. Increase secondary text one type-size step.",
+        "Consistency drops from 9 to 8 because the after image breaks the shared right-edge alignment of the headline percentages. Restore that alignment without removing the stale status or timestamp.",
+        "The after image reduces the section height while preserving the visible stale value and observation time."
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before and after hierarchy 8: 'Current' is visually similar to the metric labels beneath it. Give this subsection label medium weight so the metric group is easier to distinguish from the observation and forecast details below.",
+        "Before and after typography/numbers 8: reset timestamps and lower metadata labels are small across all three columns. Increase their type size one step while preserving the aligned numeric columns.",
+        "The after image strengthens 'Accounts' and increases the inset beside the disclosure chevrons. Progress bars, percentages and the lower information grids retain their alignment.",
+        "The visible metric values, reset times, observation times and forecasts are preserved. No score drops."
+      ]
+    }
+  }
+}

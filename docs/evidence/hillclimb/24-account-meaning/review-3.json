@@ -1,0 +1,221 @@
+{
+  "lens": "Interaction and responsive accessibility; all 14 screenshots inspected. Scores concern visible presentation only. Outer card padding, keyboard behavior, semantics, and measured contrast or target compliance are not assessed.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        9,
+        8,
+        9,
+        8,
+        7,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9,
+        8
+      ],
+      "findings": [
+        "Before layout (8): Warning percentages sit far from their labels. Keep each percentage beside its warning; the after image achieves this.",
+        "Before content (7): 'Low 0%' understates exhaustion, while 'loaded' and 'eligible' do not explain freshness. The after image improves both with 'Exhausted', 'left', and 'current'.",
+        "After hierarchy (8), down from 9: Account names lose their bold weight while weekly percentages remain bold, weakening the identity of each disclosure row. Give account names medium weight.",
+        "After content (8): '3/3 quotas current' leaves the counted unit unclear. Name it explicitly, such as '3/3 accounts current' if accounts are counted.",
+        "Before and after colour and responsive/accessibility (8): Secondary labels and the header qualifier are subdued against the dark surface. Brighten that text modestly while preserving the dark design."
+      ]
+    },
+    "laptop": {
+      "before": [
+        9,
+        8,
+        9,
+        8,
+        7,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        7,
+        8,
+        8,
+        8,
+        9,
+        7,
+        7
+      ],
+      "findings": [
+        "Before layout (8): Warning values are detached at the right edge. Group each warning label, state, and value.",
+        "Before content (7): Replace 'Low' at zero with 'Exhausted', clarify that percentages are remaining, and describe freshness rather than 'loaded' and 'eligible'; the after image improves these.",
+        "After hierarchy (8), down from 9: Regular-weight account names compete with warning text beneath them. Restore modest emphasis to the account names.",
+        "After layout (7), typography/numbers (8), consistency (7), and responsive/accessibility (7) regress: 'Exhausted' wraps below 'Cloud Session Credits', but '0% left' remains at the far right of the preceding line; account 2 keeps its state and value together. Put 'Exhausted · 0% left' together on one continuation line when needed, using the same grouping for all warnings.",
+        "After content (8): Clarify the counted unit in '3/3 quotas current', for example '3/3 accounts current' if appropriate.",
+        "Before colour and responsive/accessibility (8), and after colour (8): Brighten the subdued secondary labels and header qualifier."
+      ]
+    },
+    "narrow": {
+      "before": [
+        9,
+        9,
+        9,
+        8,
+        7,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        7,
+        8,
+        8,
+        8,
+        9,
+        7,
+        7
+      ],
+      "findings": [
+        "Before content (7): 'Low' at zero and bare warning percentages obscure the exact remaining state. The after image improves this with 'Exhausted' and 'left'. Replace the old loaded/eligible summary with an explicit freshness count.",
+        "After hierarchy (8), down from 9: Account names no longer stand apart from warning labels by weight. Use medium-weight account names.",
+        "After layout (7), typography/numbers (8), consistency (7), and responsive/accessibility (7) regress: Account 1 gains a warning line, with 'Exhausted' below the label and '0% left' isolated at the right; account 2 uses an inline 'Low 14% left' group. Keep each state and value together beneath its quota label when width is limited.",
+        "After content (8): Specify whether '3/3 quotas current' counts accounts or quota types; use the corresponding noun.",
+        "Before colour and responsive/accessibility (8), and after colour (8): Increase the brightness of the secondary quota labels and summary text. Text already conveys warning states independently of amber."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        8,
+        9,
+        8,
+        7,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        7,
+        8,
+        8,
+        8,
+        9,
+        7,
+        7
+      ],
+      "findings": [
+        "Before hierarchy and layout (8): The bold, three-line credential name dominates the compact list. Use medium weight and a clearer gap between the identity block and its warning.",
+        "After hierarchy (8): Lighter account text reduces the long name's visual mass, but also reduces distinction from quota labels. Medium weight would preserve both compactness and identity.",
+        "Before content (7): 'Low 0%' should identify exhaustion, and the loaded/eligible summary should explain freshness. The after image improves these meanings.",
+        "After layout (7), typography/numbers (8), consistency (7), and responsive/accessibility (7) regress: The long name still occupies three lines, while 'Exhausted' adds another warning line and separates from the right-aligned '0% left'. Group 'Exhausted · 0% left' on one line beneath the quota label, matching the grouping used for account 2.",
+        "After content (8): Clarify what the '2/3' freshness count counts; name accounts explicitly if that is the unit.",
+        "Before colour and responsive/accessibility (8), and after colour (8): Brighten secondary quota labels and summary text to make the dense stacked content easier to read."
+      ]
+    },
+    "partial": {
+      "before": [
+        9,
+        8,
+        9,
+        8,
+        7,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9,
+        8
+      ],
+      "findings": [
+        "Before layout (8): Warning values are remote from their labels. The after image improves association by placing each value beside its warning.",
+        "Before content (7): Replace 'Low 0%' with an exhausted state and remaining wording; explain the summary as freshness. The after image makes these improvements.",
+        "After hierarchy (8), down from 9: Account names lose emphasis while the unavailable message remains visually prominent. Use medium-weight account names so identity leads each column.",
+        "After content (8): '2/3 quotas current' does not clearly name the counted unit. Use '2/3 accounts current' if appropriate, retaining the explicit 'Weekly quota unavailable' explanation.",
+        "Before and after colour and responsive/accessibility (8): Brighten secondary labels and the summary qualifier. Preserve the unavailable message and dash, which distinguish missing data from zero."
+      ]
+    },
+    "stale": {
+      "before": [
+        9,
+        8,
+        9,
+        8,
+        7,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        8,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before layout (8): Warning percentages sit away from their labels. Keep them adjacent, as the after image does.",
+        "Before content (7): 'Low 0%' and loaded/eligible wording obscure exhaustion and freshness. The after image improves these; retain the last-observed timestamp.",
+        "After hierarchy (8), down from 9: All account names lose weight, weakening identity above the warning lines. Restore medium weight while keeping the stale percentage less prominent than current percentages.",
+        "After controls/states (8), down from 9: The new outlined 'Stale' badge resembles a small control beside the percentage. Give this status label a subdued filled treatment or remove its outline so its appearance is less button-like.",
+        "After content (8): Name the unit counted by '2/3 quotas current', such as accounts if appropriate.",
+        "Before and after colour and responsive/accessibility (8): Brighten secondary labels. In the after image, keep the stale percentage readable while distinguishing it through the explicit status label."
+      ]
+    },
+    "expanded": {
+      "before": [
+        9,
+        9,
+        9,
+        8,
+        7,
+        9,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        7,
+        8,
+        9,
+        7,
+        7
+      ],
+      "findings": [
+        "Before content (7): Bare percentages lack local remaining wording, and zero credits are called 'Low'. The after image improves this with 'left' and 'Exhausted'.",
+        "After hierarchy (8), down from 9: Account names lose their bold emphasis beside plan metadata and above several detail rows. Use medium-weight account names while retaining smaller, subdued plan metadata.",
+        "After colour (7), consistency (7), and responsive/accessibility (7) regress: The empty Cloud Session Credits bar becomes a conspicuous full-length gray strip at '0% left'. Other gray tracks also become brighter, reducing the visual distinction between remaining fill and unused track. Darken tracks and reserve the brighter shade for the remaining portion; zero should have no bright fill.",
+        "After content (8): Clarify the counted unit in '3/3 quotas current'; the expanded view visibly contains several quota types per account.",
+        "Before colour and responsive/accessibility (8): Reset timestamps and lower metadata labels are subdued. Brighten these secondary text elements; this also remains useful after the change."
+      ]
+    }
+  }
+}

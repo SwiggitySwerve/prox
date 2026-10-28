@@ -1,0 +1,213 @@
+{
+  "lens": "Interaction and responsive accessibility, visible evidence only. All seven pairs inspected. Scores exclude outer padding, interaction behavior, keyboard access, semantics, measured contrast and measured target sizes. No score drops.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers 8: account names have the same weight as subordinate warning labels. After fixes this with bold names, strengthening account identity alongside the bold weekly percentages.",
+        "Both layout 8: warning labels and their percentages sit far apart across each wide column. Bring each warning percentage closer to its label while preserving the primary percentage alignment.",
+        "Both content 8: Cloud Session Credits at 0% still says Low, the same severity wording used for 14%. Give the zero-credit state an explicit label such as None remaining.",
+        "Both controls/states and responsive/accessibility 8: individual disclosure is represented by a small bare chevron, while Expand All has a visible button boundary. Give each account disclosure a clearer visible control area with more vertical breathing room; actual hit areas are not established by these images."
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers 8: regular-weight account names compete with warning text. After fixes this through bold account names without visible wrapping or clipping.",
+        "Both content 8: the 0% Cloud Session Credits warning says only Low. Replace that zero-value wording with None remaining.",
+        "Both controls/states and responsive/accessibility 8: bare disclosure chevrons occupy visually shallow account headers. Add a clearer disclosure control boundary and slightly more vertical spacing while retaining the three-column layout."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers 8: account names and warning labels have similar emphasis. After fixes this with bold account names; weekly percentages remain aligned and readable.",
+        "Both content 8: Cloud Session Credits at 0% is labeled Low. Use explicit zero-remaining wording.",
+        "Both controls/states and responsive/accessibility 8: Expand All is visibly substantial, but per-account chevrons remain small and their header bands shallow. Give individual disclosures a similarly clear visible control area, especially the third account with no warning row.",
+        "Both layouts stack all three accounts and wrap the section metadata without visible clipping. No responsive layout regression is visible."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Both hierarchy and typography/numbers 8: the first account name occupies three lines beside a single-line percentage. Bold text improves identity in the after image but the long name still dominates the list. Show a concise account alias in the header and retain the full credential label in expanded details.",
+        "Both content 8: 2 loaded and 3 eligible require interpretation alongside Weekly quota unavailable, and the 0% warning says only Low. Clarify the count as 2 quotas available and use explicit zero-remaining wording.",
+        "Both controls/states and responsive/accessibility 8: the long account has a small chevron beside a multiline label, while the short third account has a shallow disclosure header. Give disclosures a consistent visible control area and minimum visual header height.",
+        "The after label reflows into different three-line breaks without visible clipping; the percentage stays separate. No score drop is warranted."
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers 8: account names are insufficiently distinguished from secondary labels. After fixes this with bold names, including the account whose quota is unavailable.",
+        "Both content 8: 2 loaded appears above three visible accounts, leaving the meaning of loaded indirect. Change it to 2 quotas available; label the separate 0% credit warning None remaining.",
+        "Both controls/states and responsive/accessibility 8: account disclosure remains a small bare chevron in a shallow header. Add a clearer visible disclosure control area with more vertical spacing.",
+        "The dash plus Weekly quota unavailable explains the missing value in text. That state remains legible in both versions."
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers 8: account identities have no weight distinction from subordinate text. After fixes this with bold names while retaining the visible Stale qualifier beside 82.8%.",
+        "Both content 8: 2 loaded does not directly explain that the third displayed percentage is historical. Use wording such as 2 current, 1 stale; replace Low on the separate 0% warning with None remaining.",
+        "Both controls/states and responsive/accessibility 8: disclosure chevrons remain visually small and unbounded. Give each account header a clearer visible disclosure control area and more vertical breathing room.",
+        "Stale and Last observed provide textual freshness cues in both images; the state does not depend on amber alone."
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        8,
+        9,
+        8,
+        8,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers 8: account names have the same weight as quota labels. After fixes this through bold names while keeping Pro and points secondary.",
+        "Before consistency 8: lower metadata labels begin to the left of the quota-label alignment. After fixes this by aligning Last observed and Predicted empty with the account detail text.",
+        "Both layout 8: the shared footer baseline leaves a substantial blank band below the shorter second and third quota lists. Reduce the quota-to-footer gap or make the quota rows correspond across accounts so that reserved space aids comparison.",
+        "Both colour 8: the empty Cloud Session Credits bar is a faint dark track against the dark panel. Strengthen its visible outline while retaining the explicit 0% value.",
+        "Both content 8: Weekly Reset duplicates the 7-Day Limit reset timestamp, and 0% credits still says Low. Consolidate the repeated reset information and use explicit zero-remaining wording.",
+        "Both controls/states and responsive/accessibility 8: Collapse All has a visible button boundary, but individual collapse controls remain small bare chevrons in shallow headers. Give each disclosure a clearer visible control area with more vertical breathing room.",
+        "Only the wide expanded state is supplied here; expanded behavior at narrow widths is not established."
+      ]
+    }
+  }
+}

@@ -1,0 +1,205 @@
+{
+  "lens": "Layout and typography within the existing compact dark design. All fourteen crops inspected. Responsive/accessibility scores cover visible wrapping, legibility and non-colour cues only; no interaction testing, measured contrast or outer-padding assessment.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: regular-weight account names resemble the subordinate quota labels, while bold percentages attract attention first. Increase account-name weight; after implements this fix.",
+        "After preserves aligned percentage columns and keeps amber warnings subordinate to the account headings. No score drops."
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: account names lack a clear weight distinction from warning descriptions. Use heavier account headings; after fixes this without wrapping names or displacing percentages.",
+        "The three columns remain readable at this width, with consistent label and value alignment. No score drops."
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: account headings and their warning lines have similar typographic emphasis. Increase heading weight; after makes each stacked account easier to identify.",
+        "After retains visible separators, right-aligned percentages and a header arrangement that accommodates Expand All without overlapping the counts. No score drops."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        8,
+        7,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy: the long account name has the same regular weight as subordinate text. Give the name moderate emphasis; after improves its identification as the account heading.",
+        "Both layout scores: the three-line first account name makes that account substantially taller than its neighbours and pushes its warning down. Provide a concise display name for this compact view while retaining the complete credential label in the expanded details.",
+        "Typography/numbers drops from 8 to 7: before has a lengthy regular-weight heading; after turns it into a dense three-line bold block beside 82.8%, with more text concentrated in the final line. Use semibold for account names and a concise display name to reduce the visual mass.",
+        "The complete label, percentage and unavailable-quota message remain visible; no clipping is apparent."
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        9,
+        8,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: the amber unavailable message competes with its regular-weight account heading. Increase heading weight; after establishes a clearer parent heading.",
+        "Both content scores: '2 loaded · 3 eligible' leaves the counted object implicit despite three visible account rows. Add a noun identifying what loaded, such as 'quota readings', if that matches the intended meaning.",
+        "The missing value remains an em dash with an explicit 'Weekly quota unavailable' explanation. No score drops."
+      ]
+    },
+    "stale": {
+      "before": [
+        7,
+        9,
+        8,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9
+      ],
+      "findings": [
+        "Before typography/numbers: regular-weight account names are weaker than the percentages. Increase heading weight; after fixes this.",
+        "Both hierarchy and controls/states scores: the stale 82.8% retains the same bold white emphasis as fresh values, while 'Stale' is lighter text immediately beside it. Give the stale qualifier stronger visual grouping, such as a compact outlined badge, and slightly reduce the stale number's emphasis.",
+        "Both content scores: '2 loaded' sits above three numeric percentages, leaving the treatment of the stale reading unclear. Label the count's intended category explicitly, such as fresh readings if that is what it counts.",
+        "After improves account-heading hierarchy but leaves stale-value emphasis unchanged. The timestamp provides useful visible context. No score drops."
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        8,
+        8,
+        8,
+        8,
+        9,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        8,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        "Before hierarchy and typography/numbers: account names do not sufficiently separate from adjacent 'Pro · 100 pts' metadata and subordinate quota labels. Increase account-name weight; after establishes that distinction while preserving numeric alignment.",
+        "Before layout and consistency: the lower 'Last observed' and 'Predicted empty' blocks start left of the quota-label alignment above. Align these lower labels and values to the quota text; after implements this consistently across all three accounts.",
+        "Both colour scores: progress tracks are very subdued against the dark panel, especially the empty Cloud Session Credits track. Lighten the track colour slightly so its full extent remains easier to perceive without a filled segment.",
+        "Both content scores: the standalone 'Current' label does not say what the following percentages represent. Replace it with 'Quota remaining' or an equally explicit label matching the intended metric.",
+        "After preserves aligned lower sections and clear warning text. No score drops."
+      ]
+    }
+  }
+}

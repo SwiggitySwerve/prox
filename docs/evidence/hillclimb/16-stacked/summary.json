@@ -1,0 +1,98 @@
+{
+  "wide": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "laptop": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "partial": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "stale": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "collecting": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "expanded": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "drain": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "burn-narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "stacked-wide": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "stacked-narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "stacked-unavailable": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  }
+}

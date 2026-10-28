@@ -7,7 +7,7 @@ import { PoolChart } from './PoolChart';
 import { PoolGraph } from './PoolGraph';
 import { PoolGraphToggle } from './PoolGraphToggle';
 import { PoolProviderMark } from './PoolProviderMark';
-import { formatPoolDate, formatPoolNumber } from './presentation';
+import { formatPoolDate, formatPoolNumber, isLowQuota } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
 export function PoolCard({
@@ -29,7 +29,7 @@ export function PoolCard({
   const { t, i18n } = useTranslation();
   const id = useId();
   const [minimized, setMinimized] = useState(false);
-  // Collapsed accounts show limits as numbers only; opening one shows bars and reset times.
+  // Opening a row reveals reset details; minimization only compacts closed rows.
   const [openAccounts, setOpenAccounts] = useState<ReadonlySet<string>>(() => new Set());
   const allOpen = pool.accounts.length > 0 && pool.accounts.every((a) => openAccounts.has(a.id));
   const setAccountOpen = (accountId: string, open: boolean) =>
@@ -54,6 +54,8 @@ export function PoolCard({
       aria-labelledby={`${id}-title`}
       data-forecast-state={pool.forecastState}
       data-chart-mode={mode}
+      data-minimized={minimized}
+      data-saved={savedData}
     >
       <div className={styles.poolHeader}>
         <div className={styles.poolIdentity}>
@@ -193,8 +195,13 @@ export function PoolCard({
       <section className={styles.accounts} aria-labelledby={`${id}-accounts`}>
         <h3 id={`${id}-accounts`}>
           <span>
-            {t('quota_pool.accounts')} ·{' '}
-            {t('quota_pool.coverage', { loaded: pool.loadedCount, eligible: pool.eligibleCount })}
+            <b className={styles.accountHeadingLabel}>{t('quota_pool.accounts')}</b>
+            <span className={styles.accountBalanceLabel}>
+              · {t('quota_pool.account_remaining', { window: windowLabel })}
+            </span>
+            <small className={styles.accountCoverage}>
+              {t('quota_pool.coverage', { loaded: pool.loadedCount, eligible: pool.eligibleCount })}
+            </small>
           </span>
           {pool.accounts.length > 0 && (
             <button
@@ -208,7 +215,6 @@ export function PoolCard({
               {t(allOpen ? 'quota_pool.collapse_accounts' : 'quota_pool.expand_accounts')}
             </button>
           )}
-          <span>{t('quota_pool.remaining')}</span>
         </h3>
         <div className={styles.accountGrid}>
           {pool.accounts.length === 0 ? (
@@ -223,6 +229,11 @@ export function PoolCard({
                 onToggle={(event) => setAccountOpen(account.id, event.currentTarget.open)}
               >
                 <summary>
+                  <IconChevronDown
+                    className={styles.accountDisclosure}
+                    size={20}
+                    aria-hidden="true"
+                  />
                   <span className={styles.accountName}>
                     {reveal && account.email ? account.email : account.label}
                     <small className={styles.accountPlan}>
@@ -237,34 +248,35 @@ export function PoolCard({
                     </small>
                   </span>
                   <span className={styles.accountStatus}>
-                    {savedData && account.status === 'ok'
-                      ? t('quota_pool.saved_observation')
-                      : account.status === 'missing-window'
-                        ? t('quota_pool.window_unavailable', { window: windowLabel })
-                        : t(`quota_pool.account_status.${account.status}`)}
-                    {account.status === 'stale' && (
-                      <>
-                        {' '}
-                        · {t('quota_pool.observed')}: {date(account.observedAtMs)}
-                      </>
-                    )}
+                    {account.status === 'stale'
+                      ? t('quota_pool.observed') + ': ' + date(account.observedAtMs)
+                      : savedData && account.status === 'ok'
+                        ? t('quota_pool.saved_observation')
+                        : account.status === 'missing-window' || account.status === 'error'
+                          ? t('quota_pool.window_unavailable', { window: windowLabel })
+                          : t(`quota_pool.account_status.${account.status}`)}
                   </span>
                   <strong>
-                    {account.remainingPercent === null
-                      ? '—'
-                      : `${number(account.remainingPercent)}%`}
                     {account.status === 'stale' && (
                       <small>{t('quota_pool.account_status.stale')}</small>
                     )}
+                    {account.remainingPercent === null
+                      ? '—'
+                      : `${number(account.remainingPercent)}%`}
                   </strong>
                   {account.windows.length > 0 && (
                     <ul className={styles.limits} aria-label={t('quota_pool.limits')}>
                       {account.windows.map((limit) => (
-                        <li
-                          key={limit.id}
-                          data-low={limit.remainingPercent !== null && limit.remainingPercent < 20}
-                        >
-                          <span>{t(limit.labelKey, limit.labelParams)}</span>
+                        <li key={limit.id} data-low={isLowQuota(limit.remainingPercent)}>
+                          <span>
+                            {t(limit.labelKey, limit.labelParams)}
+                            {isLowQuota(limit.remainingPercent) && (
+                              <em className={styles.limitWarning}>
+                                {' '}
+                                · {t('quota_pool.limit_low')}
+                              </em>
+                            )}
+                          </span>
                           <span className={styles.limitBar} aria-hidden="true">
                             <span style={{ width: `${limit.remainingPercent ?? 0}%` }} />
                           </span>
@@ -289,7 +301,7 @@ export function PoolCard({
                     <dd>{date(account.observedAtMs)}</dd>
                   </div>
                   <div>
-                    <dt>{t('quota_pool.next_reset')}</dt>
+                    <dt>{t('quota_pool.account_reset', { window: windowLabel })}</dt>
                     <dd>{date(account.resetAtMs)}</dd>
                   </div>
                   <div>

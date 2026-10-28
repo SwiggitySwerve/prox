@@ -1,0 +1,466 @@
+{
+  "lens": "layout and typography",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "scope": "Account section only. Scores assess visible presentation; interactions, focus behavior and measured contrast were not tested.",
+  "screens": {
+    "wide": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        7,
+        7,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "element": "Remaining heading and collapsed account summaries",
+          "fix": "Identify the main percentage as weekly quota remaining and expose compact, resource-specific low-quota lines beneath accounts 1 and 2.",
+          "evidence": "The generic heading and three identical 82.8% summaries provide no visible resource-warning distinction."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "element": "Expand All",
+          "fix": "Give the action a restrained dark button surface and border so it separates from the adjacent account counts."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "content"
+          ],
+          "element": "Account summary and warning rows",
+          "observation": "Bold weekly percentages retain priority. Indented warning labels and right-aligned amber values add useful meaning in one extra line. Account 3 remains visually quiet."
+        }
+      ]
+    },
+    "laptop": {
+      "before": [
+        8,
+        9,
+        9,
+        9,
+        7,
+        7,
+        9,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "element": "Remaining heading and account percentages",
+          "fix": "Name the weekly quota explicitly and show each affected resource's low status beneath its account name.",
+          "evidence": "The three equally prominent 82.8% values make the account summaries appear equivalent."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "element": "Expand All",
+          "fix": "Add a compact dark button boundary to distinguish the action from header metadata."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "layout",
+            "typography/numbers"
+          ],
+          "element": "Three account columns",
+          "observation": "The resource labels fit on one line, warning values share the main percentages' right edges, and the columns retain clear separation at this width."
+        }
+      ]
+    },
+    "narrow": {
+      "before": [
+        8,
+        7,
+        8,
+        9,
+        7,
+        8,
+        8,
+        7
+      ],
+      "after": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "layout",
+            "typography/numbers",
+            "controls/states",
+            "consistency",
+            "responsive/accessibility"
+          ],
+          "element": "Header counts and Expand All button",
+          "fix": "Keep '3 loaded · 3 eligible' together beneath Accounts and reserve enough button width for a single-line Expand All label.",
+          "evidence": "The count breaks before 'eligible' and the action breaks between 'Expand' and 'All', creating competing two-line blocks."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "element": "Remaining heading and collapsed rows",
+          "fix": "Clarify that the bold values represent weekly quota and add concise resource-specific warnings below affected account names."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "responsive/accessibility"
+          ],
+          "element": "Weekly quota remaining header line",
+          "fix": "Reduce the vertical gap between the title/count/button group and the quota caption, keeping the caption immediately above the percentage column.",
+          "evidence": "The header occupies about 80 pixels of a 243-pixel crop. Its separate caption band takes substantial space before the first account.",
+          "comparison": "The single-line button and coherent count line improve wrapping, but the header is about 20 pixels taller than before."
+        }
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        8,
+        7,
+        8,
+        9,
+        8,
+        8,
+        8,
+        7
+      ],
+      "after": [
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "layout",
+            "typography/numbers",
+            "consistency"
+          ],
+          "element": "Long account name, chevron and 82.8% value",
+          "fix": "Align the chevron and weekly percentage with the first line of the account name while allowing the full name to wrap.",
+          "evidence": "The percentage and chevron sit near the middle of the three-line name, unlike the first-line alignment of a simple account row."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states",
+            "responsive/accessibility"
+          ],
+          "element": "Expand All and account-count header",
+          "fix": "Keep the button label on one line and place the complete count phrase beneath Accounts."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "element": "Quota heading and account status summaries",
+          "fix": "Replace the generic Remaining heading with the weekly metric name and expose resource-specific low warnings while retaining Weekly quota unavailable."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "responsive/accessibility"
+          ],
+          "element": "Header quota-caption band",
+          "fix": "Tighten the space above and below Weekly quota remaining so the long account name starts sooner without truncating it or its warning.",
+          "evidence": "The header consumes about 80 pixels before a necessarily multiline account row.",
+          "comparison": "The header grows by about 20 pixels, although improved wrapping and first-line numeric alignment raise the overall layout score."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "content",
+            "typography/numbers"
+          ],
+          "element": "Account 2 unavailable and low-quota messages",
+          "observation": "Weekly quota unavailable remains distinct from 5-Hour Limit · Low and its 14% value. The screenshot preserves both meanings without conflating their numbers."
+        }
+      ]
+    },
+    "partial": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        7,
+        7,
+        8,
+        9
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "element": "Remaining heading and available-account summaries",
+          "fix": "Specify weekly quota remaining and show compact low-resource warnings for accounts 1 and 2, preserving account 3's Unavailable message."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "layout",
+            "consistency"
+          ],
+          "element": "Account 3 chevron and unavailable-value dash",
+          "fix": "Align the chevron and dash with the account-name row; keep Unavailable on the secondary line.",
+          "evidence": "The chevron sits beside the status line and the dash sits below the neighboring percentages' baseline."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "element": "Expand All",
+          "fix": "Give the action a compact, visible dark button boundary."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "layout",
+            "consistency"
+          ],
+          "element": "All three account summaries",
+          "observation": "Names and primary values now align across columns. Low-resource lines and Unavailable occupy a consistent secondary tier."
+        }
+      ]
+    },
+    "stale": {
+      "before": [
+        8,
+        8,
+        9,
+        9,
+        8,
+        7,
+        8,
+        9
+      ],
+      "after": [
+        7,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8,
+        9
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "content"
+          ],
+          "element": "Generic Remaining heading and stale message",
+          "fix": "Name the weekly metric, retain one Stale label beside its value, and put Last observed on a dedicated secondary line without repeating Stale in that sentence."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "layout",
+            "consistency"
+          ],
+          "element": "Account 3 chevron, timestamp and primary value",
+          "fix": "Align the chevron, account name and percentage on the first row, then let the timestamp use the full secondary row.",
+          "evidence": "The chevron follows the multiline status block, the timestamp wraps, and the percentage sits below the other accounts' values."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "element": "Expand All",
+          "fix": "Separate the action from the counts with a restrained dark button surface."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "consistency"
+          ],
+          "element": "Account 3 name and chevron beside the 82.8% / Stale stack",
+          "fix": "Top-align the name and chevron with the 82.8% row and the other account names. Keep Stale directly beneath the value and Last observed on its own line.",
+          "regression": "Hierarchy drops from 8 to 7: account 3's name now sits visibly lower than accounts 1 and 2, centered beside the two-line value/status stack. Previously the account names shared a baseline.",
+          "evidence": "The percentage alignment improves, but its status stack now displaces the account identity."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "content"
+          ],
+          "element": "Stale timestamp",
+          "observation": "The single-line Last observed timestamp and single Stale label remove repetition while preserving the warning."
+        }
+      ]
+    },
+    "expanded": {
+      "before": [
+        8,
+        8,
+        8,
+        8,
+        8,
+        7,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        9,
+        9,
+        9,
+        9,
+        8
+      ],
+      "findings": [
+        {
+          "version": "before",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "consistency"
+          ],
+          "element": "Last observed / Next reset metadata blocks",
+          "fix": "Start the metadata blocks on a shared horizontal boundary below the tallest quota list and add a subtle divider.",
+          "evidence": "Account 1's extra quota row pushes its metadata below the corresponding blocks in accounts 2 and 3."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "colour",
+            "content"
+          ],
+          "element": "Cloud Session Credits 0% and 5-Hour Limit 14%",
+          "fix": "Add a short Low label beside each affected resource while retaining the amber values.",
+          "evidence": "The warning distinction is communicated through amber numbers without an explicit severity word."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "controls/states"
+          ],
+          "element": "Collapse All",
+          "fix": "Give the action the same restrained button boundary used for the compact header action."
+        },
+        {
+          "version": "before",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "element": "Resets date/time captions",
+          "fix": "Increase the smallest reset captions slightly toward the neighboring secondary-text size, preserving their subordinate colour and keeping each caption on one line.",
+          "evidence": "Reset dates are visibly smaller than the quota labels and lower metadata values."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "typography/numbers",
+            "responsive/accessibility"
+          ],
+          "element": "Resets date/time captions",
+          "fix": "Increase the reset captions slightly toward the size of Last observed and Next reset labels; retain subdued colour and compact spacing.",
+          "evidence": "The smallest operational timestamps remain noticeably harder to read than the rest of the account details."
+        },
+        {
+          "version": "after",
+          "aspects": [
+            "hierarchy",
+            "layout",
+            "consistency"
+          ],
+          "element": "Quota lists and lower metadata",
+          "observation": "The shared divider and aligned metadata rows improve cross-account scanning. The space beneath shorter quota lists supports that alignment; keep it."
+        }
+      ]
+    }
+  },
+  "summary": "The AFTER screenshots improve warning visibility, metric naming and cross-account alignment. Prioritize fixing the stale account's lowered name baseline, tightening narrow headers, and slightly enlarging expanded reset captions. Preserve the dark palette, amber warning text and explicit resource names."
+}

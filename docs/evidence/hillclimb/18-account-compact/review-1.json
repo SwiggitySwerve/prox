@@ -1,0 +1,238 @@
+{
+  "lens": "Interaction and responsive accessibility. Visual review of all fourteen account crops and the motivating screenshot only. No implementation inspection or interaction testing. Scores do not establish keyboard support, semantics, hit-area dimensions, or measured contrast compliance. Account crops show Claude; Codex styling is not assessed.",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "screens": {
+    "wide": {
+      "before": [
+        7,
+        7,
+        9,
+        8,
+        7,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        6,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        "Before — hierarchy 7, layout 7, content 7: closed rows expose Pro/100 pts, Current, and multiple limit values. Move ordinary plan and limit details into expansion; retain name, balance, and warning summaries.",
+        "Before — colour 8, responsive/accessibility 8: cloud credits at 0% and the five-hour limit at 14% communicate their warning status through yellow numerals alone. Add concise textual warning cues beside these values.",
+        "Before — controls/states 8: the tiny, dim leading chevrons provide weak visual disclosure cues. Increase their visible size and contrast without increasing row bulk.",
+        "After — content falls 7 to 6: account 1's yellow 0% cloud-credit warning and account 2's yellow 14% five-hour warning disappear while both rows show 82.8%. Retain a short warning summary identifying the affected limit in each closed row.",
+        "After — colour 8, responsive/accessibility 8: restore the missing warning summaries with both amber emphasis and explicit text; the white overall balances currently provide no visible warning cue.",
+        "After — controls/states falls 8 to 7: Expand All loses its outlined button treatment and resembles adjacent metadata. Restore a restrained boundary or background and strengthen the row chevrons.",
+        "After — consistency falls 9 to 8: Expand All is plain text here but remains outlined in the narrow screenshots. Use the same recognizable control treatment across widths.",
+        "Positive: the crop decreases from 171 to 74 pixels high, with names and balances cleanly aligned."
+      ]
+    },
+    "laptop": {
+      "before": [
+        7,
+        7,
+        9,
+        8,
+        7,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        6,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        "Before — hierarchy 7, layout 7, content 7: the two-column limit grids make closed accounts several lines tall. Move normal limits, plan details, and Current into expansion while keeping warning summaries visible.",
+        "Before — colour 8, responsive/accessibility 8: the yellow 0% cloud-credit value and 14% five-hour value lack textual warning qualifiers. Add short labels identifying exhausted or low limits.",
+        "Before — controls/states 8: small, dim row chevrons are easy to overlook beside the bold balances. Increase their visible size and contrast.",
+        "After — content falls 7 to 6: removing the limit grids also removes account 1's 0% and account 2's 14% warnings. Preserve concise limit-specific warnings beneath or beside the corresponding names.",
+        "After — colour 8, responsive/accessibility 8: both affected accounts now appear unqualified at 82.8%. Use text plus amber emphasis for the retained warning summaries.",
+        "After — controls/states falls 8 to 7: Expand All becomes unbounded text. Restore a compact button treatment and clearer row disclosure indicators.",
+        "After — consistency falls 9 to 8: desktop Expand All loses the outline retained at narrow widths. Keep its visual treatment consistent.",
+        "Positive: the crop decreases from 226 to 74 pixels high without visible name or balance clipping."
+      ]
+    },
+    "narrow": {
+      "before": [
+        7,
+        6,
+        8,
+        8,
+        7,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        8,
+        6,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before — hierarchy 7, layout 6, content 7: closed accounts stack full limit grids and occupy 587 pixels. Hide ordinary plan and limit details until expansion, retaining compact warning summaries.",
+        "Before and after — typography/numbers 8: the header strands eligible on a second line and splits Expand All across two lines. Place account counts on their own header line and keep the action label together.",
+        "Before — colour 8: the 0% cloud-credit and 14% five-hour warnings rely on yellow numerals. Add explicit warning text.",
+        "Before and after — controls/states 8: the leading disclosure chevrons remain tiny and dim. Make them more legible while preserving the compact row spacing.",
+        "Before — responsive/accessibility 7: the wrapped header and colour-only warning status hinder scanning. Reflow the header and label the warnings in text.",
+        "After — content falls 7 to 6: account 1's 0% warning and account 2's 14% warning are hidden behind identical 82.8% summaries. Keep short limit-specific warning text in the closed rows.",
+        "After — colour 8, responsive/accessibility 8: restore amber warning summaries with text, and reflow the cramped header without shrinking its lettering.",
+        "Positive: the crop decreases from 587 to 203 pixels; names and balances remain readable, and Expand All retains its button outline."
+      ]
+    },
+    "long-narrow": {
+      "before": [
+        7,
+        6,
+        8,
+        8,
+        7,
+        8,
+        9,
+        7
+      ],
+      "after": [
+        9,
+        9,
+        8,
+        8,
+        6,
+        8,
+        9,
+        8
+      ],
+      "findings": [
+        "Before — hierarchy 7, layout 6, content 7: a three-line credential name is followed by plan text, Current, and a full limit grid. Move ordinary details into expansion and retain only name, balance, and warnings when closed.",
+        "Before and after — typography/numbers 8: the header splits eligible and Expand All awkwardly. Give the counts a separate line and keep the button label unbroken; preserve wrapping of the long credential name.",
+        "Before — colour 8: account 1's 0% cloud-credit value and account 2's 14% five-hour value use colour alone to indicate warning status. Add textual qualifiers.",
+        "Before and after — controls/states 8: the tiny left chevron is especially easy to miss beside the three-line credential name. Increase its visible size and contrast.",
+        "Before — responsive/accessibility 7: dense detail below the long name and the wrapped header make the section difficult to scan. Collapse ordinary details and reflow the header.",
+        "After — content falls 7 to 6: Weekly quota unavailable remains, but the separate 0% cloud-credit and 14% five-hour warnings disappear. Preserve concise summaries for those affected limits as well.",
+        "After — colour 8, responsive/accessibility 8: keep explicit amber warning text for the hidden low or exhausted limits, and resolve the header wrapping.",
+        "Positive: the complete long name wraps without colliding with 82.8%; Weekly quota unavailable and its dash remain visible. Crop height decreases from 626 to 234 pixels."
+      ]
+    },
+    "partial": {
+      "before": [
+        7,
+        7,
+        9,
+        8,
+        7,
+        8,
+        9,
+        8
+      ],
+      "after": [
+        9,
+        9,
+        9,
+        8,
+        6,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        "Before — hierarchy 7, layout 7, content 7: every closed account shows ordinary plan and limit details, making the unavailable account harder to distinguish quickly. Move those details into expansion while retaining status and warning summaries.",
+        "Before — colour 8, responsive/accessibility 8: the yellow 0% cloud-credit and 14% five-hour values lack textual warning qualifiers. Add short limit-specific warning text.",
+        "Before — controls/states 8: tiny, low-emphasis leading chevrons weakly signal expansion. Increase their visible size and contrast.",
+        "After — content falls 7 to 6: account 3's Unavailable status survives, but account 1's 0% and account 2's 14% warnings disappear. Retain those warnings in compact closed-row summaries.",
+        "After — colour 8, responsive/accessibility 8: restore those warning summaries using explicit text and amber emphasis.",
+        "After — controls/states falls 8 to 7: Expand All loses its button boundary. Restore a restrained button treatment and clearer chevrons.",
+        "After — consistency falls 9 to 8: the plain desktop action differs from its outlined narrow counterpart. Use one recognizable control treatment across widths.",
+        "Positive: Unavailable remains paired with a dash instead of a numeric balance; crop height decreases from 226 to 87 pixels."
+      ]
+    },
+    "stale": {
+      "before": [
+        7,
+        7,
+        9,
+        8,
+        7,
+        8,
+        8,
+        8
+      ],
+      "after": [
+        8,
+        9,
+        9,
+        8,
+        6,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        "Before — hierarchy 7, layout 7, content 7: ordinary limit grids compete with the stale message and last-observed timestamp. Move ordinary details into expansion and retain a compact stale summary.",
+        "Before — colour 8, responsive/accessibility 8: account 1's 0% cloud-credit and account 2's 14% five-hour warnings rely on yellow values. Add short textual warning qualifiers.",
+        "Before — controls/states 8: tiny, dim chevrons provide weak disclosure cues. Increase their visible size and contrast.",
+        "Before and after — consistency 8: account 3 repeats Stale beneath its name and beneath its balance, whereas Unavailable is stated once in the partial state. Keep one clear Stale label adjacent to the affected balance and retain Last observed beneath the name.",
+        "After — hierarchy 8: the repeated stale labels and wrapped timestamp make account 3 substantially taller than its neighbours. Consolidate the duplicate status as described while preserving the timestamp.",
+        "After — content falls 7 to 6: the stale warning survives, but account 1's 0% and account 2's 14% limit warnings vanish. Keep concise summaries of those warnings in their closed rows.",
+        "After — colour 8, responsive/accessibility 8: restore the missing limit warnings with text and amber emphasis; retain the visible qualification of account 3's stale 82.8% balance.",
+        "After — controls/states falls 8 to 7: Expand All loses its outlined button treatment. Restore a compact boundary or background and clearer row chevrons.",
+        "Positive: stale status and the last-observed date remain visible. Crop height decreases from 246 to 107 pixels."
+      ]
+    },
+    "expanded": {
+      "before": [
+        9,
+        8,
+        8,
+        8,
+        9,
+        8,
+        8,
+        8
+      ],
+      "after": [
+        9,
+        8,
+        8,
+        8,
+        9,
+        7,
+        8,
+        8
+      ],
+      "findings": [
+        "Before and after — layout 8, consistency 8: account 1's extra Cloud Session Credits line pushes Last observed, Next reset, Predicted empty, and Burn below the equivalent fields in accounts 2 and 3. Align the metadata sections across the three wide columns by reserving room for the longest limit list.",
+        "Before and after — typography/numbers 8: reset timestamps beneath the five-hour and seven-day limits are noticeably smaller than the surrounding labels. Increase their text size while keeping them visually secondary.",
+        "Before and after — colour 8, responsive/accessibility 8: the exhausted cloud-credit value and low five-hour value rely on yellow emphasis; reset timestamps are small. Add textual warning qualifiers and increase reset-text legibility.",
+        "Before — controls/states 8: the small downward chevrons provide weak individual-collapse cues. Increase their visible size and contrast.",
+        "After — controls/states falls 8 to 7: Collapse All loses the outlined button treatment while the row chevrons remain tiny. Restore a restrained button boundary and clearer individual disclosure indicators.",
+        "Positive: plan details, limit values, reset times, and account metadata remain visible in expansion. The principal visible change is the shorter header; crop height decreases from 382 to 362 pixels."
+      ]
+    }
+  }
+}

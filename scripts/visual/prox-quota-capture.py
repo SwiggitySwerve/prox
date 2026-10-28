@@ -137,7 +137,7 @@ def fixture(state):
                  drainPointsPerHour=6.4, forecastState="ready", poolEmptyAtMs=None,
                  resets=[dict(atMs=NOW+DAY,gainPoints=200)],
                  recorded=[dict(atMs=at, remainingPoints=value, burnPointsPerHour=6.4,
-                                drainPointsPerHour=6.4) for at,value in [(NOW-DAY,420),(NOW,391.2)]],
+                                drainPointsPerHour=6.4) for at,value in [(NOW-DAY,412),(NOW,391.2)]],
                  projected=[dict(atMs=at, remainingPoints=value, burnPointsPerHour=None,
                                  drainPointsPerHour=None) for at,value in
                             [(NOW,391.2),(NOW+DAY,241.2),(NOW+DAY,441.2),
@@ -145,9 +145,21 @@ def fixture(state):
     if state in ("partial","stale","collecting","long"):
         total.update(forecastState="partial" if state=="long" else state, projected=[],resets=[])
         if state!="collecting": total.update(remainingPoints=None,burnPointsPerHour=None,drainPointsPerHour=None)
-    combined = {"all":dict(series=total,unavailableReason=None)}
-    combined.update({pool["provider"]:dict(series={key:pool[key] for key in total},unavailableReason=None) for pool in pools})
-    if state == "total-unavailable": combined["all"] = dict(series=None,unavailableReason="ambiguous-sources")
+    layers=[]
+    for pool,previous in zip(pools,[258.8,153.2]):
+        layer={key:pool[key] for key in total}
+        layer["provider"]=pool["provider"]
+        layer["recorded"]=[dict(atMs=at,remainingPoints=value,burnPointsPerHour=pool["burnPointsPerHour"],
+                                drainPointsPerHour=pool["drainPointsPerHour"])
+                           for at,value in [(NOW-DAY,previous),(NOW,pool["remainingPoints"])]]
+        if state=="collecting":layer["recorded"]=layer["recorded"][-1:]
+        layers.append(layer)
+    if state=="collecting":total["recorded"]=total["recorded"][-1:]
+    if state in ("partial","stale","long"):
+        total["recorded"][-1].update(remainingPoints=None,burnPointsPerHour=None,drainPointsPerHour=None)
+    combined = {"all":dict(series=total,layers=layers,unavailableReason=None)}
+    combined.update({layer["provider"]:dict(series={key:layer[key] for key in total},layers=[layer],unavailableReason=None) for layer in layers})
+    if state == "stacked-unavailable": combined["all"] = dict(series=None,unavailableReason="ambiguous-sources")
     return dict(
         combined=combined,
         nowMs=NOW,
@@ -308,6 +320,9 @@ async def main():
     ap.add_argument("--round", required=True)
     ap.add_argument("--url", default="http://127.0.0.1:15173")
     ap.add_argument("--cases", nargs="*")
+    ap.add_argument("--minimize-cards", action="store_true")
+    ap.add_argument("--capture-only", action="store_true")
+    ap.add_argument("--assert-compact", action="store_true")
     args = ap.parse_args()
     out = ROOT / "docs/evidence/hillclimb" / args.round
     out.mkdir(parents=True, exist_ok=True)
@@ -324,13 +339,14 @@ async def main():
         ("long-narrow", "long", 390, 844),
         ("details-narrow", "details", 390, 844),
         ("expanded", "expanded", 1920, 1280),
+        ("expanded-narrow", "expanded", 390, 844),
         ("drain", "drain", 1440, 1000),
         ("burn-narrow", "burn", 390, 844),
         ("refresh-error", "refresh-error", 1440, 1000),
         ("refresh-pending", "refresh-pending", 1440, 1000),
-        ("total-wide", "total", 1920, 1280),
-        ("total-narrow", "total", 390, 844),
-        ("total-unavailable", "total-unavailable", 1440, 1000),
+        ("stacked-wide", "stacked", 1920, 1280),
+        ("stacked-narrow", "stacked", 390, 844),
+        ("stacked-unavailable", "stacked-unavailable", 1440, 1000),
     ]
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
@@ -407,9 +423,12 @@ async def main():
                     useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
                     location.hash='/quota';
                 }""")
-                await page.locator(
-                    '[class*="QuotaPoolPage"][class*="__page___"]'
-                ).wait_for()
+                try:
+                    await page.locator('[class*="QuotaPoolPage"][class*="__page___"]').wait_for()
+                except Exception:
+                    print("Fixture navigation failed", name, page.url, errors, flush=True)
+                    await page.screenshot(path=str(out / "navigation-error.png"),full_page=True)
+                    raise
                 assert await page.title() == "Prox"
                 if state in ("error", "loading", "empty"):
                     await page.locator(
@@ -421,12 +440,12 @@ async def main():
                     ).last.wait_for()
                 else:
                     await page.locator("article").first.wait_for()
-                if state in ("total", "total-unavailable"):
-                    await page.get_by_role("combobox", name="Chart View", exact=True).select_option("total")
+                if state in ("stacked", "stacked-unavailable"):
+                    await page.get_by_role("combobox", name="Chart View", exact=True).select_option("stacked")
                     combined = page.get_by_role("region",name="Combined Usage",exact=True)
-                    if state == "total":
-                        assert await combined.locator('svg [data-series="total"]').count() == 1
-                        assert "391.2" in await combined.inner_text()
+                    if state == "stacked":
+                        assert await combined.locator('svg [data-stack-band="recorded"]').count() == 2
+                        assert await combined.locator('svg [data-series="total"]').count() == 0
                     else:
                         assert await combined.locator('svg[role="img"]').count() == 0
                         assert "unverified account overlap" in await combined.inner_text()
@@ -457,6 +476,9 @@ async def main():
                     await page.locator('details[class*="__forecast___"]').evaluate_all(
                         "(nodes)=>nodes.forEach(n=>n.open=true)"
                     )
+                if args.minimize_cards:
+                    for button in await page.locator('button[class*="__graphToggle___"]').all():
+                        await button.click()
                 await page.evaluate("document.fonts.ready")
                 await page.wait_for_timeout(350)
                 path = out / f"{name}.png"
@@ -470,6 +492,39 @@ async def main():
                     errors=errors,
                     **measure(path, geo, width < 600),
                 )
+                if args.capture_only:
+                    accounts = page.locator('article section[class*="__accounts___"]').first
+                    if await accounts.count():
+                        await accounts.screenshot(path=str(out / f"{name}-accounts.png"), animations="disabled")
+                        results[name]["accountsHeight"] = (await accounts.bounding_box())["height"]
+                        for index, section in enumerate(await page.locator('article section[class*="__accounts___"]').all()):
+                            await section.screenshot(path=str(out / f"{name}-provider-{index}-accounts.png"), animations="disabled")
+                        if args.assert_compact:
+                            closed=accounts.locator('details:not([open])')
+                            for row in await closed.all():
+                                assert await row.locator('ul[aria-label="Limits"] li').evaluate_all("nodes=>nodes.every(n=>n.checkVisibility()===(n.dataset.low==='true'))")
+                                status=row.locator('[class*="__accountStatus___"]')
+                                if await row.get_attribute('data-status') != 'ok': assert await status.is_visible()
+                            if await closed.count():
+                                index=await closed.first.evaluate("el=>[...el.parentElement.children].indexOf(el)")
+                                row=accounts.locator('details').nth(index)
+                                summary=row.locator('summary')
+                                await summary.focus(); await summary.press('Enter')
+                                assert await row.get_attribute('open') is not None
+                                assert await row.locator('ul[aria-label="Limits"]').is_visible()
+                                await summary.press('Enter')
+                                assert await row.get_attribute('open') is None
+                            card=page.locator('article').first
+                            toggle=card.locator('button[class*="__graphToggle___"]')
+                            await toggle.click()
+                            for limits in await card.locator('details:not([open]) ul[aria-label="Limits"]').all():assert await limits.is_visible()
+                            await toggle.click()
+                            results[name]['compactInteractions']='warnings retained; keyboard expansion and full-card restore passed'
+
+                    print(name, "captured", flush=True)
+                    saved.write_text(json.dumps(results, indent=2)+"\n")
+                    await context.close()
+                    continue
                 # Exercise chart keyboard inspection after capturing the fixed
                 # visual state, so screenshots stay comparable.
                 interaction = {}
@@ -521,12 +576,13 @@ async def main():
                     if width>900: assert all(c['w']<=28 and c['h']<=28 for c in geometry)
                     interaction["subtle_icons_aligned_beside_reorder"] = "passed"
                     view = page.get_by_role('combobox',name='Chart View',exact=True)
-                    await view.select_option('total')
-                    assert await combined.locator('svg [data-series="total"]').count()==1
-                    assert "391.2" in await combined.inner_text()
+                    await view.select_option('stacked')
+                    assert await combined.locator('svg [data-stack-band="recorded"]').count()==2
+                    assert await combined.locator('svg [data-stack-band="projected"]').count()==2
+                    assert await combined.locator('svg [data-series="total"]').count()==0
                     await view.select_option('providers')
                     assert await combined.locator('svg [data-series]').count()==2
-                    interaction["provider_and_total_views"] = "passed"
+                    interaction["provider_and_stacked_views"] = "passed"
                     if name == "wide":
                         filters = page.locator('[class*="__providerBar___"] button')
                         await filters.nth(1).click()

@@ -2315,6 +2315,9 @@
     "expired": "绑定会话已过期，请重新开始。"
   },
   "quota_pool": {
+    "stacked_rate_description": "每个色带表示一个提供商的速率。正负净消耗速率分别堆叠在零线两侧。",
+    "stacked_providers": "堆叠提供商",
+    "stacked_description": "每个色带代表一个提供商，厚度表示其配额余额。顶部边界表示总量。",
     "series_view": "图表视图",
     "provider_lines": "提供商曲线",
     "combined_total": "合计曲线",
@@ -2449,6 +2452,9 @@
     "no_accounts_help": "连接账户以查看汇总配额。",
     "add_credentials": "添加凭据",
     "limits": "限额",
+    "account_reset": "{{window}}重置",
+    "account_remaining": "{{window}}剩余",
+    "limit_low": "低",
     "limit_resets": "{{date}} 重置",
     "expand_accounts": "全部展开",
     "collapse_accounts": "全部收起"

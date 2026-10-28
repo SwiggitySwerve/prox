@@ -1,0 +1,58 @@
+{
+  "wide": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "laptop": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "partial": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "stale": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "long-narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "expanded": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  }
+}
