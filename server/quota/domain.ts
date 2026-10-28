@@ -131,23 +131,30 @@ export function projectPool(inputs: ForecastInput[], nowMs: number, toMs: number
     if (remaining <= 1e-8 && poolEmptyAtMs === null) poolEmptyAtMs = time;
   };
   if (!accounts.length) return { points, resets, firstEmptyAtMs, poolEmptyAtMs };
+  // The proxies route fill-first: the pool's whole measured demand lands on one account at a
+  // time, and moves on when it drains. Serve from the account with quota whose window resets
+  // soonest (use it before it expires), so a reset account takes over the demand instead of
+  // idling at its own past rate.
+  const demand = accounts.reduce((sum, a) => sum + a.rate, 0);
   record();
   while (time < toMs) {
     const nextReset = Math.min(...accounts.map((a) => a.resetAtMs));
-    const emptyTimes = accounts.map((a) =>
-      a.rate > 0 && a.remaining > 1e-8 ? time + (a.remaining / a.rate) * HOUR_MS : Infinity
+    const serving = accounts.reduce<(typeof accounts)[number] | undefined>(
+      (best, a) => (a.remaining > 1e-8 && (!best || a.resetAtMs < best.resetAtMs) ? a : best),
+      undefined
     );
-    const nextEmpty = Math.min(...emptyTimes);
+    const nextEmpty =
+      serving && demand > 0 ? time + (serving.remaining / demand) * HOUR_MS : Infinity;
     const next = Math.min(time + HOUR_MS / 2, nextReset, nextEmpty, toMs);
     if (next < time || (next === time && nextEmpty !== time))
       throw new Error('Invalid forecast cycle');
-    for (const [index, account] of accounts.entries()) {
+    if (serving) {
       // Epoch timestamps lose sub-millisecond precision. The depletion event owns
       // the zero balance; subtracting elapsed time can leave a tiny residual.
-      account.remaining =
-        emptyTimes[index] <= next
+      serving.remaining =
+        nextEmpty <= next
           ? 0
-          : Math.max(0, account.remaining - (account.rate * (next - time)) / HOUR_MS);
+          : Math.max(0, serving.remaining - (demand * (next - time)) / HOUR_MS);
     }
     time = next;
     record();

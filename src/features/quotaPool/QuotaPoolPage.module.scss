@@ -132,17 +132,30 @@
     margin: 0;
   }
 }
-.page .refresh {
+.countdown {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  background: #e7e7e7;
-  color: #111;
-  font-weight: 600;
-  padding-inline: 16px;
-  &:hover {
-    background: #fff;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  &[data-refreshing='true'] svg {
+    animation: countdownSpin 1s linear infinite;
+  }
+}
+@keyframes countdownSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .countdown[data-refreshing='true'] svg {
+    animation: none;
   }
 }
 .providerBar {
@@ -519,6 +532,8 @@
 }
 .accounts > h3 {
   display: flex;
+  align-items: center;
+  gap: 8px;
   justify-content: space-between;
   margin: 0;
   padding: 8px 0 4px;
@@ -528,6 +543,14 @@
 }
 .accounts > h3 span {
   color: var(--text-tertiary);
+}
+.page .expandAccounts {
+  margin-right: auto;
+  padding: 4px 10px;
+  background: transparent;
+  border-color: var(--border-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 .accountGrid {
   display: grid;
@@ -641,6 +664,25 @@
     .limitBar > span {
       background: var(--warning-color);
     }
+  }
+}
+// Collapsed accounts: every limit as a label over its number, packed in a grid.
+.account:not([open]) .limits {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px 14px;
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    line-height: 1.3;
+  }
+  strong {
+    text-align: left;
+    font-size: 14px;
+  }
+  .limitBar,
+  small {
+    display: none;
   }
 }
 .limitBar {

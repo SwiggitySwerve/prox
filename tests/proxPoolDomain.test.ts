@@ -104,9 +104,30 @@ describe('pooled forecast scenarios', () => {
       now,
       now + 3 * HOUR_MS
     );
-    expect(result.firstEmptyAtMs).toBe(now + HOUR_MS);
-    expect(result.poolEmptyAtMs).toBe(now + 2 * HOUR_MS);
+    // Fill-first: the pool's 30/h drains A (10) in 20 minutes, then B (40) by 100 minutes.
+    expect(result.firstEmptyAtMs).toBe(now + HOUR_MS / 3);
+    expect(result.poolEmptyAtMs).toBe(now + (5 * HOUR_MS) / 3);
     expect(result.points.every((p) => (p.remainingPoints ?? 0) >= 0)).toBe(true);
+  });
+  test('fill-first: pool demand moves to whichever account has quota, soonest reset first', () => {
+    // Two drained accounts and one serving all traffic, as on the live Claude pool.
+    const result = projectPool(
+      [
+        { remaining: 0, rate: 0, resetAtMs: now + 19 * HOUR_MS, periodHours: 168, capacity: 2000 },
+        { remaining: 0, rate: 0, resetAtMs: now + 84 * HOUR_MS, periodHours: 168, capacity: 2000 },
+        { remaining: 420, rate: 54, resetAtMs: now + 138 * HOUR_MS, periodHours: 168, capacity: 2000 },
+      ],
+      now,
+      now + 150 * HOUR_MS
+    );
+    const at = (hours: number) =>
+      result.points.filter((p) => p.atMs <= now + hours * HOUR_MS).at(-1)?.remainingPoints;
+    expect(result.poolEmptyAtMs).toBeCloseTo(now + (420 / 54) * HOUR_MS, -3);
+    // The first account's reset is consumed at the pool's burn rate, not left idle.
+    expect(at(29)).toBeCloseTo(2000 - 54 * 10, 6);
+    expect(at(84 - 0.01)).toBe(0);
+    expect(at(94)).toBeCloseTo(2000 - 54 * 10, 6);
+    expect(result.resets.map((r) => r.gainPoints)).toEqual([2000, 2000, 2000]);
   });
   test('idle retains remaining balance until the observed reset', () => {
     const result = projectPool(

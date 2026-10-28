@@ -6,6 +6,7 @@ import {
   fitChartFrame,
   chartGeometry,
   chartSamples,
+  dayTicks,
   metricField,
   type ChartMode,
 } from './chartGeometry';
@@ -150,15 +151,21 @@ export function PoolChart({
             </text>
           </g>
         ))}
-        {Array.from({ length: tickCount }, (_, index) => {
-          const at = fromMs + ((toMs - fromMs) * index) / (tickCount - 1);
+        {dayTicks(fromMs, toMs, tickCount).map((at) => {
+          const edge = 40;
           return (
-            <g key={index} className={styles.grid}>
+            <g key={at} className={styles.grid}>
               <line x1={x(at)} x2={x(at)} y1={chartFrame.top} y2={chartFrame.bottom} />
               <text
                 x={x(at)}
                 y={chartFrame.bottom + 26}
-                textAnchor={index === 0 ? 'start' : index === tickCount - 1 ? 'end' : 'middle'}
+                textAnchor={
+                  x(at) - chartFrame.left < edge
+                    ? 'start'
+                    : chartFrame.right - x(at) < edge
+                      ? 'end'
+                      : 'middle'
+                }
               >
                 {formatPoolDate(at, i18n.language, true)}
               </text>

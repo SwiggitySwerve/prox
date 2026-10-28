@@ -303,6 +303,7 @@ async def main():
         ("collecting", "collecting", 1440, 1000),
         ("long-narrow", "long", 390, 844),
         ("details-narrow", "details", 390, 844),
+        ("expanded", "expanded", 1920, 1280),
         ("drain", "drain", 1440, 1000),
         ("burn-narrow", "burn", 390, 844),
         ("refresh-error", "refresh-error", 1440, 1000),
@@ -395,9 +396,16 @@ async def main():
                         .first.locator("summary")
                         .click()
                     )
+                if state == "expanded":
+                    await page.get_by_role("button", name="Expand all").first.click()
                 if state == "refresh-error":
-                    await page.locator('button[class*="__refresh___"]').click()
-                    await page.locator('[role="alert"]').wait_for()
+                    await page.locator('.header-actions button').first.click()
+                    await page.locator('[class*="QuotaPoolPage"] [role="alert"]').wait_for()
+                    # Header refresh also raises a dismissible toast. Verify it, then
+                    # capture the persistent page state without its temporary overlay.
+                    toast = page.locator('[class*="NotificationContainer"] button[aria-label="Close"]')
+                    await toast.click()
+                    await toast.wait_for(state="hidden")
                 # Baseline charts are disclosures; capture their expanded state too.
                 if state in ("drain", "burn"):
                     await page.locator('details[class*="__forecast___"]').evaluate_all(
@@ -419,6 +427,23 @@ async def main():
                 # Exercise chart keyboard inspection after capturing the fixed
                 # visual state, so screenshots stay comparable.
                 interaction = {}
+                if state == "ready":
+                    countdown = page.locator('[class*="__countdown___"]')
+                    before = await countdown.inner_text()
+                    await page.wait_for_function(
+                        "before => document.querySelector('[class*=\"__countdown___\"]').textContent !== before",
+                        arg=before,
+                    )
+                    assert "Auto-refresh in" in await countdown.inner_text()
+                    assert await page.get_by_role("button", name="Refresh all", exact=True).count() == 0
+                    assert await page.locator('.header-actions button').first.is_visible()
+                    overlaps = await countdown.evaluate('''node => {
+                        const a = node.getBoundingClientRect();
+                        const b = document.querySelector('.header-actions').getBoundingClientRect();
+                        return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+                    }''')
+                    assert not overlaps, "Header controls must not cover countdown"
+                    interaction["visible_countdown_ticks_without_duplicate_refresh"] = "passed"
                 chart = page.locator('article svg[tabindex="0"]').first
                 if await chart.count():
                     readout = page.locator(f'[id="{await chart.get_attribute("aria-describedby")}"]')
@@ -445,6 +470,12 @@ async def main():
                     await page.get_by_role("button", name=f"Move {first.split(' ')[0]} up").click()
                     assert (await titles())[0] == first
                     interaction["pool_reorder_persists"] = "passed"
+                if state == "expanded":
+                    first = page.locator("article").first
+                    assert await first.locator("details[open]").count() == await first.locator("details").count()
+                    await first.get_by_role("button", name="Collapse all").click()
+                    assert await first.locator("details[open]").count() == 0
+                    interaction["expand_all_toggles_every_account"] = "passed"
                 if state == "collecting":
                     assert await page.locator('article svg[tabindex="0"]').count() == 0
                     interaction["single_sample_is_not_focusable"] = "passed"

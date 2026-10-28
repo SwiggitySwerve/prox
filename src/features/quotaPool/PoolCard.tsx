@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown, IconChevronUp } from '@/components/ui/icons';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
@@ -26,6 +26,17 @@ export function PoolCard({
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
+  // Collapsed accounts show limits as numbers only; opening one shows bars and reset times.
+  const [openAccounts, setOpenAccounts] = useState<ReadonlySet<string>>(() => new Set());
+  const allOpen = pool.accounts.length > 0 && pool.accounts.every((a) => openAccounts.has(a.id));
+  const setAccountOpen = (accountId: string, open: boolean) =>
+    setOpenAccounts((current) => {
+      if (current.has(accountId) === open) return current;
+      const next = new Set(current);
+      if (open) next.add(accountId);
+      else next.delete(accountId);
+      return next;
+    });
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
   const date = (value: number | null) => formatPoolDate(value, i18n.language);
   const forecastDate = (value: number | null, available = pool.forecastState === 'ready') =>
@@ -171,6 +182,18 @@ export function PoolCard({
             {t('quota_pool.accounts')} ·{' '}
             {t('quota_pool.coverage', { loaded: pool.loadedCount, eligible: pool.eligibleCount })}
           </span>
+          {pool.accounts.length > 0 && (
+            <button
+              type="button"
+              className={styles.expandAccounts}
+              aria-expanded={allOpen}
+              onClick={() =>
+                setOpenAccounts(allOpen ? new Set() : new Set(pool.accounts.map((a) => a.id)))
+              }
+            >
+              {t(allOpen ? 'quota_pool.collapse_accounts' : 'quota_pool.expand_accounts')}
+            </button>
+          )}
           <span>{t('quota_pool.remaining')}</span>
         </h3>
         <div className={styles.accountGrid}>
@@ -178,7 +201,13 @@ export function PoolCard({
             <p className={styles.stateNote}>{t('quota_pool.state_note.no-accounts')}</p>
           ) : (
             pool.accounts.map((account) => (
-              <details key={account.id} className={styles.account} data-status={account.status}>
+              <details
+                key={account.id}
+                className={styles.account}
+                data-status={account.status}
+                open={openAccounts.has(account.id)}
+                onToggle={(event) => setAccountOpen(account.id, event.currentTarget.open)}
+              >
                 <summary>
                   <span className={styles.accountName}>
                     {reveal && account.email ? account.email : account.label}

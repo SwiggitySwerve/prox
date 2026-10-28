@@ -2337,7 +2337,7 @@
     "eyebrow": "Prox · pooled quota",
     "title": "Quota Management",
     "show_emails": "Show emails",
-    "refresh_all": "Refresh all",
+    "auto_refresh_in": "Auto-refresh in {{seconds}}s",
     "refreshing": "Refreshing…",
     "providers": "Providers",
     "all": "All pools",
@@ -2367,7 +2367,6 @@
     "polling": "Dashboard checks for updates every 15 seconds",
     "history_since": "History since",
     "last_refresh": "Last collection attempt",
-    "next_refresh": "Next collection available",
     "account_count": "{{count}} accounts",
     "of_capacity": "of {{capacity}} points",
     "coverage": "{{loaded}} loaded · {{eligible}} eligible",
@@ -2439,7 +2438,9 @@
     "no_accounts_help": "Connect your accounts to see their pooled quotas.",
     "add_credentials": "Add credentials",
     "limits": "Limits",
-    "limit_resets": "Resets {{date}}"
+    "limit_resets": "Resets {{date}}",
+    "expand_accounts": "Expand all",
+    "collapse_accounts": "Collapse all"
   },
   "provider_sources": {
     "discovery_error": "Source discovery is unavailable. Reload to retry.",

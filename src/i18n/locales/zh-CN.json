@@ -2335,7 +2335,7 @@
     "eyebrow": "Prox · 共享额度",
     "title": "额度管理",
     "show_emails": "显示邮箱",
-    "refresh_all": "全部刷新",
+    "auto_refresh_in": "{{seconds}} 秒后自动刷新",
     "refreshing": "刷新中…",
     "providers": "服务商",
     "all": "所有额度池",
@@ -2365,7 +2365,6 @@
     "polling": "仪表板每 15 秒检查更新",
     "history_since": "历史起始时间",
     "last_refresh": "上次采集尝试",
-    "next_refresh": "下次可采集时间",
     "account_count": "{{count}}个账号",
     "of_capacity": "共{{capacity}}点",
     "coverage": "已加载{{loaded}}个 · 符合条件{{eligible}}个",
@@ -2437,7 +2436,9 @@
     "no_accounts_help": "连接账户以查看汇总配额。",
     "add_credentials": "添加凭据",
     "limits": "限额",
-    "limit_resets": "{{date}} 重置"
+    "limit_resets": "{{date}} 重置",
+    "expand_accounts": "全部展开",
+    "collapse_accounts": "全部收起"
   },
   "provider_sources": {
     "discovery_error": "无法获取代理实例列表。请重新加载以重试。",

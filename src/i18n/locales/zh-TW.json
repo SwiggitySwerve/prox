@@ -2363,7 +2363,7 @@
     "eyebrow": "Prox · 共用額度",
     "title": "額度管理",
     "show_emails": "顯示電子郵件",
-    "refresh_all": "全部重新整理",
+    "auto_refresh_in": "{{seconds}} 秒後自動重新整理",
     "refreshing": "重新整理中…",
     "providers": "供應商",
     "all": "所有額度池",
@@ -2393,7 +2393,6 @@
     "polling": "儀表板每 15 秒檢查更新",
     "history_since": "歷史起始時間",
     "last_refresh": "上次收集嘗試",
-    "next_refresh": "下次可收集時間",
     "account_count": "{{count}}個帳號",
     "of_capacity": "共{{capacity}}點",
     "coverage": "已載入{{loaded}}個 · 符合條件{{eligible}}個",
@@ -2465,7 +2464,9 @@
     "no_accounts_help": "連接帳戶以查看彙總配額。",
     "add_credentials": "新增憑證",
     "limits": "限額",
-    "limit_resets": "{{date}} 重置"
+    "limit_resets": "{{date}} 重置",
+    "expand_accounts": "全部展開",
+    "collapse_accounts": "全部收合"
   },
   "provider_sources": {
     "discovery_error": "無法取得代理執行個體清單。請重新載入以重試。",
