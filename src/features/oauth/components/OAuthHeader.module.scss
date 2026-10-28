@@ -11,9 +11,9 @@
 
 .title {
   margin: 0;
-  font-size: clamp(26px, 3.2vw, 30px);
+  font-size: clamp(24px, 2vw, 28px);
   line-height: 1.15;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-primary);
 }
@@ -31,14 +31,6 @@
   letter-spacing: 0.02em;
   color: var(--text-secondary);
 
-  &::before {
-    content: '▍';
-    color: var(--viz-success);
-    font-size: 13px;
-    line-height: 1;
-    align-self: center;
-    margin-right: 1px;
-  }
 }
 
 .metaDot {

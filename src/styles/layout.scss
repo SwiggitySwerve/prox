@@ -3,7 +3,7 @@
 :root {
   --header-height: 80px;
   --shell-gutter: 24px;
-  --sidebar-panel-width: 216px;
+  --sidebar-panel-width: 256px;
   --sidebar-collapsed-width: 60px;
   --sidebar-active-width: var(--sidebar-panel-width);
   --sidebar-gap: 0px;
@@ -431,7 +431,7 @@
     overflow: hidden;
     color: var(--text-primary);
     font-size: 15px;
-    font-weight: 800;
+    font-weight: 600;
     letter-spacing: 0;
     white-space: nowrap;
   }
@@ -462,7 +462,7 @@
   .nav-group-label {
     padding: 0 10px 2px;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: color-mix(in srgb, var(--text-primary) 42%, transparent);
@@ -580,7 +580,7 @@
       background: color-mix(in srgb, var(--text-primary) 9%, transparent);
       color: var(--text-primary);
       font-size: 10.5px;
-      font-weight: 700;
+      font-weight: 600;
       line-height: 1;
     }
 
@@ -667,7 +667,7 @@
     max-width: 100%;
     overflow: hidden;
     font-size: 13px;
-    font-weight: 650;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -905,6 +905,92 @@
       min-height: 0;
       padding: calc(var(--header-height) + 8px) 8px max(8px, env(safe-area-inset-bottom));
       overflow: hidden;
+    }
+  }
+}
+
+// Prox shell: page-coloured chrome, quiet navigation, header buttons without a floating pill.
+.app-shell {
+  .top-gradient-blur {
+    display: none;
+  }
+  .content,
+  .main-content,
+  .page-transition,
+  .page-transition__layer,
+  .sidebar {
+    background: var(--bg-secondary);
+  }
+  .main-header {
+    background: transparent;
+  }
+  .header-actions {
+    background: var(--bg-secondary);
+    border-color: transparent;
+    box-shadow: none;
+  }
+  .sidebar-brand-subtitle {
+    display: none;
+  }
+  .nav-item {
+    font-weight: 400;
+    font-size: 14px;
+    min-height: 40px;
+  }
+  .nav-group-label {
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+  .main-header .btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.sidebar-brand-mark {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-color);
+  border-radius: 9px;
+  color: var(--claude-color);
+  font-size: 25px;
+  font-weight: 600;
+}
+
+// Keep navigation labels whole on laptops without widening the panel.
+@media (min-width: 901px) and (max-width: 1300px) {
+  :root {
+    --sidebar-panel-width: 216px;
+  }
+  .app-shell .sidebar .nav-item .nav-label {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .app-shell {
+    --floating-control-size: 44px;
+    .main-header {
+      position: relative;
+      flex-shrink: 0;
+      height: 56px;
+    }
+    .main-content {
+      padding-top: 8px;
+    }
+    .header-actions {
+      padding: 0;
+      background: var(--bg-primary);
+      border-color: var(--border-primary);
+    }
+    .mobile-sidebar-actions {
+      padding: 0;
     }
   }
 }

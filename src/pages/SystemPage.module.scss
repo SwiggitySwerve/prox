@@ -4,7 +4,7 @@
 
 .pageTitle {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 $spacing-xl 0;
 }
@@ -39,8 +39,8 @@
 
 .aboutTitle {
   width: min(100%, 920px);
-  font-size: clamp(28px, 4.2vw, 44px);
-  font-weight: 800;
+  font-size: clamp(24px, 2vw, 28px);
+  font-weight: 600;
   line-height: 1.12;
   color: var(--text-primary);
   letter-spacing: -0.02em;
@@ -116,7 +116,7 @@
 
 .tileValue {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
   line-height: 1.25;
   word-break: break-word;
@@ -354,7 +354,7 @@
   .aboutTitle {
     width: min(100%, 24ch);
     font-size: clamp(22px, 6.6vw, 34px);
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.18;
     letter-spacing: -0.012em;
   }

@@ -34,8 +34,6 @@ import {
   IconSidebarSystem,
   IconChevronDown,
 } from '@/components/ui/icons';
-import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
-import poolStyles from '@/features/quotaPool/QuotaPoolPage.module.scss';
 import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
 import {
   useAuthStore,
@@ -262,9 +260,6 @@ export function MainLayout() {
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
 
-  const isPoolPage = ['/', '/quota', '/quota/'].includes(location.pathname);
-  const fullBrandName = isPoolPage ? 'Prox' : 'CLI Proxy API Management Center';
-  const abbrBrandName = isPoolPage ? 'prox' : t('title.abbr');
   const isLogsPage = location.pathname.startsWith('/logs');
   const isPluginResourcePage = location.pathname.startsWith('/plugin-pages');
   const showSidebarLabels = !sidebarCollapsed || sidebarOpen;
@@ -898,7 +893,7 @@ export function MainLayout() {
 
   return (
     <div
-      className={`app-shell ${isPoolPage ? poolStyles.shell : ''} ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''} ${
+      className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''} ${
         isPluginResourcePage ? 'plugin-resource-shell' : ''
       }`}
     >
@@ -1004,19 +999,13 @@ export function MainLayout() {
           className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
         >
           <div className="sidebar-header">
-            <div className="sidebar-brand" title={fullBrandName}>
-              <>
-                {isPoolPage ? (
-                  <span className={poolStyles.brandMark} aria-hidden="true">
-                    ➜
-                  </span>
-                ) : (
-                  <img src={INLINE_LOGO_JPEG} alt="CPAMC logo" className="sidebar-brand-logo" />
-                )}
-              </>
+            <div className="sidebar-brand" title="Prox">
+              <span className="sidebar-brand-mark" aria-hidden="true">
+                ➜
+              </span>
               {showSidebarLabels && (
                 <span className="sidebar-brand-text">
-                  <span className="sidebar-brand-title">{abbrBrandName}</span>
+                  <span className="sidebar-brand-title">prox</span>
                   <span className="sidebar-brand-subtitle">{t('sidebar.subtitle')}</span>
                 </span>
               )}

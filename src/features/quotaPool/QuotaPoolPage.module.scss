@@ -723,83 +723,8 @@
   white-space: nowrap;
 }
 
-// This route owns its shell palette; other management pages keep their theme.
-.shell {
-  color-scheme: dark;
-  --sidebar-panel-width: 256px;
-  --bg-secondary: var(--bg-secondary);
-  --bg-primary: var(--bg-primary);
-  --bg-tertiary: #202020;
-  --bg-hover: #202020;
-  --text-primary: var(--text-primary);
-  --text-secondary: #b5b5b5;
-  --text-tertiary: var(--text-tertiary);
-  --text-muted: var(--text-tertiary);
-  --border-color: #262626;
-  --border-primary: #333;
-  --border-hover: var(--border-hover);
-  --floating-surface: var(--bg-tertiary);
-  --primary-color: #b5b5b5;
-  background: var(--bg-secondary) !important;
-  color: var(--text-primary);
-  :global(.top-gradient-blur) {
-    display: none;
-  }
-  :global(.content),
-  :global(.main-content),
-  :global(.page-transition),
-  :global(.page-transition__layer),
-  :global(.sidebar) {
-    background: var(--bg-secondary);
-  }
-  :global(.main-header) {
-    background: transparent;
-  }
-  :global(.header-actions) {
-    background: var(--bg-secondary);
-    border-color: transparent;
-    box-shadow: none;
-  }
-  :global(.sidebar-brand-subtitle) {
-    display: none;
-  }
-  :global(.nav-item) {
-    font-weight: 400;
-    font-size: 14px;
-    min-height: 40px;
-  }
-  :global(.nav-group-label) {
-    color: var(--text-tertiary);
-    font-weight: 500;
-  }
-  :global(.main-header .btn:focus-visible) {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
-}
-.brandMark {
-  display: inline-flex;
-  width: 34px;
-  height: 34px;
-  align-items: center;
-  justify-content: center;
-  background: var(--border-color);
-  border-radius: 9px;
-  color: var(--claude-color);
-  font-size: 25px;
-  font-weight: 700;
-}
 
-// Keep this route's navigation useful without squeezing its chart settings.
 @media (min-width: 901px) and (max-width: 1300px) {
-  .shell {
-    --sidebar-panel-width: 216px;
-    :global(.sidebar .nav-item .nav-label) {
-      white-space: normal;
-      overflow: visible;
-      text-overflow: clip;
-    }
-  }
   .toolbar {
     column-gap: 12px;
   }
@@ -831,28 +756,6 @@
   }
   .dateNavigation {
     margin-left: 0;
-  }
-}
-@media (max-width: 768px) {
-  .shell {
-    --sidebar-panel-width: min(280px, calc(100vw - 24px));
-    --floating-control-size: 44px;
-    :global(.main-header) {
-      position: relative;
-      flex-shrink: 0;
-      height: 56px;
-    }
-    :global(.main-content) {
-      padding-top: 8px;
-    }
-    :global(.header-actions) {
-      padding: 0;
-      background: var(--bg-primary);
-      border-color: var(--border-primary);
-    }
-    :global(.mobile-sidebar-actions) {
-      padding: 0;
-    }
   }
 }
 @media (max-width: 640px) {

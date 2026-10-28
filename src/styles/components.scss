@@ -132,7 +132,7 @@ textarea {
     flex: 1 1 auto;
     min-width: 0;
     font-size: 18px;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text-primary);
   }
 }
@@ -347,7 +347,7 @@ textarea {
   border-bottom: 1px solid var(--border-color);
 
   .modal-title {
-    font-weight: 700;
+    font-weight: 600;
     font-size: 18px;
     color: var(--text-primary);
   }
@@ -459,7 +459,8 @@ textarea {
   }
 
   .empty-title {
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 500;
     color: var(--text-primary);
   }
 
@@ -506,7 +507,7 @@ textarea {
   }
 
   .item-title {
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text-primary);
   }
 

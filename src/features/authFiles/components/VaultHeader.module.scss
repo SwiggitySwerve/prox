@@ -19,9 +19,9 @@
 
 .title {
   margin: 0;
-  font-size: clamp(26px, 3.2vw, 30px);
+  font-size: clamp(24px, 2vw, 28px);
   line-height: 1.15;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-primary);
 }
@@ -40,14 +40,6 @@
   color: var(--text-secondary);
 
   /* 终端游标承接 eyebrow 退场后的结构记号，与下方谱条的绿色竖条同语汇 */
-  &::before {
-    content: '▍';
-    color: var(--viz-success);
-    font-size: 13px;
-    line-height: 1;
-    align-self: center;
-    margin-right: 1px;
-  }
 }
 
 .metaDot {
@@ -134,7 +126,7 @@
   border-radius: $radius-full;
   padding: 10px 14px;
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 500;
   line-height: 1;
   transition:
     color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),

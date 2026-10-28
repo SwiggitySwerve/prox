@@ -11,22 +11,22 @@
   --bg-secondary: #050505; // page
   --bg-quinary: #0b0b0b; // recessed wells
   --bg-primary: #101010; // cards, panels
-  --bg-tertiary: #171717; // controls, secondary surfaces
+  --bg-tertiary: #202020; // controls, secondary surfaces
   --bg-hover: #252525;
   --bg-pressed: #292929;
   --bg-error-light: rgba(242, 118, 107, 0.14);
-  --floating-surface: #171717;
+  --floating-surface: #202020;
   --floating-shadow: 0 14px 30px rgba(0, 0, 0, 0.6);
 
   --text-primary: #eeeeee;
-  --text-secondary: #c7c7c7;
+  --text-secondary: #b5b5b5;
   --text-tertiary: #aaaaaa;
   --text-quaternary: #888888;
   --text-muted: var(--text-tertiary);
 
-  --border-color: #222222;
+  --border-color: #262626;
   --border-secondary: var(--border-color);
-  --border-primary: #303030;
+  --border-primary: #333333;
   --border-hover: #444444;
 
   // Primary action: light neutral, as on the quota page's "Refresh all"
