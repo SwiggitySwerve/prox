@@ -113,7 +113,11 @@
   width: 80px;
   height: 80px;
   border-radius: $radius-lg;
-  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  background: var(--border-color);
   box-shadow: var(--shadow-lg);
   border: 3px solid var(--border-color);
 }
@@ -238,17 +242,6 @@
   }
 }
 
-// Logo 脉冲效果
-@keyframes splashLogoPulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-
 // 加载条动画
 @keyframes splashLoading {
   0% {
@@ -279,11 +272,15 @@
 
 // 启动动画 Logo
 .splashLogo {
-  height: 80px;
-  width: auto;
+  width: 88px;
+  height: 88px;
   border-radius: $radius-lg;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  background: var(--border-color);
   box-shadow: $shadow-lg;
-  animation: splashLogoPulse 1.5s ease-in-out infinite;
 }
 
 // 启动动画标题
@@ -321,4 +318,11 @@
   background: var(--primary-color);
   border-radius: $radius-full;
   animation: splashLoading 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splashContent,
+  .splashLoaderBar {
+    animation: none;
+  }
 }

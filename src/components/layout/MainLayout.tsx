@@ -49,6 +49,7 @@ import {
   type PluginResourceEntry,
 } from '@/features/plugins/pluginResources';
 import { APIKEY_FUN_DISPLAY_NAME, hasApiKeyFunConfig } from '@/features/providers/sponsor';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { LANGUAGE_LABEL_KEYS, LANGUAGE_ORDER } from '@/utils/constants';
 import { isSupportedLanguage } from '@/utils/language';
@@ -1001,12 +1002,7 @@ export function MainLayout() {
           <div className="sidebar-header">
             <div className="sidebar-brand" title="Prox">
               <span className="sidebar-brand-mark" aria-hidden="true">
-                <svg viewBox="0 0 32 32">
-                  <path d="M7 16h6c4.5 0 4.5-7 10-7M13 16c4.5 0 4.5 7 10 7" />
-                  <circle cx="7" cy="16" r="2.8" />
-                  <circle cx="24" cy="9" r="3.2" />
-                  <circle cx="24" cy="23" r="3.2" />
-                </svg>
+                <BrandMark />
               </span>
               {showSidebarLabels && (
                 <span className="sidebar-brand-text">

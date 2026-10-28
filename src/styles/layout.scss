@@ -957,25 +957,9 @@
   background: var(--border-color);
   border-radius: 9px;
 
-  // Routing mark: one entry point fanning out to the Claude and Codex upstreams.
   svg {
     width: 30px;
     height: 30px;
-  }
-  path {
-    fill: none;
-    stroke: var(--primary-color);
-    stroke-width: 2.4;
-    stroke-linecap: round;
-  }
-  circle {
-    fill: var(--primary-color);
-  }
-  circle:nth-of-type(2) {
-    fill: var(--claude-color);
-  }
-  circle:nth-of-type(3) {
-    fill: var(--codex-color);
   }
 }
 

@@ -60,10 +60,6 @@
     "login": "Trung tâm Quản lý CLI Proxy API",
     "abbr": "CPAMC"
   },
-  "splash": {
-    "title": "CLI Proxy API",
-    "subtitle": "Trung tâm Quản lý"
-  },
   "login": {
     "subtitle": "Vui lòng nhập thông tin kết nối để truy cập giao diện quản lý",
     "connection_current": "URL hiện tại",

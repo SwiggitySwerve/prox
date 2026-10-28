@@ -60,10 +60,6 @@
     "login": "Центр управления CLI Proxy API",
     "abbr": "CPAMC"
   },
-  "splash": {
-    "title": "CLI Proxy API",
-    "subtitle": "Центр управления"
-  },
   "login": {
     "subtitle": "Подключение к CLI Proxy API v8 или новее",
     "connection_current": "Текущий URL",
