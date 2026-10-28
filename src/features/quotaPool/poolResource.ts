@@ -8,6 +8,8 @@ interface PoolSnapshot {
   error: boolean;
   refreshError: boolean;
   refreshStatus: PoolRefresh | null;
+  /** When the next once-a-minute collection fires, for the on-page countdown. */
+  nextCollectAtMs: number | null;
 }
 
 const EMPTY: PoolSnapshot = {
@@ -17,6 +19,7 @@ const EMPTY: PoolSnapshot = {
   error: false,
   refreshError: false,
   refreshStatus: null,
+  nextCollectAtMs: null,
 };
 
 /** Owns transport lifetime only; quota values and refresh policy belong to the server. */
@@ -89,7 +92,9 @@ export function createPoolResource(
         }, 15_000);
         // While graphs are on screen, ask the server to collect fresh usage every minute
         // (the server's own schedule is 5 minutes and it allows one collection per minute).
+        publish({ nextCollectAtMs: Date.now() + 60_000 });
         collector = setInterval(() => {
+          publish({ nextCollectAtMs: Date.now() + 60_000 });
           const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
           if (visible && snapshot.data?.pools.length) void refresh();
         }, 60_000);

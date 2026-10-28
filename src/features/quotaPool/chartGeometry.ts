@@ -27,6 +27,18 @@ export function fitChartFrame(width: number, compact = false) {
   };
 }
 
+/** Midnights in the viewer's timezone, `step` days apart, so each date label sits on its own day. */
+export function dayTicks(fromMs: number, toMs: number, maxTicks: number): number[] {
+  const day = new Date(fromMs);
+  day.setHours(0, 0, 0, 0);
+  if (day.getTime() < fromMs) day.setDate(day.getDate() + 1);
+  const days = Math.round((toMs - day.getTime()) / 86_400_000);
+  const step = Math.max(1, Math.ceil(days / Math.max(1, maxTicks - 1)));
+  const ticks: number[] = [];
+  for (; day.getTime() <= toMs; day.setDate(day.getDate() + step)) ticks.push(day.getTime());
+  return ticks;
+}
+
 export function chartSamples(recorded: PoolPoint[], projected: PoolPoint[], mode: ChartMode) {
   return [
     ...recorded.map((point) => ({ point, projected: false })),

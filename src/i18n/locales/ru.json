@@ -2330,7 +2330,7 @@
     "eyebrow": "Prox · общий пул квот",
     "title": "Управление квотами",
     "show_emails": "Показать почту",
-    "refresh_all": "Обновить всё",
+    "auto_refresh_in": "Автообновление через {{seconds}} с",
     "refreshing": "Обновление…",
     "providers": "Провайдеры",
     "all": "Все пулы",
@@ -2360,7 +2360,6 @@
     "polling": "Панель проверяет обновления каждые 15 секунд",
     "history_since": "Начало истории",
     "last_refresh": "Последняя попытка сбора",
-    "next_refresh": "Следующий сбор доступен",
     "account_count": "Аккаунтов: {{count}}",
     "of_capacity": "из {{capacity}} баллов",
     "coverage": "Загружено: {{loaded}} · Подходящих: {{eligible}}",
@@ -2432,7 +2431,9 @@
     "no_accounts_help": "Подключите аккаунты, чтобы увидеть общие квоты.",
     "add_credentials": "Добавить учётные данные",
     "limits": "Лимиты",
-    "limit_resets": "Сброс {{date}}"
+    "limit_resets": "Сброс {{date}}",
+    "expand_accounts": "Развернуть все",
+    "collapse_accounts": "Свернуть все"
   },
   "provider_sources": {
     "discovery_error": "Список источников недоступен. Перезагрузите страницу.",

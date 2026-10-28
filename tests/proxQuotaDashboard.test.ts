@@ -8,6 +8,7 @@ import type { PoolQuery, PoolRefresh } from '../src/services/api/quotaPool';
 import {
   chartGeometry,
   chartSamples,
+  dayTicks,
   fitChartFrame,
 } from '../src/features/quotaPool/chartGeometry';
 import { createPoolResource } from '../src/features/quotaPool/poolResource';
@@ -282,8 +283,12 @@ describe('pool request lifetime', () => {
       const unsubscribe = resource.subscribe(() => {});
       try {
         for (let minute = 0; minute < 2; minute++) {
+          // The page shows a countdown to this time; it moves forward a minute each cycle.
+          const due = resource.getSnapshot().nextCollectAtMs;
+          expect(due).toBe(Date.now() + 60_000);
           jest.advanceTimersByTime(60_000);
           for (let i = 0; i < 5; i++) await Promise.resolve();
+          expect(resource.getSnapshot().nextCollectAtMs).toBe(due! + 60_000);
         }
         return refreshes;
       } finally {
@@ -324,6 +329,26 @@ describe('pool request lifetime', () => {
 });
 
 describe('honest chart geometry', () => {
+  test('day ticks land on local midnights, so labels name the day they mark', () => {
+    // UTC midnight is 6 PM the previous day in Denver; ticks there were labelled a day early.
+    const zone = process.env.TZ;
+    process.env.TZ = 'America/Denver';
+    try {
+      const from = Date.UTC(2026, 9, 24);
+      const ticks = dayTicks(from, from + 14 * 86_400_000, 8);
+      expect(ticks.length).toBe(7);
+      for (const at of ticks) {
+        const day = new Date(at);
+        expect([day.getHours(), day.getMinutes()]).toEqual([0, 0]);
+      }
+      expect(ticks[0]).toBe(from + 6 * 3_600_000); // Oct 24, 00:00 MDT
+      expect(new Date(ticks[0]).getDate()).toBe(24);
+      expect(ticks[1] - ticks[0]).toBe(2 * 86_400_000);
+    } finally {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
+  });
   test('phone frame keeps the complete time range inside the available width', () => {
     const frame = fitChartFrame(320);
     const geometry = chartGeometry(
@@ -432,6 +457,9 @@ describe('pool presentation', () => {
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(/<li data-low="true"><span>5-hour limit<\/span>[\s\S]*?12%/);
     expect(markup).toMatch(/<li data-low="false"><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64%/);
+    // Accounts start collapsed (numbers only); one control expands the whole section.
+    expect(markup).toMatch(/<button type="button"[^>]*aria-expanded="false"[^>]*>Expand all<\/button>/);
+    expect(markup).not.toMatch(/<details[^>]* open=""/);
     expect(markup).not.toContain('private@example.test');
     // The chart itself is inspected by pointer or arrow keys; no separate slider.
     expect(markup).not.toContain('type="range"');

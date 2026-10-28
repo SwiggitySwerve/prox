@@ -2337,7 +2337,7 @@
     "eyebrow": "Prox · 통합 할당량",
     "title": "할당량 관리",
     "show_emails": "이메일 표시",
-    "refresh_all": "모두 새로고침",
+    "auto_refresh_in": "{{seconds}}초 후 자동 새로고침",
     "refreshing": "새로고침 중…",
     "providers": "제공업체",
     "all": "모든 풀",
@@ -2367,7 +2367,6 @@
     "polling": "대시보드가 15초마다 업데이트 확인",
     "history_since": "기록 시작",
     "last_refresh": "마지막 수집 시도",
-    "next_refresh": "다음 수집 가능 시간",
     "account_count": "계정 {{count}}개",
     "of_capacity": "전체 {{capacity}}포인트",
     "coverage": "{{loaded}}개 로드됨 · {{eligible}}개 적격",
@@ -2439,7 +2438,9 @@
     "no_accounts_help": "계정을 연결하여 합산 할당량을 확인하세요.",
     "add_credentials": "인증 정보 추가",
     "limits": "한도",
-    "limit_resets": "{{date}} 초기화"
+    "limit_resets": "{{date}} 초기화",
+    "expand_accounts": "모두 펼치기",
+    "collapse_accounts": "모두 접기"
   },
   "provider_sources": {
     "discovery_error": "소스 목록을 불러올 수 없습니다. 새로고침하여 다시 시도하세요.",

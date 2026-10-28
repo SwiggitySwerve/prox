@@ -224,7 +224,7 @@ export function LoginPage() {
             <span className={styles.splashLogo}>
               <BrandMark animated />
             </span>
-            <h1 className={styles.splashTitle}>prox</h1>
+            <h1 className={styles.splashTitle}>Prox</h1>
             <p className={styles.splashSubtitle}>{t('sidebar.subtitle')}</p>
             <div className={styles.splashLoader}>
               <div className={styles.splashLoaderBar} />

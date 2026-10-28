@@ -1006,7 +1006,7 @@ export function MainLayout() {
               </span>
               {showSidebarLabels && (
                 <span className="sidebar-brand-text">
-                  <span className="sidebar-brand-title">prox</span>
+                  <span className="sidebar-brand-title">Prox</span>
                   <span className="sidebar-brand-subtitle">{t('sidebar.subtitle')}</span>
                 </span>
               )}

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IconEye, IconRefreshCw, IconChevronLeft, IconFilterAll } from '@/components/ui/icons';
@@ -60,17 +60,10 @@ export function QuotaPoolPage() {
             <IconEye size={18} aria-hidden="true" />
             {t('quota_pool.show_emails')}
           </label>
-          <button
-            type="button"
-            className={styles.refresh}
-            onClick={() => void state.refresh()}
-            disabled={!state.connected || initialLoading || Boolean(refreshing)}
-          >
-            <IconRefreshCw size={18} aria-hidden="true" />
-            {initialLoading
-              ? t('common.loading')
-              : t(`quota_pool.${refreshing ? 'refreshing' : 'refresh_all'}`)}
-          </button>
+          {/* Manual refresh is the header's refresh button; this shows when the next automatic one runs. */}
+          {Boolean(data?.pools.length) && (
+            <RefreshCountdown dueAtMs={state.nextCollectAtMs} refreshing={Boolean(refreshing)} />
+          )}
         </div>
       </header>
       <div className={styles.providerBar} role="group" aria-label={t('quota_pool.providers')}>
@@ -293,12 +286,30 @@ export function QuotaPoolPage() {
             <span>
               {t('quota_pool.last_refresh')}: {date(refreshStatus?.lastRefreshAtMs ?? null)}
             </span>
-            <span>
-              {t('quota_pool.next_refresh')}: {date(refreshStatus?.nextRefreshAtMs ?? null)}
-            </span>
           </>
         )}
       </footer>
     </div>
+  );
+}
+
+/** Seconds until the page's next automatic collection, ticking once a second. */
+function RefreshCountdown({ dueAtMs, refreshing }: { dueAtMs: number | null; refreshing: boolean }) {
+  const { t } = useTranslation();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  if (dueAtMs === null) return null;
+  return (
+    <span className={styles.countdown} data-refreshing={refreshing}>
+      <IconRefreshCw size={16} aria-hidden="true" />
+      {refreshing
+        ? t('quota_pool.refreshing')
+        : t('quota_pool.auto_refresh_in', {
+            seconds: Math.max(0, Math.ceil((dueAtMs - now) / 1000)),
+          })}
+    </span>
   );
 }

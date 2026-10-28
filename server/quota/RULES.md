@@ -53,10 +53,13 @@ credential UI. The store owns persistence; the collector uses only public APIs.
   minutes of eligible observations within the selected lookback are required.
   Drain is signed net depletion, including observed replenishment.
 - Forecasts require current samples, rates and future reset timestamps for
-  every eligible account. Each account keeps its own recent burn rate, scaled by
-  the selected scenario. Resets repeat on the reported period, restoring 100
-  points per plan unit. No load redistribution or future activity spike is
-  inferred. Actual providers can change windows and limits; these are scenarios.
+  every eligible account. The pool forecast models fill-first routing: the sum of
+  the accounts' recent burn rates, scaled by the selected scenario, is drawn from
+  one account at a time, the one with quota whose window resets soonest, moving
+  on when it drains. Per-account "predicted empty" still uses that account's own
+  rate. Resets repeat on the reported period, restoring 100 points per plan
+  unit. No future activity spike is inferred. Actual providers can change
+  windows and limits; these are scenarios.
 - Recorded lines break across collection gaps. No history is backfilled or
   fabricated. Refresh does not consume usage queues, mutate auth or reset limits.
 - Only authenticated requests receive results. Account names/emails are omitted
