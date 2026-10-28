@@ -2428,7 +2428,7 @@
     "predicted_empty": "Прогноз исчерпания",
     "normalized_short": "100 баллов на базовый тариф (Claude Pro / ChatGPT Plus) · аккаунты взвешены по тарифу, не токены.",
     "account_plan": "{{plan}} · {{points}} балл.",
-    "account_plan_unknown": "Тариф неизвестен · 100 балл.",
+    "account_plan_unknown": "Тариф неизвестен · {{points}} балл.",
     "awaiting_data": "Ожидание данных",
     "refresh_failed_title": "Ошибка обновления",
     "load_failed_title": "Не удалось загрузить квоты",

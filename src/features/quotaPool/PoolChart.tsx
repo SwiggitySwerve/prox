@@ -44,7 +44,8 @@ export function PoolChart({
     savedData || pool.forecastState !== 'ready' || mode !== 'remaining'
   );
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
-  const [selected, setSelected] = useState(0);
+  // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
+  const [inspected, setSelected] = useState<number | null>(null);
   const { fromMs, toMs, nowMs } = dashboard;
   const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
     ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
@@ -52,6 +53,11 @@ export function PoolChart({
   const geometry = chartGeometry(samples, mode, pool.capacityPoints, fromMs, toMs, chartFrame);
   const { x, y, min, max, segments } = geometry;
   const field = metricField[mode];
+  const latestRecorded = samples.reduce(
+    (latest, { point, projected }, index) => (!projected && point.atMs <= nowMs ? index : latest),
+    0
+  );
+  const selected = inspected ?? latestRecorded;
   const sample = samples[Math.min(selected, samples.length - 1)];
   const unit = t(`quota_pool.${mode === 'remaining' ? 'points' : 'points_hour'}`);
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);

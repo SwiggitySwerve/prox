@@ -1,4 +1,6 @@
 import type { PoolProviderId } from '../../src/domain/quotaPool/types';
+import { isRecord } from '../../src/utils/helpers';
+import { normalizePlanType, parseCodexUsagePayload } from '../../src/utils/quota/parsers';
 
 /**
  * Subscription weight in base-plan units: one unit is the provider's $20 plan (Claude Pro,
@@ -31,31 +33,26 @@ export function planWeight(
   return entry ? { ...entry, known: true } : { multiplier: 1, label: plan || null, known: false };
 }
 
-function parse(body: unknown): Record<string, unknown> | null {
+/** ChatGPT's usage response names the plan, e.g. "pro" or "promax". */
+export function planFromCodexUsage(body: unknown): string | null {
+  return normalizePlanType(parseCodexUsagePayload(body)?.plan_type);
+}
+
+/** Claude's OAuth profile names the plan as a rate-limit tier or an organization type; prefer
+ * whichever the table knows (Pro accounts report a generic tier but a "claude_pro" type). */
+export function planFromClaudeProfile(body: unknown): string | null {
+  let profile: unknown = body;
   if (typeof body === 'string') {
     try {
-      body = JSON.parse(body);
+      profile = JSON.parse(body);
     } catch {
       return null;
     }
   }
-  return body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
-}
-
-/** ChatGPT's usage response names the plan, e.g. "pro" or "promax". */
-export function planFromCodexUsage(body: unknown): string | null {
-  const plan = parse(body)?.plan_type;
-  return typeof plan === 'string' && plan ? plan : null;
-}
-
-/** Claude's OAuth profile names the plan as a rate-limit tier, else an organization type. */
-export function planFromClaudeProfile(body: unknown): string | null {
-  const organization = parse(body)?.organization;
-  if (!organization || typeof organization !== 'object') return null;
-  const { rate_limit_tier: tier, organization_type: type } = organization as Record<
-    string,
-    unknown
-  >;
-  if (typeof tier === 'string' && tier) return tier;
-  return typeof type === 'string' && type ? type : null;
+  const organization = isRecord(profile) ? profile.organization : null;
+  if (!isRecord(organization)) return null;
+  const candidates = [organization.rate_limit_tier, organization.organization_type]
+    .map(normalizePlanType)
+    .filter((plan): plan is string => plan !== null);
+  return candidates.find((plan) => planWeight('claude', plan).known) ?? candidates[0] ?? null;
 }

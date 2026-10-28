@@ -2433,7 +2433,7 @@
     "predicted_empty": "预计耗尽",
     "normalized_short": "每个基础套餐（Claude Pro / ChatGPT Plus）100 点 · 账户按套餐加权，并非令牌。",
     "account_plan": "{{plan}} · {{points}} 点",
-    "account_plan_unknown": "套餐未知 · 100 点",
+    "account_plan_unknown": "套餐未知 · {{points}} 点",
     "awaiting_data": "等待数据",
     "refresh_failed_title": "刷新失败",
     "load_failed_title": "无法加载配额",

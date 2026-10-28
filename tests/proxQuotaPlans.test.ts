@@ -88,6 +88,13 @@ describe('plan weights', () => {
     expect(planFromClaudeProfile({ organization: { organization_type: 'claude_pro' } })).toBe(
       'claude_pro'
     );
+    // A tier the table does not know falls back to the organization type.
+    expect(
+      planFromClaudeProfile({
+        organization: { organization_type: 'claude_pro', rate_limit_tier: 'default_claude_ai' },
+      })
+    ).toBe('claude_pro');
+    expect(planFromCodexUsage({ plan_type: ' Pro ' })).toBe('pro');
     expect(planFromClaudeProfile('not json')).toBeNull();
   });
 });

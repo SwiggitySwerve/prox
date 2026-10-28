@@ -372,7 +372,12 @@ export class QuotaCollector {
         return;
       }
     }
-    if (plan && !signal.aborted) this.store.recordPlan(account.id, plan, this.now());
+    if (!plan || signal.aborted) return;
+    try {
+      this.store.recordPlan(account.id, plan, this.now());
+    } catch {
+      // The plan only weights points; keep the samples and try again next collection.
+    }
   }
 
   private addIssue(
@@ -507,6 +512,7 @@ export class QuotaCollector {
       while (cursor < accounts.length && !signal.aborted) {
         const { account, authIndex, source, key } = accounts[cursor++];
         let samples: QuotaSample[];
+        let usageBody: unknown;
         try {
           const claude = account.provider === 'claude';
           const response = await this.request(source, 'requests/api-call', key, signal, {
@@ -523,15 +529,7 @@ export class QuotaCollector {
             throw new Error('Quota request unavailable');
           }
           samples = quotaSamples(account.provider, account.id, response.body, this.now());
-          await this.recordPlan(
-            account,
-            authIndex,
-            source,
-            key,
-            signal,
-            response.body,
-            storedPlans
-          );
+          usageBody = response.body;
         } catch {
           if (!signal.aborted) {
             this.addIssue(source, account.provider, 'quota-unavailable');
@@ -546,6 +544,7 @@ export class QuotaCollector {
             this.addIssue(source, account.provider, 'quota-unavailable');
             throw new Error('Quota sample persistence failed');
           }
+          await this.recordPlan(account, authIndex, source, key, signal, usageBody, storedPlans);
         }
       }
     };

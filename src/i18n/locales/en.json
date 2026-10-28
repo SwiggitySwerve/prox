@@ -2435,7 +2435,7 @@
     "predicted_empty": "Predicted empty",
     "normalized_short": "100 points per base plan (Claude Pro / ChatGPT Plus) · accounts weighted by plan, not tokens.",
     "account_plan": "{{plan}} · {{points}} pts",
-    "account_plan_unknown": "Plan unknown · 100 pts",
+    "account_plan_unknown": "Plan unknown · {{points}} pts",
     "awaiting_data": "Awaiting data",
     "refresh_failed_title": "Refresh failed",
     "load_failed_title": "Could not load quotas",

@@ -68,7 +68,7 @@ export function useAuthFilesNotifications() {
         const revision = scope.getRevision();
         confirm({
           ...options,
-          title: `${scope.source.label} · ${options.title ?? ''}`,
+          title: options.title ? `${scope.source.label} · ${options.title}` : scope.source.label,
           onConfirm: async () => {
             if (!scope.isCurrent() || scope.getRevision() !== revision) return;
             await options.onConfirm();

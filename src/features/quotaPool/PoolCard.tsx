@@ -188,7 +188,9 @@ export function PoolCard({
                             plan: account.plan.label,
                             points: number(account.plan.capacityPoints),
                           })
-                        : t('quota_pool.account_plan_unknown')}
+                        : t('quota_pool.account_plan_unknown', {
+                            points: number(account.plan.capacityPoints),
+                          })}
                     </small>
                   </span>
                   <span className={styles.accountStatus}>

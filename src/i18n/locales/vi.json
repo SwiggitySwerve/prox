@@ -2441,7 +2441,7 @@
     "predicted_empty": "Dự kiến hết hạn mức",
     "normalized_short": "100 điểm cho mỗi gói cơ bản (Claude Pro / ChatGPT Plus) · tài khoản tính trọng số theo gói, không phải token.",
     "account_plan": "{{plan}} · {{points}} điểm",
-    "account_plan_unknown": "Không rõ gói · 100 điểm",
+    "account_plan_unknown": "Không rõ gói · {{points}} điểm",
     "awaiting_data": "Đang chờ dữ liệu",
     "refresh_failed_title": "Làm mới thất bại",
     "load_failed_title": "Không thể tải hạn mức",

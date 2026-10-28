@@ -416,10 +416,14 @@ async def main():
                     readout = page.locator(f'[id="{await chart.get_attribute("aria-describedby")}"]')
                     before = await readout.inner_text()
                     await chart.focus()
-                    await chart.press("ArrowRight")
-                    after = await readout.inner_text()
-                    assert after != before, "ArrowRight must select the next sample"
-                    await chart.press("ArrowLeft")
+                    # The chart starts on the newest recorded sample; step whichever way has room.
+                    away, back = "ArrowLeft", "ArrowRight"
+                    await chart.press(away)
+                    if await readout.inner_text() == before:
+                        away, back = back, away
+                        await chart.press(away)
+                    assert await readout.inner_text() != before, "Arrow keys must change the sample"
+                    await chart.press(back)
                     assert await readout.inner_text() == before
                     interaction["keyboard_sample_readout"] = "passed"
                 if name == "wide":

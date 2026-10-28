@@ -2461,7 +2461,7 @@
     "predicted_empty": "預計耗盡",
     "normalized_short": "每個基礎方案（Claude Pro / ChatGPT Plus）100 點 · 帳戶依方案加權，並非權杖。",
     "account_plan": "{{plan}} · {{points}} 點",
-    "account_plan_unknown": "方案未知 · 100 點",
+    "account_plan_unknown": "方案未知 · {{points}} 點",
     "awaiting_data": "等待資料",
     "refresh_failed_title": "重新整理失敗",
     "load_failed_title": "無法載入配額",
