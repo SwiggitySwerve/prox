@@ -164,12 +164,21 @@ async def destination_smoke(page,out,results):
     await page.wait_for_timeout(500)
     reloadedBack=sorted({r['source'] for r in await page.evaluate('window.__sourceSmoke.requests')})
     # Pasted/typed URLs arrive as hash changes with no history state (React Router key 'default').
+    keyWarnings=[]
+    page.on('console',lambda m: keyWarnings.append(m.text[:160]) if 'same key' in m.text else None)
     await page.evaluate("location.hash='#/config?source=beta'")
     await page.wait_for_timeout(500)
     await page.evaluate("window.__sourceSmoke.requests.length=0; location.hash='#/logs?source=beta'")
     await page.wait_for_timeout(800)
     typedPaths=sorted({r['path'] for r in await page.evaluate('window.__sourceSmoke.requests')})
-    results['typedUrl']={'pass':'/observability/logs' in typedPaths and await page.get_by_text('beta synthetic log').count()>0,'paths':typedPaths}
+    typedLogs=await page.get_by_text('beta synthetic log').count()>0
+    # Typed sub-page keeps its parent stacked (iOS-style forward push), like a click would.
+    await page.evaluate("location.hash='#/auth-files'")
+    await page.wait_for_timeout(800)
+    await page.evaluate("location.hash='#/auth-files/oauth-excluded?source=beta&provider=claude'")
+    await page.wait_for_timeout(1200)
+    stacked=await page.locator('.page-transition__layer--stacked').count()
+    results['typedUrl']={'pass':'/observability/logs' in typedPaths and typedLogs and not keyWarnings and stacked==1,'paths':typedPaths,'keyWarnings':keyWarnings,'stackedLayers':stacked}
     results['destinationSwitch']={'pass':before=='true' and after=='true' and current==owners and reloaded==['alpha'] and reloadedBack==['beta'],'reloadedSources':reloaded,'reloadedBackSources':reloadedBack,'ownersBefore':owners,'ownersAfter':current,'hash':await page.evaluate('location.hash'),'screenshot':'system-source-switch-1440.png'}
 
 if __name__=='__main__':
