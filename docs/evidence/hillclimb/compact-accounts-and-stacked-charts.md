@@ -1,6 +1,6 @@
 # Compact accounts and stacked provider charts
 
-Status: the best visual round is restored and verified. Deployment is pending the user’s design direction after the hillclimb stopping rule was reached. No inference, history or UI service was restarted in this pass.
+Status: the best visual round is deployed at `8d6905416b3810433ced35e27a46b27227a197f0` on 2026-10-28. The user selected the compact layout and then reopened the hill climb with a council assessment. Only Prox UI and history restarted; inference proxies and the separate usage dashboard were unchanged.
 
 ## Implemented
 
@@ -129,7 +129,10 @@ The final account captures in `25-restored-best` are byte-for-byte identical to 
 
 - Full `bun run verify`: 1,964 tests passed, zero failed; TypeScript and production frontend/history builds passed. ESLint: zero errors, six existing Fast Refresh warnings.
 - Targeted Prettier checks, Python syntax checks and `git diff --check` passed.
-- Consistent private SQLite backup and rollback image tags were prepared. No production rollout or new live authenticated browser check occurred. Public SSO remains unverified.
+- A consistent private SQLite backup and rollback image tags were prepared before deployment. Both deployed image revision labels match `8d69054`; both services are active and Nginx configuration passed validation.
+- Authenticated loopback browser checks against the deployed UI and real cached quota data passed: stacked contributions match the total, both chart views, filters/rate mode, minimize/restore, keyboard inspection and account expansion. Five accounts were visible. Mobile overflow was false; there were no page errors or reported issues. Screenshots were personally inspected. Public SSO remains unverified.
+- Live account-section heights fell from 178.6/239.1px to 78.0/118.8px when minimized. Service start-time comparison confirmed the inference proxies and usage dashboard were unchanged.
+- Local release evidence: `/tmp/prox-live-stacked/results.json` and `/tmp/prox-live-stacked/{stacked-desktop,stacked-minimized,stacked-mobile}.png`. These live captures remain local; committed visual fixtures use synthetic account data.
 - No PR was created: the user explicitly requested direct commits for this work.
 
 ## Screenshots
