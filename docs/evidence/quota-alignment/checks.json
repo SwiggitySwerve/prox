@@ -1,0 +1,42 @@
+{
+  "wide": {
+    "alignment": "passed",
+    "overflow": false,
+    "clipped": 0,
+    "contrastFailures": 0,
+    "targetFailures": 0,
+    "pageErrors": []
+  },
+  "laptop": {
+    "alignment": "passed",
+    "overflow": false,
+    "clipped": 0,
+    "contrastFailures": 0,
+    "targetFailures": 0,
+    "pageErrors": []
+  },
+  "narrow": {
+    "alignment": "passed",
+    "overflow": false,
+    "clipped": 0,
+    "contrastFailures": 0,
+    "targetFailures": 0,
+    "pageErrors": []
+  },
+  "long-narrow": {
+    "alignment": "passed",
+    "overflow": false,
+    "clipped": 0,
+    "contrastFailures": 0,
+    "targetFailures": 0,
+    "pageErrors": []
+  },
+  "expanded": {
+    "alignment": "passed",
+    "overflow": false,
+    "clipped": 0,
+    "contrastFailures": 0,
+    "targetFailures": 0,
+    "pageErrors": []
+  }
+}
