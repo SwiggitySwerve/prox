@@ -1,3 +1,4 @@
+import { sumKnown } from './values';
 import type {
   AccountQuotaWindow,
   PoolAccount,
@@ -98,12 +99,6 @@ function currentSample(
   return { ...sample, remainingPercent: sample.remainingPercent };
 }
 
-function sumKnown(values: (number | null)[]): number | null {
-  return values.some((value) => value === null)
-    ? null
-    : values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
-}
-
 interface ForecastInput {
   remaining: number;
   rate: number;
@@ -152,9 +147,7 @@ export function projectPool(inputs: ForecastInput[], nowMs: number, toMs: number
       // Epoch timestamps lose sub-millisecond precision. The depletion event owns
       // the zero balance; subtracting elapsed time can leave a tiny residual.
       serving.remaining =
-        nextEmpty <= next
-          ? 0
-          : Math.max(0, serving.remaining - (demand * (next - time)) / HOUR_MS);
+        nextEmpty <= next ? 0 : Math.max(0, serving.remaining - (demand * (next - time)) / HOUR_MS);
     }
     time = next;
     record();
@@ -174,6 +167,69 @@ export function projectPool(inputs: ForecastInput[], nowMs: number, toMs: number
   return { points, resets, firstEmptyAtMs, poolEmptyAtMs };
 }
 
+function accountHistories(accounts: StoredAccount[], samples: QuotaSample[]) {
+  // Percent of one account's window times its plan weight gives pool points.
+  const weight = new Map(accounts.map((a) => [a.id, planWeight(a.provider, a.plan).multiplier]));
+  const scale = (id: string, value: number | null) =>
+    value === null ? null : value * weight.get(id)!;
+  const histories = new Map<string, QuotaSample[]>();
+  for (const a of accounts) histories.set(a.id, []);
+  for (const sample of samples) histories.get(sample.accountId)?.push(sample);
+  for (const history of histories.values()) history.sort((a, b) => a.observedAtMs - b.observedAtMs);
+  return { scale, histories };
+}
+
+function recordedHistory(
+  active: StoredAccount[],
+  samples: QuotaSample[],
+  options: DashboardOptions,
+  fromMs: number,
+  toMs: number,
+  { scale, histories }: ReturnType<typeof accountHistories>
+): PoolPoint[] {
+  const { nowMs, lookbackHours } = options;
+  const bucketTimes = new Map<number, number>();
+  for (const sample of samples) {
+    if (
+      !active.some((a) => a.id === sample.accountId) ||
+      sample.observedAtMs < fromMs ||
+      sample.observedAtMs > Math.min(nowMs, toMs)
+    )
+      continue;
+    const bucket = Math.floor(sample.observedAtMs / REFRESH_INTERVAL_MS);
+    bucketTimes.set(bucket, Math.max(bucketTimes.get(bucket) ?? 0, sample.observedAtMs));
+  }
+  const recorded = [...bucketTimes.values()]
+    .sort((a, b) => a - b)
+    .map((time): PoolPoint => {
+      const snapshots = active.map((a) =>
+        scale(a.id, currentSample(histories.get(a.id)!, time)?.remainingPercent ?? null)
+      );
+      const historicalRates = active.map((a) => {
+        const measured = measuredRates(histories.get(a.id)!, time, lookbackHours);
+        return { burn: scale(a.id, measured.burn), drain: scale(a.id, measured.drain) };
+      });
+      return {
+        atMs: time,
+        remainingPoints: sumKnown(snapshots),
+        burnPointsPerHour: sumKnown(historicalRates.map((r) => r.burn)),
+        drainPointsPerHour: sumKnown(historicalRates.map((r) => r.drain)),
+      };
+    });
+  // Break lines across unobserved collection gaps; SVG must not connect them.
+  for (let i = recorded.length - 1; i > 0; i--) {
+    if (recorded[i].atMs - recorded[i - 1].atMs > STALE_MS) {
+      recorded.splice(i, 0, {
+        atMs: recorded[i - 1].atMs + STALE_MS,
+        remainingPoints: null,
+        burnPointsPerHour: null,
+        drainPointsPerHour: null,
+      });
+    }
+  }
+  return recorded;
+}
+
 function buildPool(
   provider: PoolProviderId,
   source: StoredAccount[],
@@ -188,14 +244,7 @@ function buildPool(
     .filter((a) => a.provider === provider && !a.retired)
     .sort((a, b) => a.id.localeCompare(b.id));
   const active = accounts.filter((a) => !a.disabled);
-  // Percent of one account's window times its plan weight gives pool points.
-  const weight = new Map(accounts.map((a) => [a.id, planWeight(provider, a.plan).multiplier]));
-  const scale = (id: string, value: number | null) =>
-    value === null ? null : value * weight.get(id)!;
-  const histories = new Map<string, QuotaSample[]>();
-  for (const a of accounts) histories.set(a.id, []);
-  for (const sample of samples) histories.get(sample.accountId)?.push(sample);
-  for (const history of histories.values()) history.sort((a, b) => a.observedAtMs - b.observedAtMs);
+  const { scale, histories } = accountHistories(accounts, samples);
   const forecastInputs: ForecastInput[] = [];
   const accountViews: PoolAccount[] = accounts.map((account, index) => {
     const history = histories.get(account.id)!;
@@ -229,7 +278,7 @@ function buildPool(
         rate: scale(account.id, rates.burn)! * multiplier,
         resetAtMs: sample.resetAtMs,
         periodHours: sample.periodHours,
-        capacity: POINTS_PER_UNIT * weight.get(account.id)!,
+        capacity: scale(account.id, POINTS_PER_UNIT)!,
       });
     }
     const emptyAt =
@@ -285,45 +334,7 @@ function buildPool(
     forecastState === 'ready'
       ? projectPool(forecastInputs, nowMs, Math.max(toMs, nowMs + 14 * DAY_MS))
       : { points: [], resets: [], firstEmptyAtMs: null, poolEmptyAtMs: null };
-  const bucketTimes = new Map<number, number>();
-  for (const sample of samples) {
-    if (
-      !active.some((a) => a.id === sample.accountId) ||
-      sample.observedAtMs < fromMs ||
-      sample.observedAtMs > Math.min(nowMs, toMs)
-    )
-      continue;
-    const bucket = Math.floor(sample.observedAtMs / REFRESH_INTERVAL_MS);
-    bucketTimes.set(bucket, Math.max(bucketTimes.get(bucket) ?? 0, sample.observedAtMs));
-  }
-  const recorded = [...bucketTimes.values()]
-    .sort((a, b) => a - b)
-    .map((time): PoolPoint => {
-      const snapshots = active.map((a) =>
-        scale(a.id, currentSample(histories.get(a.id)!, time)?.remainingPercent ?? null)
-      );
-      const historicalRates = active.map((a) => {
-        const measured = measuredRates(histories.get(a.id)!, time, lookbackHours);
-        return { burn: scale(a.id, measured.burn), drain: scale(a.id, measured.drain) };
-      });
-      return {
-        atMs: time,
-        remainingPoints: sumKnown(snapshots),
-        burnPointsPerHour: sumKnown(historicalRates.map((r) => r.burn)),
-        drainPointsPerHour: sumKnown(historicalRates.map((r) => r.drain)),
-      };
-    });
-  // Break lines across unobserved collection gaps; SVG must not connect them.
-  for (let i = recorded.length - 1; i > 0; i--) {
-    if (recorded[i].atMs - recorded[i - 1].atMs > STALE_MS) {
-      recorded.splice(i, 0, {
-        atMs: recorded[i - 1].atMs + STALE_MS,
-        remainingPoints: null,
-        burnPointsPerHour: null,
-        drainPointsPerHour: null,
-      });
-    }
-  }
+  const recorded = recordedHistory(active, samples, options, fromMs, toMs, { scale, histories });
   const nextResetAtMs = loaded.reduce<number | null>(
     (earliest, a) =>
       a.resetAtMs !== null && a.resetAtMs > nowMs
@@ -407,14 +418,14 @@ export function buildDashboard(
       })),
     }))
     .filter(
-    (pool) =>
-      !scoped ||
-      pool.accountCount > 0 ||
-      !allPools.some((other) => other.instanceId === pool.instanceId && other.accountCount > 0) ||
-      collection.issues.some(
-        (issue) => issue.instanceId === pool.instanceId && issue.provider === pool.provider
-      )
-  );
+      (pool) =>
+        !scoped ||
+        pool.accountCount > 0 ||
+        !allPools.some((other) => other.instanceId === pool.instanceId && other.accountCount > 0) ||
+        collection.issues.some(
+          (issue) => issue.instanceId === pool.instanceId && issue.provider === pool.provider
+        )
+    );
   return {
     nowMs: options.nowMs,
     fromMs,
