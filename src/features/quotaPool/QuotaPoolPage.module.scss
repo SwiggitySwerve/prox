@@ -1073,24 +1073,55 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 32px;
   margin-bottom: 4px;
-  h3 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
+  h2 {
+    font-size: 16px;
+    padding-right: 36px;
   }
-  button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 44px;
-    padding: 6px 10px;
-    border: 1px solid var(--border-primary);
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-secondary);
+}
+.combinedOptions {
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  select {
     font-size: 13px;
-    flex-shrink: 0;
   }
+  .comparisonNote {
+    flex: 1;
+    min-width: 180px;
+  }
+}
+.total {
+  --pool-accent: #c4b5fd;
+}
+@media (min-width: 901px) {
+  .poolHeader {
+    padding-right: 100px;
+  }
+  .reorder button {
+    min-width: 28px;
+    min-height: 28px;
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+  }
+  .combinedOptions select {
+    min-height: 32px;
+    padding: 4px 8px;
+  }
+}
+.reorder button {
+  border-color: transparent;
+}
+.reorder button.graphToggle {
+  color: var(--text-tertiary);
+  background: transparent;
+  border-color: transparent;
+}
+.reorder .graphToggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }

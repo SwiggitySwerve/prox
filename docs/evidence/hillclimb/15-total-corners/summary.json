@@ -1,0 +1,74 @@
+{
+  "wide": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "laptop": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "partial": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "stale": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "burn-narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "total-wide": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "total-narrow": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  },
+  "total-unavailable": {
+    "pageOverflow": false,
+    "clipped": 0,
+    "targetFailures": 0,
+    "contrastFailures": 0,
+    "semanticFailures": 0,
+    "errors": []
+  }
+}

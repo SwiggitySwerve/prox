@@ -56,6 +56,23 @@ export interface QuotaPool {
   resets: PoolReset[];
   accounts: PoolAccount[];
 }
+/** Shared trace contract; combined totals have no provider identity or credential inventory. */
+export type PoolTrace = Pick<
+  QuotaPool,
+  | 'capacityPoints'
+  | 'remainingPoints'
+  | 'burnPointsPerHour'
+  | 'drainPointsPerHour'
+  | 'forecastState'
+  | 'recorded'
+  | 'projected'
+  | 'resets'
+  | 'poolEmptyAtMs'
+>;
+export interface CombinedPoolResult {
+  series: PoolTrace | null;
+  unavailableReason: 'no-accounts' | 'ambiguous-sources' | null;
+}
 export interface PoolDashboard {
   nowMs: number;
   fromMs: number;
@@ -89,4 +106,6 @@ export interface PoolDashboard {
   }[];
   unresolvedHistoryAccountCount?: number;
   pools: QuotaPool[];
+  /** Optional during a UI/history-service rolling upgrade. */
+  combined?: Record<PoolProviderId | 'all', CombinedPoolResult>;
 }

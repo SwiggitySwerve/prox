@@ -7,8 +7,7 @@ import type { PoolQuery } from '@/services/api/quotaPool';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
 import { PoolCard } from './PoolCard';
-import { PoolComparisonChart } from './PoolChart';
-import { PoolGraph } from './PoolGraph';
+import { CombinedPoolCard } from './CombinedPoolCard';
 import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
 import { PoolProviderMark } from './PoolProviderMark';
 import type { ChartMode } from './chartGeometry';
@@ -242,23 +241,13 @@ export function QuotaPoolPage() {
         </div>
       )}
       {data && shownPools.length > 0 && (
-        <div className={`${styles.pool} ${styles.combined}`}>
-          <PoolGraph title={t('quota_pool.combined_usage')}>
-            {(minimized) => (
-              <>
-                <p className={styles.comparisonNote}>{t('quota_pool.combined_description')}</p>
-                <PoolComparisonChart
-                  key={`${mode}-${data.fromMs}`}
-                  pools={shownPools}
-                  dashboard={data}
-                  mode={mode}
-                  minimized={minimized}
-                  savedData={state.error || state.refreshError}
-                />
-              </>
-            )}
-          </PoolGraph>
-        </div>
+        <CombinedPoolCard
+          pools={shownPools}
+          dashboard={data}
+          provider={provider}
+          mode={mode}
+          savedData={state.error || state.refreshError}
+        />
       )}
       <div className={styles.pools} aria-busy={state.loading}>
         {data &&

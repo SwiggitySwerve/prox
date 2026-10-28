@@ -2317,6 +2317,13 @@
     "expired": "바인딩 세션이 만료되었습니다. 다시 시작하세요."
   },
   "quota_pool": {
+    "series_view": "차트 보기",
+    "provider_lines": "공급자별 선",
+    "combined_total": "전체 합계",
+    "total": "합계",
+    "total_description": "선택한 공급자를 요금제 가중 포인트로 합산합니다. 토큰 수가 아닙니다.",
+    "total_ambiguous": "합계 사용 불가: 동일 공급자의 여러 소스 간 계정 중복이 확인되지 않았습니다.",
+    "total_unavailable": "선택한 항목의 합계를 사용할 수 없습니다.",
     "combined_usage": "통합 사용량",
     "combined_description": "공급자 풀은 시간축을 공유하며 각 선은 별도의 할당량 잔액을 유지합니다. 실선: 기록. 점선: 예측.",
     "minimize_graph": "그래프 축소",

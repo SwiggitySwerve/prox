@@ -1,0 +1,186 @@
+import { describe, expect, test } from 'bun:test';
+import { buildDashboard, type DashboardOptions } from '../server/quota/domain';
+import { combineProjections, combinedPools } from '../server/quota/combined';
+import type { PoolPoint } from '../src/domain/quotaPool/types';
+import type { QuotaSample, StoredAccount } from '../server/quota/types';
+import { HOUR_MS, STALE_MS } from '../server/quota/types';
+
+const now = Date.UTC(2026, 9, 28, 12);
+const accounts: StoredAccount[] = ['claude', 'codex'].map((provider, index) => ({
+  id: `a${index}`,
+  instanceId: provider,
+  provider: provider as 'claude' | 'codex',
+  name: 'private.json',
+  email: 'private@example.test',
+  disabled: false,
+  retired: false,
+  lastSeenAtMs: now,
+  lastErrorAtMs: null,
+}));
+const options: DashboardOptions = {
+  nowMs: now,
+  window: 'weekly',
+  lookbackHours: 3,
+  multiplier: 1,
+  offsetDays: 0,
+  reveal: false,
+};
+const collection = {
+  historyStartedAtMs: now - HOUR_MS,
+  lastRefreshAtMs: now,
+  nextRefreshAtMs: now + 300000,
+  refreshing: false,
+  issues: [],
+};
+const samples: QuotaSample[] = accounts.flatMap((account, index) =>
+  [0, 1, 2].map((i) => ({
+    accountId: account.id,
+    window: 'weekly' as const,
+    observedAtMs: now - (2 - i) * 300000 - index * 1000,
+    remainingPercent: 80 - i * (index + 1),
+    resetAtMs: now + (index + 1) * HOUR_MS,
+    periodHours: 168,
+  }))
+);
+const point = (atMs: number, remainingPoints: number | null): PoolPoint => ({
+  atMs,
+  remainingPoints,
+  burnPointsPerHour: null,
+  drainPointsPerHour: null,
+});
+
+describe('combined provider totals', () => {
+  test('adds current balances and records at shared observation times using account rules', () => {
+    const data = buildDashboard(accounts, samples, options, collection);
+    const total = data.combined!.all.series!;
+    expect(total.capacityPoints).toBe(200);
+    expect(total.remainingPoints).toBe(154);
+    expect(total.recorded.at(-1)?.remainingPoints).toBe(154);
+    expect(total.recorded[0].remainingPoints).toBeNull(); // Codex arrived first: Claude is not zero.
+    expect(total.burnPointsPerHour).toBeCloseTo(
+      data.pools.reduce((sum, p) => sum + p.burnPointsPerHour!, 0),
+      8
+    );
+    expect(total.projected[0].remainingPoints).toBe(154);
+    expect(JSON.stringify(total)).not.toContain('private');
+    expect(data.combined!.claude.series?.remainingPoints).toBe(78);
+    expect(data.combined!.codex.series?.remainingPoints).toBe(76);
+  });
+  test('preserves independent consumption and simultaneous or staggered reset jumps', () => {
+    const a = [point(0, 10), point(10, 0), point(10, 100), point(20, 90)];
+    const b = [point(0, 30), point(5, 25), point(5, 75), point(20, 60)];
+    expect(combineProjections([a, b]).map((p) => [p.atMs, p.remainingPoints])).toEqual([
+      [0, 40],
+      [5, 30],
+      [5, 80],
+      [10, 70],
+      [10, 170],
+      [20, 150],
+    ]);
+    expect(
+      combineProjections([a, a])
+        .filter((p) => p.atMs === 10)
+        .map((p) => p.remainingPoints)
+    ).toEqual([0, 200]);
+  });
+  test('never fills missing projection endpoints, gaps or absent traces', () => {
+    expect(
+      combineProjections([
+        [point(0, 10), point(10, null), point(20, 5)],
+        [point(5, 20), point(15, 10)],
+      ]).map((p) => p.remainingPoints)
+    ).toEqual([null, null, null, null, null]);
+    expect(combineProjections([[], [point(0, 10)]])).toEqual([]);
+  });
+  test('unknown current windows suppress the total and forecast, keeping known history', () => {
+    const broken = samples.map((s) =>
+      s.accountId === 'a1' && s.observedAtMs === now - 1000 ? { ...s, remainingPercent: null } : s
+    );
+    const data = buildDashboard(accounts, broken, options, collection);
+    expect(data.combined!.all.series!.remainingPoints).toBeNull();
+    expect(data.combined!.all.series!.recorded.at(-1)?.remainingPoints).toBeNull();
+    expect(data.combined!.all.series!.projected).toEqual([]);
+  });
+  test('stale and expired observations cannot contribute a balance', () => {
+    for (const patch of [{ observedAtMs: now - STALE_MS - 1 }, { resetAtMs: now - 1 }]) {
+      const old = samples
+        .filter((s) => s.accountId === 'a0')
+        .concat({ ...samples.at(-1)!, ...patch });
+      const total = buildDashboard(accounts, old, options, collection).combined!.all.series!;
+      expect(total.remainingPoints).toBeNull();
+      expect(total.recorded.at(-1)?.remainingPoints).toBeNull();
+    }
+  });
+  test('does not inflate capacity from duplicate same-provider sources or empty failures', () => {
+    const data = buildDashboard(accounts, samples, options, collection);
+    const a = data.pools.find((p) => p.provider === 'claude')!;
+    let read = false;
+    expect(
+      combinedPools([a, { ...a, instanceId: 'second' }], () => {
+        read = true;
+        return [];
+      })
+    ).toEqual({ series: null, unavailableReason: 'ambiguous-sources' });
+    expect(read).toBe(false);
+    const failed = {
+      ...a,
+      provider: 'codex' as const,
+      accounts: [],
+      eligibleCount: 0,
+      accountCount: 0,
+      forecastState: 'partial' as const,
+      remainingPoints: null,
+    };
+    const total = combinedPools([a, failed], () => a.recorded).series!;
+    expect(total.remainingPoints).toBeNull();
+    expect(total.recorded).toEqual([]);
+    expect(total.projected).toEqual([]);
+  });
+  test('excludes disabled, retired and unresolved accounts from displayed totals', () => {
+    const extra = { ...accounts[0], id: 'extra', instanceId: undefined };
+    const data = buildDashboard([...accounts, extra], samples, options, {
+      ...collection,
+      sources: [
+        { instanceId: 'claude', sourceLabel: 'Claude' },
+        { instanceId: 'codex', sourceLabel: 'Codex' },
+      ],
+    });
+    expect(data.combined!.all.series!.capacityPoints).toBe(200);
+    for (const patch of [{ disabled: true }, { retired: true }]) {
+      const result = buildDashboard(
+        [{ ...accounts[0], ...patch }, accounts[1]],
+        samples,
+        options,
+        collection
+      );
+      expect(result.combined!.all.series!.remainingPoints).toBe(76);
+      expect(result.combined!.all.series!.capacityPoints).toBe(100);
+    }
+    expect(buildDashboard([], [], options, collection).combined!.all.unavailableReason).toBe(
+      'no-accounts'
+    );
+  });
+  test('plan weights, scenarios and both windows use the same authoritative total', () => {
+    for (const window of ['weekly', 'five-hour'] as const)
+      for (const multiplier of [0, 0.5, 1, 2] as const) {
+        const data = buildDashboard(
+          accounts.map((a) => ({
+            ...a,
+            plan: a.provider === 'claude' ? 'default_claude_max_20x' : 'promax',
+          })),
+          samples.map((s) => ({ ...s, window })),
+          { ...options, window, multiplier },
+          collection
+        );
+        const total = data.combined!.all.series!;
+        expect(total.capacityPoints).toBe(data.pools.reduce((sum, p) => sum + p.capacityPoints, 0));
+        expect(total.remainingPoints).toBe(
+          data.pools.reduce((sum, p) => sum + p.remainingPoints!, 0)
+        );
+        expect(total.capacityPoints).toBe(4500);
+        expect(total.remainingPoints).toBe(3460);
+        expect(total.projected.at(-1)?.atMs).toBe(Math.max(...data.pools.map(pool => pool.projected.at(-1)!.atMs)));
+        expect(total.projected.at(-1)!.atMs).toBeLessThanOrEqual(data.toMs);
+      }
+  });
+});

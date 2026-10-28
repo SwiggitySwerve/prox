@@ -2323,6 +2323,13 @@
     "expired": "Phiên liên kết đã hết hạn. Hãy bắt đầu lại."
   },
   "quota_pool": {
+    "series_view": "Chế độ biểu đồ",
+    "provider_lines": "Đường nhà cung cấp",
+    "combined_total": "Tổng cộng",
+    "total": "Tổng",
+    "total_description": "Cộng các nhà cung cấp đã chọn theo điểm có trọng số gói, không phải token.",
+    "total_ambiguous": "Không có tổng: chưa xác minh tài khoản trùng lặp giữa các nguồn của cùng nhà cung cấp.",
+    "total_unavailable": "Không có tổng cho lựa chọn này.",
     "combined_usage": "Biểu đồ sử dụng tổng hợp",
     "combined_description": "Các nhóm nhà cung cấp dùng chung trục thời gian, mỗi đường giữ số dư hạn mức riêng. Nét liền: đã ghi nhận. Nét đứt: dự báo.",
     "minimize_graph": "Thu nhỏ biểu đồ",

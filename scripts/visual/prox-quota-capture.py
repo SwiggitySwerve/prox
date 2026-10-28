@@ -132,7 +132,24 @@ def fixture(state):
                         projected=[], resets=[], firstEmptyAtMs=None, poolEmptyAtMs=None,
                         nextResetGainPoints=None)
         pools.append(pool)
+    # Precomputed synthetic total; domain arithmetic is exercised separately in Bun tests.
+    total = dict(capacityPoints=500, remainingPoints=391.2, burnPointsPerHour=6.4,
+                 drainPointsPerHour=6.4, forecastState="ready", poolEmptyAtMs=None,
+                 resets=[dict(atMs=NOW+DAY,gainPoints=200)],
+                 recorded=[dict(atMs=at, remainingPoints=value, burnPointsPerHour=6.4,
+                                drainPointsPerHour=6.4) for at,value in [(NOW-DAY,420),(NOW,391.2)]],
+                 projected=[dict(atMs=at, remainingPoints=value, burnPointsPerHour=None,
+                                 drainPointsPerHour=None) for at,value in
+                            [(NOW,391.2),(NOW+DAY,241.2),(NOW+DAY,441.2),
+                             (NOW+4*DAY,60),(NOW+4*DAY,260),(NOW+7*DAY,20)]])
+    if state in ("partial","stale","collecting","long"):
+        total.update(forecastState="partial" if state=="long" else state, projected=[],resets=[])
+        if state!="collecting": total.update(remainingPoints=None,burnPointsPerHour=None,drainPointsPerHour=None)
+    combined = {"all":dict(series=total,unavailableReason=None)}
+    combined.update({pool["provider"]:dict(series={key:pool[key] for key in total},unavailableReason=None) for pool in pools})
+    if state == "total-unavailable": combined["all"] = dict(series=None,unavailableReason="ambiguous-sources")
     return dict(
+        combined=combined,
         nowMs=NOW,
         fromMs=NOW - 3 * DAY,
         toMs=NOW + 7 * DAY,
@@ -158,8 +175,8 @@ GEOMETRY = r"""() => {
   const clipped=[...root.querySelectorAll('*')].filter(e=>visible(e)&&e.clientWidth>2&&e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>({tag:e.tagName,class:e.className,client:e.clientWidth,scroll:e.scrollWidth}));
   const text=[...root.querySelectorAll('h1,h2,h3,p,dt,dd,button,a,summary,span,label,svg text')].filter(e=>visible(e)&&e.textContent.trim()&&(!e.children.length||e.matches('h1,h2,p,button'))).map(e=>{
     const s=getComputedStyle(e);return {text:e.textContent.trim().slice(0,90),...rect(e),size:parseFloat(s.fontSize),weight:parseInt(s.fontWeight)||400,disabled:!!e.closest(':disabled')||e.matches('label:has(input:disabled)'),tag:e.tagName};});
-  const charts=[...root.querySelectorAll('article')].filter(e=>e.querySelector('svg')&&visible(e.querySelector('svg'))).map(e=>{
-    const svg=e.querySelector('svg'), matrix=svg.getScreenCTM();
+  const charts=[...root.querySelectorAll('article')].filter(e=>e.querySelector('svg[role=img]')&&visible(e.querySelector('svg[role=img]'))).map(e=>{
+    const svg=e.querySelector('svg[role=img]'), matrix=svg.getScreenCTM();
     const screen=(x,y)=>{const p=new DOMPoint(x,y).matrixTransform(matrix);return {x:p.x+scrollX,y:p.y+scrollY};};
     const strokePoints=[...svg.querySelectorAll('path[stroke]')].flatMap(path=>Array.from({length:11},(_,i)=>{const p=path.getPointAtLength(path.getTotalLength()*i/10);return screen(p.x,p.y);}));
     for(const c of svg.querySelectorAll('circle')) strokePoints.push(screen(c.cx.baseVal.value,c.cy.baseVal.value));
@@ -311,6 +328,9 @@ async def main():
         ("burn-narrow", "burn", 390, 844),
         ("refresh-error", "refresh-error", 1440, 1000),
         ("refresh-pending", "refresh-pending", 1440, 1000),
+        ("total-wide", "total", 1920, 1280),
+        ("total-narrow", "total", 390, 844),
+        ("total-unavailable", "total-unavailable", 1440, 1000),
     ]
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
@@ -401,6 +421,15 @@ async def main():
                     ).last.wait_for()
                 else:
                     await page.locator("article").first.wait_for()
+                if state in ("total", "total-unavailable"):
+                    await page.get_by_role("combobox", name="Chart View", exact=True).select_option("total")
+                    combined = page.get_by_role("region",name="Combined Usage",exact=True)
+                    if state == "total":
+                        assert await combined.locator('svg [data-series="total"]').count() == 1
+                        assert "391.2" in await combined.inner_text()
+                    else:
+                        assert await combined.locator('svg[role="img"]').count() == 0
+                        assert "unverified account overlap" in await combined.inner_text()
                 if state in ("drain", "burn"):
                     await page.get_by_role(
                         "button",
@@ -475,16 +504,29 @@ async def main():
                     for plot in await plots.all():
                         svg = plot.locator('svg[role="img"]')
                         before_height = (await svg.bounding_box())["height"]
-                        button = plot.get_by_role("button")
+                        button = page.locator(f'button[aria-controls="{await plot.get_attribute("id")}"]')
                         await button.click()
                         assert await button.get_attribute("aria-pressed") == "true"
                         assert (await svg.bounding_box())["height"] < before_height - 50
                         assert await svg.locator('text').count() > 0
                     await page.screenshot(path=str(out / f"{name}-minimized.png"), full_page=True, animations="disabled")
                     for plot in await plots.all():
-                        await plot.get_by_role("button", name="Expand", exact=False).click()
+                        await page.locator(f'button[aria-controls="{await plot.get_attribute("id")}"]').click()
                     assert await page.locator('article details').count() == 5
                     interaction["combined_top_and_all_graphs_minimize"] = "passed"
+                    corner = page.locator('article [class*="__reorder___"]').first
+                    geometry = await corner.locator('button').evaluate_all("nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height,text:n.textContent}})")
+                    assert len(geometry)==3 and all(abs(c['y']-geometry[0]['y'])<1 for c in geometry)
+                    assert geometry[0]['text']==''
+                    if width>900: assert all(c['w']<=28 and c['h']<=28 for c in geometry)
+                    interaction["subtle_icons_aligned_beside_reorder"] = "passed"
+                    view = page.get_by_role('combobox',name='Chart View',exact=True)
+                    await view.select_option('total')
+                    assert await combined.locator('svg [data-series="total"]').count()==1
+                    assert "391.2" in await combined.inner_text()
+                    await view.select_option('providers')
+                    assert await combined.locator('svg [data-series]').count()==2
+                    interaction["provider_and_total_views"] = "passed"
                     if name == "wide":
                         filters = page.locator('[class*="__providerBar___"] button')
                         await filters.nth(1).click()

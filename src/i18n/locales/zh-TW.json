@@ -2343,6 +2343,13 @@
     "expired": "綁定工作階段已過期，請重新開始。"
   },
   "quota_pool": {
+    "series_view": "圖表檢視",
+    "provider_lines": "供應商曲線",
+    "combined_total": "合計曲線",
+    "total": "合計",
+    "total_description": "所選供應商以方案加權點數相加，並非權杖數。",
+    "total_ambiguous": "合計無法使用：同一供應商的多個來源尚未確認是否有帳戶重疊。",
+    "total_unavailable": "此選擇的合計無法使用。",
     "combined_usage": "綜合用量",
     "combined_description": "各供應商集區共用此時間軸，每條線保留獨立配額餘額。實線：已記錄；虛線：預測。",
     "minimize_graph": "縮小圖表",

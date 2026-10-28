@@ -1,3 +1,4 @@
+import { combinedPools } from './combined';
 import { sumKnown } from './values';
 import type {
   AccountQuotaWindow,
@@ -426,6 +427,25 @@ export function buildDashboard(
           (issue) => issue.instanceId === pool.instanceId && issue.provider === pool.provider
         )
     );
+  const combined = (selected: QuotaPool[]) =>
+    combinedPools(selected, () => {
+      const active = accounts.filter(
+        (account) =>
+          !account.retired &&
+          !account.disabled &&
+          selected.some(
+            (pool) => pool.provider === account.provider && pool.instanceId === account.instanceId
+          )
+      );
+      return recordedHistory(
+        active,
+        filtered,
+        options,
+        fromMs,
+        toMs,
+        accountHistories(active, filtered)
+      );
+    });
   return {
     nowMs: options.nowMs,
     fromMs,
@@ -435,6 +455,11 @@ export function buildDashboard(
     multiplier: options.multiplier,
     ...state,
     pools,
+    combined: {
+      all: combined(pools),
+      claude: combined(pools.filter((pool) => pool.provider === 'claude')),
+      codex: combined(pools.filter((pool) => pool.provider === 'codex')),
+    },
     ...(scoped
       ? {
           unresolvedHistoryAccountCount: accounts.filter(

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
+import type { PoolDashboard, QuotaPool, PoolTrace, PoolProviderId } from '@/domain/quotaPool/types';
 import {
   chartFrame as defaultChartFrame,
   fitChartFrame,
@@ -13,6 +13,12 @@ import {
 import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
+type ChartPool = PoolTrace & {
+  provider: PoolProviderId | 'total';
+  sourceLabel?: string;
+  instanceId?: string;
+};
+
 interface ChartProps {
   dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs'>;
   mode: ChartMode;
@@ -24,7 +30,7 @@ export function PoolChart({ pool, ...props }: ChartProps & { pool: QuotaPool }) 
   return <PoolChartView {...props} pools={[pool]} />;
 }
 
-export function PoolComparisonChart(props: ChartProps & { pools: QuotaPool[] }) {
+export function PoolComparisonChart(props: ChartProps & { pools: ChartPool[] }) {
   return <PoolChartView {...props} comparison />;
 }
 
@@ -35,7 +41,7 @@ function PoolChartView({
   savedData = false,
   minimized = false,
   comparison = false,
-}: ChartProps & { pools: QuotaPool[]; comparison?: boolean }) {
+}: ChartProps & { pools: ChartPool[]; comparison?: boolean }) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -72,7 +78,7 @@ function PoolChartView({
   );
   // Order inspection by time without joining or resampling separate source traces.
   if (comparison) samples.sort((a, b) => a.point.atMs - b.point.atMs);
-  const poolLabel = (pool: QuotaPool) =>
+  const poolLabel = (pool: ChartPool) =>
     `${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel || pool.instanceId ? ` · ${pool.sourceLabel ?? pool.instanceId}` : ''}`;
   const geometry = chartGeometry(
     samples,
@@ -165,7 +171,7 @@ function PoolChartView({
           })}
         </title>
         <desc id={`${id}-desc`}>
-          {t(comparison ? 'quota_pool.combined_description' : 'quota_pool.chart_description')}
+          {t(pools[0]?.provider === 'total' ? 'quota_pool.total_description' : comparison ? 'quota_pool.combined_description' : 'quota_pool.chart_description')}
         </desc>
         <defs>
           <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">

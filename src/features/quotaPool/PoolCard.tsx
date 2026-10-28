@@ -5,6 +5,7 @@ import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
 import { PoolChart } from './PoolChart';
 import { PoolGraph } from './PoolGraph';
+import { PoolGraphToggle } from './PoolGraphToggle';
 import { PoolProviderMark } from './PoolProviderMark';
 import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
@@ -27,6 +28,7 @@ export function PoolCard({
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
+  const [minimized, setMinimized] = useState(false);
   // Collapsed accounts show limits as numbers only; opening one shows bars and reset times.
   const [openAccounts, setOpenAccounts] = useState<ReadonlySet<string>>(() => new Set());
   const allOpen = pool.accounts.length > 0 && pool.accounts.every((a) => openAccounts.has(a.id));
@@ -71,28 +73,38 @@ export function PoolCard({
                       state: t(`quota_pool.state.${pool.forecastState}`),
                     })}
             </span>
-            {move && (
-              <span className={styles.reorder}>
-                <button
-                  type="button"
-                  onClick={move.up}
-                  disabled={!move.up}
-                  aria-label={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
-                  title={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
-                >
-                  <IconChevronUp size={18} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={move.down}
-                  disabled={!move.down}
-                  aria-label={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
-                  title={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
-                >
-                  <IconChevronDown size={18} aria-hidden="true" />
-                </button>
-              </span>
-            )}
+            <span className={styles.reorder}>
+              <PoolGraphToggle
+                minimized={minimized}
+                onToggle={() => setMinimized((value) => !value)}
+                label={`${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel ? ` · ${pool.sourceLabel}` : ''}`}
+                controls={`${id}-plot`}
+              />
+              {move && (
+                <>
+                  <button
+                    type="button"
+                    onClick={move.up}
+                    disabled={!move.up}
+                    aria-label={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
+                    title={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
+                  >
+                    <IconChevronUp size={18} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={move.down}
+                    disabled={!move.down}
+                    aria-label={t('quota_pool.move_down', {
+                      pool: t(`quota_pool.${pool.provider}`),
+                    })}
+                    title={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
+                  >
+                    <IconChevronDown size={18} aria-hidden="true" />
+                  </button>
+                </>
+              )}
+            </span>
           </div>
           <div className={styles.headline} data-unavailable={pool[metricField[mode]] === null}>
             <strong>
@@ -168,20 +180,15 @@ export function PoolCard({
           {t(`quota_pool.state_note.${pool.forecastState}`)}
         </p>
       )}
-      <PoolGraph
-        title={t('quota_pool.history_forecast')}
-        label={`${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel ? ` · ${pool.sourceLabel}` : ''}`}
-      >
-        {(minimized) => (
-          <PoolChart
-            key={`${mode}-${dashboard.fromMs}`}
-            pool={pool}
-            dashboard={dashboard}
-            mode={mode}
-            savedData={savedData}
-            minimized={minimized}
-          />
-        )}
+      <PoolGraph title={t('quota_pool.history_forecast')} id={`${id}-plot`} minimized={minimized}>
+        <PoolChart
+          key={`${mode}-${dashboard.fromMs}`}
+          pool={pool}
+          dashboard={dashboard}
+          mode={mode}
+          savedData={savedData}
+          minimized={minimized}
+        />
       </PoolGraph>
       <section className={styles.accounts} aria-labelledby={`${id}-accounts`}>
         <h3 id={`${id}-accounts`}>

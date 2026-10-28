@@ -2315,6 +2315,13 @@
     "expired": "绑定会话已过期，请重新开始。"
   },
   "quota_pool": {
+    "series_view": "图表视图",
+    "provider_lines": "提供商曲线",
+    "combined_total": "合计曲线",
+    "total": "合计",
+    "total_description": "所选提供商按套餐加权点数相加，并非令牌数。",
+    "total_ambiguous": "合计不可用：同一提供商的多个来源尚未确认是否存在账户重叠。",
+    "total_unavailable": "此选择的合计不可用。",
     "combined_usage": "综合用量",
     "combined_description": "各提供商池共用此时间轴，每条线保留独立配额余额。实线：已记录；虚线：预测。",
     "minimize_graph": "缩小图表",

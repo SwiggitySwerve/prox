@@ -2317,6 +2317,13 @@
     "expired": "The binding session expired. Please start over."
   },
   "quota_pool": {
+    "series_view": "Chart View",
+    "provider_lines": "Provider Lines",
+    "combined_total": "Combined Total",
+    "total": "Total",
+    "total_description": "Selected providers added in plan-weighted points, not tokens.",
+    "total_ambiguous": "Total unavailable: multiple sources for the same provider have unverified account overlap.",
+    "total_unavailable": "Combined total is unavailable for this selection.",
     "combined_usage": "Combined Usage",
     "combined_description": "Provider pools share this timeline; each line keeps its own quota balance. Solid: recorded. Dashed: forecast.",
     "minimize_graph": "Minimize Graph",
