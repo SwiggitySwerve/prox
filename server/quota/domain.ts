@@ -1,4 +1,5 @@
 import type {
+  AccountQuotaWindow,
   PoolAccount,
   PoolDashboard,
   PoolPoint,
@@ -31,6 +32,7 @@ export interface CollectionState {
   refreshing: boolean;
   issues: PoolDashboard['issues'];
   sources?: readonly QuotaSourceView[];
+  windows?: ReadonlyMap<string, readonly AccountQuotaWindow[]>;
 }
 type Rates = { burn: number | null; drain: number | null };
 
@@ -251,6 +253,7 @@ function buildPool(
             : emptyAt !== null && sample?.resetAtMs && emptyAt <= sample.resetAtMs
               ? emptyAt
               : null,
+      windows: [],
     };
   });
   const eligible = accountViews.filter((a) => !a.disabled);
@@ -353,7 +356,7 @@ export function buildDashboard(
   const fromMs = Math.floor(options.nowMs / DAY_MS) * DAY_MS + (options.offsetDays - 3) * DAY_MS;
   const toMs = fromMs + 14 * DAY_MS;
   const filtered = samples.filter((s) => s.window === options.window);
-  const { sources, ...state } = collection;
+  const { sources, windows, ...state } = collection;
   const scopes = new Map<string, QuotaSourceView>();
   for (const source of sources ?? []) scopes.set(source.instanceId, source);
   for (const entry of [...accounts, ...collection.issues]) {
@@ -388,7 +391,15 @@ export function buildDashboard(
   );
   // A source containing one supported provider does not create an empty sibling-provider card.
   // Retain empty results when the entire source is empty, and preserve failure visibility.
-  const pools = allPools.filter(
+  const pools = allPools
+    .map((pool) => ({
+      ...pool,
+      accounts: pool.accounts.map((account) => ({
+        ...account,
+        windows: [...(windows?.get(account.id) ?? [])],
+      })),
+    }))
+    .filter(
     (pool) =>
       !scoped ||
       pool.accountCount > 0 ||

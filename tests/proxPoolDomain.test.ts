@@ -192,6 +192,21 @@ describe('dashboard evidence and privacy', () => {
     expect(result.pools[0].remainingPoints).toBeNull();
     expect(result.pools[0].forecastState).toBe('partial');
   });
+  test('accounts carry their latest reported windows and nothing extra leaks', () => {
+    const fiveHour = {
+      id: 'five-hour',
+      labelKey: 'claude_quota.five_hour',
+      remainingPercent: 30,
+      resetAtMs: now + HOUR_MS,
+    };
+    const result = buildDashboard([account()], [sample(now, 50)], options, {
+      ...collection,
+      windows: new Map([[account().id, [fiveHour]]]),
+    });
+    expect(result.pools[0].accounts[0].windows).toEqual([fiveHour]);
+    expect('windows' in result).toBe(false);
+    expect(dashboard([account()], [sample(now, 50)]).pools[0].accounts[0].windows).toEqual([]);
+  });
   test('recorded histories break across outages', () => {
     const recorded = dashboard([account()], [sample(now - HOUR_MS, 80), sample(now, 50)]).pools[0]
       .recorded;

@@ -2467,7 +2467,9 @@
     "load_failed_title": "無法載入配額",
     "no_accounts_title": "尚未連接帳戶",
     "no_accounts_help": "連接帳戶以查看彙總配額。",
-    "add_credentials": "新增憑證"
+    "add_credentials": "新增憑證",
+    "limits": "限額",
+    "limit_resets": "{{date}} 重置"
   },
   "provider_sources": {
     "discovery_error": "無法取得代理執行個體清單。請重新載入以重試。",

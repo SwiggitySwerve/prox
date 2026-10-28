@@ -52,6 +52,20 @@ const pool: QuotaPool = {
       burnPointsPerHour: 3,
       emptyAtMs: null,
       plan: { label: 'Max 20x', capacityPoints: 2000, known: true },
+      windows: [
+        {
+          id: 'five-hour',
+          labelKey: 'claude_quota.five_hour',
+          remainingPercent: 12,
+          resetAtMs: 800,
+        },
+        {
+          id: 'seven-day-opus',
+          labelKey: 'claude_quota.seven_day_opus',
+          remainingPercent: 64,
+          resetAtMs: null,
+        },
+      ],
     },
   ],
 };
@@ -414,6 +428,10 @@ describe('pool presentation', () => {
     expect(markup).toContain('Total and forecast unavailable');
     expect(markup).toContain('Claude account 1');
     expect(markup).toContain('Max 20x · 2,000 pts');
+    // Every reported limit is listed under its account; low ones are flagged.
+    expect(markup).toContain('aria-label="Limits"');
+    expect(markup).toMatch(/<li data-low="true"><span>5-hour limit<\/span>[\s\S]*?12%/);
+    expect(markup).toMatch(/<li data-low="false"><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64%/);
     expect(markup).not.toContain('private@example.test');
     // The chart itself is inspected by pointer or arrow keys; no separate slider.
     expect(markup).not.toContain('type="range"');

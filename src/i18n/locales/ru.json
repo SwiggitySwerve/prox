@@ -2434,7 +2434,9 @@
     "load_failed_title": "Не удалось загрузить квоты",
     "no_accounts_title": "Нет подключённых аккаунтов",
     "no_accounts_help": "Подключите аккаунты, чтобы увидеть общие квоты.",
-    "add_credentials": "Добавить учётные данные"
+    "add_credentials": "Добавить учётные данные",
+    "limits": "Лимиты",
+    "limit_resets": "Сброс {{date}}"
   },
   "provider_sources": {
     "discovery_error": "Список источников недоступен. Перезагрузите страницу.",

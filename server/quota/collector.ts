@@ -3,7 +3,12 @@ import type { DeploymentSource } from '../../src/domain/providerSources/types';
 import { loadSourceManifest } from '../providerSources/config';
 import { LEGACY_SOURCE_MAPPING, legacyAccountId } from './identity';
 import type { TFunction } from 'i18next';
-import type { PoolDashboard, PoolProviderId, PoolWindow } from '../../src/domain/quotaPool/types';
+import type {
+  AccountQuotaWindow,
+  PoolDashboard,
+  PoolProviderId,
+  PoolWindow,
+} from '../../src/domain/quotaPool/types';
 import { buildClaudeQuotaWindows } from '../../src/domain/quotaWindows/claude';
 import { buildCodexQuotaWindows } from '../../src/domain/quotaWindows/codex';
 import {
@@ -126,7 +131,7 @@ function quotaSamples(
   accountId: string,
   body: unknown,
   observedAtMs: number
-): QuotaSample[] {
+): { samples: QuotaSample[]; windows: AccountQuotaWindow[] } {
   const parsed =
     provider === 'claude'
       ? { provider: 'claude' as const, payload: parseClaudeUsagePayload(body) }
@@ -197,7 +202,21 @@ function quotaSamples(
       });
     }
   }
-  return samples;
+  return {
+    samples,
+    windows: windows.map((entry) => ({
+      id: entry.id,
+      labelKey: entry.labelKey ?? entry.label,
+      ...('labelParams' in entry && entry.labelParams
+        ? { labelParams: entry.labelParams as Record<string, string | number> }
+        : {}),
+      remainingPercent:
+        entry.usedPercent !== null && Number.isFinite(entry.usedPercent)
+          ? Math.min(100, Math.max(0, 100 - entry.usedPercent))
+          : null,
+      resetAtMs: entry.resetAtMs ?? null,
+    })),
+  };
 }
 
 /** Enumerates each instance once, then collects supported read-only quota observations. */
@@ -212,6 +231,7 @@ export class QuotaCollector {
   private nextRefresh: number;
   private currentIssues: PoolDashboard['issues'] = [];
   private readonly profileAttempts = new Map<string, number>();
+  private readonly latestWindows = new Map<string, AccountQuotaWindow[]>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private controller: AbortController | null = null;
@@ -268,6 +288,10 @@ export class QuotaCollector {
     return this.currentIssues
       .map((issue) => ({ ...issue }))
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  }
+  /** In memory only: refilled by the next collection after a restart. */
+  get windows(): ReadonlyMap<string, readonly AccountQuotaWindow[]> {
+    return this.latestWindows;
   }
   get sources(): QuotaSourceView[] | undefined {
     if (this.revision === undefined) return undefined;
@@ -512,6 +536,7 @@ export class QuotaCollector {
       while (cursor < accounts.length && !signal.aborted) {
         const { account, authIndex, source, key } = accounts[cursor++];
         let samples: QuotaSample[];
+        let windows: AccountQuotaWindow[];
         let usageBody: unknown;
         try {
           const claude = account.provider === 'claude';
@@ -528,7 +553,12 @@ export class QuotaCollector {
           ) {
             throw new Error('Quota request unavailable');
           }
-          samples = quotaSamples(account.provider, account.id, response.body, this.now());
+          ({ samples, windows } = quotaSamples(
+            account.provider,
+            account.id,
+            response.body,
+            this.now()
+          ));
           usageBody = response.body;
         } catch {
           if (!signal.aborted) {
@@ -540,6 +570,7 @@ export class QuotaCollector {
         if (!signal.aborted) {
           try {
             this.store.recordSamples(samples);
+            this.latestWindows.set(account.id, windows);
           } catch {
             this.addIssue(source, account.provider, 'quota-unavailable');
             throw new Error('Quota sample persistence failed');

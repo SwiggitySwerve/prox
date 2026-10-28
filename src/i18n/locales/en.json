@@ -2441,7 +2441,9 @@
     "load_failed_title": "Could not load quotas",
     "no_accounts_title": "No accounts connected",
     "no_accounts_help": "Connect your accounts to see their pooled quotas.",
-    "add_credentials": "Add credentials"
+    "add_credentials": "Add credentials",
+    "limits": "Limits",
+    "limit_resets": "Resets {{date}}"
   },
   "provider_sources": {
     "discovery_error": "Source discovery is unavailable. Reload to retry.",
