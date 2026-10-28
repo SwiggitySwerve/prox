@@ -1,0 +1,283 @@
+{
+  "lens": "data",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "reading": {
+    "A": {
+      "answers": [
+        "The full first account name in long-narrow is “A deliberately long credential label for a shared development workstation.” Both providers display every word. High confidence.",
+        "82.8% is the first Claude account’s weekly quota remaining. The section heading supplies that meaning. The corresponding Codex account shows 71.4%. High confidence.",
+        "0% belongs to the first Claude account’s Cloud Session Credits. It is separate from its main weekly quota, which shows 82.8%. High confidence.",
+        "In long-narrow, account 2’s dash represents unavailable weekly quota; 14% belongs to its separately reported five-hour limit. Both providers explicitly show this distinction. High confidence."
+      ],
+      "difficulty": "Unchanged from the previous round’s B. Warning indentation and vertical rules identify supplemental balances, but the multiline first name still requires checking the account boundary to confirm credits ownership. The primary percentage still requires the section heading for its meaning. No reading error or clipped name was observed."
+    },
+    "B": {
+      "answers": [
+        "The full first account name in long-narrow is “A deliberately long credential label for a shared development workstation.” Both providers display every word. High confidence.",
+        "82.8% is the first Claude account’s weekly quota remaining. The corresponding Codex account shows 71.4%. High confidence.",
+        "0% belongs to the first Claude account’s Cloud Session Credits, a separate balance from its 82.8% weekly quota. High confidence.",
+        "In long-narrow, account 2 has unavailable weekly data, represented by the dash and explanation, while its five-hour limit reports 14%. This applies to both providers. High confidence."
+      ],
+      "difficulty": "Unchanged relative to A for the original association difficulty. Long-narrow labels, values, indentation, rules, and spacing appear unchanged. Wider Codex sections are easier to scan across accounts because their groups are closer together, but that is separate from the original multiline-name reading task. No reading error or clipped name was observed."
+    },
+    "comparison": "Inspected A before B. Both versions produce the same reading answers. B improves the arrangement of wider collapsed account groups, especially Codex, while the long-narrow association difficulty remains unchanged. In partial and stale, Codex account 2’s whole group moves left: this includes its explanation or timestamp, rather than a new indentation of those lines. Confidence describes the reading, not independently verified data correctness."
+  },
+  "screens": {
+    "wide": {
+      "A": [
+        9,
+        8.8,
+        9.2,
+        9.2,
+        9.1,
+        9,
+        9.2,
+        9.1
+      ],
+      "B": [
+        9,
+        9.1,
+        9.2,
+        9.2,
+        9.1,
+        9,
+        9.3,
+        9.1
+      ],
+      "findings": [
+        "B layout increases by 0.3: later account groups move left, substantially reducing the blank interval between Codex accounts and modestly tightening Claude’s account spacing. Within-account label/value distances remain approximately unchanged.",
+        "B consistency increases by 0.1: the first two collapsed account groups now share their horizontal positions and numeric columns across Claude and Codex.",
+        "A, layout 8.8: bring the shortened account groups closer together, particularly Codex account 2, to remove the large unused interval between accounts.",
+        "B moves unused space to the right of the account collection. The trailing blank area is larger, especially for Codex, but it no longer interrupts scanning between populated groups.",
+        "Full displayed names, warning labels, status colours, within-account numeric alignment, and section heights remain intact. Other judgments are retained."
+      ]
+    },
+    "laptop": {
+      "A": [
+        9.1,
+        8.9,
+        9.2,
+        9.2,
+        9.1,
+        9,
+        9.2,
+        9.1
+      ],
+      "B": [
+        9.1,
+        9.1,
+        9.2,
+        9.2,
+        9.1,
+        9,
+        9.3,
+        9.1
+      ],
+      "findings": [
+        "Claude appears unchanged. Codex uses narrower account groups: its numeric columns move left, and account 2 begins closer to account 1.",
+        "B layout increases by 0.2 because Codex account 2’s five-hour label and 14% are closer together without added wrapping or height.",
+        "B consistency increases by 0.1 because Codex’s account starts and numeric columns now align with the first two Claude columns.",
+        "A, layout 8.9: shorten Codex account 2’s label/value span while preserving alignment between its weekly and five-hour percentages.",
+        "B leaves a larger blank area after the second Codex account. The populated groups remain clearly separated, and all displayed labels fit."
+      ]
+    },
+    "narrow": {
+      "A": [
+        9.1,
+        9,
+        9.2,
+        9.2,
+        9.1,
+        9.1,
+        9.2,
+        9.1
+      ],
+      "B": [
+        9.1,
+        9,
+        9.2,
+        9.2,
+        9.1,
+        9.1,
+        9.2,
+        9.1
+      ],
+      "findings": [
+        "Both provider pairs appear unchanged. All prior judgments are retained.",
+        "Full names, warning rules, label indentation, numeric alignment, separators, and compact heights remain equivalent."
+      ]
+    },
+    "long-narrow": {
+      "A": [
+        8.9,
+        8.8,
+        9.2,
+        9.2,
+        9.1,
+        9,
+        9.2,
+        9.1
+      ],
+      "B": [
+        8.9,
+        8.8,
+        9.2,
+        9.2,
+        9.1,
+        9,
+        9.2,
+        9.1
+      ],
+      "findings": [
+        "Both provider pairs appear unchanged. The original association difficulty receives no improvement credit.",
+        "Both, hierarchy 8.9 and layout 8.8: tighten the gap between the first account name’s final line and its credits row to strengthen ownership while preserving the complete three-line name.",
+        "Weekly quota unavailable remains aligned with the account name. Credits and five-hour warnings retain their inset and vertical rules.",
+        "All names, percentages, explanations, and section heights remain intact."
+      ]
+    },
+    "partial": {
+      "A": [
+        9,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.3,
+        9.2,
+        9.1
+      ],
+      "B": [
+        9,
+        9.1,
+        9.2,
+        9.2,
+        9.3,
+        9.3,
+        9.3,
+        9.1
+      ],
+      "findings": [
+        "Claude appears unchanged. Codex’s groups become narrower and adjacent, with account 2’s name, unavailable explanation, and five-hour row moving left together.",
+        "B layout increases by 0.3 because the gap between Codex groups and the distance from account 2’s labels to its dash and 14% are reduced.",
+        "B consistency increases by 0.1 because the two populated Codex columns now align with the first two Claude columns.",
+        "A, layout 8.8: reduce Codex’s account-group spacing and label/value spans together instead of leaving unused intervals after shortened content.",
+        "The unavailable explanation remains fully visible on one line. It retains its alignment with the owning account name; only the five-hour warning has the subordinate inset and rule. No added height is visible."
+      ]
+    },
+    "stale": {
+      "A": [
+        9.1,
+        8.8,
+        9.2,
+        9.2,
+        8.8,
+        9.3,
+        9.2,
+        9.1
+      ],
+      "B": [
+        9.1,
+        9,
+        9.2,
+        9.2,
+        8.8,
+        9.3,
+        9.3,
+        9.1
+      ],
+      "findings": [
+        "Claude appears unchanged. Codex’s groups become narrower and closer together, bringing account 2’s Stale percentage into closer association with its last-observed timestamp.",
+        "B layout increases by 0.2 because the stale value, timestamp, and five-hour balance form a more compact group. The full timestamp still fits on one line.",
+        "B consistency increases by 0.1 because Codex’s populated account columns now align with the first two Claude columns.",
+        "A, layout 8.8: tighten Codex account-group spacing and bring the stale value closer to its timestamp.",
+        "Both, content 8.8: qualify the loaded count as accounts with current data so readers understand why accounts displaying stale percentages are excluded.",
+        "Stale remains adjacent to its percentage. Status wording, colour, warning indentation, and compact height are preserved."
+      ]
+    },
+    "expanded": {
+      "A": [
+        9.2,
+        8.9,
+        9.2,
+        9.2,
+        9.2,
+        9.3,
+        9.2,
+        9
+      ],
+      "B": [
+        9.2,
+        9,
+        9.2,
+        9.2,
+        9.2,
+        9.3,
+        9.2,
+        9
+      ],
+      "findings": [
+        "Expanded Claude details appear unchanged, including labels, bars, numeric columns, timestamps, and height.",
+        "B layout increases by 0.1 because collapsed Codex account 2 moves closer to account 1, eliminating the large intervening blank area while retaining its existing label/value span.",
+        "A, layout 8.9: bring the shortened collapsed Codex account groups closer together.",
+        "B leaves more trailing blank space after Codex account 2. The populated groups remain clear and compact, with aligned weekly and five-hour percentages.",
+        "No consistency increase is assigned here: expanded Claude and collapsed Codex still use different column positions. Other judgments are retained."
+      ]
+    }
+  },
+  "supplementary": [
+    "Expanded-narrow was inspected in both providers as an unscored regression check. Both pairs appear unchanged; wrapped labels, dates, percentages, controls, and heights remain intact.",
+    "Full-page long-narrow appears unchanged. No improvement is claimed for account ownership, page height, or outer context.",
+    "Wide context confirms that Claude’s later account groups move left without increasing section height. The supplied wide context ends within the Codex chart, so its account section was assessed through the provider crop.",
+    "B consolidates unused horizontal space after the populated groups. The larger trailing blank areas are a visible tradeoff, but the reduced gaps between accounts improve scanning. No net score drops were warranted.",
+    "No new truncation, collision, status ambiguity, or height increase was observed. Accessibility scores concern visible presentation only; keyboard behavior, screen-reader semantics, and measured contrast compliance were not established.",
+    "<analysis>Literal request: compare round-four screenshots through a data lens. Actual need: verify spacing and alignment changes while preserving prior judgments for unchanged presentation. Success: complete readings and evidence-linked scores.</analysis>",
+    "<results><files>All inspected absolute image paths are listed in inspected.</files><answer>B improves wider account spacing and cross-provider alignment. The original long-narrow association difficulty remains unchanged.</answer><next_steps>Ready for the parent to compute medians.</next_steps></results>"
+  ],
+  "inspected": [
+    "/tmp/prox-compact-round4/A/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/A/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/B/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/B/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/A/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/A/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/B/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/B/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/A/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/A/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/B/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/B/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/A/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/A/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/B/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/B/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/A/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/A/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/B/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/B/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/A/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/A/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/B/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/B/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/A/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/A/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/B/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/B/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/A/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/A/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/B/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round4/B/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round4/A/wide.png",
+    "/tmp/prox-compact-round4/B/wide.png",
+    "/tmp/prox-compact-round4/A/long-narrow.png",
+    "/tmp/prox-compact-round4/B/long-narrow.png"
+  ]
+}

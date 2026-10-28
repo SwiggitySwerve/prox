@@ -177,24 +177,40 @@ def fixture(state):
     )
 
 
-GEOMETRY = r"""() => {
-  const root=document.querySelector('[class*="QuotaPoolPage"][class*="__page___"]');
+GEOMETRY = r"""(providedRoot) => {
+  const root=providedRoot||document.querySelector('[class*="QuotaPoolPage"][class*="__page___"]');
+  const origin=providedRoot?root.getBoundingClientRect():{x:-scrollX,y:-scrollY};
   const visible=e=>{const b=e.getBoundingClientRect();return b.width>0&&b.height>0&&getComputedStyle(e).visibility!=='hidden'&&e.checkVisibility({checkVisibilityCSS:true});};
-  const rect=e=>{const b=e.getBoundingClientRect();return {x:b.x+scrollX,y:b.y+scrollY,w:b.width,h:b.height};};
+  const rect=e=>{const b=e.getBoundingClientRect();return {x:b.x-origin.x,y:b.y-origin.y,w:b.width,h:b.height};};
   const controls=[...root.querySelectorAll('button,select,input,summary,a')].filter(visible).map(e=>{
     const target=e.matches('input[type=checkbox]') ? e.closest('label') : e;
     return {text:(e.getAttribute('aria-label')||e.textContent||e.getAttribute('type')||'').trim().slice(0,100),...rect(target),disabled:e.matches(':disabled')};});
   const clipped=[...root.querySelectorAll('*')].filter(e=>visible(e)&&e.clientWidth>2&&e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>({tag:e.tagName,class:e.className,client:e.clientWidth,scroll:e.scrollWidth}));
-  const text=[...root.querySelectorAll('h1,h2,h3,p,dt,dd,button,a,summary,span,label,svg text')].filter(e=>visible(e)&&e.textContent.trim()&&(!e.children.length||e.matches('h1,h2,p,button'))).map(e=>{
-    const s=getComputedStyle(e);return {text:e.textContent.trim().slice(0,90),...rect(e),size:parseFloat(s.fontSize),weight:parseInt(s.fontWeight)||400,disabled:!!e.closest(':disabled')||e.matches('label:has(input:disabled)'),tag:e.tagName};});
+  // Sample each painted text run, including nested names, balances and warnings.
+  // Parent boxes can contain several colours and incorrectly credit a dim label
+  // with the contrast of a brighter child.
+  const text=[];
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+  while(walker.nextNode()) {
+    const node=walker.currentNode,e=node.parentElement;
+    if(!e||!node.textContent.trim()||!visible(e))continue;
+    const s=getComputedStyle(e),range=document.createRange();range.selectNodeContents(node);
+    for(const b of range.getClientRects()) {
+      if(b.width<=2||b.height<=2)continue;
+      text.push({text:node.textContent.trim().slice(0,90),x:b.x-origin.x,y:b.y-origin.y,w:b.width,h:b.height,
+        size:parseFloat(s.fontSize),weight:parseInt(s.fontWeight)||400,
+        disabled:!!e.closest(':disabled')||!!e.closest('label:has(input:disabled)'),tag:e.tagName});
+    }
+  }
   const charts=[...root.querySelectorAll('article')].filter(e=>e.querySelector('svg[role=img]')&&visible(e.querySelector('svg[role=img]'))).map(e=>{
     const svg=e.querySelector('svg[role=img]'), matrix=svg.getScreenCTM();
-    const screen=(x,y)=>{const p=new DOMPoint(x,y).matrixTransform(matrix);return {x:p.x+scrollX,y:p.y+scrollY};};
+    const screen=(x,y)=>{const p=new DOMPoint(x,y).matrixTransform(matrix);return {x:p.x-origin.x,y:p.y-origin.y};};
     const strokePoints=[...svg.querySelectorAll('path[stroke]')].flatMap(path=>Array.from({length:11},(_,i)=>{const p=path.getPointAtLength(path.getTotalLength()*i/10);return screen(p.x,p.y);}));
     for(const c of svg.querySelectorAll('circle')) strokePoints.push(screen(c.cx.baseVal.value,c.cy.baseVal.value));
     return {provider:e.querySelector('h2')?.textContent?.toLowerCase(),...rect(svg),strokePoints};
   });
-  return {pageWidth:document.documentElement.clientWidth,pageScrollWidth:document.documentElement.scrollWidth,controls,clipped,text,charts};
+  const guides=[...root.querySelectorAll('ul[aria-label="Limits"]')].filter(e=>visible(e)&&parseFloat(getComputedStyle(e).borderInlineStartWidth)>0).map(rect);
+  return {pageWidth:providedRoot?root.clientWidth:document.documentElement.clientWidth,pageScrollWidth:providedRoot?root.scrollWidth:document.documentElement.scrollWidth,controls,clipped,text,charts,guides};
 }"""
 
 
@@ -298,8 +314,17 @@ def measure(path, geo, touch):
         separation = min(distance, 360 - distance)
         if separation < 120:
             semantic_failures.append({"hueSeparation": separation})
+    guide_readings = []
+    for box in geo.get("guides", []):
+        x, y = round(box["x"]), round(box["y"] + box["h"] / 2)
+        # Off-viewport account content is measured again in its section crop.
+        if not (2 <= x < im.width and 0 <= y < im.height):
+            continue
+        guide_readings.append(dict(**box, contrast=round(ratio(im.getpixel((x, y)), im.getpixel((x - 2, y))), 2)))
     return dict(
         **geo,
+        guideContrast=guide_readings,
+        guideFailures=[g for g in guide_readings if g["contrast"] < 3],
         contrast=readings,
         semanticColors=semantic,
         semanticFailures=semantic_failures,
@@ -323,6 +348,7 @@ async def main():
     ap.add_argument("--minimize-cards", action="store_true")
     ap.add_argument("--capture-only", action="store_true")
     ap.add_argument("--assert-compact", action="store_true")
+    ap.add_argument("--compact-baseline", help="Evidence round whose account geometry must be preserved")
     args = ap.parse_args()
     out = ROOT / "docs/evidence/hillclimb" / args.round
     out.mkdir(parents=True, exist_ok=True)
@@ -497,29 +523,50 @@ async def main():
                     if await accounts.count():
                         await accounts.screenshot(path=str(out / f"{name}-accounts.png"), animations="disabled")
                         results[name]["accountsHeight"] = (await accounts.bounding_box())["height"]
+                        results[name]["accountSections"]=[]
+                        results[name]["accountMeasurements"]=[]
                         for index, section in enumerate(await page.locator('article section[class*="__accounts___"]').all()):
                             await section.screenshot(path=str(out / f"{name}-provider-{index}-accounts.png"), animations="disabled")
+                            results[name]["accountMeasurements"].append(measure(out / f"{name}-provider-{index}-accounts.png", await section.evaluate(GEOMETRY), width < 600))
+                            results[name]["accountSections"].append(await section.evaluate("""section => ({
+                                height:section.getBoundingClientRect().height,
+                                rows:[...section.querySelectorAll('details')].map(row=>({
+                                    height:row.getBoundingClientRect().height,
+                                    name:row.querySelector('[class*="__accountName___"]').firstChild.textContent,
+                                    nameHeight:row.querySelector('[class*="__accountName___"]').getBoundingClientRect().height,
+                                    balance:row.querySelector('summary > strong').textContent,
+                                    balanceRight:row.querySelector('summary > strong').getBoundingClientRect().right,
+                                    warnings:[...row.querySelectorAll('li[data-low="true"]')].map(li=>({
+                                        label:li.firstElementChild.textContent,
+                                        value:li.querySelector('strong').textContent,
+                                        height:li.getBoundingClientRect().height,
+                                        valueRight:li.querySelector('strong').getBoundingClientRect().right
+                                    }))
+                                }))
+                            })"""))
                         if args.assert_compact:
-                            closed=accounts.locator('details:not([open])')
-                            for row in await closed.all():
-                                assert await row.locator('ul[aria-label="Limits"] li').evaluate_all("nodes=>nodes.every(n=>n.checkVisibility()===(n.dataset.low==='true'))")
-                                status=row.locator('[class*="__accountStatus___"]')
-                                if await row.get_attribute('data-status') != 'ok': assert await status.is_visible()
-                            if await closed.count():
-                                index=await closed.first.evaluate("el=>[...el.parentElement.children].indexOf(el)")
-                                row=accounts.locator('details').nth(index)
-                                summary=row.locator('summary')
-                                await summary.focus(); await summary.press('Enter')
-                                assert await row.get_attribute('open') is not None
-                                assert await row.locator('ul[aria-label="Limits"]').is_visible()
-                                await summary.press('Enter')
-                                assert await row.get_attribute('open') is None
-                            card=page.locator('article').first
-                            toggle=card.locator('button[class*="__graphToggle___"]')
-                            await toggle.click()
-                            for limits in await card.locator('details:not([open]) ul[aria-label="Limits"]').all():assert await limits.is_visible()
-                            await toggle.click()
-                            results[name]['compactInteractions']='warnings retained; keyboard expansion and full-card restore passed'
+                            results[name]['compactInteractions']=[]
+                            for provider_index, section in enumerate(await page.locator('article section[class*="__accounts___"]').all()):
+                                closed=section.locator('details:not([open])')
+                                for row in await closed.all():
+                                    assert await row.locator('ul[aria-label="Limits"] li').evaluate_all("nodes=>nodes.every(n=>n.checkVisibility()===(n.dataset.low==='true'))")
+                                    status=row.locator('[class*="__accountStatus___"]')
+                                    if await row.get_attribute('data-status') != 'ok': assert await status.is_visible()
+                                if await closed.count():
+                                    index=await closed.first.evaluate("el=>[...el.parentElement.children].indexOf(el)")
+                                    row=section.locator('details').nth(index)
+                                    summary=row.locator('summary')
+                                    await summary.focus(); await summary.press('Enter')
+                                    assert await row.get_attribute('open') is not None
+                                    assert await row.locator('ul[aria-label="Limits"]').is_visible()
+                                    await summary.press('Enter')
+                                    assert await row.get_attribute('open') is None
+                                card=page.locator('article').nth(provider_index)
+                                toggle=card.locator('button[class*="__graphToggle___"]')
+                                await toggle.click()
+                                for limits in await card.locator('details:not([open]) ul[aria-label="Limits"]').all():assert await limits.is_visible()
+                                await toggle.click()
+                                results[name]['compactInteractions'].append(dict(providerIndex=provider_index, result='warnings retained; keyboard expansion and full-card restore passed'))
 
                     print(name, "captured", flush=True)
                     saved.write_text(json.dumps(results, indent=2)+"\n")
@@ -665,19 +712,40 @@ async def main():
         finally:
             await browser.close()
     (out / "measurements.json").write_text(json.dumps(results, indent=2) + "\n")
-    summary = {
-        name: dict(
-            pageOverflow=r["pageOverflow"],
-            clipped=len(r["clipped"]),
-            targetFailures=len(r["targetFailures"]),
-            contrastFailures=len(r["contrastFailures"]),
-            semanticFailures=len(r["semanticFailures"]),
-            errors=r["errors"],
+    summary = {}
+    for name, result in results.items():
+        scopes = [result, *result.get("accountMeasurements", [])]
+        summary[name] = dict(
+            pageOverflow=any(r["pageOverflow"] for r in scopes),
+            **{key:sum(len(r.get(key, [])) for r in scopes)
+               for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures"]},
+            errors=result["errors"],
         )
-        for name, r in results.items()
-    }
+    if args.compact_baseline:
+        baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
+        for name, result in results.items():
+            expected = baseline[name]["accountSections"]
+            actual = result["accountSections"]
+            assert len(actual) == len(expected), f"{name}: provider sections changed"
+            for section, before in zip(actual, expected):
+                assert section["height"] <= before["height"] + 0.5, f"{name}: account section grew"
+                assert len(section["rows"]) == len(before["rows"]), f"{name}: account count changed"
+                for row, old in zip(section["rows"], before["rows"]):
+                    assert row["name"] == old["name"] and row["balance"] == old["balance"], f"{name}: identity or balance changed"
+                    assert row["height"] <= old["height"] + 0.5, f"{name}: account row grew"
+                    assert row["nameHeight"] <= old["nameHeight"] + 0.5, f"{name}: name gained a line"
+                    assert len(row["warnings"]) == len(old["warnings"]), f"{name}: warnings changed"
+                    for warning, prior in zip(row["warnings"], old["warnings"]):
+                        assert warning["label"] == prior["label"] and warning["value"] == prior["value"], f"{name}: warning meaning changed"
+                        assert warning["height"] <= prior["height"] + 0.5, f"{name}: warning gained a line"
+                        assert abs(warning["valueRight"] - row["balanceRight"]) <= 0.5, f"{name}: warning no longer aligns with its account balance"
+                result["compactBaseline"] = args.compact_baseline
+        saved.write_text(json.dumps(results, indent=2) + "\n")
     (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary))
+    if args.assert_compact:
+        assert all(not value for case in summary.values() for value in case.values()), "Rendered checks failed; inspect summary.json"
+
 
 
 if __name__ == "__main__":

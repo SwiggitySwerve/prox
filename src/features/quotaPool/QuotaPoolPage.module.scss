@@ -1121,10 +1121,14 @@
 // A minimized provider card keeps a compact account roster. Opening a row restores
 // every limit, plan and reset detail; warnings remain visible even while closed.
 .pool[data-minimized='true'] {
+  --compact-account-width: 28rem;
+  --compact-account-gap: 20px;
+
   .accountGrid {
-    gap: 4px 20px;
+    gap: 4px var(--compact-account-gap);
   }
   .account:not([open]) {
+    max-inline-size: var(--compact-account-width);
     .accountPlan {
       display: none;
     }
@@ -1148,6 +1152,12 @@
   @media (max-width: 900px) {
     .account:not([open]) > summary {
       min-height: 44px;
+    }
+  }
+  @media (min-width: 1200px) {
+    .accountGrid:not(:has(.account[open])) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      max-inline-size: calc(3 * var(--compact-account-width) + 2 * var(--compact-account-gap));
     }
   }
 }
@@ -1213,6 +1223,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin: 2px 0;
+  border-inline-start: 2px solid var(--text-quaternary);
+  padding-inline-start: 6px;
   gap: 2px;
   &:not(:has([data-low='true'])) {
     display: none;

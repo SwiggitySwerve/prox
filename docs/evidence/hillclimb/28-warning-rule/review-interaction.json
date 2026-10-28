@@ -1,0 +1,276 @@
+{
+  "lens": "interaction",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "reading": {
+    "A": {
+      "answers": [
+        "The full first account name is “A deliberately long credential label for a shared development workstation”. High confidence; every word is visible.",
+        "82.8% is the first Claude account’s weekly quota remaining, as established by the Accounts · Weekly Remaining heading. High confidence.",
+        "0% belongs to that first account’s Cloud Session Credits, marked Low. It is separate from the main weekly balance of 82.8%. High confidence.",
+        "In long-narrow, account 2’s — means its weekly quota is unavailable. Its separate 5-Hour Limit has 14% remaining, marked Low. Both providers show this distinction. High confidence."
+      ],
+      "difficulty": "Unchanged from the preceding round’s B. The inset warning labels help establish subordinate information, but linking the credits row to the three-line name still depends on proximity and the account divider. Distinguishing — from 14% requires reading the weekly-unavailable explanation and five-hour label. No objective reading error observed."
+    },
+    "B": {
+      "answers": [
+        "The full first account name is “A deliberately long credential label for a shared development workstation”. High confidence; every word remains visible.",
+        "82.8% is the first Claude account’s weekly quota remaining. High confidence from the section heading.",
+        "0% is the first Claude account’s Cloud Session Credits balance, marked Low, rather than its main weekly quota. The main weekly balance is 82.8%. High confidence.",
+        "In long-narrow, account 2 has unavailable weekly quota, shown by — and its explanation, plus a separate 5-Hour Limit with 14% remaining. This applies to both providers. High confidence."
+      ],
+      "difficulty": "Modestly reduced for recognizing the warning rows as subordinate information. B adds a short vertical rule immediately left of the credits and five-hour labels. The credits-to-account association still depends on the same proximity and divider, and the distinction between — and 14% still requires reading. No objective reading error observed."
+    },
+    "comparison": "B adds short vertical rules beside the already-inset warning labels in narrow collapsed views. The warning text and percentages appear in the same positions as A. Weekly quota unavailable also appears unchanged in position; it does not receive the rule. The additional grouping cue slightly strengthens hierarchy without resolving every association cost. Both versions yield the same readings."
+  },
+  "screens": {
+    "wide": {
+      "A": [
+        8.8,
+        8.5,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "B": [
+        8.8,
+        8.5,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged; all judgments are retained.",
+        "Hierarchy 8.8 in both: credits and five-hour labels share the account-name alignment. Fix: inset these subordinate labels within their account blocks.",
+        "Layout 8.5 in both: Codex account names and warning labels are far from their right-aligned values. Fix: reduce the horizontal span of each account’s label/value group while preserving full names.",
+        "No new vertical warning rules are visible in this state."
+      ]
+    },
+    "laptop": {
+      "A": [
+        8.8,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "B": [
+        8.8,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged; all judgments are retained.",
+        "Hierarchy 8.8 in both: credits and five-hour labels align with the account names. Fix: give these subordinate labels a small additional inset.",
+        "Full names, percentages, Low labels and disclosure controls remain visible."
+      ]
+    },
+    "narrow": {
+      "A": [
+        9,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "B": [
+        9.1,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "findings": [
+        "B adds a short vertical rule beside Claude account 1’s credits label and beside both providers’ account 2 five-hour labels.",
+        "Hierarchy increases from 9.0 to 9.1 because the rules reinforce the existing inset and distinguish subordinate warning rows from account headings.",
+        "Label positions, percentages, row spacing and section dimensions appear unchanged. Layout and all other aspect scores are retained.",
+        "The added rules do not replace the explicit Low text or change the visible status colours."
+      ]
+    },
+    "long-narrow": {
+      "A": [
+        8.8,
+        8.8,
+        9.1,
+        9.2,
+        9.4,
+        9,
+        9.1,
+        9
+      ],
+      "B": [
+        9,
+        8.8,
+        9.1,
+        9.2,
+        9.4,
+        9,
+        9.1,
+        9
+      ],
+      "findings": [
+        "A hierarchy 8.8: the inset credits line remains only weakly distinguished from the preceding three-line account name. Fix: add a small grouping marker beside the subordinate warning row.",
+        "B hierarchy increases to 9.0 because short vertical rules now mark the credits and five-hour warning rows, making their subordinate role more explicit.",
+        "Layout remains 8.8 in both: the first credits row follows the wrapped name with little vertical separation. Fix: add a small gap before that row while preserving the complete name and compact account block.",
+        "Weekly quota unavailable remains at the same apparent position in A and B. The warning labels also retain their positions; the visible addition is the rule beside them.",
+        "The full first name, 82.8%, 0%, unavailable explanation, dash and 14% remain visible. Other aspect scores are unchanged."
+      ]
+    },
+    "partial": {
+      "A": [
+        8.7,
+        8.8,
+        9.2,
+        9.2,
+        9.4,
+        9.1,
+        9.1,
+        9
+      ],
+      "B": [
+        8.7,
+        8.8,
+        9.2,
+        9.2,
+        9.4,
+        9.1,
+        9.1,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged; all judgments are retained.",
+        "Hierarchy 8.7 in both: Codex account 2’s unavailable explanation and five-hour label share a left edge. Fix: inset the subordinate five-hour line.",
+        "Layout 8.8 in both: Codex account 2’s labels sit far from its dash and 14% value. Fix: shorten that account’s label/value span.",
+        "The unavailable explanations have no visible positional change. No new warning rules appear in this state."
+      ]
+    },
+    "stale": {
+      "A": [
+        8.8,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.1,
+        9.1,
+        9
+      ],
+      "B": [
+        8.8,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.1,
+        9.1,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged; all judgments are retained.",
+        "Hierarchy 8.8 in both: Codex account 2’s Last observed timestamp and five-hour warning share a left edge. Fix: inset the subordinate five-hour row.",
+        "Layout 8.8 in both: the Codex five-hour label and 14% require a long horizontal scan. Fix: bring that label/value pair closer together.",
+        "Stale remains beside the retained weekly percentage, with an explicit observation timestamp underneath. No status meaning visibly changes."
+      ]
+    },
+    "expanded": {
+      "A": [
+        9,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.3,
+        9.1,
+        9
+      ],
+      "B": [
+        9,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.3,
+        9.1,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged; all judgments are retained.",
+        "Layout 8.8 in both: expanded Claude quota labels are separated substantially from their bars and values, while collapsed Codex retains wide label/value spans. Fix: reduce the horizontal distance within those quota rows.",
+        "Claude’s downward chevrons and Collapse All agree with its expanded content; Codex remains collapsed with Expand All.",
+        "No vertical warning rules are added to the expanded Claude quota rows."
+      ]
+    }
+  },
+  "supplementary": [
+    "Expanded-narrow is unscored. Provider 0 appears unchanged: expanded labels, bars, values, timestamps and wrapping remain intact. Provider 1 remains collapsed and gains the short vertical rule beside its five-hour warning in B. No visible clipping, loss of content or added row height was observed.",
+    "Full-page long-narrow context shows the same outer card arrangement and account-section placement. The new warning rules are visible within B’s account sections without an apparent change to page layout.",
+    "All A scores retain the preceding round’s B judgments. B increases are limited to hierarchy where a new grouping cue is visible. No scores drop.",
+    "These are screenshot-based judgments, not measured interaction results. No timings, DOM checks, code inspection, keyboard testing, contrast measurements or assistive-technology testing were performed.",
+    "<analysis>Literal Request: Compare round-two screenshots and score seven states. Actual Need: Verify whether the specific account/quota association difficulty changes, using visible evidence. Success Looks Like: Accurate readings, supported score changes and concrete fixes for remaining lower scores.</analysis>",
+    "<results><files>Absolute screenshot paths are listed in inspected.</files><answer>B adds short vertical rules beside narrow collapsed warning labels. This modestly improves hierarchy; unavailable explanations and text positions appear unchanged.</answer><next_steps>Ready for the parent to save the diagnostic and compute medians.</next_steps></results>"
+  ],
+  "inspected": [
+    "/tmp/prox-compact-round2/B/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/B/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/A/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/A/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/B/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/B/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/A/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/A/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/B/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/B/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/A/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/A/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/B/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/B/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/A/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/A/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/B/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/B/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/A/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/A/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/B/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/B/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/A/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/A/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/B/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/B/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/A/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/A/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/B/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/B/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/A/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round2/A/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round2/B/long-narrow.png",
+    "/tmp/prox-compact-round2/A/long-narrow.png"
+  ]
+}

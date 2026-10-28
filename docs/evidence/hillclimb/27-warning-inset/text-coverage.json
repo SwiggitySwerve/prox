@@ -1,0 +1,23 @@
+{
+  "long-narrow": {
+    "account names": true,
+    "percentages": true,
+    "low marker": true,
+    "credit warning": true,
+    "full long name": true
+  },
+  "stale": {
+    "account names": true,
+    "percentages": true,
+    "low marker": true,
+    "credit warning": true,
+    "stale qualifier": true
+  },
+  "expanded": {
+    "account names": true,
+    "percentages": true,
+    "low marker": true,
+    "credit warning": true,
+    "plan": true
+  }
+}

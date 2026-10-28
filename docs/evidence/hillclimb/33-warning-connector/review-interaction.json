@@ -1,0 +1,267 @@
+{
+  "lens": "interaction",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "reading": {
+    "A": {
+      "answers": [
+        "The full first account name is “A deliberately long credential label for a shared development workstation”. High confidence; every word is visible.",
+        "82.8% is the first Claude account’s weekly quota remaining, established by the section heading. High confidence.",
+        "0% belongs to that account’s Cloud Session Credits, marked Low. Its main weekly balance is separately shown as 82.8%. High confidence.",
+        "In long-narrow, account 2’s — represents unavailable weekly quota, while 14% is its separate 5-Hour Limit remaining. Both providers show this distinction. High confidence."
+      ],
+      "difficulty": "The inset and short vertical rule identify subordinate warning information. Associating the credits row with the three-line name still requires following the account block and divider. Interpreting — alongside 14% requires reading their respective labels. No objective reading error observed."
+    },
+    "B": {
+      "answers": [
+        "The full first account name is “A deliberately long credential label for a shared development workstation”. High confidence; every word remains visible.",
+        "82.8% is the first Claude account’s weekly quota remaining. High confidence from the section heading.",
+        "0% belongs to the first Claude account’s Cloud Session Credits, marked Low, rather than its main weekly quota of 82.8%. High confidence.",
+        "In long-narrow, account 2 has unavailable weekly quota, shown by — and its explanation, alongside 14% remaining on the separate 5-Hour Limit. This applies to both providers. High confidence."
+      ],
+      "difficulty": "The vertical warning rules extend farther upward toward the preceding text. This makes the visual connection more continuous, but the credits-to-name association still depends on the same account block and divider. Text proximity and the need to distinguish quota labels are unchanged. No meaningful reduction in reading difficulty or objective reading error observed."
+    },
+    "comparison": "B visibly extends the narrow warning rules upward without moving the names, warning labels or values. The extension offers a slightly stronger connection, but it does not materially resolve the original ownership difficulty or change the four readings. No meaningful interaction preference is supported. No text overlap or loss of compactness is visible."
+  },
+  "screens": {
+    "wide": {
+      "A": [
+        9.1,
+        9.1,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.3,
+        9
+      ],
+      "B": [
+        9.1,
+        9.1,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.3,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged. All prior judgments are retained.",
+        "Account positions, warning rules, numeric alignment, full labels and trailing whitespace remain the same. Section heights appear unchanged."
+      ]
+    },
+    "laptop": {
+      "A": [
+        9.1,
+        9.2,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.3,
+        9
+      ],
+      "B": [
+        9.1,
+        9.2,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.3,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged; scores are retained.",
+        "Codex continues to align with Claude’s first two columns. Complete warning labels, aligned values and compact heights are preserved."
+      ]
+    },
+    "narrow": {
+      "A": [
+        9.1,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "B": [
+        9.1,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "findings": [
+        "B’s vertical rules beside credits and five-hour warnings extend farther upward toward their account headings. Text and value positions appear unchanged.",
+        "The extension strengthens visual continuity slightly but does not establish a meaningful reading advantage over the existing indentation and dividers. Scores are retained.",
+        "The longer rules do not visibly touch text. Full labels, numeric alignment, dividers and account-section heights remain intact."
+      ]
+    },
+    "long-narrow": {
+      "A": [
+        9,
+        8.8,
+        9.1,
+        9.2,
+        9.4,
+        9,
+        9.1,
+        9
+      ],
+      "B": [
+        9,
+        8.8,
+        9.1,
+        9.2,
+        9.4,
+        9,
+        9.1,
+        9
+      ],
+      "findings": [
+        "B extends the first account’s credits rule upward toward the final line of its name. The five-hour warning rules also extend upward toward the unavailable explanations.",
+        "The three-line names, unavailable explanations, warning labels, percentages and dividers appear stationary. The change concerns the rules, not text proximity.",
+        "The extended rule does not visibly overlap workstation or the unavailable explanation. It remains a local warning marker rather than an explicit connection spanning the account name.",
+        "Layout remains 8.8 in both: the wrapped name and credits row still need clearer separation while retaining space before the divider. Specific fix: reserve slightly more vertical room for this wrapped-name account, increasing the name-to-warning gap without reducing clearance below the warning.",
+        "The original ownership association still requires following the account block. The rule extension alone does not justify a score increase. Full names and apparent section heights are preserved."
+      ]
+    },
+    "partial": {
+      "A": [
+        9,
+        9.2,
+        9.2,
+        9.2,
+        9.4,
+        9.1,
+        9.2,
+        9
+      ],
+      "B": [
+        9,
+        9.2,
+        9.2,
+        9.2,
+        9.4,
+        9.1,
+        9.2,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged. All judgments are retained.",
+        "The unavailable explanations, dash positions and separate five-hour warnings remain readable. No change in alignment, wrapping, overlap or height is visible."
+      ]
+    },
+    "stale": {
+      "A": [
+        9,
+        9.2,
+        9.2,
+        9.2,
+        9.3,
+        9.1,
+        9.2,
+        9
+      ],
+      "B": [
+        9,
+        9.2,
+        9.2,
+        9.2,
+        9.3,
+        9.1,
+        9.2,
+        9
+      ],
+      "findings": [
+        "Both provider crops appear unchanged; scores are retained.",
+        "Stale remains beside the weekly percentage, complete observation timestamps remain visible, and warning rows preserve their alignment and compact height."
+      ]
+    },
+    "expanded": {
+      "A": [
+        9.1,
+        9,
+        9.2,
+        9.2,
+        9.3,
+        9.3,
+        9.1,
+        9
+      ],
+      "B": [
+        9.1,
+        9,
+        9.2,
+        9.2,
+        9.3,
+        9.3,
+        9.1,
+        9
+      ],
+      "findings": [
+        "Expanded Claude and collapsed Codex appear unchanged. Scores are retained.",
+        "Quota labels, bars, percentages, timestamps and disclosure states remain intact. No visible spacing, overlap or height regression is present."
+      ]
+    }
+  },
+  "supplementary": [
+    "Expanded-narrow is unscored. Expanded Claude appears unchanged. Collapsed Codex gains the upward extension beside its five-hour warning; its text, value, heading and section height appear unchanged. No overlap or clipping is visible.",
+    "Full-page long-narrow was inspected at original image detail. The extended rules remain local to the narrow warning rows; outer cards, account-section placement and page structure appear unchanged.",
+    "All A scores retain the previous unchanged-spacing judgments. B has visible rule-length changes in narrow collapsed views, but no sufficiently clear reading gain or regression to justify different scores.",
+    "Equal scores do not assert pixel identity. They distinguish the visible grouping-marker change from an unsupported claim that account ownership is materially easier to read.",
+    "Findings are screenshot-only. No timings, code, reports, DOM checks, interaction tests or measured accessibility checks were used.",
+    "<analysis>Literal Request: Compare a further grouping candidate using the interaction lens. Actual Need: Determine whether it clarifies ownership of the credits beneath the wrapped account name without overlap or added height. Success Looks Like: Independent readings and evidence-backed scores without assuming improvement.</analysis>",
+    "<results><files>All inspected image paths are listed in inspected.</files><answer>B extends narrow warning rules upward. Text proximity, ownership checks and apparent heights remain unchanged, so no meaningful interaction preference is supported.</answer><next_steps>Ready for the parent to save the diagnostic and compute medians.</next_steps></results>"
+  ],
+  "inspected": [
+    "/tmp/prox-compact-round6/B/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/B/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/A/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/A/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/B/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/B/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/A/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/A/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/B/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/B/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/A/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/A/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/B/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/B/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/A/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/A/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/B/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/B/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/A/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/A/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/B/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/B/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/A/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/A/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/B/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/B/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/A/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/A/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/B/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/B/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/A/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round6/A/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round6/B/long-narrow.png",
+    "/tmp/prox-compact-round6/A/long-narrow.png"
+  ]
+}

@@ -1,0 +1,277 @@
+{
+  "lens": "interaction",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "reading": {
+    "A": {
+      "answers": [
+        "The full first account name is “A deliberately long credential label for a shared development workstation”. High confidence; all words are visible.",
+        "82.8% is the first Claude account’s weekly quota remaining. High confidence, using the Accounts · Weekly Remaining heading.",
+        "0% belongs to the first Claude account’s Cloud Session Credits, marked Low. It is a separate balance from its main weekly quota of 82.8%. High confidence after checking the row grouping.",
+        "In long-narrow, account 2 has unavailable weekly quota, represented by — and explained by Weekly quota unavailable, alongside 14% remaining on its separate 5-Hour Limit. This applies to both providers. High confidence."
+      ],
+      "difficulty": "Unchanged from the original probe. The first account’s wrapped name and its credits label share a left alignment, so ownership requires checking the divider and account block. Account 2 requires connecting the section heading, dash, unavailable explanation and separate five-hour line. These are association costs, not observed incorrect values."
+    },
+    "B": {
+      "answers": [
+        "The full first account name is “A deliberately long credential label for a shared development workstation”. High confidence; all words remain visible.",
+        "82.8% is the first Claude account’s weekly quota remaining. High confidence, using the same section heading.",
+        "0% belongs to the first Claude account’s Cloud Session Credits, marked Low, rather than its main weekly quota. The main weekly balance is 82.8%. High confidence.",
+        "In long-narrow, account 2’s — represents unavailable weekly quota; 14% is the remaining balance for its separate 5-Hour Limit. The unavailable explanation and five-hour label distinguish them for both providers. High confidence."
+      ],
+      "difficulty": "Reduced modestly. The credits and five-hour labels begin farther right than the account names and unavailable explanation, making their subordinate role easier to recognize. The long name still spans three lines, and interpreting — alongside 14% still requires reading the labels. No objective reading error observed."
+    },
+    "comparison": "Both versions support the same correct readings independently of their scores. B visibly improves subordinate-label indentation in narrow and long-narrow collapsed rows. Percentages, names, colour meanings and unavailable explanations remain unchanged. Other scored states appear unchanged; no improvement is claimed for them."
+  },
+  "screens": {
+    "wide": {
+      "A": [
+        8.8,
+        8.5,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "B": [
+        8.8,
+        8.5,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "findings": [
+        "Both providers appear unchanged between A and B; every score is retained.",
+        "Hierarchy 8.8 in both: Cloud Session Credits and 5-Hour Limit start at the account-name alignment, weakening the parent/detail distinction. Fix: indent these subordinate labels within their account blocks.",
+        "Layout 8.5 in both: the wide Codex columns leave a long horizontal distance between account or limit labels and their right-aligned percentages. Fix: reduce that distance within each account’s label/value group while preserving complete names.",
+        "Bold weekly percentages, amber Low labels and separate account columns remain readable. Expand All and collapsed chevrons communicate the visible state."
+      ]
+    },
+    "laptop": {
+      "A": [
+        8.8,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "B": [
+        8.8,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "findings": [
+        "Both providers appear unchanged between A and B; every score is retained.",
+        "Hierarchy 8.8 in both: the credits and five-hour labels share the account-name left edge. Fix: give these subordinate labels a small additional inset.",
+        "The narrower columns keep values closer to their labels than in wide while retaining complete names and visible warning text."
+      ]
+    },
+    "narrow": {
+      "A": [
+        8.7,
+        8.8,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "B": [
+        9,
+        9,
+        9.2,
+        9.2,
+        9.4,
+        9,
+        9.2,
+        9
+      ],
+      "findings": [
+        "A hierarchy 8.7 and layout 8.8: the first account’s credits line and both providers’ five-hour lines align with account names, so vertical scanning relies heavily on dividers. Fix: inset those subordinate labels.",
+        "B hierarchy rises to 9.0 and layout to 9.0 because those labels visibly move right beneath their owning accounts. The percentages retain their right alignment, and the rows retain their height.",
+        "No visible change supports increases in typography/numbers, colour, content, controls/states, consistency or responsive/accessibility; those scores remain equal.",
+        "Names, balances and Low labels remain fully visible in both versions."
+      ]
+    },
+    "long-narrow": {
+      "A": [
+        8.4,
+        8.6,
+        9.1,
+        9.2,
+        9.4,
+        9,
+        9.1,
+        9
+      ],
+      "B": [
+        8.8,
+        8.8,
+        9.1,
+        9.2,
+        9.4,
+        9,
+        9.1,
+        9
+      ],
+      "findings": [
+        "A hierarchy 8.4 and layout 8.6: the three-line first name and credits label share a left edge; account 2’s unavailable explanation and five-hour label also share an alignment. Fix: inset subordinate quota labels to distinguish them from account identity and weekly status.",
+        "B hierarchy rises to 8.8 and layout to 8.8 because Cloud Session Credits and 5-Hour Limit visibly gain that inset in both applicable provider blocks.",
+        "B hierarchy and layout remain 8.8: the inset is slight, and the first credits line still follows a three-line name with little vertical separation. Fix: add a small gap before that subordinate line while retaining the complete name and visible balance.",
+        "The three-line name, weekly percentages, dash, unavailable explanation and 14% values remain visible. There is no observed clipping or contradictory quota value.",
+        "Other scores remain unchanged because the relevant text, numeric emphasis, colours and controls appear unchanged."
+      ]
+    },
+    "partial": {
+      "A": [
+        8.7,
+        8.8,
+        9.2,
+        9.2,
+        9.4,
+        9.1,
+        9.1,
+        9
+      ],
+      "B": [
+        8.7,
+        8.8,
+        9.2,
+        9.2,
+        9.4,
+        9.1,
+        9.1,
+        9
+      ],
+      "findings": [
+        "Both providers appear unchanged between A and B; every score is retained.",
+        "Hierarchy 8.7 in both: Codex account 2’s Weekly quota unavailable and 5-Hour Limit occupy the same left alignment despite describing different quota levels. Fix: inset the five-hour line beneath the weekly status.",
+        "Layout 8.8 in both: Codex account 2’s dash and 14% sit far across from their corresponding labels. Fix: shorten the horizontal label/value span within that account block.",
+        "The dash has an explicit unavailable explanation, while the five-hour balance remains visible. The screenshots do not imply that unavailable weekly quota equals zero."
+      ]
+    },
+    "stale": {
+      "A": [
+        8.8,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.1,
+        9.1,
+        9
+      ],
+      "B": [
+        8.8,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.1,
+        9.1,
+        9
+      ],
+      "findings": [
+        "Both providers appear unchanged between A and B; every score is retained.",
+        "Hierarchy 8.8 in both: Codex account 2’s Last observed timestamp and subordinate five-hour line share a left edge. Fix: inset the five-hour line to separate the account’s freshness information from its additional quota.",
+        "Layout 8.8 in both: the Codex five-hour label and 14% require a long horizontal scan. Fix: bring the label/value pair closer within its account block.",
+        "Stale appears beside the retained weekly percentage, and Last observed supplies an explicit timestamp. The text distinguishes stale data without relying solely on amber colour."
+      ]
+    },
+    "expanded": {
+      "A": [
+        9,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.3,
+        9.1,
+        9
+      ],
+      "B": [
+        9,
+        8.8,
+        9.2,
+        9.2,
+        9.3,
+        9.3,
+        9.1,
+        9
+      ],
+      "findings": [
+        "Both providers appear unchanged between A and B; every score is retained.",
+        "Layout 8.8 in both: expanded Claude quota labels sit substantially apart from their bars and percentages, and collapsed Codex retains its wide label/value spans. Fix: reduce the horizontal distance within those quota rows while preserving complete labels.",
+        "Claude’s downward chevrons, Current labels, quota bars and Collapse All agree with its expanded presentation. Codex retains collapsed chevrons and Expand All.",
+        "Low text accompanies amber quota values; numerical values remain available alongside bars."
+      ]
+    }
+  },
+  "supplementary": [
+    "Expanded-narrow is unscored. Provider 0 appears unchanged: names, plan labels, quota values and reset information remain visible. Cloud Session Credits and the Low suffix on account 2 wrap, and timestamps occupy multiple lines. These increase vertical scanning but do not visibly clip content.",
+    "Expanded-narrow provider 1 shows the same additional inset for B’s collapsed five-hour label. Its account names, 71.4% weekly values and 14% warning balance remain visible. No visible regression was found in this supplementary pair.",
+    "Full-page long-narrow context preserves the same provider order, stacked cards and account-section placement. B’s local indentation change does not visibly alter the outer structure. The full-page images corroborate context; account crops provide the readable detail.",
+    "Scores cover screenshot-visible presentation only. Keyboard operation, focus behavior, actual hit areas, accessible names, screen-reader output and measured contrast were not tested. No reading duration was measured.",
+    "No B score drops relative to A. Increases are limited to the visibly changed subordinate-label grouping in narrow and long-narrow.",
+    "<analysis>Literal Request: Read and compare paired account screenshots, then score seven states. Actual Need: Determine whether quota ownership and interaction states are clearer without sacrificing compactness or visible content. Success Looks Like: Independent readings, evidence-backed scores and explicit limits.</analysis>",
+    "<results><files>All inspected screenshot paths are listed in inspected.</files><answer>B modestly improves subordinate quota grouping in narrow collapsed views. Other scored views appear unchanged, and both versions support the same readings.</answer><next_steps>Ready for the parent to save this diagnostic and compute medians.</next_steps></results>"
+  ],
+  "inspected": [
+    "/tmp/prox-compact-pairs/A/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/A/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/A/long-narrow.png",
+    "/tmp/prox-compact-pairs/B/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/B/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/B/long-narrow.png",
+    "/tmp/prox-compact-pairs/A/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/A/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/B/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/B/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/A/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/A/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/B/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/B/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/A/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/A/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/B/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/B/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/A/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/A/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/B/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/B/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/A/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/A/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/B/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/B/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/A/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/A/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/B/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/B/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/A/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/A/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-pairs/B/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-pairs/B/expanded-narrow-provider-1-accounts.png"
+  ]
+}
