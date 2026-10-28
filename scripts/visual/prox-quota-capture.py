@@ -60,6 +60,14 @@ def fixture(state):
                     capacityPoints=100,
                     known=True,
                 ),
+                windows=[
+                    dict(id="five-hour", labelKey="claude_quota.five_hour" if provider == "claude" else "codex_quota.primary_window",
+                         remainingPercent=[62, 14, 88][i % 3], resetAtMs=NOW + 3_600_000 * (i + 1)),
+                    dict(id="seven-day" if provider == "claude" else "weekly",
+                         labelKey="claude_quota.seven_day" if provider == "claude" else "codex_quota.secondary_window",
+                         remainingPercent=round(remaining / count, 1), resetAtMs=NOW + DAY * (i + 1)),
+                ] + ([dict(id="seven-day-opus", labelKey="claude_quota.seven_day_opus",
+                           remainingPercent=45, resetAtMs=None)] if provider == "claude" else []),
             )
             for i in range(count)
         ]

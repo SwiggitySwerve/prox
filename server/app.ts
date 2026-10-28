@@ -101,6 +101,7 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
             refreshing: collector.refreshing,
             issues: collector.issues,
             sources: collector.sources,
+            windows: collector.windows,
           }
         )
       );

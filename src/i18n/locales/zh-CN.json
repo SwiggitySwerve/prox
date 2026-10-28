@@ -2439,7 +2439,9 @@
     "load_failed_title": "无法加载配额",
     "no_accounts_title": "尚未连接账户",
     "no_accounts_help": "连接账户以查看汇总配额。",
-    "add_credentials": "添加凭据"
+    "add_credentials": "添加凭据",
+    "limits": "限额",
+    "limit_resets": "{{date}} 重置"
   },
   "provider_sources": {
     "discovery_error": "无法获取代理实例列表。请重新加载以重试。",

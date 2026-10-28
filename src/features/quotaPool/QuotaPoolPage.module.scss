@@ -606,6 +606,55 @@
   grid-column: 2;
   grid-row: 2;
 }
+// Every limit the provider reports for this account (5-hour, weekly, per-model weekly…).
+.limits {
+  grid-column: 2 / -1;
+  grid-row: 3;
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 2px;
+  padding: 0;
+  list-style: none;
+  li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(56px, 96px) 48px;
+    align-items: center;
+    gap: 2px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  strong {
+    text-align: right;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  small {
+    grid-column: 1 / -1;
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+  li[data-low='true'] {
+    strong {
+      color: var(--warning-color);
+    }
+    .limitBar > span {
+      background: var(--warning-color);
+    }
+  }
+}
+.limitBar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--text-secondary);
+  }
+}
 .accountDetails {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

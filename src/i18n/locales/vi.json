@@ -2447,7 +2447,9 @@
     "load_failed_title": "Không thể tải hạn mức",
     "no_accounts_title": "Chưa kết nối tài khoản",
     "no_accounts_help": "Kết nối tài khoản để xem tổng hạn mức.",
-    "add_credentials": "Thêm thông tin xác thực"
+    "add_credentials": "Thêm thông tin xác thực",
+    "limits": "Giới hạn",
+    "limit_resets": "Đặt lại {{date}}"
   },
   "provider_sources": {
     "discovery_error": "Không thể tải danh sách nguồn. Hãy tải lại trang để thử lại.",

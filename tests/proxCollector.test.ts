@@ -232,6 +232,28 @@ describe('QuotaCollector', () => {
     }
   });
 
+  test('keeps the latest reading of every reported window per account', async () => {
+    const { collector, store } = harness();
+    await collector.refresh();
+    const [claude, codex] = store.listAccounts();
+    const view = (id: string) =>
+      (collector.windows.get(id) ?? []).map(({ id, remainingPercent, resetAtMs }) => [
+        id,
+        remainingPercent,
+        resetAtMs,
+      ]);
+    expect(view(claude.id)).toEqual([
+      ['five-hour', 75, RESET],
+      ['seven-day', 40, RESET],
+      ['seven-day-sonnet', 1, null],
+    ]);
+    expect(view(codex.id).map(([id]) => id)).toEqual(
+      expect.arrayContaining(['five-hour', 'weekly'])
+    );
+    expect(view(codex.id)).toHaveLength(3);
+    expect(collector.windows.get(claude.id)?.[2].labelKey).toBe('claude_quota.seven_day_sonnet');
+  });
+
   test('skips disabled accounts, ignores other providers, and keeps identities stable after rename', async () => {
     let renamed = false;
     const { collector, store, calls, advance } = harness((request) => {

@@ -99,6 +99,18 @@ export function QuotaPoolPage() {
         disabled={chartUnavailable}
         aria-label={t('quota_pool.chart_mode')}
       >
+        <div className={styles.segment} role="group" aria-label={t('quota_pool.window')}>
+          {(['weekly', 'five-hour'] as const).map((item) => (
+            <button
+              type="button"
+              key={item}
+              aria-pressed={query.window === item}
+              onClick={() => change('window', item)}
+            >
+              {t(`quota_pool.${item === 'weekly' ? 'weekly' : 'five_hour'}`)}
+            </button>
+          ))}
+        </div>
         <div className={styles.segment} role="group" aria-label={t('quota_pool.chart_mode')}>
           {(['remaining', 'drain', 'burn'] as const).map((item) => (
             <button
@@ -144,16 +156,6 @@ export function QuotaPoolPage() {
                   )}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className={styles.selectLabel}>
-            {t('quota_pool.window')}
-            <select
-              value={query.window}
-              onChange={(event) => change('window', event.target.value as PoolQuery['window'])}
-            >
-              <option value="weekly">{t('quota_pool.weekly')}</option>
-              <option value="five-hour">{t('quota_pool.five_hour')}</option>
             </select>
           </label>
         </div>

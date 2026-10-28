@@ -25,6 +25,15 @@ export interface PoolAccount {
   emptyAtMs: number | null;
   /** Subscription weight; capacityPoints is 100 per base plan (Claude Pro / ChatGPT Plus). */
   plan: { label: string | null; capacityPoints: number; known: boolean };
+  /** Latest reading of every limit the provider reports (5-hour, weekly, per-model weekly…). */
+  windows: AccountQuotaWindow[];
+}
+export interface AccountQuotaWindow {
+  id: string;
+  labelKey: string;
+  labelParams?: Record<string, string | number>;
+  remainingPercent: number | null;
+  resetAtMs: number | null;
 }
 export interface QuotaPool {
   instanceId?: string;

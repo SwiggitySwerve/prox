@@ -214,6 +214,31 @@ export function PoolCard({
                       <small>{t('quota_pool.account_status.stale')}</small>
                     )}
                   </strong>
+                  {account.windows.length > 0 && (
+                    <ul className={styles.limits} aria-label={t('quota_pool.limits')}>
+                      {account.windows.map((limit) => (
+                        <li
+                          key={limit.id}
+                          data-low={limit.remainingPercent !== null && limit.remainingPercent < 20}
+                        >
+                          <span>{t(limit.labelKey, limit.labelParams)}</span>
+                          <span className={styles.limitBar} aria-hidden="true">
+                            <span style={{ width: `${limit.remainingPercent ?? 0}%` }} />
+                          </span>
+                          <strong>
+                            {limit.remainingPercent === null
+                              ? '—'
+                              : `${number(limit.remainingPercent)}%`}
+                          </strong>
+                          {limit.resetAtMs !== null && (
+                            <small>
+                              {t('quota_pool.limit_resets', { date: date(limit.resetAtMs) })}
+                            </small>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </summary>
                 <dl className={styles.accountDetails}>
                   <div>

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, jest, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
@@ -52,6 +52,20 @@ const pool: QuotaPool = {
       burnPointsPerHour: 3,
       emptyAtMs: null,
       plan: { label: 'Max 20x', capacityPoints: 2000, known: true },
+      windows: [
+        {
+          id: 'five-hour',
+          labelKey: 'claude_quota.five_hour',
+          remainingPercent: 12,
+          resetAtMs: 800,
+        },
+        {
+          id: 'seven-day-opus',
+          labelKey: 'claude_quota.seven_day_opus',
+          remainingPercent: 64,
+          resetAtMs: null,
+        },
+      ],
     },
   ],
 };
@@ -245,6 +259,48 @@ describe('pool request lifetime', () => {
     expect(failure.getSnapshot().data).toEqual(dashboard);
   });
 
+  test('collects fresh quota every 60 seconds only while graphs are on screen', async () => {
+    jest.useFakeTimers();
+    const run = async (data: PoolDashboard, hidden = false) => {
+      const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');
+      Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: { visibilityState: hidden ? 'hidden' : 'visible' },
+      });
+      let refreshes = 0;
+      const resource = createPoolResource(
+        {
+          get: async () => data,
+          refresh: async () => {
+            refreshes++;
+            return data;
+          },
+        },
+        query,
+        () => true
+      );
+      const unsubscribe = resource.subscribe(() => {});
+      try {
+        for (let minute = 0; minute < 2; minute++) {
+          jest.advanceTimersByTime(60_000);
+          for (let i = 0; i < 5; i++) await Promise.resolve();
+        }
+        return refreshes;
+      } finally {
+        unsubscribe();
+        if (previous) Object.defineProperty(globalThis, 'document', previous);
+        else delete (globalThis as { document?: unknown }).document;
+      }
+    };
+    try {
+      expect(await run(dashboard)).toBe(2);
+      expect(await run({ ...dashboard, pools: [] })).toBe(0);
+      expect(await run(dashboard, true)).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('poll failure keeps last data and reports it as failed, never a successful empty result', async () => {
     let fail = false;
     const resource = createPoolResource(
@@ -372,6 +428,10 @@ describe('pool presentation', () => {
     expect(markup).toContain('Total and forecast unavailable');
     expect(markup).toContain('Claude account 1');
     expect(markup).toContain('Max 20x · 2,000 pts');
+    // Every reported limit is listed under its account; low ones are flagged.
+    expect(markup).toContain('aria-label="Limits"');
+    expect(markup).toMatch(/<li data-low="true"><span>5-hour limit<\/span>[\s\S]*?12%/);
+    expect(markup).toMatch(/<li data-low="false"><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64%/);
     expect(markup).not.toContain('private@example.test');
     // The chart itself is inspected by pointer or arrow keys; no separate slider.
     expect(markup).not.toContain('type="range"');
