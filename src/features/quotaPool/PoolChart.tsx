@@ -17,10 +17,15 @@ interface ChartProps {
   dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs'>;
   mode: ChartMode;
   savedData?: boolean;
+  minimized?: boolean;
 }
 
 export function PoolChart({ pool, ...props }: ChartProps & { pool: QuotaPool }) {
   return <PoolChartView {...props} pools={[pool]} />;
+}
+
+export function PoolComparisonChart(props: ChartProps & { pools: QuotaPool[] }) {
+  return <PoolChartView {...props} comparison />;
 }
 
 function PoolChartView({
@@ -28,7 +33,9 @@ function PoolChartView({
   dashboard,
   mode,
   savedData = false,
-}: ChartProps & { pools: QuotaPool[] }) {
+  minimized = false,
+  comparison = false,
+}: ChartProps & { pools: QuotaPool[]; comparison?: boolean }) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const container = useRef<HTMLDivElement>(null);
@@ -47,7 +54,8 @@ function PoolChartView({
   }, []);
   const chartFrame = fitChartFrame(
     width,
-    savedData || pools.some((pool) => pool.forecastState !== 'ready') || mode !== 'remaining'
+    savedData || pools.some((pool) => pool.forecastState !== 'ready') || mode !== 'remaining',
+    minimized
   );
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
@@ -62,6 +70,10 @@ function PoolChartView({
   const samples = series.flatMap(({ pool, samples }) =>
     samples.map((sample) => ({ ...sample, pool }))
   );
+  // Order inspection by time without joining or resampling separate source traces.
+  if (comparison) samples.sort((a, b) => a.point.atMs - b.point.atMs);
+  const poolLabel = (pool: QuotaPool) =>
+    `${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel || pool.instanceId ? ` · ${pool.sourceLabel ?? pool.instanceId}` : ''}`;
   const geometry = chartGeometry(
     samples,
     mode,
@@ -76,7 +88,7 @@ function PoolChartView({
     (latest, { point, projected }, index) => (!projected && point.atMs <= nowMs ? index : latest),
     0
   );
-  const selected = inspected ?? latestRecorded;
+  const selected = Math.max(0, Math.min(inspected ?? latestRecorded, samples.length - 1));
   const sample = samples[Math.min(selected, samples.length - 1)];
   const unit = t(`quota_pool.${mode === 'remaining' ? 'points' : 'points_hour'}`);
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
@@ -84,7 +96,7 @@ function PoolChartView({
   const visible = (at: number | null): at is number => at !== null && at >= fromMs && at <= toMs;
   // Keep dense five-hour reset labels legible; every reset still has a tick and title.
   let lastLabelX = -Infinity;
-  const resetMarkers = pools
+  const resetMarkers = (comparison ? [] : pools)
     .flatMap((pool) => pool.resets)
     .filter((reset) => visible(reset.atMs) && reset.gainPoints > 0)
     .map((reset) => {
@@ -97,19 +109,22 @@ function PoolChartView({
   const hasValues = samples.some(({ point }) => point[field] !== null);
   const hasProjection = samples.some(({ point, projected }) => projected && point[field] !== null);
   const description = sample
-    ? `${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
+    ? `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
     : t('quota_pool.inspect_hint');
 
   const selectAtPointer = (event: PointerEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     const cursorX = ((event.clientX - bounds.left) / bounds.width) * chartFrame.width;
+    const cursorY = ((event.clientY - bounds.top) / bounds.height) * chartFrame.height;
+    const distance = (index: number) => {
+      const { point } = samples[index];
+      const dx = Math.abs(x(point.atMs) - cursorX);
+      // On an overlay, equal timestamps must still allow either provider to be inspected.
+      return comparison && point[field] !== null ? Math.hypot(dx, y(point[field]) - cursorY) : dx;
+    };
     let closest = 0;
     for (let index = 1; index < samples.length; index += 1) {
-      if (
-        Math.abs(x(samples[index].point.atMs) - cursorX) <=
-        Math.abs(x(samples[closest].point.atMs) - cursorX)
-      )
-        closest = index;
+      if (distance(index) <= distance(closest)) closest = index;
     }
     if (samples.length) setInspected(closest);
   };
@@ -143,11 +158,15 @@ function PoolChartView({
       >
         <title id={`${id}-title`}>
           {t('quota_pool.chart_title', {
-            provider: t(`quota_pool.${pools[0].provider}`),
+            provider: comparison
+              ? t('quota_pool.combined_usage')
+              : t(`quota_pool.${pools[0].provider}`),
             mode: t(`quota_pool.${mode}`),
           })}
         </title>
-        <desc id={`${id}-desc`}>{t('quota_pool.chart_description')}</desc>
+        <desc id={`${id}-desc`}>
+          {t(comparison ? 'quota_pool.combined_description' : 'quota_pool.chart_description')}
+        </desc>
         <defs>
           <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--pool-accent)" stopOpacity=".19" />
@@ -193,14 +212,18 @@ function PoolChartView({
         })}
         <g clipPath={`url(#${id}-clip)`}>
           {series.map(({ pool, samples: seriesSamples }, seriesIndex) => (
-            <g key={seriesIndex} className={styles[pool.provider]}>
+            <g
+              key={seriesIndex}
+              className={styles[pool.provider]}
+              data-series={pool.instanceId ?? pool.provider}
+            >
               {[false, true].map((projected) =>
                 segments(projected, seriesSamples).map((path, index) => {
                   const firstX = path.slice(1).split(',')[0];
                   const lastX = path.split(' L').slice(-1)[0]?.replace(/^M/, '').split(',')[0];
                   return (
                     <g key={`${projected}-${index}`}>
-                      {mode === 'remaining' && (
+                      {mode === 'remaining' && !comparison && (
                         <path
                           d={`${path} L${lastX},${y(0)} L${firstX},${y(0)} Z`}
                           fill={`url(#${id}-fill)`}
@@ -333,6 +356,15 @@ function PoolChartView({
       </svg>
       <div className={styles.chartFooter}>
         <div className={styles.legend}>
+          {comparison &&
+            pools.map((pool, index) => (
+              <span key={index} className={styles[pool.provider]}>
+                <i />
+                {poolLabel(pool)}
+                {pool.forecastState !== 'ready' &&
+                  ` · ${t(`quota_pool.state.${pool.forecastState}`)}`}
+              </span>
+            ))}
           <span>{unit}</span>
           <span>
             <i />

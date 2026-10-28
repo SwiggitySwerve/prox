@@ -2310,6 +2310,12 @@
     "expired": "Сеанс привязки истёк. Начните заново."
   },
   "quota_pool": {
+    "combined_usage": "Общий график использования",
+    "combined_description": "Пулы провайдеров показаны на одной временной шкале с отдельными остатками квот. Сплошная линия — наблюдения, пунктир — прогноз.",
+    "minimize_graph": "Уменьшить график",
+    "expand_graph": "Развернуть график",
+    "minimize_graph_label": "Уменьшить график {{graph}}",
+    "expand_graph_label": "Развернуть график {{graph}}",
     "total_unavailable_title": "Итог недоступен",
     "window_unavailable": "Квота {{window}} недоступна",
     "saved_observation": "Сохранённое наблюдение",

@@ -5,6 +5,7 @@ import asyncio
 import colorsys
 import json
 import math
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -309,6 +310,7 @@ async def main():
         ("drain", "drain", 1440, 1000),
         ("burn-narrow", "burn", 390, 844),
         ("refresh-error", "refresh-error", 1440, 1000),
+        ("refresh-pending", "refresh-pending", 1440, 1000),
     ]
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
@@ -338,7 +340,11 @@ async def main():
                 errors = []
                 page.on("pageerror", lambda e: errors.append(str(e)))
 
+                pending_until = 0
+                collection_requests = 0
+
                 async def route_api(route):
+                    nonlocal pending_until, collection_requests
                     url = route.request.url
                     if "/prox/pools" in url:
                         if state == "loading":
@@ -350,9 +356,17 @@ async def main():
                                 status=503, json={"error": "Fixture unavailable"}
                             )
                             return
-                        await route.fulfill(json=fixture(state))
+                        data = fixture(state)
+                        if state == "refresh-pending":
+                            data["refreshing"] = time.monotonic() < pending_until
+                        await route.fulfill(json=data)
                         return
                     if "/prox/refresh" in url:
+                        collection_requests += 1
+                        if state == "refresh-pending":
+                            pending_until = time.monotonic() + 2.5
+                            await route.fulfill(json={**fixture("ready"), "refreshing": True})
+                            return
                         await route.fulfill(
                             status=503 if state == "refresh-error" else 200,
                             json=fixture("ready"),
@@ -443,7 +457,42 @@ async def main():
                 })''')
                 assert all(cell['leftOffset'] < 1 and cell['rowSpread'] < 1 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
                 interaction["collapsed_labels_and_values_align"] = "passed"
+                if state == "refresh-pending":
+                    started = time.monotonic()
+                    await page.locator('.header-actions button').first.click()
+                    countdown = page.locator('[class*="__countdown___"]')
+                    await countdown.filter(has_text="Refreshing").wait_for()
+                    await countdown.filter(has_text="Auto-refresh in").wait_for(timeout=5000)
+                    elapsed = time.monotonic() - started
+                    assert collection_requests == 1, "Completion reads must not start another collection"
+                    interaction["refresh_completion_seconds"] = round(elapsed, 2)
                 if state == "ready":
+                    combined = page.get_by_role("region", name="Combined Usage", exact=True)
+                    assert await combined.locator("svg [data-series]").count() == 2
+                    assert await combined.evaluate("e=>e.getBoundingClientRect().top < document.querySelector('article').getBoundingClientRect().top")
+                    plots = page.locator('[class*="__forecast___"]')
+                    assert await plots.count() == 3
+                    for plot in await plots.all():
+                        svg = plot.locator('svg[role="img"]')
+                        before_height = (await svg.bounding_box())["height"]
+                        button = plot.get_by_role("button")
+                        await button.click()
+                        assert await button.get_attribute("aria-pressed") == "true"
+                        assert (await svg.bounding_box())["height"] < before_height - 50
+                        assert await svg.locator('text').count() > 0
+                    await page.screenshot(path=str(out / f"{name}-minimized.png"), full_page=True, animations="disabled")
+                    for plot in await plots.all():
+                        await plot.get_by_role("button", name="Expand", exact=False).click()
+                    assert await page.locator('article details').count() == 5
+                    interaction["combined_top_and_all_graphs_minimize"] = "passed"
+                    if name == "wide":
+                        filters = page.locator('[class*="__providerBar___"] button')
+                        await filters.nth(1).click()
+                        assert await combined.locator('svg [data-series]').count() == 1
+                        assert await page.locator('article').count() == 1
+                        await filters.nth(0).click()
+                        assert await combined.locator('svg [data-series]').count() == 2
+                        interaction["combined_respects_provider_filter"] = "passed"
                     countdown = page.locator('[class*="__countdown___"]')
                     before = await countdown.inner_text()
                     await page.wait_for_function(

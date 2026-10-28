@@ -831,7 +831,6 @@
   white-space: nowrap;
 }
 
-
 @media (min-width: 901px) and (max-width: 1300px) {
   .toolbar {
     column-gap: 12px;
@@ -1057,5 +1056,41 @@
   }
   .headline[data-unavailable='true'] {
     gap: 2px 10px;
+  }
+}
+
+.combined {
+  --pool-accent: var(--text-secondary);
+  margin-bottom: 16px;
+}
+.comparisonNote {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.graphHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    flex-shrink: 0;
   }
 }

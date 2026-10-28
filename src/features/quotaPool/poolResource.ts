@@ -35,6 +35,7 @@ export function createPoolResource(
   let mutation: AbortController | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let collector: ReturnType<typeof setInterval> | undefined;
+  let completionPoll: ReturnType<typeof setTimeout> | undefined;
   const listeners = new Set<() => void>();
   const publish = (patch: Partial<PoolSnapshot>) => {
     snapshot = { ...snapshot, ...patch };
@@ -42,6 +43,7 @@ export function createPoolResource(
   };
   const reload = async () => {
     if (!active || !isCurrent()) return;
+    clearTimeout(completionPoll);
     read?.abort();
     const controller = new AbortController();
     read = controller;
@@ -51,7 +53,13 @@ export function createPoolResource(
     publish({ loading: true });
     try {
       const data = await api.get(query, controller.signal);
-      if (valid()) publish({ data, error: false, loading: false, refreshStatus: null });
+      if (valid()) {
+        publish({ data, error: false, loading: false, refreshStatus: null });
+        // Collection is asynchronous. Observe its completion promptly instead of leaving
+        // a finished job looking busy until the ordinary 15-second dashboard poll.
+        // These reads never request another collection and never overlap a pending read.
+        if (data.refreshing) completionPoll = setTimeout(() => void reload(), 1_000);
+      }
     } catch {
       if (valid()) publish({ error: true, loading: false });
     }
@@ -109,6 +117,7 @@ export function createPoolResource(
         mutation = undefined;
         clearInterval(timer);
         clearInterval(collector);
+        clearTimeout(completionPoll);
         // Discard revealed data on privacy/filter/session changes and unmount.
         snapshot = EMPTY;
       };

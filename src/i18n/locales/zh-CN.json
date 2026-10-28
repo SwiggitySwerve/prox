@@ -2315,6 +2315,12 @@
     "expired": "绑定会话已过期，请重新开始。"
   },
   "quota_pool": {
+    "combined_usage": "综合用量",
+    "combined_description": "各提供商池共用此时间轴，每条线保留独立配额余额。实线：已记录；虚线：预测。",
+    "minimize_graph": "缩小图表",
+    "expand_graph": "展开图表",
+    "minimize_graph_label": "缩小 {{graph}} 图表",
+    "expand_graph_label": "展开 {{graph}} 图表",
     "total_unavailable_title": "总量不可用",
     "window_unavailable": "{{window}}配额不可用",
     "saved_observation": "已保存的观测",

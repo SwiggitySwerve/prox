@@ -2317,6 +2317,12 @@
     "expired": "바인딩 세션이 만료되었습니다. 다시 시작하세요."
   },
   "quota_pool": {
+    "combined_usage": "통합 사용량",
+    "combined_description": "공급자 풀은 시간축을 공유하며 각 선은 별도의 할당량 잔액을 유지합니다. 실선: 기록. 점선: 예측.",
+    "minimize_graph": "그래프 축소",
+    "expand_graph": "그래프 확대",
+    "minimize_graph_label": "{{graph}} 그래프 축소",
+    "expand_graph_label": "{{graph}} 그래프 확대",
     "total_unavailable_title": "합계 사용 불가",
     "window_unavailable": "{{window}} 할당량 사용 불가",
     "saved_observation": "저장된 관측값",

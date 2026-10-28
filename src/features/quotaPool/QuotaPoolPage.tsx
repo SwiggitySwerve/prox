@@ -7,6 +7,8 @@ import type { PoolQuery } from '@/services/api/quotaPool';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
 import { PoolCard } from './PoolCard';
+import { PoolComparisonChart } from './PoolChart';
+import { PoolGraph } from './PoolGraph';
 import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
 import { PoolProviderMark } from './PoolProviderMark';
 import type { ChartMode } from './chartGeometry';
@@ -32,6 +34,9 @@ export function QuotaPoolPage() {
   const chartUnavailable = !data?.pools.length;
   const { order, setOrder } = usePoolOrder();
   const orderedPools = data ? orderPools(data.pools, order) : [];
+  const shownPools = orderedPools.filter(
+    (pool) => provider === 'all' || provider === pool.provider
+  );
   const refreshFromHeader = useCallback(async () => {
     if (!(await refresh())) throw new Error(t('quota_pool.refresh_error'));
   }, [refresh, t]);
@@ -236,34 +241,49 @@ export function QuotaPoolPage() {
           <h2>{t('quota_pool.loading')}</h2>
         </div>
       )}
+      {data && shownPools.length > 0 && (
+        <div className={`${styles.pool} ${styles.combined}`}>
+          <PoolGraph title={t('quota_pool.combined_usage')}>
+            {(minimized) => (
+              <>
+                <p className={styles.comparisonNote}>{t('quota_pool.combined_description')}</p>
+                <PoolComparisonChart
+                  key={`${mode}-${data.fromMs}`}
+                  pools={shownPools}
+                  dashboard={data}
+                  mode={mode}
+                  minimized={minimized}
+                  savedData={state.error || state.refreshError}
+                />
+              </>
+            )}
+          </PoolGraph>
+        </div>
+      )}
       <div className={styles.pools} aria-busy={state.loading}>
         {data &&
-          orderedPools
-            .filter((pool) => provider === 'all' || provider === pool.provider)
-            .map((pool, index, shown) => (
-              <PoolCard
-                key={poolKey(pool)}
-                pool={pool}
-                dashboard={data}
-                mode={mode}
-                reveal={query.reveal}
-                savedData={state.error || state.refreshError}
-                move={
-                  provider === 'all' && shown.length > 1
-                    ? {
-                        up:
-                          index > 0
-                            ? () => setOrder(movePool(shown, poolKey(pool), -1))
-                            : undefined,
-                        down:
-                          index < shown.length - 1
-                            ? () => setOrder(movePool(shown, poolKey(pool), 1))
-                            : undefined,
-                      }
-                    : undefined
-                }
-              />
-            ))}
+          shownPools.map((pool, index, shown) => (
+            <PoolCard
+              key={poolKey(pool)}
+              pool={pool}
+              dashboard={data}
+              mode={mode}
+              reveal={query.reveal}
+              savedData={state.error || state.refreshError}
+              move={
+                provider === 'all' && shown.length > 1
+                  ? {
+                      up:
+                        index > 0 ? () => setOrder(movePool(shown, poolKey(pool), -1)) : undefined,
+                      down:
+                        index < shown.length - 1
+                          ? () => setOrder(movePool(shown, poolKey(pool), 1))
+                          : undefined,
+                    }
+                  : undefined
+              }
+            />
+          ))}
         {data && data.pools.length === 0 && (
           <div className={styles.notice}>
             <h2>{t('quota_pool.no_accounts_title')}</h2>
@@ -294,7 +314,13 @@ export function QuotaPoolPage() {
 }
 
 /** Seconds until the page's next automatic collection, ticking once a second. */
-function RefreshCountdown({ dueAtMs, refreshing }: { dueAtMs: number | null; refreshing: boolean }) {
+function RefreshCountdown({
+  dueAtMs,
+  refreshing,
+}: {
+  dueAtMs: number | null;
+  refreshing: boolean;
+}) {
   const { t } = useTranslation();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

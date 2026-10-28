@@ -2323,6 +2323,12 @@
     "expired": "Phiên liên kết đã hết hạn. Hãy bắt đầu lại."
   },
   "quota_pool": {
+    "combined_usage": "Biểu đồ sử dụng tổng hợp",
+    "combined_description": "Các nhóm nhà cung cấp dùng chung trục thời gian, mỗi đường giữ số dư hạn mức riêng. Nét liền: đã ghi nhận. Nét đứt: dự báo.",
+    "minimize_graph": "Thu nhỏ biểu đồ",
+    "expand_graph": "Mở rộng biểu đồ",
+    "minimize_graph_label": "Thu nhỏ biểu đồ {{graph}}",
+    "expand_graph_label": "Mở rộng biểu đồ {{graph}}",
     "total_unavailable_title": "Không có tổng",
     "window_unavailable": "Không có hạn mức {{window}}",
     "saved_observation": "Quan sát đã lưu",

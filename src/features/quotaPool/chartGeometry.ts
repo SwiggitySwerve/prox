@@ -15,8 +15,8 @@ export interface ChartSample {
 export const chartFrame = { width: 1000, height: 300, left: 64, right: 976, top: 38, bottom: 254 };
 
 /** Keep labels in CSS pixels instead of shrinking a desktop SVG on phones. */
-export function fitChartFrame(width: number, compact = false) {
-  const height = compact ? 220 : width < 600 ? 240 : 280;
+export function fitChartFrame(width: number, compact = false, minimized = false) {
+  const height = minimized ? 160 : compact ? 220 : width < 600 ? 240 : 280;
   return {
     width,
     height,

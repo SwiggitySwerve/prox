@@ -2317,6 +2317,12 @@
     "expired": "The binding session expired. Please start over."
   },
   "quota_pool": {
+    "combined_usage": "Combined Usage",
+    "combined_description": "Provider pools share this timeline; each line keeps its own quota balance. Solid: recorded. Dashed: forecast.",
+    "minimize_graph": "Minimize Graph",
+    "expand_graph": "Expand Graph",
+    "minimize_graph_label": "Minimize {{graph}} graph",
+    "expand_graph_label": "Expand {{graph}} graph",
     "total_unavailable_title": "Total unavailable",
     "window_unavailable": "{{window}} quota unavailable",
     "saved_observation": "Saved observation",

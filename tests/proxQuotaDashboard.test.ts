@@ -15,7 +15,7 @@ import { createPoolResource } from '../src/features/quotaPool/poolResource';
 import { createPoolSessionObserver } from '../src/features/quotaPool/poolSession';
 import { useAuthStore } from '../src/stores/useAuthStore';
 import { PoolCard } from '../src/features/quotaPool/PoolCard';
-import { PoolChart } from '../src/features/quotaPool/PoolChart';
+import { PoolChart, PoolComparisonChart } from '../src/features/quotaPool/PoolChart';
 
 const point = (atMs: number, remainingPoints: number | null): PoolPoint => ({
   atMs,
@@ -306,6 +306,97 @@ describe('pool request lifetime', () => {
     }
   });
 
+  test('observes asynchronous collection completion within a second without another collection', async () => {
+    jest.useFakeTimers();
+    let busy = false;
+    let reads = 0;
+    let collections = 0;
+    const resource = createPoolResource(
+      {
+        get: async () => {
+          reads++;
+          return { ...dashboard, refreshing: busy };
+        },
+        refresh: async () => {
+          collections++;
+          busy = true;
+          return { ...dashboard, refreshing: true };
+        },
+      },
+      query,
+      () => true
+    );
+    const unsubscribe = resource.subscribe(() => {});
+    try {
+      await Promise.resolve();
+      await resource.refresh();
+      expect(resource.getSnapshot().data?.refreshing).toBe(true);
+      expect(reads).toBe(2);
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+      expect(resource.getSnapshot().data?.refreshing).toBe(true);
+      busy = false;
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+      expect(resource.getSnapshot().data?.refreshing).toBe(false);
+      expect(reads).toBe(4);
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+      expect(reads).toBe(4); // No fast polling after completion.
+      expect(collections).toBe(1);
+    } finally {
+      unsubscribe();
+      jest.useRealTimers();
+    }
+  });
+
+  test('completion polls respect slow reads, failures, session invalidation and disposal', async () => {
+    jest.useFakeTimers();
+    let current = true;
+    let reads = 0;
+    const slow = deferred<PoolDashboard>();
+    const resource = createPoolResource(
+      {
+        get: async () => {
+          reads++;
+          if (reads === 2) return slow.promise;
+          if (reads === 3) throw new Error('offline');
+          return { ...dashboard, refreshing: true };
+        },
+        refresh: async () => dashboard,
+      },
+      query,
+      () => current
+    );
+    const unsubscribe = resource.subscribe(() => {});
+    try {
+      await Promise.resolve();
+      jest.advanceTimersByTime(1000);
+      jest.advanceTimersByTime(16000);
+      expect(reads).toBe(2); // Neither normal nor fast polls abort a pending read.
+      slow.resolve({ ...dashboard, refreshing: true });
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+      expect(resource.getSnapshot().error).toBe(true);
+      jest.advanceTimersByTime(5000);
+      expect(reads).toBe(3); // On failure, back off to the normal polling interval.
+      await resource.reload();
+      current = false;
+      jest.advanceTimersByTime(1000);
+      expect(reads).toBe(4);
+      current = true;
+      await resource.reload();
+      unsubscribe();
+      jest.advanceTimersByTime(60000);
+      expect(reads).toBe(5);
+      expect(resource.getSnapshot().data).toBeNull();
+    } finally {
+      unsubscribe();
+      jest.useRealTimers();
+    }
+  });
+
   test('poll failure keeps last data and reports it as failed, never a successful empty result', async () => {
     let fail = false;
     const resource = createPoolResource(
@@ -431,6 +522,63 @@ describe('pool presentation', () => {
     expect(markup).not.toMatch(/<details[^>]*\bopen[\s=>]/);
   });
 
+  test('combined plot keeps source traces and unknown gaps separate on one scale', async () => {
+    await i18n.changeLanguage('en');
+    const alpha = { ...pool, instanceId: 'alpha', sourceLabel: 'Alpha' };
+    const beta = {
+      ...pool,
+      instanceId: 'beta',
+      sourceLabel: 'Beta',
+      capacityPoints: 500,
+      recorded: [point(100, 400), point(500, 390)],
+      projected: [],
+      forecastState: 'stale' as const,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(PoolComparisonChart, {
+        pools: [alpha, beta],
+        dashboard,
+        mode: 'remaining',
+      })
+    );
+    expect(markup).toContain('data-series="alpha"');
+    expect(markup).toContain('data-series="beta"');
+    expect(markup).toContain('Claude · Alpha');
+    expect(markup).toContain('Claude · Beta');
+    expect(markup).toContain('Stale');
+    expect(markup).toContain('>500</text>'); // Largest individual capacity, never 700 summed.
+    expect(markup).not.toContain('>700</text>');
+    expect(markup).not.toContain('private@example.test');
+    const a = chartSamples(alpha.recorded, [], 'remaining');
+    const b = chartSamples(beta.recorded, [], 'remaining');
+    const geometry = chartGeometry([...a, ...b], 'remaining', 500, 0, 1000);
+    expect(geometry.segments(false, a)).toHaveLength(2);
+    expect(geometry.segments(false, b)).toHaveLength(1);
+    expect(geometry.segments(false, a).every((path) => !path.includes(' L'))).toBe(true);
+    expect(geometry.segments(false, b)[0]).toContain(' L');
+  });
+
+  test('minimized charts preserve scale and data; combined rate charts omit forecasts', () => {
+    const normal = fitChartFrame(1000);
+    const small = fitChartFrame(1000, false, true);
+    expect(small.height).toBeLessThan(normal.height);
+    const samples = chartSamples(pool.recorded, pool.projected, 'drain');
+    const full = chartGeometry(samples, 'drain', 200, 0, 1000, normal);
+    const compact = chartGeometry(samples, 'drain', 200, 0, 1000, small);
+    expect([compact.min, compact.max]).toEqual([full.min, full.max]);
+    const markup = renderToStaticMarkup(
+      createElement(PoolComparisonChart, {
+        pools: [pool, { ...pool, provider: 'codex' }],
+        dashboard,
+        mode: 'drain',
+        minimized: true,
+      })
+    );
+    expect(markup).not.toContain('stroke-dasharray');
+    expect(markup).toContain('viewBox="0 0 1000 160"');
+    expect(markup).toContain('points/h');
+  });
+
   test('hides reset markers that replenish no balance', () => {
     const markup = renderToStaticMarkup(
       createElement(PoolChart, {
@@ -458,7 +606,9 @@ describe('pool presentation', () => {
     expect(markup).toMatch(/<li data-low="true"><span>5-hour limit<\/span>[\s\S]*?12%/);
     expect(markup).toMatch(/<li data-low="false"><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64%/);
     // Accounts start collapsed (numbers only); one control expands the whole section.
-    expect(markup).toMatch(/<button type="button"[^>]*aria-expanded="false"[^>]*>Expand all<\/button>/);
+    expect(markup).toMatch(
+      /<button type="button"[^>]*aria-expanded="false"[^>]*>Expand all<\/button>/
+    );
     expect(markup).not.toMatch(/<details[^>]* open=""/);
     expect(markup).not.toContain('private@example.test');
     // The chart itself is inspected by pointer or arrow keys; no separate slider.

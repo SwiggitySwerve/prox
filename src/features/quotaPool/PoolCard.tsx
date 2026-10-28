@@ -4,6 +4,7 @@ import { IconChevronDown, IconChevronUp } from '@/components/ui/icons';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
 import { PoolChart } from './PoolChart';
+import { PoolGraph } from './PoolGraph';
 import { PoolProviderMark } from './PoolProviderMark';
 import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
@@ -167,15 +168,21 @@ export function PoolCard({
           {t(`quota_pool.state_note.${pool.forecastState}`)}
         </p>
       )}
-      <section className={styles.forecast} aria-label={t('quota_pool.history_forecast')}>
-        <PoolChart
-          key={`${mode}-${dashboard.fromMs}`}
-          pool={pool}
-          dashboard={dashboard}
-          mode={mode}
-          savedData={savedData}
-        />
-      </section>
+      <PoolGraph
+        title={t('quota_pool.history_forecast')}
+        label={`${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel ? ` · ${pool.sourceLabel}` : ''}`}
+      >
+        {(minimized) => (
+          <PoolChart
+            key={`${mode}-${dashboard.fromMs}`}
+            pool={pool}
+            dashboard={dashboard}
+            mode={mode}
+            savedData={savedData}
+            minimized={minimized}
+          />
+        )}
+      </PoolGraph>
       <section className={styles.accounts} aria-labelledby={`${id}-accounts`}>
         <h3 id={`${id}-accounts`}>
           <span>

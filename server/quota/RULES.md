@@ -69,3 +69,8 @@ Regression coverage lives in `tests/proxPoolDomain.test.ts` and the collector,
 store and HTTP tests; `tests/proxQuotaSources.test.ts` covers source isolation and
 transactional migration with synthetic data. Samples are private local data;
 never log credentials, upstream bodies or account identifiers.
+
+The browser's combined chart overlays independently computed pools on shared axes;
+it never adds source capacities or bridges gaps between traces. Minimize controls
+change plot height only. Completion polling reads dashboard status every second
+while collection is running, without requesting additional collections.

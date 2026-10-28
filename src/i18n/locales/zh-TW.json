@@ -2343,6 +2343,12 @@
     "expired": "綁定工作階段已過期，請重新開始。"
   },
   "quota_pool": {
+    "combined_usage": "綜合用量",
+    "combined_description": "各供應商集區共用此時間軸，每條線保留獨立配額餘額。實線：已記錄；虛線：預測。",
+    "minimize_graph": "縮小圖表",
+    "expand_graph": "展開圖表",
+    "minimize_graph_label": "縮小 {{graph}} 圖表",
+    "expand_graph_label": "展開 {{graph}} 圖表",
     "total_unavailable_title": "總量無法使用",
     "window_unavailable": "{{window}}配額無法使用",
     "saved_observation": "已儲存的觀測",
