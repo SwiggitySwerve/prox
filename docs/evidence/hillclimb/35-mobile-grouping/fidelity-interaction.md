@@ -77,4 +77,3 @@ Each paired comparison was opened A then B with view_image. All required images 
 ## Blockers
 
 - Supply and inspect implementation evidence sufficient to establish live reused components, token-driven styling, and actual layout hierarchy before giving design-system approval.
-
