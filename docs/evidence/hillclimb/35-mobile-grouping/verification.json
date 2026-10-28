@@ -1,0 +1,24 @@
+{
+  "states": [
+    "wide",
+    "laptop",
+    "narrow",
+    "partial",
+    "stale",
+    "long-narrow",
+    "expanded",
+    "expanded-narrow"
+  ],
+  "minTextContrast": 5.56,
+  "minRuleContrast": 4.96,
+  "maxSectionHeightChange": 0.0,
+  "minSectionHeightChange": 0.0,
+  "fullNamesAndBalancesPreserved": true,
+  "noExtraNameOrWarningLines": true,
+  "bothProviderKeyboardChecks": "passed",
+  "unmodifiedDesktopCrops": 10,
+  "testsPassed": 1964,
+  "testsFailed": 0,
+  "lintErrors": 0,
+  "existingLintWarnings": 6
+}

@@ -1154,6 +1154,15 @@
       min-height: 44px;
     }
   }
+  @media (max-width: 640px) {
+    .account:not([open]) > summary {
+      background: var(--bg-subtle);
+      border-radius: $radius-sm;
+      &:hover {
+        background: var(--bg-tertiary);
+      }
+    }
+  }
   @media (min-width: 1200px) {
     .accountGrid:not(:has(.account[open])) {
       grid-template-columns: repeat(3, minmax(0, 1fr));

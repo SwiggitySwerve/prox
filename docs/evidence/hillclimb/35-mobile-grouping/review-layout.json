@@ -1,0 +1,265 @@
+{
+  "lens": "layout",
+  "aspects": [
+    "hierarchy",
+    "layout",
+    "typography/numbers",
+    "colour",
+    "content",
+    "controls/states",
+    "consistency",
+    "responsive/accessibility"
+  ],
+  "reading": {
+    "A": {
+      "answers": [
+        "The full first account name in long-narrow is “A deliberately long credential label for a shared development workstation”. Both provider sections display it completely. In ordinary fixtures the first names are Claude account 1 and Codex account 1. High confidence.",
+        "82.8% is the first Claude account’s weekly quota remaining, established by Accounts · Weekly Remaining and cross-checked against the expanded 7-Day Limit value. It is not its Cloud Session Credits value. High confidence.",
+        "Cloud Session Credits 0% belongs to the first Claude account: the long credential name in long-narrow, or Claude account 1 in the ordinary fixtures. High confidence.",
+        "In long-narrow account 2, the dash means weekly quota data is unavailable, explicitly explained by Weekly quota unavailable. The separate 14% is the remaining five-hour quota, labelled 5-Hour Limit · Low. This distinction holds in both provider sections. High confidence."
+      ],
+      "difficulty": "Low overall, with a small extra tracing cost for the long first Claude name: follow its three lines down to the inset credits warning, then across to 0%. Rules and indentation already make ownership recoverable. Weekly versus five-hour meaning requires reading the labels. High confidence in answers."
+    },
+    "B": {
+      "answers": [
+        "The full first account name in long-narrow is “A deliberately long credential label for a shared development workstation”. Both provider sections display it completely. In ordinary fixtures the first names are Claude account 1 and Codex account 1. High confidence.",
+        "82.8% is the first Claude account’s weekly quota remaining, established by Accounts · Weekly Remaining and cross-checked against the expanded 7-Day Limit value. It is not its Cloud Session Credits value. High confidence.",
+        "Cloud Session Credits 0% belongs to the first Claude account: the long credential name in long-narrow, or Claude account 1 in the ordinary fixtures. High confidence.",
+        "In long-narrow account 2, the dash means weekly quota data is unavailable, explicitly explained by Weekly quota unavailable. The separate 14% is the remaining five-hour quota, labelled 5-Hour Limit · Low. This distinction holds in both provider sections. High confidence."
+      ],
+      "difficulty": "Low overall. The common surface helps retain the wrapped name, credits warning and 0% as one group; account 2 similarly contains its unavailable explanation and five-hour warning. The labels are still necessary for weekly versus five-hour meaning. High confidence in answers; moderate confidence in the modest comparative reading benefit."
+    },
+    "comparison": "B provides a small, concrete mobile ownership benefit through common background grouping, most visible across the wrapped first Claude name and credits row. This supports only hierarchy/layout gains in narrow (+0.1 each) and long-narrow (+0.2 each). All other cells retain the permitted prior report’s A baseline, read only after independently inspecting all 36 images A then B. There are no score drops and no scores below 9.0. Correct reading answers are identical; this is not evidence of measured speed or accuracy gains. The numerical scale distinction remains a minor shared reading cost. No browser checks, source/diff inspection, component/token verification, measured contrast checks or mechanical tests were performed; responsive/accessibility scores cover visible wrapping, text retention and affordances only. No delegation or other reviewers’ reports were used."
+  },
+  "screens": {
+    "wide": {
+      "A": [
+        9.1,
+        9.1,
+        9.1,
+        9.2,
+        9.3,
+        9.0,
+        9.3,
+        9.0
+      ],
+      "B": [
+        9.1,
+        9.1,
+        9.1,
+        9.2,
+        9.3,
+        9.0,
+        9.3,
+        9.0
+      ],
+      "findings": [
+        "Both provider crops show the same account columns, header spacing, inset warning rules and right-aligned weekly values. A and B retain all calibrated baseline scores.",
+        "Claude account 1 owns Cloud Session Credits 0%; Claude account 2 and Codex account 2 own the 5-Hour Limit 14% rows. The surface change is not visible at this width."
+      ]
+    },
+    "laptop": {
+      "A": [
+        9.1,
+        9.2,
+        9.1,
+        9.2,
+        9.3,
+        9.0,
+        9.3,
+        9.0
+      ],
+      "B": [
+        9.1,
+        9.2,
+        9.1,
+        9.2,
+        9.3,
+        9.0,
+        9.3,
+        9.0
+      ],
+      "findings": [
+        "Both providers preserve account starts, column gutters, complete names, warning rows and percentage alignment. No visible difference warrants any score change.",
+        "The narrower desktop columns still separate each warning from adjacent accounts without additional row surfaces."
+      ]
+    },
+    "narrow": {
+      "A": [
+        9.1,
+        9.2,
+        9.1,
+        9.2,
+        9.3,
+        9.0,
+        9.2,
+        9.1
+      ],
+      "B": [
+        9.2,
+        9.3,
+        9.1,
+        9.2,
+        9.3,
+        9.0,
+        9.2,
+        9.1
+      ],
+      "findings": [
+        "B places each collapsed account name, weekly value and any subordinate warning on one faint surface. A separates accounts primarily with rules. The common surface gives the Claude account 1 credits row and account 2 five-hour row an additional ownership cue; B hierarchy and layout each increase by 0.1.",
+        "Codex account 1 has no warning and account 2 does. B makes these unequal-height account groups more explicit while retaining their visible positions and section height.",
+        "The benefit is modest: A already provides indentation, warning connectors and separators. B does not improve name legibility, numerical semantics, controls or content, so those scores remain unchanged.",
+        "Dark styling and amber warning text remain recognizable. No measured contrast or interaction claim is made."
+      ]
+    },
+    "long-narrow": {
+      "A": [
+        9.0,
+        9.0,
+        9.1,
+        9.2,
+        9.3,
+        9.0,
+        9.2,
+        9.0
+      ],
+      "B": [
+        9.2,
+        9.2,
+        9.1,
+        9.2,
+        9.3,
+        9.0,
+        9.2,
+        9.0
+      ],
+      "findings": [
+        "B encloses all three lines of the first Claude account name, its 82.8% weekly value and its Cloud Session Credits 0% row in one continuous faint surface. The boundary below credits helps keep the warning with the wrapped name before the next account starts. B hierarchy and layout each increase by 0.2; other cells retain baseline scores.",
+        "Account 2 similarly groups its weekly dash, Weekly quota unavailable explanation and 5-Hour Limit 14% row. This strengthens ownership, but the text still supplies the distinction between unavailable weekly data and a known five-hour balance.",
+        "The first Codex account already has a locally lighter background in A; its cause cannot be established from screenshots. B extends consistent surface grouping to the following Codex account. No interaction-state improvement is inferred from the first row alone.",
+        "Both full-page images retain the same apparent provider order, section boundaries and page length. Full names remain visible and percentages retain their right edge. No visible compact-height penalty accompanies the grouping.",
+        "Remaining minor reading cost in both variants: weekly and secondary percentages share the same right edge, so readers must consult the header and warning labels. If reducing this cost further, clarify the existing five-hour label in place, for example 5h remaining, while retaining Low, the full account names, current row height and provider colors. This is optional, not a below-9 blocker.",
+        "The ownership benefit is a visual assessment with moderate confidence, not a measured reading-speed or error-rate result."
+      ]
+    },
+    "partial": {
+      "A": [
+        9.0,
+        9.2,
+        9.1,
+        9.2,
+        9.4,
+        9.2,
+        9.3,
+        9.0
+      ],
+      "B": [
+        9.0,
+        9.2,
+        9.1,
+        9.2,
+        9.4,
+        9.2,
+        9.3,
+        9.0
+      ],
+      "findings": [
+        "Both crops preserve the same weekly dashes and complete Weekly quota unavailable explanations. Codex account 2 retains a separate labelled 5-Hour Limit 14% warning below unavailable weekly data.",
+        "No visible surface, alignment, spacing or compact-height change appears at this width; every score retains the calibrated baseline."
+      ]
+    },
+    "stale": {
+      "A": [
+        9.0,
+        9.2,
+        9.1,
+        9.2,
+        9.4,
+        9.3,
+        9.3,
+        9.0
+      ],
+      "B": [
+        9.0,
+        9.2,
+        9.1,
+        9.2,
+        9.4,
+        9.3,
+        9.3,
+        9.0
+      ],
+      "findings": [
+        "Both crops keep Stale beside the affected weekly percentage and the full Last observed timestamp underneath. The Codex five-hour warning remains visibly subordinate to account 2.",
+        "No visible difference in grouping, alignment, warning treatment or height supports any score change."
+      ]
+    },
+    "expanded": {
+      "A": [
+        9.2,
+        9.1,
+        9.1,
+        9.2,
+        9.4,
+        9.3,
+        9.2,
+        9.0
+      ],
+      "B": [
+        9.2,
+        9.1,
+        9.1,
+        9.2,
+        9.4,
+        9.3,
+        9.2,
+        9.0
+      ],
+      "findings": [
+        "Claude expanded account columns preserve the same names, plan metadata, bars, percentages, reset lines and lower metadata blocks. Codex stays collapsed. All eight scores retain baseline values.",
+        "Expanded-narrow cross-check, unscored: both Claude provider crops and both expanded-narrow-accounts crops preserve the same expanded layout. Cloud Session Credits and the five-hour Low label wrap in the same places, with no additional visible clipping.",
+        "Expanded-narrow Codex cross-check: B applies the faint surfaces to the still-collapsed accounts, matching its narrow collapsed treatment. No corresponding surface is added to the expanded Claude rows. This establishes visual mode consistency, not verified expand/collapse behavior."
+      ]
+    }
+  },
+  "regressions": [],
+  "inspected": [
+    "/tmp/prox-compact-round7/A/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/B/wide-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/A/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/B/wide-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/A/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/B/laptop-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/A/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/B/laptop-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/A/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/B/narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/A/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/B/narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/A/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/B/long-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/A/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/B/long-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/A/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/B/partial-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/A/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/B/partial-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/A/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/B/stale-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/A/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/B/stale-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/A/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/B/expanded-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/A/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/B/expanded-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/A/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/B/expanded-narrow-provider-0-accounts.png",
+    "/tmp/prox-compact-round7/A/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/B/expanded-narrow-provider-1-accounts.png",
+    "/tmp/prox-compact-round7/A/long-narrow.png",
+    "/tmp/prox-compact-round7/B/long-narrow.png",
+    "/tmp/prox-compact-round7/A/expanded-narrow-accounts.png",
+    "/tmp/prox-compact-round7/B/expanded-narrow-accounts.png",
+    "/home/swerve/src/prox/docs/evidence/hillclimb/33-warning-connector/review-layout.json"
+  ]
+}
