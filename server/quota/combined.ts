@@ -26,7 +26,7 @@ function projectedBalance(points: PoolPoint[], atMs: number, beforeReset: boolea
 }
 
 /** Add independent provider forecasts; never reroute demand between providers. */
-export function combineProjections(traces: PoolPoint[][]): PoolPoint[] {
+export function alignProjections(traces: PoolPoint[][]): PoolPoint[][] {
   if (!traces.length || traces.some((trace) => !trace.length)) return [];
   const times = [...new Set(traces.flatMap((trace) => trace.map((point) => point.atMs)))].sort(
     (a, b) => a - b
@@ -38,14 +38,25 @@ export function combineProjections(traces: PoolPoint[][]): PoolPoint[] {
       )
     )
   );
-  return times.flatMap((atMs) =>
-    (resets.has(atMs) ? [true, false] : [false]).map((beforeReset) => ({
+  const events = times.flatMap((atMs) =>
+    (resets.has(atMs) ? [true, false] : [false]).map((beforeReset) => ({ atMs, beforeReset }))
+  );
+  return traces.map((trace) =>
+    events.map(({ atMs, beforeReset }) => ({
       atMs,
-      remainingPoints: sumKnown(traces.map((trace) => projectedBalance(trace, atMs, beforeReset))),
+      remainingPoints: projectedBalance(trace, atMs, beforeReset),
       burnPointsPerHour: null,
       drainPointsPerHour: null,
     }))
   );
+}
+
+export function combineProjections(traces: PoolPoint[][]): PoolPoint[] {
+  const aligned = alignProjections(traces);
+  return (aligned[0] ?? []).map((point, index) => ({
+    ...point,
+    remainingPoints: sumKnown(aligned.map((trace) => trace[index].remainingPoints)),
+  }));
 }
 
 /** Only distinct provider allowances are proven independent by the current source contract. */
