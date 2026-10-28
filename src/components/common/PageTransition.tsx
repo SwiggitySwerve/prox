@@ -92,8 +92,9 @@ export function PageTransition({
   const currentLayer =
     layers.find((layer) => layer.status === 'current') ?? layers[layers.length - 1];
   const currentLayerKey = currentLayer?.key ?? location.key;
-  // Same-path navigation swaps a layer's location but keeps its React key.
-  const currentLocationKey = currentLayer?.location.key ?? location.key;
+  // Compare locations, not keys: same-path navigation swaps a layer's location but keeps its
+  // React key, and typed/pasted hash URLs all share React Router's 'default' key.
+  const currentLocation = currentLayer?.location;
   const currentLayerPathname = currentLayer?.location.pathname;
 
   const resolveScrollContainer = useCallback(() => {
@@ -104,7 +105,7 @@ export function PageTransition({
 
   useLayoutEffect(() => {
     if (isAnimating) return;
-    if (location.key === currentLocationKey) return;
+    if (location === currentLocation) return;
     if (currentLayerPathname === location.pathname) {
       // Same page with a new query or state (e.g. ?source=): render it in place, no transition.
       setLayers((prev) =>
@@ -224,7 +225,7 @@ export function PageTransition({
     isAnimating,
     location,
     currentLayerKey,
-    currentLocationKey,
+    currentLocation,
     currentLayerPathname,
     getRouteOrder,
     getTransitionVariant,

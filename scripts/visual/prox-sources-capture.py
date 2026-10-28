@@ -163,6 +163,13 @@ async def destination_smoke(page,out,results):
     await page.wait_for_function("location.hash.includes('source=beta')")
     await page.wait_for_timeout(500)
     reloadedBack=sorted({r['source'] for r in await page.evaluate('window.__sourceSmoke.requests')})
+    # Pasted/typed URLs arrive as hash changes with no history state (React Router key 'default').
+    await page.evaluate("location.hash='#/config?source=beta'")
+    await page.wait_for_timeout(500)
+    await page.evaluate("window.__sourceSmoke.requests.length=0; location.hash='#/logs?source=beta'")
+    await page.wait_for_timeout(800)
+    typedPaths=sorted({r['path'] for r in await page.evaluate('window.__sourceSmoke.requests')})
+    results['typedUrl']={'pass':'/observability/logs' in typedPaths and await page.get_by_text('beta synthetic log').count()>0,'paths':typedPaths}
     results['destinationSwitch']={'pass':before=='true' and after=='true' and current==owners and reloaded==['alpha'] and reloadedBack==['beta'],'reloadedSources':reloaded,'reloadedBackSources':reloadedBack,'ownersBefore':owners,'ownersAfter':current,'hash':await page.evaluate('location.hash'),'screenshot':'system-source-switch-1440.png'}
 
 if __name__=='__main__':
