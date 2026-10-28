@@ -16,13 +16,21 @@ Verification:
 - Eight new domain tests cover shared observation times, plan weights, both
   windows, all four scenarios, reset discontinuities, missing/stale/expired
   data, source ambiguity, disabled/retired/unresolved accounts and privacy.
-- Full verification: 1,958 tests, TypeScript and production build pass; lint has
+- Full verification: 1,959 tests, TypeScript and production build pass; lint has
   zero errors and six existing Fast Refresh warnings.
 - Actual application shell with synthetic API fixtures, Chromium/Playwright:
   desktop 1920px, laptop 1280px and mobile 390px. Nine states pass geometry,
   target, contrast and page-error checks. Icon alignment/size, independent
   minimize/restore, provider filters, total/provider switching, account
-  expansion and keyboard inspection pass. Captures were visually inspected.
+  visibility and keyboard inspection pass. Captures were visually inspected.
 
 These captures use synthetic data. Live checks are recorded separately and do
 not claim public SSO sign-in verification.
+
+Post-deploy verification used the deployed UI and API through authenticated
+loopback access. Both modes, provider filters, rate mode, keyboard inspection,
+minimize/restore and account expansion passed; all five accounts loaded and the
+total matched the provider balances. No page errors or quota issues were reported.
+The inference proxies and usage dashboard retained their start times. Live review
+also caught dense forecast dots filling dash gaps; dense projections now use the
+dashed stroke alone, keeping sparse observations visible.

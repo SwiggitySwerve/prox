@@ -67,12 +67,16 @@ function PoolChartView({
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
   const [inspected, setInspected] = useState<number | null>(null);
   const { fromMs, toMs, nowMs } = dashboard;
-  const series = pools.map((pool) => ({
-    pool,
-    samples: chartSamples(pool.recorded, pool.projected, mode).filter(
+  const series = pools.map((pool) => {
+    const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
       ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
-    ),
-  }));
+    );
+    return {
+      pool,
+      samples,
+      sparseProjection: samples.filter((sample) => sample.projected).length < 3,
+    };
+  });
   const samples = series.flatMap(({ pool, samples }) =>
     samples.map((sample) => ({ ...sample, pool }))
   );
@@ -171,7 +175,13 @@ function PoolChartView({
           })}
         </title>
         <desc id={`${id}-desc`}>
-          {t(pools[0]?.provider === 'total' ? 'quota_pool.total_description' : comparison ? 'quota_pool.combined_description' : 'quota_pool.chart_description')}
+          {t(
+            pools[0]?.provider === 'total'
+              ? 'quota_pool.total_description'
+              : comparison
+                ? 'quota_pool.combined_description'
+                : 'quota_pool.chart_description'
+          )}
         </desc>
         <defs>
           <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
@@ -217,7 +227,7 @@ function PoolChartView({
           );
         })}
         <g clipPath={`url(#${id}-clip)`}>
-          {series.map(({ pool, samples: seriesSamples }, seriesIndex) => (
+          {series.map(({ pool, samples: seriesSamples, sparseProjection }, seriesIndex) => (
             <g
               key={seriesIndex}
               className={styles[pool.provider]}
@@ -249,7 +259,7 @@ function PoolChartView({
                 })
               )}
               {seriesSamples.map(({ point, projected }, index) =>
-                point[field] === null ? null : (
+                point[field] === null || (projected && !sparseProjection) ? null : (
                   <circle
                     key={index}
                     cx={x(point.atMs)}

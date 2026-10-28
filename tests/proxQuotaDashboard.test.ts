@@ -579,6 +579,22 @@ describe('pool presentation', () => {
     expect(markup).toContain('points/h');
   });
 
+  test('dense forecast dots cannot fill the dashed line, while isolated forecasts remain visible', () => {
+    const dense = renderToStaticMarkup(
+      createElement(PoolComparisonChart, { pools: [pool], dashboard, mode: 'remaining' })
+    );
+    expect(dense).toContain('stroke-dasharray="7 5"');
+    expect(dense).not.toContain('opacity="0.6"');
+    const isolated = renderToStaticMarkup(
+      createElement(PoolComparisonChart, {
+        pools: [{ ...pool, projected: [point(800, 70)] }],
+        dashboard,
+        mode: 'remaining',
+      })
+    );
+    expect(isolated).toContain('opacity="0.6"');
+  });
+
   test('hides reset markers that replenish no balance', () => {
     const markup = renderToStaticMarkup(
       createElement(PoolChart, {
