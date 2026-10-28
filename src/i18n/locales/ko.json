@@ -60,10 +60,6 @@
     "login": "CLI Proxy API 관리 센터",
     "abbr": "CPAMC"
   },
-  "splash": {
-    "title": "CLI Proxy API",
-    "subtitle": "관리 센터"
-  },
   "login": {
     "subtitle": "CLI Proxy API v8 이상 버전에 연결",
     "connection_current": "현재 URL",
