@@ -2467,6 +2467,37 @@
     "mutation_unconfirmed": "无法确认操作结果。重试前请检查刷新后的状态。"
   },
   "analytics": {
+    "card": {
+      "succeeded": "成功 {{value}}",
+      "of_events": "共 {{value}} 个事件",
+      "ttft": "p95 首 Token {{value}}",
+      "reasoning": "推理 {{value}}",
+      "uncached": "未缓存 {{value}}",
+      "writes": "缓存写入 {{value}}",
+      "hourly_only": "无区间总计；下方为每小时数值",
+      "no_range_total": "无区间总计"
+    },
+    "trend": {
+      "overview": "用量趋势",
+      "tokens": "Token 趋势",
+      "cost": "成本趋势",
+      "performance": "耗时趋势 · ms"
+    },
+    "legend": "系列",
+    "trend_help": "各线共用时间轴。每个时间段都可操作，激活后打开对应事件。",
+    "trend_hint": "悬停或聚焦某个时间以比较数值；激活可打开匹配事件。",
+    "trend_reference_hint": "悬停某个时间以比较数值。",
+    "trend_own_scale": "各线使用独立刻度，请对照标有相同颜色和线型的坐标轴读取。空缺表示未测量的时段。",
+    "trend_own_scale_narrow": "各线使用独立刻度，范围见图例。空缺表示未测量的时段。",
+    "empty_title": "没有保留的事件",
+    "empty_unfiltered": "此时间范围内没有保留任何事件。请选择更长的范围以查看更早的数据。",
+    "trend_gaps": "空缺表示未测量的时段。",
+    "no_data": "无数据",
+    "rate_dash_note": "— 表示未配置费率。",
+    "no_measured_values": "此时段内没有测量值。",
+    "no_hourly_series": "无按小时序列",
+    "no_hourly_change": "区间内无变化",
+    "trend_shared_scale": "所有线共用同一毫秒刻度。空缺表示未测量的时段。",
     "title": "分析",
     "nav_meta": "用量、成本与执行趋势",
     "subtitle": "查看已配置数据集中的保留用量。",
@@ -2523,7 +2554,6 @@
     },
     "empty": "没有符合筛选条件的保留事件。请扩大范围或清除筛选。",
     "empty_chart": "此区间没有样本。",
-    "chart_help": "柱形显示服务器值，缺失测量保留为空白。聚焦柱形后按 Enter 查看事件；表格提供相同数值和操作。",
     "table_alternative": "查看数据表",
     "bucket_category": "UTC 时间桶 / 类别",
     "unavailable_value": "不可用",
@@ -2554,7 +2584,6 @@
     "detail_note": "仅显示操作元数据，不推断未报告字段。此事件不能确定准确重试次数或传入请求的最终结果。",
     "price_reasons": "定价限制",
     "rate_note": "参考：当前配置的模型费率，包括未使用的已注册模型和未定价模型。并非历史费率。分层表列出输入 / 输出价格。",
-    "input_rate_chart": "参考输入费率 · USD / 百万令牌",
     "catalog_unavailable": "{{source}} 的模型目录不可用；注册列表可能不完整。",
     "empty_rates": "未返回模型费率或注册信息。",
     "rate_unit": "每百万令牌 USD · 当前配置费率",
@@ -2622,6 +2651,7 @@
       "usage_presence": "用量测量存在性"
     },
     "metrics": {
+      "total_tokens": "总 Token",
       "input_tokens": "报告输入令牌",
       "output_tokens": "报告输出令牌",
       "uncached_input_tokens": "未缓存输入令牌",
@@ -2635,9 +2665,6 @@
       "p95_latency_ms": "p95 执行时长 · 毫秒",
       "p95_ttft_ms": "p95 报告 TTFT · 毫秒 · 混合方法"
     },
-    "chart_reference_help": "柱形显示当前配置的参考费率。缺失费率保留为空白。表格提供相同数值。",
-    "chart_readout_hint": "聚焦或悬停柱形查看数值；激活以打开匹配事件。",
-    "chart_reference_hint": "悬停柱形或打开数据表查看费率。",
     "presence_values": {
       "reported": "已报告用量存在性",
       "unknown": "存在性未知",

@@ -1,30 +1,21 @@
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsResponse } from '@/domain/analytics/types';
-import { AnalyticsChart } from './AnalyticsChart';
 import { analyticsNumber, analyticsTime } from './format';
 import styles from './AnalyticsPage.module.scss';
 
 export function ModelRates({ data }: { data: AnalyticsResponse }) {
   const { t, i18n } = useTranslation();
   const money = (n: number | null) => analyticsNumber(n, i18n.language, true);
+  const providerLabels = new Map(data.providers.map((p) => [p.key, p.label]));
   return (
     <>
       <p className={styles.notice}>{t('analytics.rate_note')}</p>
-      <AnalyticsChart
-        title={t('analytics.input_rate_chart')}
-        currency
-        data={data.rates.map((r, index) => ({
-          key: String(index),
-          label: `${r.instance_label} · ${r.provider} · ${r.id}`,
-          value: r.input_per_million,
-        }))}
-      />
       <section className={styles.panel}>
         <h2>{t('analytics.tabs.rates')}</h2>
         {data.catalog_sources
           ?.filter((source) => source.state === 'unavailable')
           .map((source) => (
-            <p className={styles.notice} key={source.instance_id}>
+            <p className={`${styles.notice} ${styles.warningNotice}`} key={source.instance_id}>
               {t('analytics.catalog_unavailable', { source: source.label })}
             </p>
           ))}
@@ -37,8 +28,10 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
             tabIndex={0}
             aria-label={t('analytics.tabs.rates')}
           >
-            <table className={styles.rates}>
-              <caption>{t('analytics.rate_unit')}</caption>
+            <table className={`${styles.rates} ${styles.stacked}`}>
+              <caption>
+                {t('analytics.rate_unit')} · {t('analytics.rate_dash_note')}
+              </caption>
               <thead>
                 <tr>
                   {[
@@ -61,20 +54,46 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
               <tbody>
                 {data.rates.map((rate, index) => (
                   <tr key={`${rate.instance_id}:${rate.provider}:${rate.id}:${index}`}>
-                    <td>
+                    <td data-label={t('analytics.source_provider')}>
                       {rate.instance_label}
-                      <small>{rate.provider}</small>
+                      <small className={styles.providerName} data-provider={rate.provider}>
+                        {providerLabels.get(rate.provider) ?? rate.provider}
+                      </small>
                     </td>
-                    <th scope="row">{rate.id}</th>
-                    <td>
+                    <th scope="row" data-label={t('analytics.model')}>
+                      {rate.id}
+                    </th>
+                    <td data-label={t('analytics.registration')}>
                       {t(`analytics.${rate.registered ? 'registered' : 'observed'}`)}
                       <small>{t(`analytics.price_status.${rate.status}`)}</small>
                     </td>
-                    <td>{rate.matched_model ?? t('analytics.not_reported')}</td>
-                    <td>{money(rate.input_per_million)}</td>
-                    <td>{money(rate.output_per_million)}</td>
-                    <td>{money(rate.cache_read_per_million)}</td>
-                    <td>{money(rate.cache_write_per_million)}</td>
+                    <td data-label={t('analytics.billing_model')}>
+                      {rate.matched_model ?? t('analytics.not_reported')}
+                    </td>
+                    {(
+                      [
+                        ['input', rate.input_per_million],
+                        ['output', rate.output_per_million],
+                        ['cache_read', rate.cache_read_per_million],
+                        ['cache_write', rate.cache_write_per_million],
+                      ] as const
+                    ).map(([key, value]) => (
+                      <td
+                        key={key}
+                        data-label={t(`analytics.${key}`)}
+                        data-numeric
+                        data-missing={value === null}
+                      >
+                        {value === null ? (
+                          <>
+                            <span aria-hidden="true">—</span>
+                            <span className={styles.srOnly}>{money(value)}</span>
+                          </>
+                        ) : (
+                          money(value)
+                        )}
+                      </td>
+                    ))}
                     <td>
                       <details>
                         <summary>{t('analytics.rate_details')}</summary>

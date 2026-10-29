@@ -116,6 +116,7 @@ export function RequestTable({
   canPrevious,
   canNext,
   page,
+  providerLabels,
 }: {
   data: AnalyticsResponse['requests'];
   selected: AnalyticsRequest | null;
@@ -125,6 +126,8 @@ export function RequestTable({
   canPrevious: boolean;
   canNext: boolean;
   page: number;
+  /** Server display names for provider keys, as used by the breakdown charts. */
+  providerLabels?: ReadonlyMap<string, string>;
 }) {
   const { t, i18n } = useTranslation();
   const n = (value: number | null, currency = false) =>
@@ -146,7 +149,7 @@ export function RequestTable({
           role="region"
           aria-label={t('analytics.tabs.requests')}
         >
-          <table className={styles.requests}>
+          <table className={`${styles.requests} ${styles.stacked}`}>
             <caption className={styles.srOnly}>{t('analytics.tabs.requests')}</caption>
             <thead>
               <tr>
@@ -169,43 +172,45 @@ export function RequestTable({
             <tbody>
               {data.items.map((r) => (
                 <tr key={r.id}>
-                  <td>
+                  <td data-label={t('analytics.timestamp')}>
                     {analyticsTime(r.timestamp_ms, i18n.language)}
-                    <small>UTC</small>
                   </td>
-                  <td>
+                  <td data-label={t('analytics.provider_model')}>
                     <strong>{r.model}</strong>
-                    <small>{r.provider}</small>
+                    <small className={styles.providerName} data-provider={r.provider}>
+                      {providerLabels?.get(r.provider) ?? r.provider}
+                    </small>
                     {r.requested_model && r.requested_model !== r.model && (
                       <small>
                         {t('analytics.fields.requested_model')}: {r.requested_model}
                       </small>
                     )}
                   </td>
-                  <td>
+                  <td data-label={t('analytics.outcome')}>
                     <span className={r.failed ? styles.failure : styles.success}>
                       {t(`analytics.${r.failed ? 'failed_outcome' : 'success'}`)}
                     </span>
                     {r.status_code !== undefined && <small>{r.status_code}</small>}
                   </td>
-                  <td>
+                  <td data-label={t('analytics.tokens_in_out')} data-numeric>
                     {n(r.input_tokens)} / {n(r.output_tokens)}
                     <small>{t(`analytics.presence_values.${r.usage_presence ?? 'unknown'}`)}</small>
                   </td>
-                  <td>
+                  <td data-label={t('analytics.cache_read_write')} data-numeric>
                     {n(r.cache_read_tokens)} / {n(r.cache_creation_tokens)}
                   </td>
-                  <td>
+                  <td data-label={t('analytics.estimated_cost')} data-numeric>
                     {n(r.cost.usd, true)}
                     <small>{t(`analytics.price_status.${r.cost.status}`)}</small>
                   </td>
-                  <td>
-                    {n(r.latency_ms)} {t('analytics.ms')}
+                  <td data-label={t('analytics.duration')} data-numeric>
+                    {n(r.latency_ms)}
                   </td>
                   <td>
                     <Button
                       variant="secondary"
                       size="sm"
+                      className={styles.rowAction}
                       onClick={() => onSelect(r)}
                       aria-label={t('analytics.open_request', { id: r.id })}
                     >

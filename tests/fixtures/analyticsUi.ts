@@ -181,7 +181,15 @@ export function analyticsScenario(
       ...data.summary,
       bucket_ms: query.from_ms + i * step,
       calls: [0, 3, 7, 12, 6, 9][i % 6],
-      p95_ttft_ms: i % 3 === 0 ? null : 150,
+      // Volumes move with traffic so trend lines are distinguishable in screenshots.
+      input_tokens: [2_100, 6_400, 9_800, 16_000, 7_300, 11_200][i % 6] * (1 + (i % 4) / 3),
+      output_tokens: [90, 320, 610, 1_050, 410, 700][(i + 1) % 6],
+      cache_read_tokens: [1_200, 4_000, 7_500, 12_800, 5_200, 8_600][(i + 2) % 6],
+      total_tokens: [3_400, 10_700, 17_900, 29_900, 12_900, 20_500][i % 6] * (1 + (i % 4) / 3),
+      cost: { ...data.summary.cost, usd: [0.4, 1.3, 2.6, 4.9, 1.8, 3.2][(i + 3) % 6] },
+      average_latency_ms: [800, 950, 1_400, 1_900, 1_100, 1_250][i % 6],
+      p95_latency_ms: [1_600, 2_100, 2_900, 3_800, 2_400, 2_700][i % 6],
+      p95_ttft_ms: i % 3 === 0 ? null : [150, 210, 320, 480, 260, 300][i % 6],
     })
   ).filter((_, i) => i !== 2); // A missing time bucket is different from an explicit zero.
   data.providers.push({ ...data.summary, key: 'codex', label: 'GPT / Codex' });
@@ -225,8 +233,11 @@ export function analyticsScenario(
     data.summary.average_latency_ms = null;
     data.summary.p95_latency_ms = null;
     data.summary.p95_ttft_ms = null;
-    data.timeline.forEach((point) => {
+    // Unknown timing stays unknown everywhere, not only in the totals.
+    [...data.timeline, ...data.providers, ...data.models].forEach((point) => {
       point.cost = data.summary.cost;
+      point.average_latency_ms = null;
+      point.p95_latency_ms = null;
       point.p95_ttft_ms = null;
     });
     data.requests.items.forEach((r) => {

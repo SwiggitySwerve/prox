@@ -21,10 +21,12 @@ test('all controls, keyboard drilldown, paging, details and model schedules', as
     path: test.info().outputPath('expanded-rates.png'),
     animations: 'disabled',
   });
+  // The first-token chart has unmeasured hours, so its table must say Unavailable.
+  await app.tab('Performance');
   const alternative = page
-    .locator('details')
-    .filter({ has: page.getByText('View data table', { exact: true }) })
-    .first();
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: /^p95 reported TTFT/ }) })
+    .locator('details');
   await alternative.locator('summary').click();
   await expect(alternative.locator('table')).toBeVisible();
   await expect(alternative.locator('table')).toContainText('Unavailable');
@@ -118,7 +120,9 @@ for (const width of [1440, 1024, 390]) {
               els.every((el) => {
                 const range = document.createRange();
                 range.selectNodeContents(el);
-                return range.getClientRects().length <= 1;
+                // One line of text: all boxes, including screen-reader text, sit on one line box.
+                const tops = [...range.getClientRects()].map((r) => r.top);
+                return Math.max(...tops) - Math.min(...tops) < 8;
               })
             )
         ).toBe(true);
@@ -220,12 +224,12 @@ test('loading, error, retry and obsolete responses', async ({ page, app }, info)
     page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('codex')
   );
   await app.tab('Requests');
-  await expect(page.locator('tbody')).toContainText('codex');
+  await expect(page.locator('tbody')).toContainText('GPT / Codex');
   const settled = app.settled;
   app.release();
   await expect.poll(() => app.settled).toBeGreaterThan(settled);
   await expect(page.locator('#analytics-panel')).toHaveAttribute('aria-busy', 'false');
-  await expect(page.locator('tbody')).not.toContainText('claude');
+  await expect(page.locator('tbody')).not.toContainText('Claude');
 });
 
 test('chart inspection follows the selected metric instead of retaining an old value', async ({
@@ -237,7 +241,7 @@ test('chart inspection follows the selected metric instead of retaining an old v
   const chart = page.locator('section').filter({
     has: page.getByRole('heading', { name: 'By provider · Retained events', exact: true }),
   });
-  await chart.locator('rect[role=button]').first().focus();
+  await chart.getByRole('button', { name: /^Claude: / }).focus();
   await expect(chart.locator('output')).toHaveText('Claude: 128');
   await app.tab('Tokens & Cache');
   const changed = page.locator('section').filter({

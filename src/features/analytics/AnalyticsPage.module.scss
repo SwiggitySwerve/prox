@@ -1,4 +1,8 @@
 .page {
+  // Metric inks for charts: distinct from provider, status and warning colours.
+  --analytics-requests: var(--primary-color);
+  --analytics-tokens: #a99cff;
+  --analytics-cost: #67d4e0;
   min-width: 0;
   max-width: 100%;
   display: flex;
@@ -12,7 +16,7 @@
     letter-spacing: -0.6px;
   }
   h2 {
-    font-size: 15px;
+    font-size: 13px;
     margin: 0 0 12px;
   }
   h3 {
@@ -27,6 +31,11 @@
   p {
     margin: 6px 0;
     line-height: 1.55;
+  }
+  // Disclosure rows keep their marker; padding gives them a 24px target.
+  summary {
+    padding-block: 3px;
+    line-height: 18px;
   }
   button,
   select,
@@ -132,7 +141,7 @@
 }
 .coverage {
   background: var(--bg-primary);
-  border-left: 2px solid var(--codex-color);
+  border-left: 2px solid var(--border-hover);
   padding: 10px 14px;
   font-size: 11px;
   color: var(--text-secondary);
@@ -161,31 +170,105 @@
   overflow-wrap: anywhere;
 }
 .metrics {
+  --cols: 4;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   gap: 10px;
+  &[data-count='6'],
+  &[data-count='3'] {
+    --cols: 3;
+  }
+  &[data-count='1'] {
+    grid-template-columns: minmax(0, 340px);
+  }
 }
 .metric {
+  --metric-color: var(--text-secondary);
   min-width: 0;
-  padding: 14px;
+  padding: 12px 14px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  // The qualifier sits under the value; the sparkline row absorbs spare height at the bottom.
+  grid-template-rows: auto auto auto 1fr;
+  grid-template-areas:
+    'label'
+    'value'
+    'sub'
+    'spark';
+  gap: 6px;
 }
-.metric > span,
+.metricLabel {
+  grid-area: label;
+  // Two lines reserved, so values line up even when a neighbour's label wraps.
+  min-height: 29px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.3;
+}
+.metricIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+.metric[data-tone='metric'] .metricIcon {
+  background: color-mix(in srgb, var(--metric-color) 16%, transparent);
+  color: var(--metric-color);
+}
+.metric strong {
+  grid-area: value;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.metric strong[data-unavailable='true'] {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+}
 .metric small {
+  grid-area: sub;
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.noSpark {
+  grid-area: spark;
+  align-self: end;
   color: var(--text-secondary);
   font-size: 11px;
 }
-.metric strong {
-  font-size: 25px;
-  letter-spacing: -0.7px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+.spark {
+  grid-area: spark;
+  align-self: end;
+  width: 100%;
+  height: 24px;
+  overflow: visible;
+  path {
+    fill: none;
+    stroke: var(--text-quaternary);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+  }
+  &[data-charted='true'] path {
+    stroke: var(--metric-color);
+  }
 }
 .chartGrid {
   display: grid;
@@ -200,43 +283,245 @@
   border-radius: var(--radius-md);
   background: var(--bg-primary);
 }
-.chart {
-  display: block;
-  width: 100%;
-  height: clamp(140px, 18vw, 180px);
-  overflow: visible;
-}
 .axis {
   stroke: var(--border-primary);
 }
-.bar {
-  fill: var(--codex-color);
-  opacity: 0.8;
+.gridLine {
+  stroke: var(--border-color);
 }
-.chart rect[role='button'] {
-  cursor: pointer;
+.trendHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 18px;
+  h3 {
+    margin: 0;
+  }
 }
-.chart rect[role='button']:hover,
-.chart rect:focus-visible {
-  fill: var(--primary-10);
-  outline: 2px solid var(--focus-ring);
+.narrowOnly {
+  display: none;
 }
-.chartScale,
-.chartLabels {
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  li[data-empty='true'] {
+    color: var(--text-tertiary);
+  }
+  svg {
+    width: 24px;
+    height: 8px;
+  }
+  line {
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+}
+.trendPlot[data-empty='true'] {
+  grid-template-rows: 120px auto;
+}
+.trendPlot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 240px auto;
+  column-gap: 10px;
+  margin-top: 16px;
+  &[data-axes='2'] {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  &[data-axes='3'] {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+  }
+}
+.trendAxis {
+  position: relative;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2px 0;
   color: var(--text-secondary);
   font-size: 11px;
-  line-height: 1.5;
-}
-.chartLabels {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-.chartLabels span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  &[data-side='left'] {
+    grid-column: 1;
+    // One gutter width for every chart, so a given time sits at the same x on each.
+    min-width: 44px;
+    text-align: right;
+  }
+}
+.axisKey {
+  display: inline-block;
+  width: 18px;
+  height: 8px;
+  margin-right: 5px;
+  vertical-align: middle;
+  line {
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+}
+.trendSvg {
+  grid-column: 2;
+  grid-row: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.trendLine {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.trendArea {
+  opacity: 0.1;
+}
+.trendPoint {
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.trendDot {
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+.guide {
+  stroke: var(--border-hover);
+  stroke-dasharray: 3 3;
+}
+.hit {
+  cursor: pointer;
+  outline: none;
+  &:focus-visible {
+    fill: var(--primary-10);
+  }
+}
+.trendNoValues {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
+  margin: 0;
+  padding: 2px 10px;
+  // A solid chip, so gridlines never run through the message.
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.trendTime {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  height: 18px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  span[data-edge='start'] {
+    transform: none;
+  }
+  span[data-edge='end'] {
+    transform: translateX(-100%);
+  }
+}
+.trendScale {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+// Paired breakdown cards keep their table disclosures on one baseline.
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  > details {
+    margin-top: auto;
+    padding-top: 8px;
+  }
+}
+.ranked {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rankedRow {
+  display: grid;
+  // Name and value on one line, the bar full width beneath, so long names never squeeze.
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 6px 14px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  strong {
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+button.rankedRow {
+  cursor: pointer;
+}
+.rankedRow strong[data-unavailable='true'] {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.rankedRow:hover {
+  background: var(--bg-hover);
+}
+.rankedLabel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+.categoryDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.rankedTrack {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--text-secondary);
+  }
 }
 .readout {
   font-size: 11px;
@@ -247,6 +532,97 @@
   max-width: 100%;
   overflow: auto;
   overscroll-behavior-inline: contain;
+  // Edge shadows appear only where more columns are scrolled out of view.
+  background:
+    linear-gradient(to right, var(--bg-primary) 30%, transparent) left / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--bg-primary) 30%, transparent) right / 32px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgb(255 255 255 / 0.14), transparent) left / 12px 100%
+      no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgb(255 255 255 / 0.14), transparent) right / 12px
+      100% no-repeat scroll;
+}
+.requests td[data-numeric],
+.requests th:nth-child(n + 4):nth-child(-n + 7),
+.rates td[data-numeric],
+.rates th:nth-child(n + 5):nth-child(-n + 8) {
+  text-align: right;
+}
+.requests td:first-child {
+  white-space: nowrap;
+}
+.requests td:last-child {
+  vertical-align: top;
+}
+.rates td[data-missing='true'] {
+  color: var(--text-secondary);
+}
+.providerName {
+  display: flex !important;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+  }
+  &[data-provider='claude']::before {
+    background: var(--claude-color);
+  }
+  &[data-provider='codex']::before {
+    background: var(--codex-color);
+  }
+}
+.page .rowAction {
+  border: 1px solid var(--border-primary);
+  background: transparent;
+  font-weight: 500;
+}
+
+.requests th {
+  white-space: nowrap;
+}
+.requests td:last-child,
+.requests th:last-child {
+  text-align: right;
+}
+.rates th[scope='row'] {
+  min-width: 220px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.rates thead th,
+.rates td:first-child {
+  white-space: nowrap;
+}
+.warningNotice {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+.emptyState {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  h2 {
+    margin: 0 0 4px;
+    color: var(--text-primary);
+    font-size: 15px;
+  }
+  p {
+    margin: 0;
+  }
+  > svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
 }
 .tableScroll table {
   border-collapse: collapse;
@@ -304,11 +680,13 @@
 }
 .rates summary {
   cursor: pointer;
-  color: var(--codex-color);
+  color: var(--text-primary);
 }
 .textButton {
   border: 0;
-  color: var(--codex-color);
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
   background: transparent;
   padding: 0;
   font: inherit;
@@ -347,6 +725,16 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+.errorState {
+  border-left: 3px solid var(--error-color);
+  > svg,
+  h2 {
+    color: var(--failure-badge-text);
+  }
+  button {
+    margin-top: 12px;
+  }
+}
 .state {
   padding: 36px 20px;
   border: 1px solid var(--border-color);
@@ -364,10 +752,59 @@
   white-space: nowrap;
   border: 0;
 }
+// Touch screens: every control is at least 44px tall.
+@media (max-width: 700px), (pointer: coarse) {
+  .page :is(button, select, input:not([type='checkbox'])) {
+    min-height: 44px;
+  }
+  .page summary {
+    padding-block: 13px;
+  }
+  .filters select,
+  .filters input {
+    height: 44px;
+  }
+}
 @media (max-width: 700px) {
   .chartGrid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .metrics {
+    --cols: 2;
+    &[data-count='6'],
+    &[data-count='3'] {
+      --cols: 2;
+    }
+  }
+  .metric strong {
+    font-size: 19px;
+  }
+  .trendPlot,
+  .trendPlot[data-axes='2'],
+  .trendPlot[data-axes='3'] {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: 260px auto;
+  }
+  .trendAxis[data-side='right'],
+  .trendTime span[data-minor='true'],
+  .wideOnly {
+    display: none;
+  }
+  .narrowOnly {
+    display: inline;
+  }
+  // Three cards: the lead spans the row and two pair beneath; Performance stacks, as its
+  // TTFT label is too long for a half card.
+  .metrics[data-count='3'] > :first-child {
+    grid-column: 1 / -1;
+  }
+  .metrics[data-tab='performance'] {
+    --cols: 1;
+  }
+  .header {
+    margin-top: 8px;
+  }
+
   .header {
     align-items: flex-start;
   }
@@ -389,6 +826,10 @@
   }
 }
 
+.chartReadout:empty {
+  min-height: 0;
+  margin: 0;
+}
 .chartReadout {
   display: block;
   min-height: 20px;
@@ -397,4 +838,65 @@
   line-height: 1.5;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
+}
+
+// Narrow screens: each table row becomes a card of label/value pairs instead of a wide table.
+@media (max-width: 600px) {
+  .stacked {
+    min-width: 0;
+    thead {
+      display: none;
+    }
+    tbody,
+    tr,
+    td,
+    th {
+      display: block;
+    }
+    tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    td,
+    th {
+      padding: 0;
+      border: 0;
+      max-width: none;
+      min-width: 0;
+      text-align: left;
+      white-space: normal;
+    }
+    td[data-numeric] {
+      text-align: left;
+    }
+    [data-label]::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: 2px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 400;
+    }
+    td:last-child {
+      grid-column: 1 / -1;
+    }
+    td:last-child {
+      text-align: right;
+    }
+  }
+  .requests td:nth-child(2),
+  .rates th[scope='row'] {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+  .rates {
+    min-width: 0;
+  }
+  // Desktop keeps source names on one line; stacked cards must wrap them.
+  .rates td:first-child {
+    white-space: normal;
+  }
 }
