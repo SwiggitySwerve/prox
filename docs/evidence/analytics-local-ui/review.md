@@ -86,3 +86,33 @@ local review cycle. Deployment and post-release checks follow this approval.
 
 Logs: `/tmp/prox-analytics-mock-final.log`,
 `/tmp/prox-analytics-local-verify.log`, `/tmp/prox-analytics-focused.log`.
+
+## Release
+
+Committed and pushed directly to main as `3e9e8b0`, following the standing no-PR
+instruction, after the local cycle and Sol approval. Deployed image:
+`localhost/prox:analytics-ui-reviewed-20261029`. Only the Prox UI was restarted.
+The image IDs and start times of history, CPA Manager, GPT and Claude were checked
+before and after and remained unchanged. The served HTML SHA-256 matches the
+verified local build. Previous UI image and quadlet are retained for rollback.
+
+Post-deployment Playwright checks used the authenticated local production endpoint:
+all six tabs, request details, next/previous pages, provider filtering, chart
+bucket drilldown and 390px layout passed. Zero page errors or document overflow.
+Live desktop Model Rates and mobile screenshots were visually inspected.
+Public SSO sign-in was not repeated. Live checks remain separate from the fully
+mocked pre-commit suite.
+
+## Pipeline-health evidence
+
+- **CI at merge:** NOT-RUN — direct main push; explicit fork Actions query returned
+  no run for the release head. Required local checks passed before commit.
+- **Post-merge validation:** PASS — served artifact matches, health endpoint HTTP
+  200, six-tab live browser acceptance, and backend services preserved.
+- **Error-log baseline:** PASS — zero error/panic/fatal lines in the five-minute
+  predeployment UI sample and zero since the new UI's startup through 06:29 UTC
+  (about 71 seconds), against a zero threshold. This is a short sample.
+
+Sanitized deployment details are in `deployment.json`; live browser output is
+`/tmp/prox-analytics-ui-reviewed-live.log`. No unqualified remote-CI or public-SSO
+verification claim is made.

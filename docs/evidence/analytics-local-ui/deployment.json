@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-10-29T06:29:06.173392+00:00",
+  "image": "localhost/prox:analytics-ui-reviewed-20261029",
+  "revision": "3e9e8b08124672e1915a00743156470c69f38366",
+  "startedAt": "2026-10-29T06:27:55.32070124Z",
+  "status": "running",
+  "window": "since current UI startup",
+  "panicFatal": 0,
+  "errorLines": 0,
+  "artifactHashMatches": true,
+  "fourBackendServicesUnchanged": true,
+  "browser": {
+    "mode": "live",
+    "tabs": 6,
+    "details": true,
+    "mobileOverflow": false,
+    "pageErrors": [],
+    "queryCount": 6
+  },
+  "remoteCI": "not-run"
+}
