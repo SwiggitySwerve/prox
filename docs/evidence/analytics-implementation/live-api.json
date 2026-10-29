@@ -1,0 +1,169 @@
+{
+  "queries": [
+    {
+      "days": 1,
+      "seconds": 2.278,
+      "schema": 1,
+      "calls": 18834,
+      "providers": [
+        "claude",
+        "codex"
+      ],
+      "catalogSources": [
+        {
+          "instance_id": "codex-primary",
+          "label": "GPT / Codex",
+          "state": "ready"
+        },
+        {
+          "instance_id": "claude-primary",
+          "label": "Claude / Claude Code",
+          "state": "ready"
+        }
+      ],
+      "registeredModels": 10,
+      "pricedRegisteredModels": 9,
+      "requestRows": 25,
+      "hasMore": true,
+      "coverage": "unavailable",
+      "nullTTFT": 0
+    },
+    {
+      "days": 1,
+      "seconds": 0.742,
+      "schema": 1,
+      "calls": 18836,
+      "providers": [
+        "claude",
+        "codex"
+      ],
+      "catalogSources": [
+        {
+          "instance_id": "codex-primary",
+          "label": "GPT / Codex",
+          "state": "ready"
+        },
+        {
+          "instance_id": "claude-primary",
+          "label": "Claude / Claude Code",
+          "state": "ready"
+        }
+      ],
+      "registeredModels": 10,
+      "pricedRegisteredModels": 9,
+      "requestRows": 25,
+      "hasMore": true,
+      "coverage": "unavailable",
+      "nullTTFT": 0
+    },
+    {
+      "days": 1,
+      "seconds": 0.703,
+      "schema": 1,
+      "calls": 9846,
+      "providers": [
+        "claude"
+      ],
+      "catalogSources": [
+        {
+          "instance_id": "codex-primary",
+          "label": "GPT / Codex",
+          "state": "ready"
+        },
+        {
+          "instance_id": "claude-primary",
+          "label": "Claude / Claude Code",
+          "state": "ready"
+        }
+      ],
+      "registeredModels": 10,
+      "pricedRegisteredModels": 9,
+      "requestRows": 25,
+      "hasMore": true,
+      "coverage": "unavailable",
+      "nullTTFT": 0
+    },
+    {
+      "days": 1,
+      "seconds": 0.651,
+      "schema": 1,
+      "calls": 8993,
+      "providers": [
+        "codex"
+      ],
+      "catalogSources": [
+        {
+          "instance_id": "codex-primary",
+          "label": "GPT / Codex",
+          "state": "ready"
+        },
+        {
+          "instance_id": "claude-primary",
+          "label": "Claude / Claude Code",
+          "state": "ready"
+        }
+      ],
+      "registeredModels": 10,
+      "pricedRegisteredModels": 9,
+      "requestRows": 25,
+      "hasMore": true,
+      "coverage": "unavailable",
+      "nullTTFT": 0
+    },
+    {
+      "days": 30,
+      "seconds": 11.454,
+      "schema": 1,
+      "calls": 322094,
+      "providers": [
+        "claude",
+        "codex"
+      ],
+      "catalogSources": [
+        {
+          "instance_id": "codex-primary",
+          "label": "GPT / Codex",
+          "state": "ready"
+        },
+        {
+          "instance_id": "claude-primary",
+          "label": "Claude / Claude Code",
+          "state": "ready"
+        }
+      ],
+      "registeredModels": 10,
+      "pricedRegisteredModels": 9,
+      "requestRows": 25,
+      "hasMore": true,
+      "coverage": "unavailable",
+      "nullTTFT": 0
+    }
+  ],
+  "newMeasurements": {
+    "observedNewProviders": [
+      "claude",
+      "codex"
+    ],
+    "sources": [
+      "claude-primary",
+      "codex-primary"
+    ],
+    "knownUsageRecords": 25,
+    "timingMethods": [
+      "first-byte",
+      "substantive-content"
+    ],
+    "recordsWithTiming": 25,
+    "unpricedRegisteredModels": [
+      "gpt-6.1-terra"
+    ]
+  },
+  "browser": {
+    "mode": "live",
+    "tabs": 6,
+    "details": true,
+    "mobileOverflow": false,
+    "pageErrors": [],
+    "queryCount": 6
+  }
+}

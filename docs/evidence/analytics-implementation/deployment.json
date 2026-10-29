@@ -1,0 +1,54 @@
+{
+  "checkedAt": "2026-10-29T05:47:14.920854+00:00",
+  "window": "last 5m or since startup for younger containers",
+  "services": {
+    "cli-proxy-api": {
+      "image": "localhost/cli-proxy-api:analytics-85eabdce",
+      "revision": "85eabdce",
+      "startedAt": "2026-10-29T05:43:04.22558374Z",
+      "status": "running",
+      "restarts": 0,
+      "panicFatal": 0,
+      "errorLines": 0
+    },
+    "cli-proxy-claude": {
+      "image": "localhost/cli-proxy-api:analytics-85eabdce",
+      "revision": "85eabdce",
+      "startedAt": "2026-10-29T05:42:48.047822587Z",
+      "status": "running",
+      "restarts": 0,
+      "panicFatal": 0,
+      "errorLines": 0
+    },
+    "cpa-manager-plus": {
+      "image": "localhost/cpa-manager-plus:analytics-67fbac59",
+      "revision": "67fbac59",
+      "startedAt": "2026-10-29T05:41:16.331281192Z",
+      "status": "running",
+      "restarts": 0,
+      "panicFatal": 0,
+      "errorLines": 0
+    },
+    "prox-history": {
+      "image": "localhost/prox-history:analytics-8a67c3b",
+      "revision": "8a67c3b",
+      "startedAt": "2026-10-29T05:42:17.615077413Z",
+      "status": "running",
+      "restarts": 0,
+      "panicFatal": 0,
+      "errorLines": 0
+    },
+    "prox": {
+      "image": "localhost/prox:analytics-final-20261029",
+      "revision": "0cc4015596c68edbb7b720de4bcd29045baaa21d",
+      "startedAt": "2026-10-29T05:45:16.310136865Z",
+      "status": "running",
+      "restarts": 0,
+      "panicFatal": 0,
+      "errorLines": 0
+    }
+  },
+  "publicSSOSignIn": "not-run",
+  "usagePanelHashMatch": true,
+  "remoteReleaseCI": "not-run"
+}

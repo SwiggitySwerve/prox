@@ -27,3 +27,8 @@ with an unpriced resolved model. Monitoring and pricing suites and the Go build
 passed after this correction.
 
 Round 3: APPROVE. S2 resolved; Sol independently reran both alias-price regression cases. No new findings. All five findings are resolved. No findings declined. Review usage was not returned.
+
+Deployment follow-up: the final live visual check exposed wrapped large totals.
+Commit `0cc4015` only increases Analytics summary-card minimum width. Full Prox
+verification and live/synthetic browser checks passed; no pricing or data logic
+changed after Sol's approval. Deployment evidence is in verification.md.
