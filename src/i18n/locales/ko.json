@@ -2507,8 +2507,21 @@
     "ranges": {
       "1h": "최근 1시간",
       "24h": "최근 24시간",
+      "today": "오늘",
+      "yesterday": "어제",
       "7d": "최근 7일",
       "30d": "최근 30일"
+    },
+    "bucket": "버킷 크기",
+    "buckets": {
+      "auto": "자동",
+      "hour": "시간별",
+      "day": "일별"
+    },
+    "current_bucket": "현재 버킷: {{unit}}",
+    "bucket_units": {
+      "hour": "시간",
+      "day": "일"
     },
     "provider": "제공업체",
     "model": "모델",

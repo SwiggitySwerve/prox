@@ -2507,8 +2507,21 @@
     "ranges": {
       "1h": "Last hour",
       "24h": "Last 24 hours",
+      "today": "Today",
+      "yesterday": "Yesterday",
       "7d": "Last 7 days",
       "30d": "Last 30 days"
+    },
+    "bucket": "Bucket size",
+    "buckets": {
+      "auto": "Auto",
+      "hour": "Hourly",
+      "day": "Daily"
+    },
+    "current_bucket": "Current bucket: {{unit}}",
+    "bucket_units": {
+      "hour": "hour",
+      "day": "day"
     },
     "provider": "Provider",
     "model": "Model",

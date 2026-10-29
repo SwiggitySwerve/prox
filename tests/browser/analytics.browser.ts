@@ -75,15 +75,33 @@ test('all controls, keyboard drilldown, paging, details and model schedules', as
   await app.change(() => page.getByRole('button', { name: 'Clear filters', exact: true }).click());
   expect(app.queries.at(-1)?.provider).toBeUndefined();
   for (const [range, span] of [
-    ['1h', 3_600_000],
-    ['7d', 604_800_000],
-    ['30d', 2_592_000_000],
+    ['Last hour', 3_600_000],
+    ['Last 7 days', 604_800_000],
+    ['Last 30 days', 2_592_000_000],
   ] as const) {
-    await app.change(() =>
-      page.getByRole('combobox', { name: 'Time range', exact: false }).selectOption(range)
-    );
+    await app.change(() => page.getByRole('button', { name: range, exact: true }).click());
     expect(app.queries.at(-1)!.to_ms - app.queries.at(-1)!.from_ms).toBe(span);
+    await expect(page.getByRole('button', { name: range, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
   }
+  // A chosen bucket size overrides the range's automatic one and survives a range change.
+  expect(app.queries.at(-1)!.granularity).toBe('day');
+  await app.change(() => page.getByRole('button', { name: 'Hourly', exact: true }).click());
+  expect(app.queries.at(-1)!.granularity).toBe('hour');
+  await expect(page.getByText('Current bucket: hour')).toBeVisible();
+  // Today and Yesterday are UTC calendar days; the harness clock is 2026-10-29 12:00 UTC.
+  const midnight = Date.UTC(2026, 9, 29);
+  await app.change(() => page.getByRole('button', { name: 'Yesterday', exact: true }).click());
+  expect(app.queries.at(-1)).toMatchObject({
+    from_ms: midnight - 86_400_000,
+    to_ms: midnight,
+    granularity: 'hour',
+  });
+  await app.change(() => page.getByRole('button', { name: 'Auto', exact: true }).click());
+  await app.change(() => page.getByRole('button', { name: 'Today', exact: true }).click());
+  expect(app.queries.at(-1)!.from_ms).toBe(midnight);
   await app.change(() =>
     page.getByRole('combobox', { name: 'Recorded outcome', exact: true }).selectOption('failed')
   );
@@ -265,27 +283,44 @@ test('logging out while analytics is pending hides the previous session', async 
   await expect(page.locator('#analytics-panel')).toHaveCount(0);
 });
 
-// The page opens on its first chart: header, filters, tabs and cards fit above it.
+// The page opens on its first chart: header, filters, tabs and cards fit above it, at every
+// desktop window size and with the sidebar open or collapsed.
 for (const { width, height } of analyticsViewports.filter((size) => size.width >= 1024)) {
-  test(`first chart is on screen at ${width}x${height}`, async ({ page, app }) => {
-    await page.setViewportSize({ width, height });
-    app.scenario = 'large';
-    await app.login();
-    await app.loaded();
-    // Filter buttons match the fields beside them.
-    const heights = await page
-      .locator('section[aria-label="Shared filters"] :is(select, input, button)')
-      .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
-    expect(new Set(heights).size, `control heights ${heights}`).toBe(1);
-    for (const name of ['Overview', 'Tokens & Cache']) {
-      await app.tab(name);
-      const bottom = await page
-        .locator('[class*=trendTime]')
-        .first()
-        .evaluate((el) => el.getBoundingClientRect().bottom);
-      expect(bottom, `${name} chart bottom`).toBeLessThanOrEqual(height);
-    }
-  });
+  for (const sidebar of ['open', 'collapsed'] as const) {
+    test(`first chart is on screen at ${width}x${height}, sidebar ${sidebar}`, async ({
+      page,
+      app,
+    }) => {
+      await page.setViewportSize({ width, height });
+      app.scenario = 'large';
+      await app.login();
+      await app.loaded();
+      if (sidebar === 'collapsed') await page.locator('.sidebar-toggle-floating').click();
+      // The raised title is painted, not clipped by the shell or hidden under its controls.
+      const title = await page
+        .getByRole('heading', { name: 'Analytics', level: 1 })
+        .evaluate((h1) => {
+          const box = h1.getBoundingClientRect();
+          const hit = document.elementFromPoint(box.left + 8, box.top + box.height / 2);
+          return { top: box.top, painted: !!hit && h1.contains(hit) };
+        });
+      expect(title.painted, 'title is visible').toBe(true);
+      expect(title.top).toBeGreaterThanOrEqual(0);
+      // Filter buttons match the fields beside them.
+      const heights = await page
+        .locator('section[aria-label="Shared filters"] :is(select, input, button)')
+        .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
+      expect(new Set(heights).size, `control heights ${heights}`).toBe(1);
+      for (const name of ['Overview', 'Tokens & Cache']) {
+        await app.tab(name);
+        const bottom = await page
+          .locator('[class*=trendTime]')
+          .first()
+          .evaluate((el) => el.getBoundingClientRect().bottom);
+        expect(bottom, `${name} chart bottom`).toBeLessThanOrEqual(height);
+      }
+    });
+  }
 }
 
 for (const { width, height } of analyticsViewports) {
@@ -395,3 +430,17 @@ for (const width of [320, 390, 600]) {
     await expect(page.getByRole('combobox', { name: 'Provider', exact: true })).toBeVisible();
   });
 }
+
+test('the shell top fade waits for scrolling, so the raised title stays readable', async ({
+  page,
+  app,
+}) => {
+  await page.setViewportSize({ width: 2293, height: 840 });
+  app.scenario = 'large';
+  await app.login();
+  await app.loaded();
+  const fade = page.locator('.top-gradient-blur');
+  await expect.poll(() => fade.evaluate((el) => getComputedStyle(el).opacity)).toBe('0');
+  await page.locator('.content').evaluate((el) => el.scrollBy(0, 300));
+  await expect.poll(() => fade.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+});

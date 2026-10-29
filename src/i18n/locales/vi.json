@@ -2513,8 +2513,21 @@
     "ranges": {
       "1h": "1 giờ qua",
       "24h": "24 giờ qua",
+      "today": "Hôm nay",
+      "yesterday": "Hôm qua",
       "7d": "7 ngày qua",
       "30d": "30 ngày qua"
+    },
+    "bucket": "Kích thước nhóm",
+    "buckets": {
+      "auto": "Tự động",
+      "hour": "Theo giờ",
+      "day": "Theo ngày"
+    },
+    "current_bucket": "Nhóm hiện tại: {{unit}}",
+    "bucket_units": {
+      "hour": "giờ",
+      "day": "ngày"
     },
     "provider": "Nhà cung cấp",
     "model": "Mô hình",

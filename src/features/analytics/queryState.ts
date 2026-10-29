@@ -1,12 +1,16 @@
 import type { AnalyticsQuery, AnalyticsResponse } from '@/domain/analytics/types';
 
-export const ranges = ['1h', '24h', '7d', '30d'] as const;
+export const ranges = ['1h', '24h', 'today', 'yesterday', '7d', '30d'] as const;
 export type AnalyticsRange = (typeof ranges)[number];
-const rangeMilliseconds: Record<AnalyticsRange, number> = {
+/** Auto lets the range pick: hours up to a day, days beyond. The server buckets only hour or day. */
+export const buckets = ['auto', 'hour', 'day'] as const;
+export type AnalyticsBucket = (typeof buckets)[number];
+const DAY = 86_400_000;
+const rangeMilliseconds: Record<'1h' | '24h' | '7d' | '30d', number> = {
   '1h': 3_600_000,
-  '24h': 86_400_000,
-  '7d': 604_800_000,
-  '30d': 2_592_000_000,
+  '24h': DAY,
+  '7d': 7 * DAY,
+  '30d': 30 * DAY,
 };
 export const analyticsTabs = [
   'overview',
@@ -20,12 +24,24 @@ export type AnalyticsTab = (typeof analyticsTabs)[number];
 export function analyticsTab(value: string | null): AnalyticsTab {
   return analyticsTabs.find((tab) => tab === value) ?? 'overview';
 }
-export function rangeQuery(range: AnalyticsRange, now: number): AnalyticsQuery {
+export function rangeQuery(
+  range: AnalyticsRange,
+  now: number,
+  bucket: AnalyticsBucket = 'auto'
+): AnalyticsQuery {
+  // Today and Yesterday are UTC calendar days, matching the page's UTC scope.
+  const midnight = Math.floor(now / DAY) * DAY;
+  const [from, to] =
+    range === 'today'
+      ? [midnight, now]
+      : range === 'yesterday'
+        ? [midnight - DAY, midnight]
+        : [now - rangeMilliseconds[range], now];
   return {
-    from_ms: now - rangeMilliseconds[range],
-    to_ms: now,
+    from_ms: from,
+    to_ms: to,
     time_zone: 'UTC',
-    granularity: range === '7d' || range === '30d' ? 'day' : 'hour',
+    granularity: bucket !== 'auto' ? bucket : range === '7d' || range === '30d' ? 'day' : 'hour',
     outcome: 'all',
     limit: 25,
   };

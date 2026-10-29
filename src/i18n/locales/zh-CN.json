@@ -2505,8 +2505,21 @@
     "ranges": {
       "1h": "最近 1 小时",
       "24h": "最近 24 小时",
+      "today": "今天",
+      "yesterday": "昨天",
       "7d": "最近 7 天",
       "30d": "最近 30 天"
+    },
+    "bucket": "分桶粒度",
+    "buckets": {
+      "auto": "自动",
+      "hour": "按小时",
+      "day": "按天"
+    },
+    "current_bucket": "当前分桶：{{unit}}",
+    "bucket_units": {
+      "hour": "小时",
+      "day": "天"
     },
     "provider": "提供商",
     "model": "模型",

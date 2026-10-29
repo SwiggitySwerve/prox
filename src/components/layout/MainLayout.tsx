@@ -35,12 +35,7 @@ import {
   IconChevronDown,
 } from '@/components/ui/icons';
 import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
-import {
-  useAuthStore,
-  useConfigStore,
-  useLanguageStore,
-  useNotificationStore,
-} from '@/stores';
+import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore } from '@/stores';
 import { AUTH_FILES_CHANGED_EVENT } from '@/features/authFiles/authFilesEvents';
 import {
   collectPluginResourceEntries,
@@ -321,6 +316,21 @@ export function MainLayout() {
     window.addEventListener('resize', updateRailTooltipPosition);
     return () => window.removeEventListener('resize', updateRailTooltipPosition);
   }, [railTooltip]);
+
+  // The top fade only softens content scrolling under the floating controls; at rest it
+  // would dim page headers that sit beside them.
+  const [contentAtTop, setContentAtTop] = useState(true);
+  useEffect(() => {
+    const el = contentRef.current;
+    const update = () => setContentAtTop((el?.scrollTop ?? 0) <= 0 && window.scrollY <= 0);
+    update();
+    el?.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('scroll', update, { passive: true });
+    return () => {
+      el?.removeEventListener('scroll', update);
+      window.removeEventListener('scroll', update);
+    };
+  }, []);
 
   // Keep the content center available to bottom overlays that align with the main area.
   useLayoutEffect(() => {
@@ -901,8 +911,8 @@ export function MainLayout() {
   return (
     <div
       className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''} ${
-        isPluginResourcePage ? 'plugin-resource-shell' : ''
-      }`}
+        contentAtTop ? 'content-at-top' : ''
+      } ${isPluginResourcePage ? 'plugin-resource-shell' : ''}`}
     >
       <div className="top-gradient-blur" aria-hidden="true" />
 
