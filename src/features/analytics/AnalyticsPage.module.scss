@@ -87,7 +87,8 @@
 }
 .filters label {
   display: flex;
-  flex: 1 1 120px;
+  flex: 1 1 110px;
+  max-width: 240px;
   min-width: 0;
   flex-direction: column;
   color: var(--text-secondary);
@@ -110,9 +111,21 @@
 .searchForm {
   display: flex;
   flex: 2 1 240px;
+  max-width: 480px;
   min-width: 0;
   align-items: center;
   gap: 8px;
+}
+// Filter actions match the fields beside them: same height, corners and text size.
+.page .filters button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+// Clear and Refresh sit at the row's end however wide the page is.
+.searchForm + button {
+  margin-left: auto;
 }
 .scope {
   font-size: 11px;
@@ -348,8 +361,9 @@
 .trendPlot {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  // Taller on wide pages so the lines keep their shape instead of flattening out.
-  grid-template-rows: clamp(240px, 22cqw, 420px) auto;
+  // Taller on wide pages so the lines keep their shape, but never taller than the window
+  // leaves room for above the chart.
+  grid-template-rows: clamp(240px, min(22cqw, 100dvh - 560px), 640px) auto;
   column-gap: 10px;
   margin-top: 16px;
   &[data-axes='2'] {
@@ -920,9 +934,6 @@ button.rankedRow {
 @container (min-width: 1500px) {
   .metrics[data-count='8'] {
     --cols: 8;
-    :is(.spark, .noSpark) {
-      flex-basis: 100%;
-    }
   }
   .metrics[data-count='6'] {
     --cols: 6;
@@ -932,6 +943,29 @@ button.rankedRow {
 @container (max-width: 1030px) {
   .spark,
   .noSpark {
+    flex-basis: 100%;
+  }
+}
+// Medium pages: the four filters share the first row, search and actions the second.
+@container (max-width: 1050px) {
+  .filters label {
+    flex-basis: calc(25% - 6px);
+    max-width: none;
+  }
+  .searchForm {
+    flex: 1 1 300px;
+    max-width: none;
+  }
+}
+@container (max-width: 600px) {
+  .filters label {
+    flex-basis: calc(50% - 4px);
+  }
+}
+// Eight cards in a row stay narrow until the page is very wide.
+@container (min-width: 1500px) and (max-width: 2100px) {
+  .metrics[data-count='8'] .spark,
+  .metrics[data-count='8'] .noSpark {
     flex-basis: 100%;
   }
 }

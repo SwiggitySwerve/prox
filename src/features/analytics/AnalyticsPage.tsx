@@ -222,7 +222,7 @@ export function AnalyticsPage() {
           {t('analytics.clear_filters')}
         </Button>
         <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
-          <IconRefreshCw size={15} /> {t('analytics.refresh')}
+          <IconRefreshCw size={13} /> {t('analytics.refresh')}
         </Button>
       </section>
       <nav className={styles.tabs} aria-label={t('analytics.views')} role="tablist">

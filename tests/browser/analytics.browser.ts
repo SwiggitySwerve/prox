@@ -266,7 +266,10 @@ test('logging out while analytics is pending hides the previous session', async 
 
 // The page opens on its first chart: header, filters, tabs and cards fit above it.
 for (const [width, height] of [
+  [3440, 1300],
+  [2560, 1300],
   [1920, 1000],
+  [1680, 950],
   [1440, 900],
 ] as const) {
   test(`first chart is on screen at ${width}x${height}`, async ({ page, app }) => {
@@ -274,6 +277,11 @@ for (const [width, height] of [
     app.scenario = 'large';
     await app.login();
     await app.loaded();
+    // Filter buttons match the fields beside them.
+    const heights = await page
+      .locator('section[aria-label="Shared filters"] :is(select, input, button)')
+      .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
+    expect(new Set(heights).size, `control heights ${heights}`).toBe(1);
     for (const name of ['Overview', 'Tokens & Cache']) {
       await app.tab(name);
       const bottom = await page

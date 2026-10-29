@@ -78,43 +78,71 @@ const GEOMETRY = () => {
   };
 };
 
-const screens: Array<{ name: string; tab: string; scenario: AnalyticsScenario; status?: number }> =
-  [
-    { name: 'overview', tab: 'Overview', scenario: 'large' },
-    { name: 'tokens', tab: 'Tokens & Cache', scenario: 'large' },
-    { name: 'cost', tab: 'Cost', scenario: 'large' },
-    { name: 'performance', tab: 'Performance', scenario: 'large' },
-    { name: 'requests', tab: 'Requests', scenario: 'large' },
-    { name: 'rates', tab: 'Model Rates', scenario: 'large' },
-    { name: 'empty', tab: 'Overview', scenario: 'empty' },
-    { name: 'unknown', tab: 'Performance', scenario: 'unknown' },
-    { name: 'error', tab: 'Overview', scenario: 'ready', status: 503 },
-  ];
+const screens: Array<{
+  name: string;
+  tab: string;
+  scenario: AnalyticsScenario;
+  status?: number;
+  loading?: boolean;
+}> = [
+  { name: 'overview', tab: 'Overview', scenario: 'large' },
+  { name: 'tokens', tab: 'Tokens & Cache', scenario: 'large' },
+  { name: 'cost', tab: 'Cost', scenario: 'large' },
+  { name: 'performance', tab: 'Performance', scenario: 'large' },
+  { name: 'requests', tab: 'Requests', scenario: 'large' },
+  { name: 'rates', tab: 'Model Rates', scenario: 'large' },
+  { name: 'empty', tab: 'Overview', scenario: 'empty' },
+  { name: 'unknown', tab: 'Performance', scenario: 'unknown' },
+  { name: 'error', tab: 'Overview', scenario: 'ready', status: 503 },
+  { name: 'loading', tab: 'Overview', scenario: 'ready', loading: true },
+];
 
-for (const width of [1920, 1440, 390]) {
-  // Wide desktop only for the chart-heavy tabs, where layout changes with width.
-  for (const screen of width === 1920
-    ? screens.filter((s) => ['overview', 'tokens'].includes(s.name))
-    : screens) {
+// Every screen at ultrawide, laptop and phone; the chart-heavy tabs at the sizes between.
+const sizes: Array<[number, number, 'all' | 'charts']> = [
+  [3440, 1300, 'all'],
+  [2560, 1300, 'charts'],
+  [1920, 1000, 'charts'],
+  [1440, 900, 'all'],
+  [1280, 720, 'charts'],
+  [1024, 768, 'charts'],
+  [768, 1024, 'charts'],
+  [390, 844, 'all'],
+];
+for (const [width, height, set] of sizes) {
+  for (const screen of set === 'all'
+    ? screens
+    : screens.filter((s) => ['overview', 'tokens'].includes(s.name))) {
     test(`capture ${screen.name} ${width}`, async ({ page, app }) => {
-      await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+      await page.setViewportSize({ width, height });
       app.scenario = screen.scenario;
+      app.hold = !!screen.loading;
       await app.login();
-      await app.loaded();
-      await app.tab(screen.tab);
+      if (screen.loading) {
+        await expect(page.getByText('Loading analytics…')).toBeVisible();
+      } else {
+        await app.loaded();
+        await app.tab(screen.tab);
+      }
       if (screen.status) {
         app.status = screen.status;
         await page.getByRole('button', { name: 'Refresh', exact: true }).click();
         await expect(page.getByRole('alert')).toBeVisible();
       }
-      // The app scrolls inside main; grow the viewport so one capture holds the whole page.
-      const height = await page.evaluate(() => document.querySelector('main')!.scrollHeight);
-      await page.setViewportSize({ width, height: Math.min(6000, height + 40) });
-      await page.waitForTimeout(150);
+      // First screen as the user sees it on load, then the whole page.
       const dir = join(out!, `${screen.name}-${width}`);
-      mkdirSync(out!, { recursive: true });
+      mkdirSync(join(out!, 'fold'), { recursive: true });
+      await page.waitForTimeout(150);
+      await page.screenshot({
+        path: join(out!, 'fold', `${screen.name}-${width}.png`),
+        animations: 'disabled',
+      });
+      // The app scrolls inside main; grow the viewport so one capture holds the whole page.
+      const full = await page.evaluate(() => document.querySelector('main')!.scrollHeight);
+      await page.setViewportSize({ width, height: Math.min(6000, full + 40) });
+      await page.waitForTimeout(150);
       await page.screenshot({ path: `${dir}.png`, animations: 'disabled' });
       writeFileSync(`${dir}.json`, JSON.stringify(await page.evaluate(GEOMETRY)));
+      app.release();
       expect(app.errors).toEqual([]);
     });
   }
