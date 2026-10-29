@@ -2473,7 +2473,8 @@
       "ttft": "p95 首 Token {{value}}",
       "reasoning": "推理 {{value}}",
       "uncached": "未缓存 {{value}}",
-      "writes": "缓存写入 {{value}}"
+      "writes": "缓存写入 {{value}}",
+      "hourly_only": "无区间总计；下方为每小时数值"
     },
     "trend": {
       "overview": "用量趋势",
@@ -2491,6 +2492,7 @@
     "empty_unfiltered": "此时间范围内没有保留任何事件。请选择更长的范围以查看更早的数据。",
     "trend_gaps": "空缺表示未测量的时段。",
     "no_data": "无数据",
+    "rate_dash_note": "— 表示未配置费率。",
     "no_measured_values": "此时段内没有测量值。",
     "no_hourly_series": "无按小时序列",
     "trend_shared_scale": "所有线共用同一毫秒刻度。空缺表示未测量的时段。",

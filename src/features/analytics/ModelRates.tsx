@@ -29,7 +29,9 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
             aria-label={t('analytics.tabs.rates')}
           >
             <table className={`${styles.rates} ${styles.stacked}`}>
-              <caption>{t('analytics.rate_unit')}</caption>
+              <caption>
+                {t('analytics.rate_unit')} · {t('analytics.rate_dash_note')}
+              </caption>
               <thead>
                 <tr>
                   {[

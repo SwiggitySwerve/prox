@@ -162,7 +162,8 @@ export function AnalyticsPage() {
               placeholder={t('analytics.search_hint')}
             />
           </label>
-          <Button type="submit" size="sm" variant="primary">
+          {/* While the dataset is unavailable, Retry is the one primary action. */}
+          <Button type="submit" size="sm" variant={error ? 'secondary' : 'primary'}>
             {t('analytics.apply')}
           </Button>
         </form>

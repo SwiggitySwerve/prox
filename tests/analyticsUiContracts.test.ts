@@ -307,14 +307,14 @@ describe('Analytics SSR presentation', () => {
     expect(markup).toContain('<table>');
     expect(markup).not.toContain('<text'); // Labels do not shrink with the SVG viewBox on mobile.
   });
-  test('axis maxima round to 1-2-2.5-5 steps and time ticks are evenly spaced UTC hours', () => {
+  test('axis maxima round to 1-1.5-2-2.5-3-5 steps and time ticks are evenly spaced UTC hours', () => {
     expect([
       niceMaximum(3_800),
       niceMaximum(4.9),
       niceMaximum(1_050),
       niceMaximum(12),
       niceMaximum(0),
-    ]).toEqual([4_000, 8, 2_000, 20, 0]);
+    ]).toEqual([4_000, 6, 1_200, 12, 0]);
     const from = Date.UTC(2026, 9, 28, 12, 30);
     const ticks = timeTicks(from, from + 86_400_000, 3_600_000, 6);
     expect(ticks.length).toBeLessThanOrEqual(6);
@@ -324,7 +324,15 @@ describe('Analytics SSR presentation', () => {
   test('a partly covered bucket is drawn inside the selected range', () => {
     const hour = 3_600_000;
     const from = 11 * hour + 10 * 60_000; // 11:10–12:10, buckets at 11:00 and 12:00
-    const frame = { from, to: from + hour, interval: hour, left: 0, right: 1000, top: 0, bottom: 100 };
+    const frame = {
+      from,
+      to: from + hour,
+      interval: hour,
+      left: 0,
+      right: 1000,
+      top: 0,
+      bottom: 100,
+    };
     const line = lineSegments(
       [
         { at: 11 * hour, value: 1 },

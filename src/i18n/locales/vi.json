@@ -2481,7 +2481,8 @@
       "ttft": "p95 TTFT {{value}}",
       "reasoning": "Suy luận {{value}}",
       "uncached": "Không cache {{value}}",
-      "writes": "Ghi cache {{value}}"
+      "writes": "Ghi cache {{value}}",
+      "hourly_only": "Không có tổng cho khoảng; giá trị theo giờ ở dưới"
     },
     "trend": {
       "overview": "Xu hướng sử dụng",
@@ -2499,6 +2500,7 @@
     "empty_unfiltered": "Không có gì được lưu trong khoảng thời gian này. Hãy chọn khoảng dài hơn để xem xa hơn.",
     "trend_gaps": "Khoảng trống là thời gian chưa đo.",
     "no_data": "không có dữ liệu",
+    "rate_dash_note": "— nghĩa là chưa cấu hình giá.",
     "no_measured_values": "Không có giá trị đo trong khoảng này.",
     "no_hourly_series": "Không có chuỗi theo giờ",
     "trend_shared_scale": "Mọi đường dùng chung một thang mili giây. Khoảng trống là thời gian chưa đo.",

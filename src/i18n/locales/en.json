@@ -2475,7 +2475,8 @@
       "ttft": "p95 TTFT {{value}}",
       "reasoning": "Reasoning {{value}}",
       "uncached": "Uncached {{value}}",
-      "writes": "Cache writes {{value}}"
+      "writes": "Cache writes {{value}}",
+      "hourly_only": "No range total; hourly values below"
     },
     "trend": {
       "overview": "Usage trend",
@@ -2493,6 +2494,7 @@
     "empty_unfiltered": "Nothing was retained in this time range. Choose a longer range to look further back.",
     "trend_gaps": "Gaps are unmeasured periods.",
     "no_data": "no data",
+    "rate_dash_note": "— means no configured rate.",
     "no_measured_values": "No measured values in this interval.",
     "no_hourly_series": "No hourly series",
     "trend_shared_scale": "All lines share one millisecond scale. Gaps are unmeasured periods.",

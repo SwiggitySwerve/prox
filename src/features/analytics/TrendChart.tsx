@@ -290,8 +290,10 @@ export function TrendChart({
                   key={at}
                   style={{ left: `${pct(at)}%` }}
                   data-edge={pct(at) < 4 ? 'start' : pct(at) > 96 ? 'end' : undefined}
-                  // Narrow screens show every other label, keeping the midnight one.
-                  data-minor={Math.abs(index - midnight) % 2 === 1}
+                  // Narrow screens show every other label, keeping the ends and midnight.
+                  data-minor={
+                    index > 0 && index < ticks.length - 1 && Math.abs(index - midnight) % 2 === 1
+                  }
                 >
                   {/* Hourly axes name the day where it changes. */}
                   {analyticsShortTime(at, i18n.language, daily || at % 86_400_000 === 0)}

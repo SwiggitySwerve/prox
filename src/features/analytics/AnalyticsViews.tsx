@@ -203,15 +203,16 @@ export function AnalyticsViews({
               bottom: 26,
             }
           );
-          const sub = subline(metric);
           // A sparkline only adds context to a known total that actually varies.
           const sparkValues = data.timeline
             .map((p) => valueOf(p, metric))
             .filter((v): v is number => v !== null);
-          // Runs shorter than three hours would read as stray marks at sparkline size.
-          const sparkRuns = spark.segments.filter((segment) => segment.length > 2);
-          const sparkShown =
-            value !== null && new Set(sparkValues).size > 1 && sparkRuns.length > 0;
+          const sparkShown = value !== null && new Set(sparkValues).size > 1;
+          // A missing total with hourly values says why, so the chart below doesn't look wrong.
+          const sub =
+            value === null && sparkValues.length > 0
+              ? t('analytics.card.hourly_only')
+              : subline(metric);
           return (
             <article
               key={metric}
@@ -242,16 +243,30 @@ export function AnalyticsViews({
                   data-charted={color !== undefined}
                   aria-hidden="true"
                 >
-                  {sparkRuns.map((segment, index) => (
-                    <path
-                      key={index}
-                      d={segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ')}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ))}
+                  {/* Same span as the trend chart; short runs are dots so they never read as stray marks. */}
+                  {spark.segments.map((segment, index) =>
+                    segment.length > 2 ? (
+                      <path
+                        key={index}
+                        d={segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ')}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ) : (
+                      segment.map(([x, y]) => (
+                        <path
+                          key={`${index}-${x}`}
+                          d={`M${x},${y} l0.01,0`}
+                          className={styles.sparkDot}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))
+                    )
+                  )}
                 </svg>
               ) : (
-                value !== null && (
+                // The page-level empty state already says nothing was retained.
+                value !== null &&
+                data.summary.calls > 0 && (
                   <span className={styles.noSpark}>{t('analytics.no_hourly_series')}</span>
                 )
               )}

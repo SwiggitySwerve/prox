@@ -191,13 +191,13 @@
   border-radius: var(--radius-md);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  // The sparkline row absorbs spare height so sublines align along a row of cards.
-  grid-template-rows: auto auto 1fr auto;
+  // The qualifier sits under the value; the sparkline row absorbs spare height at the bottom.
+  grid-template-rows: auto auto auto 1fr;
   grid-template-areas:
     'label'
     'value'
-    'spark'
-    'sub';
+    'sub'
+    'spark';
   gap: 6px;
 }
 .metricLabel {
@@ -253,6 +253,10 @@
   align-self: end;
   color: var(--text-secondary);
   font-size: 11px;
+}
+.sparkDot {
+  stroke-width: 3;
+  stroke-linecap: round;
 }
 .spark {
   grid-area: spark;
@@ -569,8 +573,13 @@ button.rankedRow {
     background: var(--codex-color);
   }
 }
-.rowAction {
+.page .rowAction {
   border: 1px solid var(--border-primary);
+  background: transparent;
+  font-weight: 500;
+}
+.requests td:nth-child(2) {
+  min-width: 220px !important;
 }
 .requests th {
   white-space: nowrap;
@@ -582,7 +591,11 @@ button.rankedRow {
 .rates th[scope='row'] {
   min-width: 220px;
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: 600;
+}
+.rates thead th,
+.rates td:first-child {
+  white-space: nowrap;
 }
 .warningNotice {
   background: var(--warning-bg);
@@ -770,7 +783,7 @@ button.rankedRow {
   .trendPlot[data-axes='2'],
   .trendPlot[data-axes='3'] {
     grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: 230px auto;
+    grid-template-rows: 260px auto;
   }
   .trendAxis[data-side='right'],
   .trendTime span[data-minor='true'],
@@ -780,9 +793,12 @@ button.rankedRow {
   .narrowOnly {
     display: inline;
   }
-  // Three cards: the lead card spans the row, the other two pair beneath it.
-  .metrics[data-count='3'] > :first-child {
-    grid-column: 1 / -1;
+  // Three cards stack full width: long labels like TTFT's never squeeze into a half card.
+  .metrics[data-count='3'] {
+    --cols: 1;
+  }
+  .header {
+    margin-top: 8px;
   }
 
   .header {
@@ -863,8 +879,8 @@ button.rankedRow {
     td:last-child {
       grid-column: 1 / -1;
     }
-    td:last-child button {
-      width: 100%;
+    td:last-child {
+      text-align: right;
     }
   }
   .requests td:nth-child(2),
