@@ -1,0 +1,157 @@
+{
+  "reviewer": "Independent data-visualization/content screenshot reviewer. Direct view_image inspection: analytics-r10 full pages for all ten screens at 1440 and 390; all ten full pages at 3440x1440; Overview and Tokens folds at all thirteen supplied widths; matching analytics-r9-expanded Overview and Tokens folds at 3440x1440, 1440, 1280, 1024, and 390. Source artifacts are under /home/swerve/src/prox/docs/evidence/hillclimb/. Scores assess visible presentation only; keyboard behavior and measured contrast were not checked. Synthetic fixture arithmetic was excluded.",
+  "scores": {
+    "overview": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9.2,
+      "colour": 8,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9.2,
+      "responsive_accessible": 8
+    },
+    "tokens": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 9.2,
+      "colour": 9.4,
+      "content": 9.3,
+      "controls_states": 9,
+      "consistency": 9.2,
+      "responsive_accessible": 8
+    },
+    "cost": {
+      "hierarchy": 9.3,
+      "layout": 9.1,
+      "type_numbers": 9.3,
+      "colour": 9.4,
+      "content": 9.5,
+      "controls_states": 9.1,
+      "consistency": 9.2,
+      "responsive_accessible": 9
+    },
+    "performance": {
+      "hierarchy": 9.2,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.4,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.2,
+      "responsive_accessible": 9
+    },
+    "requests": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9.2,
+      "consistency": 9.1,
+      "responsive_accessible": 9
+    },
+    "rates": {
+      "hierarchy": 9.1,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.4,
+      "controls_states": 9.1,
+      "consistency": 9.1,
+      "responsive_accessible": 9
+    },
+    "empty": {
+      "hierarchy": 9.2,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.2,
+      "responsive_accessible": 9
+    },
+    "unknown": {
+      "hierarchy": 9.1,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.4,
+      "controls_states": 9,
+      "consistency": 9.2,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9.3,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.2,
+      "controls_states": 9.3,
+      "consistency": 9.2,
+      "responsive_accessible": 9.1
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9.1,
+      "colour": 9.1,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9.1,
+      "responsive_accessible": 9
+    }
+  },
+  "issues": [
+    {
+      "screen": "overview",
+      "width": 320,
+      "aspect": "hierarchy",
+      "element": "Initial viewport: Analytics metadata, expanded filter form, and two tab rows occupy the entire 568px height; no KPI is visible.",
+      "fix": "On narrow phones, show the selected range and a compact Filters disclosure before the KPI cards; keep expanded filters available on demand."
+    },
+    {
+      "screen": "overview",
+      "width": 320,
+      "aspect": "layout",
+      "element": "Initial viewport filter block spans approximately y227\u2013444 before navigation and metrics.",
+      "fix": "Collapse the full filter form on narrow phones and reduce the blank separation above it so the first KPI row appears in the initial viewport."
+    },
+    {
+      "screen": "overview",
+      "width": 320,
+      "aspect": "responsive_accessible",
+      "element": "The first KPI values fall below the 320\u00d7568 fold despite the compact dashboard layout.",
+      "fix": "Use a compact filter summary/disclosure at this breakpoint and confirm that the first KPI row is visible at 320\u00d7568 without reducing control or text sizes."
+    },
+    {
+      "screen": "tokens",
+      "width": 320,
+      "aspect": "hierarchy",
+      "element": "Initial viewport: Analytics metadata, expanded filter form, and two tab rows occupy the entire 568px height; no KPI is visible.",
+      "fix": "On narrow phones, show the selected range and a compact Filters disclosure before the KPI cards; keep expanded filters available on demand."
+    },
+    {
+      "screen": "tokens",
+      "width": 320,
+      "aspect": "layout",
+      "element": "Initial viewport filter block spans approximately y227\u2013444 before navigation and metrics.",
+      "fix": "Collapse the full filter form on narrow phones and reduce the blank separation above it so the first KPI row appears in the initial viewport."
+    },
+    {
+      "screen": "tokens",
+      "width": 320,
+      "aspect": "responsive_accessible",
+      "element": "The first KPI values fall below the 320\u00d7568 fold despite the compact dashboard layout.",
+      "fix": "Use a compact filter summary/disclosure at this breakpoint and confirm that the first KPI row is visible at 320\u00d7568 without reducing control or text sizes."
+    },
+    {
+      "screen": "overview",
+      "width": 1440,
+      "aspect": "colour",
+      "element": "Usage trend encodes Retained events, Total tokens, and Estimated cost using three solid lines; the legend and axis swatches are also solid.",
+      "fix": "Give the violet token and cyan cost series distinct dash patterns and repeat those patterns in the legend and axis swatches, retaining the established metric colours."
+    }
+  ],
+  "regressions": []
+}

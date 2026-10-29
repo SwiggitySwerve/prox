@@ -231,9 +231,9 @@ export function AnalyticsViews({
             new Set(sparkPoints.map((p) => p.value).filter((v) => v !== null)).size > 1;
           // A missing total says why; it points below only when this tab charts the hourly values.
           const sub =
-            value === null && sparkValues.length > 0
+            value === null
               ? t(
-                  plotted.has(metric)
+                  sparkValues.length > 0 && plotted.has(metric)
                     ? 'analytics.card.hourly_only'
                     : 'analytics.card.no_range_total'
                 )
@@ -293,68 +293,77 @@ export function AnalyticsViews({
                   )
                 )}
               </div>
-              <small>{sub ?? ' '}</small>
+              {sub && <small>{sub}</small>}
             </article>
           );
         })}
       </div>
-      {tab === 'tokens' && <p className={styles.notice}>{t('analytics.tokens_note')}</p>}
+      {(tab === 'tokens' || tab === 'performance') && (
+        <div className={`${styles.notice} ${styles.methodNote}`}>
+          <span>{t(`analytics.${tab === 'tokens' ? 'tokens_summary' : 'timing_summary'}`)}</span>
+          <details>
+            <summary>{t('analytics.measurement_details')}</summary>
+            <p>{t(`analytics.${tab === 'tokens' ? 'tokens_note' : 'timing_note'}`)}</p>
+          </details>
+        </div>
+      )}
       {tab === 'cost' && (
         <div className={styles.notice}>
           <p>{t('analytics.price_note')}</p>
           {data.summary.cost.reasons.length > 0 && <p>{data.summary.cost.reasons.join(' · ')}</p>}
         </div>
       )}
-      {tab === 'performance' && <p className={styles.notice}>{t('analytics.timing_note')}</p>}
       {/* With nothing retained the page notice explains it; empty charts would only repeat it. */}
       {hasSamples && (
         <>
-          <TrendChart
-            title={t(`analytics.trend.${tab}`)}
-            series={trend.map(({ metric, dash }) => ({
-              key: metric,
-              label: t(`analytics.metrics.${metric}`),
-              color: METRIC_COLOR[metric] ?? 'var(--primary-color)',
-              dash,
-              currency: metric === 'cost',
-            }))}
-            points={buckets
-              .filter((bucket) => bucket.present || trend.some(({ metric }) => additive(metric)))
-              .map((bucket) => {
-                const point = byBucket.get(bucket.at);
-                return {
-                  at: bucket.at,
-                  values: trend.map(({ metric }) =>
-                    point ? valueOf(point, metric) : additive(metric) ? 0 : null
-                  ),
-                };
-              })}
-            from={data.from_ms}
-            to={data.to_ms}
-            interval={interval}
-            sharedScale={tab === 'performance'}
-            onSelect={onBucket}
-          />
-          {tab === 'performance' && (
+          <div className={styles.trendCharts} data-view={tab}>
             <TrendChart
-              title={t('analytics.metrics.p95_ttft_ms')}
-              series={[
-                {
-                  key: 'p95_ttft_ms',
-                  label: t('analytics.metrics.p95_ttft_ms'),
-                  color: 'var(--primary-color)',
-                },
-              ]}
-              points={data.timeline.map((point) => ({
-                at: point.bucket_ms,
-                values: [point.p95_ttft_ms],
+              title={t(`analytics.trend.${tab}`)}
+              series={trend.map(({ metric, dash }) => ({
+                key: metric,
+                label: t(`analytics.metrics.${metric}`),
+                color: METRIC_COLOR[metric] ?? 'var(--primary-color)',
+                dash,
+                currency: metric === 'cost',
               }))}
+              points={buckets
+                .filter((bucket) => bucket.present || trend.some(({ metric }) => additive(metric)))
+                .map((bucket) => {
+                  const point = byBucket.get(bucket.at);
+                  return {
+                    at: bucket.at,
+                    values: trend.map(({ metric }) =>
+                      point ? valueOf(point, metric) : additive(metric) ? 0 : null
+                    ),
+                  };
+                })}
               from={data.from_ms}
               to={data.to_ms}
               interval={interval}
+              sharedScale={tab === 'performance'}
               onSelect={onBucket}
             />
-          )}
+            {tab === 'performance' && (
+              <TrendChart
+                title={t('analytics.metrics.p95_ttft_ms')}
+                series={[
+                  {
+                    key: 'p95_ttft_ms',
+                    label: t('analytics.metrics.p95_ttft_ms'),
+                    color: 'var(--primary-color)',
+                  },
+                ]}
+                points={data.timeline.map((point) => ({
+                  at: point.bucket_ms,
+                  values: [point.p95_ttft_ms],
+                }))}
+                from={data.from_ms}
+                to={data.to_ms}
+                interval={interval}
+                onSelect={onBucket}
+              />
+            )}
+          </div>
           <div className={styles.chartGrid}>
             <AnalyticsChart
               title={`${t('analytics.by_provider')} · ${t(`analytics.metrics.${breakdownMetric}`)}`}

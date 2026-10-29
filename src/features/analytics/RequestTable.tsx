@@ -133,7 +133,7 @@ export function RequestTable({
   const n = (value: number | null, currency = false) =>
     analyticsNumber(value, i18n.language, currency);
   return (
-    <section className={styles.panel}>
+    <section className={`${styles.panel} ${styles.tablePanel}`}>
       <div className={styles.sectionHeader}>
         <h2>{t('analytics.tabs.requests')}</h2>
         <span className={styles.muted}>

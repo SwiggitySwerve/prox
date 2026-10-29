@@ -37,19 +37,9 @@ export const buildClaudeQuotaWindows = (
     if (!window || typeof window !== 'object' || !('utilization' in window)) continue;
     const typedWindow = window as ClaudeUsageWindow;
     const isCreditPool = key === 'iguana_necktie' && isDollarDenominatedWindow(typedWindow);
-    if (key === 'iguana_necktie' && fableLimit && !isCreditPool) continue;
-    if (isCreditPool) {
-      windows.push({
-        id: 'cloud-session-credits',
-        label: t('claude_quota.cloud_session_credits'),
-        labelKey: 'claude_quota.cloud_session_credits',
-        usedPercent: normalizeNumberValue(typedWindow.utilization),
-        resetLabel: formatQuotaResetTime(typedWindow.resets_at ?? undefined),
-        resetAtMs: resolveResetMs([typedWindow.resets_at]),
-        periodHours: null,
-      });
-      continue;
-    }
+    // Cloud-session dollar credits are not a subscription quota window. Exclude
+    // them here so credential cards and the pool collector share the same rule.
+    if (isCreditPool || (key === 'iguana_necktie' && fableLimit)) continue;
     const usedPercent = normalizeNumberValue(typedWindow.utilization);
     const resetLabel = formatQuotaResetTime(typedWindow.resets_at ?? undefined);
     windows.push({

@@ -1,0 +1,185 @@
+{
+  "reviewer": "data visualization and content",
+  "scores": {
+    "overview": {
+      "hierarchy": 9,
+      "layout": 8.8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8.8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8.5
+    },
+    "tokens": {
+      "hierarchy": 8.8,
+      "layout": 8.6,
+      "type_numbers": 9,
+      "colour": 8,
+      "content": 8.5,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "cost": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8.5,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "performance": {
+      "hierarchy": 8.8,
+      "layout": 8.5,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8.5
+    },
+    "requests": {
+      "hierarchy": 9,
+      "layout": 8.5,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8.8,
+      "controls_states": 9,
+      "consistency": 8.8,
+      "responsive_accessible": 9
+    },
+    "rates": {
+      "hierarchy": 9,
+      "layout": 8.6,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8.8,
+      "controls_states": 9,
+      "consistency": 8.8,
+      "responsive_accessible": 8.7
+    },
+    "empty": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "unknown": {
+      "hierarchy": 8.5,
+      "layout": 8.5,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8.5
+    },
+    "error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "issues": [
+    {
+      "screen": "tokens",
+      "width": "390",
+      "aspect": "colour",
+      "element": "Token trend: solid, dashed and dotted violet lines overlap at nearly every peak and trough. The dash differences are clear in the key but considerably harder to follow inside the narrow plot.",
+      "fix": "Strengthen the visual hierarchy within the violet family: give the total line a heavier solid stroke, increase the difference between long-dash and round-dot patterns, and reduce the fill opacity. Keep the legend swatches identical to their plotted strokes."
+    },
+    {
+      "screen": "tokens",
+      "width": "390",
+      "aspect": "responsive_accessible",
+      "element": "Token trend: narrow plotting area carries three independent scales, but only the total-token axis remains beside the lines; the other scale ranges live in the legend.",
+      "fix": "Keep the separate-scale explanation immediately next to the legend and make it explicit that the left axis is only Total tokens. Preserve the range labels and data-table alternative; test the stronger stroke treatments at this exact width."
+    },
+    {
+      "screen": "overview",
+      "width": "1280x720, 1024x768",
+      "aspect": "layout",
+      "element": "Initial viewport shows only the top of Usage trend after two rows of tall sparkline cards.",
+      "fix": "Use a short-window card variant that keeps a suitably sized sparkline beside its value where the card has room, and reduces unused vertical card space without shrinking the plot labels."
+    },
+    {
+      "screen": "tokens",
+      "width": "1280x720, 1024x768",
+      "aspect": "layout",
+      "element": "Initial viewport reaches the Token trend heading and axis labels, with virtually none of the data visible. Token cards remain tall even where three columns provide room beside each number.",
+      "fix": "Base sparkline placement on the individual card width/count, and retain only the essential overlapping-counter warning before the chart with the detailed caveat available through a compact disclosure."
+    },
+    {
+      "screen": "cost",
+      "width": "1440, 390",
+      "aspect": "content",
+      "element": "Notice ends with the fragment \u201cLegacy cache-write lifetime unavailable.\u201d",
+      "fix": "Use a complete, specific sentence such as \u201cLegacy records do not report the cache-write retention period.\u201d Keep the surrounding explanation that missing components are excluded."
+    },
+    {
+      "screen": "performance",
+      "width": "390, 1440",
+      "aspect": "content",
+      "element": "The pre-chart notice combines execution duration, speed calculation, request-detail location, TTFT comparability and missing aggregate statistics into one dense paragraph.",
+      "fix": "Keep the timing definition and mixed-method TTFT warning visible in two short sentences, and place the remaining measurement details in an explicitly labelled disclosure. Preserve every limitation; do not imply that TTFT is comparable."
+    },
+    {
+      "screen": "performance",
+      "width": "3440",
+      "aspect": "layout",
+      "element": "Two very wide, tall plots are stacked, so comparing duration with TTFT requires a long vertical scan despite ample width.",
+      "fix": "At an ultrawide breakpoint, place the two trend panels side by side with equal plot heights, aligned time axes, and their own labelled millisecond scales."
+    },
+    {
+      "screen": "unknown",
+      "width": "390, 1440, 3440",
+      "aspect": "content",
+      "element": "Three KPI cards and three breakdown values repeat \u201cUnavailable\u201d; a long generic measurement paragraph separates them from two repeated \u201cNo measured values\u201d panels. The page never states the overall condition clearly.",
+      "fix": "Add one concise state explanation that events are present but timing measurements are unavailable for this interval. Reuse the existing no-measurement condition; do not invent a cause. Keep the charts\u2019 time context, drilldown and data-table access."
+    },
+    {
+      "screen": "requests",
+      "width": "3440",
+      "aspect": "layout",
+      "element": "The request table stretches a small amount of row content across almost the whole ultrawide display, separating model, outcome and numbers by large gaps.",
+      "fix": "Constrain the table\u2019s reading width or explicitly allocate narrower numeric/action columns while leaving the model column flexible. Keep row tracking easy without spreading every column evenly."
+    },
+    {
+      "screen": "rates",
+      "width": "390",
+      "aspect": "layout",
+      "element": "The reference notice, Model Rates heading, source warning and units note occupy most of the space before the first rate row.",
+      "fix": "Consolidate the repeated current-configured-rates context into the units caption, keep the source warning prominent, and shorten the reference notice while preserving that rates are current rather than historical."
+    },
+    {
+      "screen": "requests, rates",
+      "width": "1440, 390",
+      "aspect": "consistency",
+      "element": "Model identifiers are regular-weight in Requests but bold in Model Rates; row details use an outlined button in Requests and a bare disclosure in Model Rates.",
+      "fix": "Use the same identifier emphasis in both tables and align the visual weight and placement of row-level details controls while preserving their respective interactions."
+    }
+  ],
+  "regressions": []
+}

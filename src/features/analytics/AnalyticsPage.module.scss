@@ -85,6 +85,12 @@
   background: var(--bg-primary);
   border-radius: var(--radius-md);
 }
+.filterControls {
+  display: contents;
+}
+.filterToggle {
+  display: none;
+}
 .filters label {
   display: flex;
   flex: 1 1 110px;
@@ -115,6 +121,9 @@
   min-width: 0;
   align-items: center;
   gap: 8px;
+  label {
+    max-width: none;
+  }
 }
 // Filter actions match the fields beside them: same height, corners and text size.
 .page .filters button {
@@ -123,8 +132,8 @@
   border-radius: 5px;
   font-size: 12px;
 }
-// Clear and Refresh sit at the row's end however wide the page is.
-.searchForm + button {
+// Reset belongs beside Apply; Refresh can stay at the far end of a wide toolbar.
+.filters > button:last-child {
   margin-left: auto;
 }
 .scope {
@@ -198,6 +207,20 @@
   color: var(--text-secondary);
   font-size: 12px;
   overflow-wrap: anywhere;
+}
+.methodNote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 16px;
+  padding-block: 6px;
+  summary {
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  details[open] {
+    flex-basis: 100%;
+  }
 }
 .metrics {
   --cols: 4;
@@ -300,6 +323,16 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+.trendCharts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+.tablePanel {
+  width: 100%;
+  max-width: 1600px;
+  box-sizing: border-box;
 }
 .panel {
   padding: 14px;
@@ -620,7 +653,7 @@ button.rankedRow {
 .rates th[scope='row'] {
   min-width: 220px;
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 500;
 }
 .rates thead th,
 .rates td:first-child {
@@ -765,10 +798,11 @@ button.rankedRow {
   }
 }
 .state {
-  padding: 36px 20px;
+  padding: 22px 20px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  text-align: center;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
 }
 .srOnly {
   position: absolute;
@@ -795,6 +829,41 @@ button.rankedRow {
   }
 }
 @media (max-width: 700px) {
+  .filterControls {
+    display: block;
+    &[data-expanded='false'] .filters {
+      display: none;
+    }
+    &[data-expanded='true'] .filters {
+      margin-top: 8px;
+    }
+  }
+  .filterToggle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    span {
+      margin-left: auto;
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+    svg {
+      flex-shrink: 0;
+    }
+    &[aria-expanded='true'] svg {
+      transform: rotate(180deg);
+    }
+  }
   .chartGrid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -938,6 +1007,12 @@ button.rankedRow {
   .metrics[data-count='6'] {
     --cols: 6;
   }
+  .trendCharts[data-view='performance'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    .trendPlot:not([data-empty='true']) {
+      grid-template-rows: clamp(240px, 16cqw, 420px) auto;
+    }
+  }
 }
 // Narrow cards: every sparkline goes beneath its value, so cards in a row line up.
 @container (max-width: 1030px) {
@@ -967,5 +1042,41 @@ button.rankedRow {
   .metrics[data-count='8'] .spark,
   .metrics[data-count='8'] .noSpark {
     flex-basis: 100%;
+  }
+}
+
+// Short laptop windows need room for the plot as well as its summary. Keep the
+// full values and sparklines; use the available card width before adding a row.
+@media (min-width: 701px) and (max-height: 800px) {
+  .page {
+    gap: 8px;
+  }
+  .metric {
+    padding: 8px 10px;
+    gap: 3px;
+  }
+  .metricLabel {
+    min-height: 24px;
+  }
+  .metricValue {
+    gap: 4px 8px;
+  }
+  .metric strong {
+    font-size: 20px;
+  }
+  .spark,
+  .noSpark {
+    flex-basis: 40px;
+    min-width: 0;
+  }
+  .page [role='tabpanel'] {
+    gap: 10px;
+  }
+  .panel {
+    padding: 10px;
+  }
+  .trendPlot:not([data-empty='true']) {
+    grid-template-rows: clamp(160px, calc(100dvh - 590px), 180px) auto;
+    margin-top: 12px;
   }
 }

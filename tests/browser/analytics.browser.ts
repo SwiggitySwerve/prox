@@ -1,5 +1,6 @@
 import { test, expect } from './analyticsHarness';
 import type { AnalyticsScenario } from '../fixtures/analyticsUi';
+import { analyticsViewports } from './analyticsViewports';
 
 const tabs = ['Overview', 'Tokens & Cache', 'Cost', 'Performance', 'Requests', 'Model Rates'];
 
@@ -265,13 +266,7 @@ test('logging out while analytics is pending hides the previous session', async 
 });
 
 // The page opens on its first chart: header, filters, tabs and cards fit above it.
-for (const [width, height] of [
-  [3440, 1300],
-  [2560, 1300],
-  [1920, 1000],
-  [1680, 950],
-  [1440, 900],
-] as const) {
+for (const { width, height } of analyticsViewports.filter((size) => size.width >= 1024)) {
   test(`first chart is on screen at ${width}x${height}`, async ({ page, app }) => {
     await page.setViewportSize({ width, height });
     app.scenario = 'large';
@@ -290,5 +285,113 @@ for (const [width, height] of [
         .evaluate((el) => el.getBoundingClientRect().bottom);
       expect(bottom, `${name} chart bottom`).toBeLessThanOrEqual(height);
     }
+  });
+}
+
+for (const { width, height } of analyticsViewports) {
+  test(`filters and cards fit at ${width}x${height}`, async ({ page, app }) => {
+    await page.setViewportSize({ width, height });
+    app.scenario = 'large';
+    await app.login();
+    await app.loaded();
+    if (width <= 700) {
+      await page.getByRole('button', { name: 'Shared filters', exact: true }).click();
+    }
+    const layout = await page.evaluate(() => {
+      const filters = document.querySelector('section[aria-label="Shared filters"]');
+      if (!filters) throw new Error('Missing shared filters');
+      const controls = [...filters.querySelectorAll('input,select,button')];
+      const rects = controls.map((el) => el.getBoundingClientRect());
+      const cards = [...document.querySelectorAll('[class*="metricValue"]')];
+      return {
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        targets: rects.map((r) => Math.min(r.width, r.height)),
+        outside: rects.some((r) => r.left < 0 || r.right > innerWidth),
+        overlaps: rects.some((a, i) =>
+          rects
+            .slice(i + 1)
+            .some(
+              (b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+            )
+        ),
+        clippedValues: cards.filter((el) => el.scrollWidth > el.clientWidth + 1).length,
+      };
+    });
+    expect(layout.overflow).toBe(false);
+    expect(layout.outside).toBe(false);
+    expect(layout.overlaps).toBe(false);
+    expect(layout.clippedValues).toBe(0);
+    expect(Math.min(...layout.targets)).toBeGreaterThanOrEqual(width <= 700 ? 44 : 24);
+  });
+}
+
+test.describe('touch tablet', () => {
+  test.use({ hasTouch: true });
+  test('filters and disclosures retain touch targets at 1024px', async ({ page, app }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await app.login();
+    await app.loaded();
+    await app.tab('Tokens & Cache');
+    const targets = await page
+      .locator('main button, main select, main input, main summary')
+      .evaluateAll((els) =>
+        els
+          .filter((el) => el.checkVisibility())
+          .map((el) => {
+            const r = el.getBoundingClientRect();
+            return { text: el.textContent, size: Math.min(r.width, r.height) };
+          })
+      );
+    expect(targets.filter((target) => target.size < 44)).toEqual([]);
+    const details = page.getByText('Measurement details', { exact: true });
+    await details.focus();
+    await expect(details).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(/Legacy data cannot establish/)).toBeVisible();
+  });
+});
+
+for (const width of [320, 390, 600]) {
+  test(`phone filters keep KPIs visible and preserve state at ${width}px`, async ({
+    page,
+    app,
+  }) => {
+    await page.setViewportSize({ width, height: 568 });
+    app.scenario = 'large';
+    await app.login();
+    await app.loaded();
+    const toggle = page.getByRole('button', { name: 'Shared filters', exact: true });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    for (const name of ['Overview', 'Tokens & Cache']) {
+      await app.tab(name);
+      const bottom = await page
+        .locator('article[class*=metric] strong')
+        .first()
+        .evaluate((el) => el.getBoundingClientRect().bottom);
+      expect(bottom).toBeLessThanOrEqual(568);
+    }
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await app.change(() =>
+      page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('claude')
+    );
+    const search = page.getByRole('searchbox');
+    await search.fill('draft search');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toBeFocused();
+    await expect(toggle).toContainText('Last 24 hours · 1 active');
+    await expect(page.getByRole('combobox', { name: 'Provider', exact: true })).toBeHidden();
+    await page.keyboard.press('Space');
+    await expect(page.getByRole('combobox', { name: 'Provider', exact: true })).toHaveValue(
+      'claude'
+    );
+    await expect(search).toHaveValue('draft search');
+    // Desktop always exposes filters even when the phone disclosure was closed.
+    await toggle.click();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(toggle).toBeHidden();
+    await expect(page.getByRole('combobox', { name: 'Provider', exact: true })).toBeVisible();
   });
 }

@@ -143,12 +143,7 @@ export function createClaudeQuotaConfig(deps: QuotaDependencies = legacyQuotaDep
       throw new Error(t('claude_quota.empty_windows'));
     }
     const dollarWindows = snapshot.dollarWindows;
-    // Full dollar balances get their own amount/reset rows, not a second plan meter.
-    const windows = buildClaudeQuotaWindows(payload, t).filter(
-      (window) =>
-        window.id !== 'cloud-session-credits' ||
-        !dollarWindows.some((balance) => balance.key === 'iguana_necktie')
-    );
+    const windows = buildClaudeQuotaWindows(payload, t);
     const planType =
       profileResult.status === 'fulfilled' &&
       profileResult.value.statusCode >= 200 &&

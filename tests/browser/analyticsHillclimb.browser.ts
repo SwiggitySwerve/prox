@@ -2,6 +2,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect } from './analyticsHarness';
 import type { AnalyticsScenario } from '../fixtures/analyticsUi';
+import { analyticsViewports } from './analyticsViewports';
 
 // Visual-review capture only: `HILLCLIMB_OUT=<dir> playwright test analyticsHillclimb`.
 // Writes a full-height screenshot plus DOM geometry per screen for measured checks.
@@ -49,9 +50,12 @@ const GEOMETRY = () => {
     range.selectNodeContents(node);
     // Text scrolled out of a table region is not painted; measure only its visible part.
     const clip = e.closest('[role=region], [role=tablist]')?.getBoundingClientRect();
+    const viewport = root.getBoundingClientRect();
     for (const b of range.getClientRects()) {
       if (b.width <= 2 || b.height <= 2) continue;
       if (clip && (b.left < clip.left - 1 || b.right > clip.right + 1)) continue;
+      // A scroll boundary can cut through a line; don't sample its unpainted pixels.
+      if (b.top < viewport.top || b.bottom > Math.min(viewport.bottom, innerHeight)) continue;
       text.push({
         text: node.textContent.trim().slice(0, 60),
         x: b.x,
@@ -68,13 +72,17 @@ const GEOMETRY = () => {
   const swatches = [...root.querySelectorAll('ul[aria-label] li')]
     .filter(visible)
     .map((li) => ({ label: li.textContent?.trim(), ...rect(li.querySelector('svg')!) }));
+  const toolbar = document.querySelector('.header-actions');
   return {
     pageWidth: document.documentElement.clientWidth,
+    viewportHeight: innerHeight,
+    touch: matchMedia('(pointer: coarse)').matches || innerWidth <= 700,
     scrollWidth: document.documentElement.scrollWidth,
     controls,
     clipped,
     text,
     swatches,
+    toolbar: toolbar ? rect(toolbar) : null,
   };
 };
 
@@ -98,21 +106,11 @@ const screens: Array<{
 ];
 
 // Every screen at ultrawide, laptop and phone; the chart-heavy tabs at the sizes between.
-const sizes: Array<[number, number, 'all' | 'charts']> = [
-  [3440, 1300, 'all'],
-  [2560, 1300, 'charts'],
-  [1920, 1000, 'charts'],
-  [1440, 900, 'all'],
-  [1280, 720, 'charts'],
-  [1024, 768, 'charts'],
-  [768, 1024, 'charts'],
-  [390, 844, 'all'],
-];
-for (const [width, height, set] of sizes) {
-  for (const screen of set === 'all'
+for (const { width, height, key, allScreens } of analyticsViewports) {
+  for (const screen of allScreens
     ? screens
     : screens.filter((s) => ['overview', 'tokens'].includes(s.name))) {
-    test(`capture ${screen.name} ${width}`, async ({ page, app }) => {
+    test(`capture ${screen.name} ${width}x${height}`, async ({ page, app }) => {
       await page.setViewportSize({ width, height });
       app.scenario = screen.scenario;
       app.hold = !!screen.loading;
@@ -125,23 +123,41 @@ for (const [width, height, set] of sizes) {
       }
       if (screen.status) {
         app.status = screen.status;
+        if (width <= 700) {
+          await page.getByRole('button', { name: 'Shared filters', exact: true }).click();
+        }
         await page.getByRole('button', { name: 'Refresh', exact: true }).click();
         await expect(page.getByRole('alert')).toBeVisible();
+        if (width <= 700) {
+          await page.getByRole('button', { name: 'Shared filters', exact: true }).click();
+        }
       }
       // First screen as the user sees it on load, then the whole page.
-      const dir = join(out!, `${screen.name}-${width}`);
+      const dir = join(out!, `${screen.name}-${key}`);
       mkdirSync(join(out!, 'fold'), { recursive: true });
       await page.waitForTimeout(150);
       await page.screenshot({
-        path: join(out!, 'fold', `${screen.name}-${width}.png`),
+        path: join(out!, 'fold', `${screen.name}-${key}.png`),
         animations: 'disabled',
       });
+      writeFileSync(
+        join(out!, 'fold', `${screen.name}-${key}.json`),
+        JSON.stringify(await page.evaluate(GEOMETRY))
+      );
       // The app scrolls inside main; grow the viewport so one capture holds the whole page.
       const full = await page.evaluate(() => document.querySelector('main')!.scrollHeight);
       await page.setViewportSize({ width, height: Math.min(6000, full + 40) });
       await page.waitForTimeout(150);
       await page.screenshot({ path: `${dir}.png`, animations: 'disabled' });
       writeFileSync(`${dir}.json`, JSON.stringify(await page.evaluate(GEOMETRY)));
+      if (width <= 700 && ['overview', 'tokens'].includes(screen.name)) {
+        await page.setViewportSize({ width, height });
+        await page.getByRole('button', { name: 'Shared filters', exact: true }).click();
+        mkdirSync(join(out!, 'expanded'), { recursive: true });
+        const expanded = join(out!, 'expanded', `${screen.name}-${key}`);
+        await page.screenshot({ path: `${expanded}.png`, animations: 'disabled' });
+        writeFileSync(`${expanded}.json`, JSON.stringify(await page.evaluate(GEOMETRY)));
+      }
       app.release();
       expect(app.errors).toEqual([]);
     });

@@ -1,0 +1,102 @@
+{
+  "overview": {
+    "hierarchy": 9,
+    "layout": 8.2,
+    "type_numbers": 9,
+    "colour": 9.2,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 8
+  },
+  "tokens": {
+    "hierarchy": 8.5,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 8.4,
+    "content": 8.5,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 8
+  },
+  "cost": {
+    "hierarchy": 9,
+    "layout": 8.8,
+    "type_numbers": 9.2,
+    "colour": 9.3,
+    "content": 8.7,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "performance": {
+    "hierarchy": 8.8,
+    "layout": 8.4,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 8.5
+  },
+  "requests": {
+    "hierarchy": 9,
+    "layout": 8.5,
+    "type_numbers": 9,
+    "colour": 9.2,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 8.8,
+    "responsive_accessible": 9
+  },
+  "rates": {
+    "hierarchy": 9,
+    "layout": 8.6,
+    "type_numbers": 9,
+    "colour": 9.2,
+    "content": 8.8,
+    "controls_states": 9,
+    "consistency": 8.8,
+    "responsive_accessible": 8.7
+  },
+  "empty": {
+    "hierarchy": 9.2,
+    "layout": 9,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9.2,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "unknown": {
+    "hierarchy": 8.8,
+    "layout": 8.6,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 8.6,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 8.7
+  },
+  "error": {
+    "hierarchy": 9.3,
+    "layout": 9,
+    "type_numbers": 9,
+    "colour": 9.3,
+    "content": 9,
+    "controls_states": 9.3,
+    "consistency": 9.1,
+    "responsive_accessible": 9.1
+  },
+  "loading": {
+    "hierarchy": 9,
+    "layout": 9,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 9,
+    "consistency": 9,
+    "responsive_accessible": 9
+  }
+}

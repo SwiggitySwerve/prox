@@ -1,0 +1,122 @@
+{
+  "reviewer": "Independent visual hierarchy/layout reviewer. Inspected 66 actual PNGs using tools.view_image: all ten current full pages at 1440, 390 and 3440x1440; every current Overview/Tokens fold across all 13 supplied sizes; and previous matching Overview/Tokens folds at 3440x1440, 1440, 1280, 1024 and 390. Current evidence: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r10. Previous evidence: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r9-expanded. Scores describe visible presentation only; screenshots cannot prove keyboard behavior or measured contrast compliance. Compared folds show substantially more chart content at 1280/1024, clearer token dash patterns, and no observed visual regression. Mobile first-viewport concern below is persistent rather than a regression.",
+  "scores": {
+    "overview": {
+      "hierarchy": 8,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.1,
+      "controls_states": 9,
+      "consistency": 9.3,
+      "responsive_accessible": 9
+    },
+    "tokens": {
+      "hierarchy": 8,
+      "layout": 9.2,
+      "type_numbers": 9.1,
+      "colour": 9.2,
+      "content": 9.2,
+      "controls_states": 9,
+      "consistency": 9.3,
+      "responsive_accessible": 9
+    },
+    "cost": {
+      "hierarchy": 9.2,
+      "layout": 9.2,
+      "type_numbers": 9.3,
+      "colour": 9.4,
+      "content": 9.2,
+      "controls_states": 9,
+      "consistency": 9.3,
+      "responsive_accessible": 9
+    },
+    "performance": {
+      "hierarchy": 9.1,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.2,
+      "controls_states": 9,
+      "consistency": 9.3,
+      "responsive_accessible": 9
+    },
+    "requests": {
+      "hierarchy": 9.2,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.3,
+      "controls_states": 9.2,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    },
+    "rates": {
+      "hierarchy": 9.1,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    },
+    "empty": {
+      "hierarchy": 9.3,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9,
+      "consistency": 9.3,
+      "responsive_accessible": 9.1
+    },
+    "unknown": {
+      "hierarchy": 9.2,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9,
+      "consistency": 9.3,
+      "responsive_accessible": 9.1
+    },
+    "error": {
+      "hierarchy": 9.4,
+      "layout": 9.3,
+      "type_numbers": 9.3,
+      "colour": 9.4,
+      "content": 9.2,
+      "controls_states": 9.3,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    },
+    "loading": {
+      "hierarchy": 9.1,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.1,
+      "content": 9.1,
+      "controls_states": 9.1,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    }
+  },
+  "issues": [
+    {
+      "screen": "overview",
+      "width": "320x568",
+      "aspect": "hierarchy",
+      "element": "The header, coverage metadata, expanded filter panel and two rows of tabs fill the initial viewport; no KPI value is visible in analytics-r10/fold/overview-320.png. At 390x844, the first KPI begins around y=543.",
+      "fix": "At the smallest mobile width, let secondary filters and coverage details collapse behind a clearly labelled summary while keeping the time range and an obvious filter action visible, so the first KPI appears in the initial viewport. Preserve the current readable control sizes."
+    },
+    {
+      "screen": "tokens",
+      "width": "320x568",
+      "aspect": "hierarchy",
+      "element": "The header, coverage metadata, expanded filter panel and two rows of tabs fill the initial viewport; no token KPI value is visible in analytics-r10/fold/tokens-320.png. At 390x844, the first KPI begins around y=543.",
+      "fix": "Use the same compact mobile header/filter summary as Overview so token values appear in the first 568px viewport. Keep the selected tab and active filter state visible."
+    }
+  ],
+  "regressions": []
+}

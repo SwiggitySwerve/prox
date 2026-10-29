@@ -19,7 +19,7 @@ export interface TrendPoint {
 
 const FRAME = { left: 0, right: 1000, top: 10, bottom: 230 };
 const TICKS = [1, 0.75, 0.5, 0.25, 0];
-const DASH = { dashed: '8 4', dotted: '1 4' };
+const DASH = { dashed: '12 6', dotted: '1 7' };
 
 /**
  * Several timeline series on one time axis. Each line uses its own scale unless `sharedScale`

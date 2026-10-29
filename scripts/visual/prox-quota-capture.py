@@ -67,9 +67,7 @@ def fixture(state):
                     dict(id="seven-day" if provider == "claude" else "weekly",
                          labelKey="claude_quota.seven_day" if provider == "claude" else "codex_quota.secondary_window",
                          remainingPercent=round(remaining / count, 1), resetAtMs=NOW + DAY * (i + 1)),
-                ] + ([dict(id="cloud-credits", labelKey="claude_quota.cloud_session_credits",
-                           remainingPercent=0, resetAtMs=None)] if provider == "claude" and i == 0 else [])
-                  + ([dict(id="seven-day-opus", labelKey="claude_quota.seven_day_opus",
+                ] + ([dict(id="seven-day-opus", labelKey="claude_quota.seven_day_opus",
                            remainingPercent=45, resetAtMs=None)] if provider == "claude" else []),
             )
             for i in range(count)

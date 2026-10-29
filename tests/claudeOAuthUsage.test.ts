@@ -252,7 +252,7 @@ describe('Claude quota usage reads', () => {
     );
   });
 
-  test('preserves legacy Fable-only payloads and partial credit pools', async () => {
+  test('preserves legacy Fable windows and omits partial cloud-credit pools', async () => {
     for (const window of [
       { utilization: 41, resets_at: fixture.seven_day.resets_at },
       { utilization: 5, remaining_dollars: 95, resets_at: fixture.seven_day.resets_at },
@@ -262,9 +262,8 @@ describe('Claude quota usage reads', () => {
           ? result(200, { iguana_necktie: window })
           : result(503, null);
       const data = await CLAUDE_CONFIG.fetchQuota(file, translations.t);
-      expect(data.windows).toHaveLength(1);
-      expect(data.windows[0].id).toBe(
-        'remaining_dollars' in window ? 'cloud-session-credits' : 'seven-day-fable'
+      expect(data.windows.map((entry) => entry.id)).toEqual(
+        'remaining_dollars' in window ? [] : ['seven-day-fable']
       );
       expect(data.dollarWindows).toEqual([]);
     }

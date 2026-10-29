@@ -909,7 +909,7 @@
   }
 }
 
-// Prox shell: page-coloured chrome, quiet navigation, header buttons without a floating pill.
+// Prox shell: quiet navigation and an outlined utility bar that stays visible on dark pages.
 .app-shell {
   .top-gradient-blur {
     display: none;
@@ -925,8 +925,8 @@
     background: transparent;
   }
   .header-actions {
-    background: var(--bg-secondary);
-    border-color: transparent;
+    background: var(--bg-primary);
+    border-color: var(--text-quaternary);
     box-shadow: none;
   }
   .sidebar-brand-subtitle {
@@ -988,8 +988,6 @@
     }
     .header-actions {
       padding: 0;
-      background: var(--bg-primary);
-      border-color: var(--border-primary);
     }
     .mobile-sidebar-actions {
       padding: 0;
