@@ -34,3 +34,7 @@ settings.local.json
 *.njsproj
 *.sln
 *.sw?
+
+# Local browser verification artifacts
+/test-results/
+/playwright-report/

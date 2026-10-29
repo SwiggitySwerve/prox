@@ -23,7 +23,8 @@ export function AnalyticsChart({
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
-  const [readout, setReadout] = useState<ChartDatum | null>(null);
+  const [inspectedKey, setInspectedKey] = useState<string | null>(null);
+  const readout = data.find((point) => point.key === inspectedKey);
   const bars = barGeometry(data, from, to, interval);
   return (
     <section className={styles.panel} aria-labelledby={id}>
@@ -71,8 +72,8 @@ export function AnalyticsChart({
                   role={onSelect ? 'button' : 'img'}
                   tabIndex={onSelect ? 0 : undefined}
                   aria-label={`${bar.label}: ${bar.value === null ? t('analytics.unavailable_value') : analyticsNumber(bar.value, i18n.language, currency)}`}
-                  onFocus={() => setReadout(bar)}
-                  onMouseEnter={() => setReadout(bar)}
+                  onFocus={() => setInspectedKey(bar.key)}
+                  onMouseEnter={() => setInspectedKey(bar.key)}
                   onClick={() => onSelect?.(bar.key)}
                   onKeyDown={(event) => {
                     if (onSelect && (event.key === 'Enter' || event.key === ' ')) {

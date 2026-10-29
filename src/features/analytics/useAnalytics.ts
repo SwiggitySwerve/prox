@@ -61,14 +61,21 @@ export function useAnalytics(query: AnalyticsQuery, refresh: number) {
       unsubscribe();
     };
   }, [query, refresh, session, observer, authenticated, connection, revision]);
-  const visible =
+  const sessionResult =
     authenticated &&
     connection === 'connected' &&
     result?.session === session &&
-    result.revision === revision &&
-    result.query === query &&
-    result.refresh === refresh
+    result.revision === revision
       ? result
       : undefined;
-  return { data: visible?.data, error: visible?.error, loading: !visible, session };
+  const visible =
+    sessionResult?.query === query && sessionResult.refresh === refresh ? sessionResult : undefined;
+  return {
+    data: visible?.data,
+    error: visible?.error,
+    loading: !visible,
+    session,
+    // Keep this session's known choices usable while a different query is pending.
+    filterOptions: sessionResult?.data?.filter_options,
+  };
 }

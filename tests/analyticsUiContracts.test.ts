@@ -106,7 +106,7 @@ describe('Analytics query and transport contracts', () => {
     expect(source).toContain('controller.abort()');
     expect(source).toContain('observer.getSnapshot() === session');
     expect(source).toContain('apiClient.getConnectionRevision() === revision');
-    expect(source).toContain('result.query === query');
+    expect(source).toContain('sessionResult?.query === query');
     expect(source).toContain('result?.session === session');
     expect(source).toContain('createPoolSessionObserver');
   });

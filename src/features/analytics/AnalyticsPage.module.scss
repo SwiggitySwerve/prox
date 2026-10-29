@@ -286,12 +286,18 @@
   min-width: 140px;
   max-width: 220px;
 }
+.requests td:last-child {
+  white-space: nowrap;
+}
 .rates {
   min-width: 900px;
 }
 .rates td,
 .rates th {
   max-width: 220px;
+}
+.rates td:nth-child(n + 5):nth-child(-n + 8) {
+  white-space: nowrap;
 }
 .rates details {
   min-width: 130px;

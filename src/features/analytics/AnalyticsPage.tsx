@@ -36,7 +36,7 @@ export function AnalyticsPage() {
     query: AnalyticsQuery;
     session: number;
   } | null>(null);
-  const { data, error, loading, session } = useAnalytics(query, refresh);
+  const { data, error, loading, session, filterOptions } = useAnalytics(query, refresh);
   const setTab = (value: string) =>
     setParams(
       (previous) => {
@@ -110,7 +110,7 @@ export function AnalyticsPage() {
             <option value="">{t('analytics.all')}</option>
             {Array.from(
               new Set([
-                ...(data?.filter_options.providers ?? []),
+                ...(filterOptions?.providers ?? []),
                 ...(query.provider ? [query.provider] : []),
               ])
             ).map((provider) => (
@@ -126,10 +126,7 @@ export function AnalyticsPage() {
           >
             <option value="">{t('analytics.all')}</option>
             {Array.from(
-              new Set([
-                ...(data?.filter_options.models ?? []),
-                ...(query.model ? [query.model] : []),
-              ])
+              new Set([...(filterOptions?.models ?? []), ...(query.model ? [query.model] : [])])
             ).map((model) => (
               <option key={model}>{model}</option>
             ))}
