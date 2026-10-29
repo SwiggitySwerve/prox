@@ -51,6 +51,12 @@ const METRIC_COLOR: Partial<Record<Metric, string>> = {
   output_tokens: 'var(--analytics-tokens)',
   cache_read_tokens: 'var(--analytics-tokens)',
   cost: 'var(--analytics-cost)',
+  // Every token and count metric keeps its family's ink, charted or not.
+  cache_creation_tokens: 'var(--analytics-tokens)',
+  reasoning_tokens: 'var(--analytics-tokens)',
+  uncached_input_tokens: 'var(--analytics-tokens)',
+  priced_calls: 'var(--analytics-requests)',
+  unpriced_calls: 'var(--analytics-requests)',
   // Durations share the neutral duration ink, never the request-count white.
   p95_latency_ms: 'var(--analytics-duration)',
   average_latency_ms: 'var(--analytics-duration)',
@@ -353,6 +359,7 @@ export function AnalyticsViews({
               to={data.to_ms}
               interval={interval}
               sharedScale={tab === 'performance'}
+              area={tab !== 'performance'}
               onSelect={onBucket}
             />
             {tab === 'performance' && (
@@ -372,6 +379,7 @@ export function AnalyticsViews({
                 from={data.from_ms}
                 to={data.to_ms}
                 interval={interval}
+                area={false}
                 onSelect={onBucket}
               />
             )}

@@ -132,11 +132,11 @@
     background: var(--bg-hover);
     color: var(--text-primary);
   }
+  // Same weight as the rest, so the selected pill never changes width.
   button:is([aria-pressed='true'], [aria-selected='true']) {
     background: var(--bg-tertiary);
     box-shadow: inset 0 0 0 1px var(--border-hover);
     color: var(--text-primary);
-    font-weight: 600;
   }
 }
 // The view switcher sits in its own inset group, a step larger than the presets.
@@ -304,6 +304,10 @@
   border-radius: var(--radius-md);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  // Label, value and qualifier rows are shared across a row of cards, so values line up
+  // even when one label wraps.
+  grid-row: span 3;
+  grid-template-rows: subgrid;
   align-content: start;
   gap: 4px;
 }
@@ -312,6 +316,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  // First line at the top, so values share a line across a row whatever wraps beside them.
+  align-content: flex-start;
   gap: 4px 14px;
   min-width: 0;
 }
@@ -367,6 +373,9 @@
 }
 .spark {
   flex: 1 1 72px;
+  // Wide cards keep a sparkline-sized trace at their right edge instead of a long rule.
+  max-width: 240px;
+  margin-left: auto;
   height: 26px;
   overflow: visible;
   path {
@@ -794,6 +803,11 @@ button.rankedRow {
 .rates th {
   max-width: 220px;
 }
+.rates td:last-child,
+.rates th:last-child {
+  // Rate details is a disclosure, not a figure: keep it clear of the last rate column.
+  padding-left: 28px;
+}
 .rates td:nth-child(n + 5):nth-child(-n + 8) {
   white-space: nowrap;
 }
@@ -872,7 +886,8 @@ button.rankedRow {
 .skeletonChart {
   display: grid;
   place-items: center;
-  height: clamp(320px, 45dvh, 560px);
+  // The trend panel's plot height plus its title, axis and notes.
+  height: calc(clamp(240px, min(22cqw, 100dvh - 560px), 640px) + 120px);
   margin: 0;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -895,7 +910,9 @@ button.rankedRow {
   .page :is(button, select, input:not([type='checkbox'])) {
     min-height: 44px;
   }
-  .page .actions :global(.btn-sm) {
+  .page .actions :global(.btn-sm),
+  .segmented button,
+  .tabs button {
     min-width: 44px;
   }
   .page summary {
@@ -1097,6 +1114,8 @@ button.rankedRow {
   .spark,
   .noSpark {
     flex-basis: 100%;
+    max-width: none;
+    margin-left: 0;
   }
 }
 // Desktop: the title line rises into the empty band beside the floating shell controls,
@@ -1141,8 +1160,9 @@ button.rankedRow {
   .fieldRow > label {
     flex-basis: 120px;
   }
+  // Room for the whole placeholder beside Apply.
   .searchForm {
-    flex-basis: 240px;
+    flex-basis: 270px;
   }
 }
 // Phones: pills become an even grid instead of one row too wide for the screen.
@@ -1174,6 +1194,8 @@ button.rankedRow {
   .metrics[data-count='8'] .spark,
   .metrics[data-count='8'] .noSpark {
     flex-basis: 100%;
+    max-width: none;
+    margin-left: 0;
   }
 }
 

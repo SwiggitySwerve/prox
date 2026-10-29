@@ -308,7 +308,9 @@ export function AnalyticsPage() {
                 <Button
                   type="submit"
                   size="sm"
-                  variant={error ? 'secondary' : 'primary'}
+                  variant={
+                    !error && search.trim() !== (query.search ?? '') ? 'primary' : 'secondary'
+                  }
                   disabled={search.trim() === (query.search ?? '')}
                 >
                   {t('analytics.apply')}

@@ -33,6 +33,7 @@ export function TrendChart({
   to,
   interval,
   sharedScale = false,
+  area = true,
   onSelect,
 }: {
   title: string;
@@ -42,6 +43,8 @@ export function TrendChart({
   to: number;
   interval: number;
   sharedScale?: boolean;
+  /** Fill under the first series; only volumes read as an area, never durations. */
+  area?: boolean;
   onSelect?: (at: number) => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -61,7 +64,7 @@ export function TrendChart({
   );
   const measured = series.map((_, index) => points.some((p) => p.values[index] !== null));
   // Area fill only reads as volume when runs are long; sparse charts keep lines and markers.
-  const filled = lines[0]?.segments.some((segment) => segment.length > 2) ?? false;
+  const filled = area && (lines[0]?.segments.some((segment) => segment.length > 2) ?? false);
   const single = series.length === 1;
   const value = (index: number, v: number | null | undefined) =>
     analyticsNumber(v ?? null, i18n.language, series[index].currency);
