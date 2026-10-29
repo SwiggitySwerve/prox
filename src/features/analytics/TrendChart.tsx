@@ -19,7 +19,7 @@ export interface TrendPoint {
 
 const FRAME = { left: 0, right: 1000, top: 10, bottom: 230 };
 const TICKS = [1, 0.75, 0.5, 0.25, 0];
-const DASH = { dashed: '7 5', dotted: '1.5 5' };
+const DASH = { dashed: '8 4', dotted: '1 4' };
 
 /**
  * Several timeline series on one time axis. Each line uses its own scale unless `sharedScale`
@@ -60,6 +60,8 @@ export function TrendChart({
     )
   );
   const measured = series.map((_, index) => points.some((p) => p.values[index] !== null));
+  // Area fill only reads as volume when runs are long; sparse charts keep lines and markers.
+  const filled = lines[0]?.segments.some((segment) => segment.length > 2) ?? false;
   const single = series.length === 1;
   const value = (index: number, v: number | null | undefined) =>
     analyticsNumber(v ?? null, i18n.language, series[index].currency);
@@ -75,16 +77,22 @@ export function TrendChart({
         .filter((index) => measured[index])
         .slice(0, 3);
   const pct = (at: number) => ((at - from) / Math.max(1, to - from)) * 100;
+  const ticks = timeTicks(from, to, interval, 6);
+  const midnight = Math.max(
+    0,
+    ticks.findIndex((at) => at % 86_400_000 === 0)
+  );
+  // One count format for the whole chart, so neighbouring axes never mix 2,000 with 20K.
+  const compactCounts = series.some((s, index) => !s.currency && lines[index].maximum >= 10_000);
   const tick = (index: number, fraction: number) => {
     const v = lines[index].maximum * fraction;
-    // One format per axis, chosen by its maximum, so ticks never mix 5,000 with 10K.
     if (series[index].currency && lines[index].maximum >= 4 && lines[index].maximum < 10_000)
       return new Intl.NumberFormat(i18n.language, {
         style: 'currency',
         currency: 'USD',
         maximumFractionDigits: 0,
       }).format(v);
-    return series[index].currency || lines[index].maximum >= 10_000
+    return series[index].currency || compactCounts
       ? analyticsCompact(v, i18n.language, series[index].currency)
       : analyticsNumber(v, i18n.language);
   };
@@ -130,21 +138,25 @@ export function TrendChart({
                 style={{ color: sharedScale ? undefined : series[index].color }}
                 aria-hidden="true"
               >
-                {/* Same-ink series are told apart by line style, so each axis shows its own. */}
-                {!single && !sharedScale && (
-                  <svg viewBox="0 0 24 8" className={styles.axisKey}>
-                    <line
-                      x1="2"
-                      y1="4"
-                      x2="22"
-                      y2="4"
-                      style={{ stroke: series[index].color }}
-                      strokeDasharray={series[index].dash ? DASH[series[index].dash] : undefined}
-                    />
-                  </svg>
-                )}
                 {TICKS.map((fraction) => (
-                  <span key={fraction}>{tick(index, fraction)}</span>
+                  <span key={fraction}>
+                    {/* Same-ink series are told apart by line style; the top label shows it. */}
+                    {fraction === 1 && !single && !sharedScale && (
+                      <svg viewBox="0 0 24 8" className={styles.axisKey}>
+                        <line
+                          x1="2"
+                          y1="4"
+                          x2="22"
+                          y2="4"
+                          style={{ stroke: series[index].color }}
+                          strokeDasharray={
+                            series[index].dash ? DASH[series[index].dash] : undefined
+                          }
+                        />
+                      </svg>
+                    )}
+                    {tick(index, fraction)}
+                  </span>
                 ))}
               </div>
             ))}
@@ -174,14 +186,14 @@ export function TrendChart({
                   const path = segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ');
                   return (
                     <g key={`${series[index].key}-${part}`}>
-                      {index === 0 && segment.length > 1 && (
+                      {index === 0 && filled && segment.length > 1 && (
                         <path
                           d={`${path} L${segment[segment.length - 1][0]},${FRAME.bottom} L${segment[0][0]},${FRAME.bottom} Z`}
                           style={{ fill: series[index].color }}
                           className={styles.trendArea}
                         />
                       )}
-                      {segment.length > 1 ? (
+                      {segment.length > 1 && (
                         <path
                           d={path}
                           style={{ stroke: series[index].color }}
@@ -191,15 +203,18 @@ export function TrendChart({
                           className={styles.trendLine}
                           vectorEffect="non-scaling-stroke"
                         />
-                      ) : (
-                        // An isolated measured hour: a visible marker, not a 1px stub.
-                        <path
-                          d={`${path} l0.01,0`}
-                          style={{ stroke: series[index].color }}
-                          className={styles.trendPoint}
-                          vectorEffect="non-scaling-stroke"
-                        />
                       )}
+                      {/* Short runs and lone hours get a marker per reading, not a slope or stub. */}
+                      {segment.length <= 2 &&
+                        segment.map(([x, y]) => (
+                          <path
+                            key={x}
+                            d={`M${x},${y} l0.01,0`}
+                            style={{ stroke: series[index].color }}
+                            className={styles.trendPoint}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        ))}
                     </g>
                   );
                 })
@@ -258,13 +273,13 @@ export function TrendChart({
               })}
             </svg>
             <div className={styles.trendTime} aria-hidden="true">
-              {timeTicks(from, to, interval, 6).map((at, index) => (
+              {ticks.map((at, index) => (
                 <span
                   key={at}
                   style={{ left: `${pct(at)}%` }}
                   data-edge={pct(at) < 4 ? 'start' : pct(at) > 96 ? 'end' : undefined}
-                  // Narrow screens show every other label.
-                  data-minor={index % 2 === 1}
+                  // Narrow screens show every other label, keeping the midnight one.
+                  data-minor={Math.abs(index - midnight) % 2 === 1}
                 >
                   {/* Hourly axes name the day where it changes. */}
                   {analyticsShortTime(at, i18n.language, daily || at % 86_400_000 === 0)}

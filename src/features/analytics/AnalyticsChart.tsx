@@ -50,6 +50,13 @@ export function AnalyticsChart({
               const content = (
                 <>
                   <span className={styles.rankedLabel} title={d.label}>
+                    {categoryColor(d.key) && (
+                      <span
+                        className={styles.categoryDot}
+                        style={{ background: categoryColor(d.key) }}
+                        aria-hidden="true"
+                      />
+                    )}
                     {d.label}
                   </span>
                   {/* A missing value draws no track: an empty track would read as zero. */}
@@ -93,42 +100,44 @@ export function AnalyticsChart({
           <output className={styles.chartReadout} aria-live="polite">
             {readout ? `${readout.label}: ${exact(readout.value)}` : null}
           </output>
-          <details className={styles.readout}>
-            <summary>{t('analytics.table_alternative')}</summary>
-            <div className={styles.tableScroll} tabIndex={0} role="region" aria-label={title}>
-              <table>
-                <caption className={styles.srOnly}>{title}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">{t('analytics.bucket_category')}</th>
-                    <th scope="col">{title}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((d) => (
-                    <tr key={d.key}>
-                      <th scope="row">
-                        {onSelect ? (
-                          <button
-                            type="button"
-                            className={styles.textButton}
-                            onClick={() => onSelect(d.key)}
-                          >
-                            {d.label}
-                          </button>
-                        ) : (
-                          d.label
-                        )}
-                      </th>
-                      <td>
-                        {d.value === null ? t('analytics.unavailable_value') : exact(d.value)}
-                      </td>
+          {data.some((d) => d.value !== null) && (
+            <details className={styles.readout}>
+              <summary>{t('analytics.table_alternative')}</summary>
+              <div className={styles.tableScroll} tabIndex={0} role="region" aria-label={title}>
+                <table>
+                  <caption className={styles.srOnly}>{title}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">{t('analytics.bucket_category')}</th>
+                      <th scope="col">{title}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
+                  </thead>
+                  <tbody>
+                    {data.map((d) => (
+                      <tr key={d.key}>
+                        <th scope="row">
+                          {onSelect ? (
+                            <button
+                              type="button"
+                              className={styles.textButton}
+                              onClick={() => onSelect(d.key)}
+                            >
+                              {d.label}
+                            </button>
+                          ) : (
+                            d.label
+                          )}
+                        </th>
+                        <td>
+                          {d.value === null ? t('analytics.unavailable_value') : exact(d.value)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
         </>
       )}
     </section>

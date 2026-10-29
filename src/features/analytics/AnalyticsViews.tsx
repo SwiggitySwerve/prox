@@ -46,6 +46,7 @@ type View = Exclude<AnalyticsTab, 'rates' | 'requests'>;
 const METRIC_COLOR: Partial<Record<Metric, string>> = {
   calls: 'var(--analytics-requests)',
   total_tokens: 'var(--analytics-tokens)',
+  input_tokens: 'var(--analytics-tokens)',
   // Token series share the token ink and are told apart by line style.
   output_tokens: 'var(--analytics-tokens)',
   cache_read_tokens: 'var(--analytics-tokens)',
@@ -132,7 +133,6 @@ export function AnalyticsViews({
   const { t, i18n } = useTranslation();
   const interval = data.granularity === 'day' ? 86_400_000 : 3_600_000;
   const trend = trends[tab];
-  const charted = new Set(trend.map((s) => s.metric));
   const breakdownMetric = breakdowns[tab];
   const breakdownFormat =
     breakdownMetric === 'cost' ? 'money' : isDuration(breakdownMetric) ? 'exact' : 'compact';
@@ -184,15 +184,13 @@ export function AnalyticsViews({
         {cards[tab].map((metric) => {
           const Icon = ICONS[metric];
           const value = valueOf(data.summary, metric);
-          // Charted metrics carry their line colour; failures turn red only when there are some.
+          // A metric keeps its ink on every tab; failures turn red only when there are some.
           const color =
             metric === 'failure_calls'
               ? value
                 ? 'var(--error-color)'
                 : undefined
-              : charted.has(metric)
-                ? METRIC_COLOR[metric]
-                : undefined;
+              : METRIC_COLOR[metric];
           const spark = lineSegments(
             data.timeline.map((p) => ({ at: p.bucket_ms, value: valueOf(p, metric) })),
             {
@@ -210,10 +208,10 @@ export function AnalyticsViews({
           const sparkValues = data.timeline
             .map((p) => valueOf(p, metric))
             .filter((v): v is number => v !== null);
+          // Runs shorter than three hours would read as stray marks at sparkline size.
+          const sparkRuns = spark.segments.filter((segment) => segment.length > 2);
           const sparkShown =
-            value !== null &&
-            new Set(sparkValues).size > 1 &&
-            spark.segments.some((segment) => segment.length > 1);
+            value !== null && new Set(sparkValues).size > 1 && sparkRuns.length > 0;
           return (
             <article
               key={metric}
@@ -236,7 +234,7 @@ export function AnalyticsViews({
                 {display(metric, value)}
               </strong>
               <small>{sub ?? ' '}</small>
-              {sparkShown && (
+              {sparkShown ? (
                 <svg
                   viewBox="0 0 100 28"
                   preserveAspectRatio="none"
@@ -244,17 +242,18 @@ export function AnalyticsViews({
                   data-charted={color !== undefined}
                   aria-hidden="true"
                 >
-                  {/* Lone points would read as stray marks at sparkline size. */}
-                  {spark.segments
-                    .filter((segment) => segment.length > 1)
-                    .map((segment, index) => (
-                      <path
-                        key={index}
-                        d={segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ')}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    ))}
+                  {sparkRuns.map((segment, index) => (
+                    <path
+                      key={index}
+                      d={segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ')}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ))}
                 </svg>
+              ) : (
+                value !== null && (
+                  <span className={styles.noSpark}>{t('analytics.no_hourly_series')}</span>
+                )
               )}
             </article>
           );

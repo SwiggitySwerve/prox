@@ -248,6 +248,12 @@
   font-size: 11px;
   overflow-wrap: anywhere;
 }
+.noSpark {
+  grid-area: spark;
+  align-self: end;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
 .spark {
   grid-area: spark;
   align-self: end;
@@ -355,19 +361,15 @@
   }
 }
 .axisKey {
-  position: absolute;
-  top: -14px;
-  left: 0;
-  width: 22px;
+  display: inline-block;
+  width: 18px;
   height: 8px;
+  margin-right: 5px;
+  vertical-align: middle;
   line {
     stroke-width: 2.5;
     stroke-linecap: round;
   }
-}
-.trendAxis[data-side='left'] .axisKey {
-  left: auto;
-  right: 0;
 }
 .trendSvg {
   grid-column: 2;
@@ -484,6 +486,14 @@ button.rankedRow {
   overflow-wrap: anywhere;
   line-height: 1.35;
 }
+.categoryDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
 .rankedTrack {
   grid-column: 1 / -1;
   grid-row: 2;
@@ -552,11 +562,18 @@ button.rankedRow {
 }
 .rowAction {
   border: 1px solid var(--border-primary);
-  font-weight: 500;
+}
+.requests th {
+  white-space: nowrap;
+}
+.requests td:last-child,
+.requests th:last-child {
+  text-align: right;
 }
 .rates th[scope='row'] {
+  min-width: 220px;
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 500;
 }
 .warningNotice {
   background: var(--warning-bg);
@@ -744,7 +761,7 @@ button.rankedRow {
   .trendPlot[data-axes='2'],
   .trendPlot[data-axes='3'] {
     grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: 180px auto;
+    grid-template-rows: 230px auto;
   }
   .trendAxis[data-side='right'],
   .trendTime span[data-minor='true'],
@@ -754,7 +771,8 @@ button.rankedRow {
   .narrowOnly {
     display: inline;
   }
-  .metrics[data-count='3'] > :last-child {
+  // Three cards: the lead card spans the row, the other two pair beneath it.
+  .metrics[data-count='3'] > :first-child {
     grid-column: 1 / -1;
   }
 

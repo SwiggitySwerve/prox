@@ -2493,6 +2493,7 @@
     "empty_unfiltered": "Nothing was retained in this time range. Choose a longer range to look further back.",
     "trend_gaps": "Gaps are unmeasured periods.",
     "no_data": "no data",
+    "no_hourly_series": "No hourly series",
     "trend_shared_scale": "All lines share one millisecond scale. Gaps are unmeasured periods.",
     "title": "Analytics",
     "nav_meta": "Usage, cost and execution trends",

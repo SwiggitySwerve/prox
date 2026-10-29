@@ -208,7 +208,7 @@ export function RequestTable({
                   </td>
                   <td>
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
                       className={styles.rowAction}
                       onClick={() => onSelect(r)}

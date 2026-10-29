@@ -120,7 +120,9 @@ for (const width of [1440, 1024, 390]) {
               els.every((el) => {
                 const range = document.createRange();
                 range.selectNodeContents(el);
-                return range.getClientRects().length <= 1;
+                // One line of text: all boxes, including screen-reader text, sit on one line box.
+                const tops = [...range.getClientRects()].map((r) => r.top);
+                return Math.max(...tops) - Math.min(...tops) < 8;
               })
             )
         ).toBe(true);

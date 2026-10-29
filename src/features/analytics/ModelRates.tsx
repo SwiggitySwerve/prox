@@ -82,7 +82,14 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
                         data-numeric
                         data-missing={value === null}
                       >
-                        {money(value)}
+                        {value === null ? (
+                          <>
+                            <span aria-hidden="true">—</span>
+                            <span className={styles.srOnly}>{money(value)}</span>
+                          </>
+                        ) : (
+                          money(value)
+                        )}
                       </td>
                     ))}
                     <td>
