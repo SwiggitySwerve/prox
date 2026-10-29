@@ -9,6 +9,7 @@ import {
   IconInbox,
   IconRefreshCw,
   IconSearch,
+  IconX,
 } from '@/components/ui/icons';
 import { useAnalytics } from './useAnalytics';
 import {
@@ -22,12 +23,23 @@ import {
   withoutCursor,
   type AnalyticsBucket,
   type AnalyticsRange,
+  type AnalyticsTab,
 } from './queryState';
 import { AnalyticsViews } from './AnalyticsViews';
 import { ModelRates } from './ModelRates';
 import { RequestTable } from './RequestTable';
 import { analyticsTime } from './format';
 import styles from './AnalyticsPage.module.scss';
+
+// Card counts per view, for loading placeholders that match the loaded layout.
+const skeletonCards: Record<AnalyticsTab, number> = {
+  overview: 8,
+  tokens: 6,
+  cost: 3,
+  performance: 3,
+  requests: 0,
+  rates: 0,
+};
 
 /** Segmented presets: every option visible, the current one pressed. */
 function Pills<T extends string>({
@@ -249,6 +261,7 @@ export function AnalyticsPage() {
                   variant="secondary"
                   size="sm"
                   disabled={activeFilters === 0 && !bucketSelected}
+                  title={t('analytics.clear_filters')}
                   onClick={() => {
                     setPages([rangeQuery(range, Date.now(), bucket)]);
                     setBucketSelected(false);
@@ -256,10 +269,18 @@ export function AnalyticsPage() {
                     setSelected(null);
                   }}
                 >
-                  {t('analytics.clear_filters')}
+                  <IconX size={13} aria-hidden="true" />
+                  <span className={styles.actionLabel}>{t('analytics.clear_filters')}</span>
                 </Button>
-                <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
-                  <IconRefreshCw size={13} /> {t('analytics.refresh')}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={reload}
+                  disabled={loading}
+                  title={t('analytics.refresh')}
+                >
+                  <IconRefreshCw size={13} aria-hidden="true" />
+                  <span className={styles.actionLabel}>{t('analytics.refresh')}</span>
                 </Button>
               </div>
             </div>
@@ -282,14 +303,13 @@ export function AnalyticsPage() {
                     placeholder={t('analytics.search_hint')}
                   />
                 </label>
-                {/* Apply stands out only when the typed search differs from the applied one;
+                {/* Apply is live only when the typed search differs from the applied one;
                     while the dataset is unavailable, Retry is the one primary action. */}
                 <Button
                   type="submit"
                   size="sm"
-                  variant={
-                    !error && search.trim() !== (query.search ?? '') ? 'primary' : 'secondary'
-                  }
+                  variant={error ? 'secondary' : 'primary'}
+                  disabled={search.trim() === (query.search ?? '')}
                 >
                   {t('analytics.apply')}
                 </Button>
@@ -352,8 +372,21 @@ export function AnalyticsPage() {
         aria-busy={loading}
         tabIndex={0}
       >
-        {loading && (
-          <p role="status" className={styles.state}>
+        {/* First load: placeholders in the page's own shape, so nothing jumps when data lands. */}
+        {loading && !data && (
+          <div role="status" className={styles.skeleton}>
+            {skeletonCards[tab] > 0 && (
+              <div className={styles.metrics} data-count={skeletonCards[tab]} aria-hidden="true">
+                {Array.from({ length: skeletonCards[tab] }, (_, index) => (
+                  <span key={index} className={styles.skeletonCard} />
+                ))}
+              </div>
+            )}
+            <p className={styles.skeletonChart}>{t('analytics.loading')}</p>
+          </div>
+        )}
+        {loading && data && (
+          <p role="status" className={styles.srOnly}>
             {t('analytics.loading')}
           </p>
         )}

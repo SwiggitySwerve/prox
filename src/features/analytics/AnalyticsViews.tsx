@@ -283,17 +283,25 @@ export function AnalyticsViews({
                         />
                       ))}
                   </svg>
+                ) : // The page-level empty state already says nothing was retained.
+                value !== null && data.summary.calls > 0 && sparkValues.length > 0 ? (
+                  // The same value every hour: a level line keeps the card's shape.
+                  <>
+                    <svg
+                      viewBox="0 0 100 28"
+                      preserveAspectRatio="none"
+                      className={styles.spark}
+                      data-charted={color !== undefined}
+                      aria-hidden="true"
+                    >
+                      <path d="M0,14 L100,14" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                    <span className={styles.srOnly}>{t('analytics.no_hourly_change')}</span>
+                  </>
                 ) : (
-                  // The page-level empty state already says nothing was retained.
                   value !== null &&
                   data.summary.calls > 0 && (
-                    <span className={styles.noSpark}>
-                      {t(
-                        sparkValues.length > 0
-                          ? 'analytics.no_hourly_change'
-                          : 'analytics.no_hourly_series'
-                      )}
-                    </span>
+                    <span className={styles.noSpark}>{t('analytics.no_hourly_series')}</span>
                   )
                 )}
               </div>

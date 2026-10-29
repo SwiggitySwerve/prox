@@ -43,8 +43,10 @@ const GEOMETRY = () => {
   while (walker.nextNode()) {
     const node = walker.currentNode;
     const e = node.parentElement;
-    if (!e || !node.textContent?.trim() || !visible(e) || e.closest('svg,[class*=srOnly]'))
-      continue;
+    // Visually hidden text (an srOnly class or any clip) is never painted, so is not measured.
+    const hidden = (el: Element) =>
+      !!el.closest('svg,[class*=srOnly]') || getComputedStyle(el).clip !== 'auto';
+    if (!e || !node.textContent?.trim() || !visible(e) || hidden(e)) continue;
     const s = getComputedStyle(e);
     const range = document.createRange();
     range.selectNodeContents(node);

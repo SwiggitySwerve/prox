@@ -1,0 +1,322 @@
+{
+  "reviewer": "data",
+  "scores": {
+    "overview": {
+      "hierarchy": 9.2,
+      "layout": 9.0,
+      "type_numbers": 8.8,
+      "colour": 9.2,
+      "content": 8.6,
+      "controls_states": 9.0,
+      "consistency": 8.9,
+      "responsive_accessible": 8.9
+    },
+    "tokens": {
+      "hierarchy": 9.1,
+      "layout": 9.0,
+      "type_numbers": 9.0,
+      "colour": 8.8,
+      "content": 8.6,
+      "controls_states": 9.0,
+      "consistency": 8.8,
+      "responsive_accessible": 8.8
+    },
+    "cost": {
+      "hierarchy": 9.2,
+      "layout": 9.0,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 8.6,
+      "controls_states": 9.0,
+      "consistency": 9.1,
+      "responsive_accessible": 9.0
+    },
+    "performance": {
+      "hierarchy": 9.1,
+      "layout": 9.0,
+      "type_numbers": 8.8,
+      "colour": 8.6,
+      "content": 8.7,
+      "controls_states": 9.0,
+      "consistency": 9.0,
+      "responsive_accessible": 9.0
+    },
+    "requests": {
+      "hierarchy": 9.1,
+      "layout": 9.0,
+      "type_numbers": 9.0,
+      "colour": 9.3,
+      "content": 8.5,
+      "controls_states": 8.9,
+      "consistency": 8.9,
+      "responsive_accessible": 9.1
+    },
+    "rates": {
+      "hierarchy": 9.0,
+      "layout": 8.8,
+      "type_numbers": 9.1,
+      "colour": 9.2,
+      "content": 8.6,
+      "controls_states": 8.8,
+      "consistency": 9.0,
+      "responsive_accessible": 9.0
+    },
+    "empty": {
+      "hierarchy": 9.2,
+      "layout": 9.1,
+      "type_numbers": 9.0,
+      "colour": 9.1,
+      "content": 8.5,
+      "controls_states": 8.8,
+      "consistency": 8.9,
+      "responsive_accessible": 9.1
+    },
+    "unknown": {
+      "hierarchy": 9.1,
+      "layout": 9.1,
+      "type_numbers": 9.0,
+      "colour": 9.2,
+      "content": 8.6,
+      "controls_states": 8.9,
+      "consistency": 9.1,
+      "responsive_accessible": 9.1
+    },
+    "error": {
+      "hierarchy": 9.3,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 8.7,
+      "controls_states": 8.9,
+      "consistency": 9.2,
+      "responsive_accessible": 9.2
+    },
+    "loading": {
+      "hierarchy": 8.8,
+      "layout": 8.7,
+      "type_numbers": 9.0,
+      "colour": 9.1,
+      "content": 8.9,
+      "controls_states": 9.0,
+      "consistency": 8.9,
+      "responsive_accessible": 9.0
+    }
+  },
+  "issues": [
+    {
+      "screen": "overview",
+      "size": "all (clearest at 1440, 2293)",
+      "aspect": "content",
+      "element": "Failed events KPI: the r12 note was shortened to 'Flat trend', but it still sits inline after the value with 'of 128 events' on the line below, so the tile now reads '8 Flat trend of 128 events'",
+      "fix": "Put '8 of 128 events' together as the value line. Move the flat-series note to the caption slot where the sparkline would go, or draw a flat sparkline and drop the words"
+    },
+    {
+      "screen": "overview",
+      "size": "all (clearest at 3440, 2293)",
+      "aspect": "type_numbers",
+      "element": "Usage trend: smoothed curves overshoot between hourly buckets. The white and violet lines dip to 0 between peaks (e.g. about 21:30 and 06:30), and no bucket markers show where measured hours are",
+      "fix": "Use monotone interpolation (or straight segments) so a line never goes below its neighbouring bucket values. Show bucket dots on hover/focus"
+    },
+    {
+      "screen": "overview",
+      "size": "all",
+      "aspect": "content",
+      "element": "Estimated cost KPI caption says only 'Partial'",
+      "fix": "Say what is excluded, e.g. 'Partial · 28 unpriced events excluded', using the Unpriced events count the Cost tab shows"
+    },
+    {
+      "screen": "overview",
+      "size": "all desktop",
+      "aspect": "content",
+      "element": "'Total tokens 98K' sits beside 'Reported input tokens 3.5B'. A total smaller than one of its parts reads as a bug unless the scope is stated, and the tile does not say what 'Total' covers",
+      "fix": "Name the scope in the label or caption, e.g. 'Total tokens · events with full usage', or link the tile to Measurement details as the Tokens tab does"
+    },
+    {
+      "screen": "overview",
+      "size": "1280x720, 1024x768",
+      "aspect": "type_numbers",
+      "element": "The 'Current bucket: hour' readout disappears below about 1366 px, so with 'Auto' selected nothing says what bucket the chart uses",
+      "fix": "Keep the readout, shortened to 'Bucket: hour', or show the resolved bucket inside the Auto pill ('Auto · hour')"
+    },
+    {
+      "screen": "overview",
+      "size": "all",
+      "aspect": "colour",
+      "element": "'Partial coverage' in the header meta row is plain grey text with the same weight as the date range, although it is the main caveat on every number",
+      "fix": "Add an amber dot/icon (amber = warning) before 'Partial coverage' so it reads as a caveat, not metadata"
+    },
+    {
+      "screen": "tokens",
+      "size": "all (clearest at 1366, 1440)",
+      "aspect": "colour",
+      "element": "Token trend: three violet series on three axes. Only small dash/dot swatches above the 1.2K and 16K right axes tell them apart, and the 1px dashed and dotted lines blur together where they cross",
+      "fix": "Use 2px strokes with longer dash gaps, and put a short series name above each right axis ('Output', 'Cache read') instead of only a swatch"
+    },
+    {
+      "screen": "tokens",
+      "size": "all",
+      "aspect": "content",
+      "element": "The chart's main series is 'Total tokens', but this tab has no Total tokens KPI. The first legend entry has no matching tile, while 'Reported input tokens' has a tile but no line",
+      "fix": "Either add Total tokens as the first tile or plot Reported input tokens, so the legend and the KPI row describe the same metrics"
+    },
+    {
+      "screen": "tokens",
+      "size": "all",
+      "aspect": "content",
+      "element": "Uncached input tokens tile: 'Unavailable / No range total' gives no reason",
+      "fix": "Give the reason and next step, e.g. 'Not reported by these providers · see Measurement details'"
+    },
+    {
+      "screen": "tokens",
+      "size": "1440",
+      "aspect": "content",
+      "element": "KPI 'Reported output tokens 14.5M' and the 'By provider · Reported output tokens' rows (12.5K each) use the same label for figures three orders of magnitude apart",
+      "fix": "Name the scope in each heading (range total vs per-bucket or per-event figure) so the same words never carry conflicting magnitudes"
+    },
+    {
+      "screen": "tokens",
+      "size": "390x844, 320x568",
+      "aspect": "responsive_accessible",
+      "element": "The selected 'Tokens & Cache' tab wraps to two lines in the 3-column tab grid, making it taller than its neighbours",
+      "fix": "Use a 2-column grid below 400 px, or shorten to 'Tokens' at that size"
+    },
+    {
+      "screen": "performance",
+      "size": "all",
+      "aspect": "colour",
+      "element": "The p95 duration line and the TTFT line render near-white, the same ink as request counts on Overview. The design language reserves white for counts and uses neutral grey for durations, as the KPI sparklines here do",
+      "fix": "Draw duration series in the mid-grey duration ink. Keep pure white for counts only"
+    },
+    {
+      "screen": "performance",
+      "size": "all",
+      "aspect": "type_numbers",
+      "element": "Duration trend: a grey area fill under p95 runs to 0 and covers the mean line, so a percentile reads like a volume",
+      "fix": "Drop the fill, or shade only the band between mean and p95"
+    },
+    {
+      "screen": "performance",
+      "size": "all",
+      "aspect": "content",
+      "element": "'· ms' is repeated in the chart title and both legend entries ('Duration trend · ms', 'p95 execution duration · ms', 'Mean execution duration · ms')",
+      "fix": "Keep the unit once, in the title. Shorten the legend to 'p95' / 'Mean'"
+    },
+    {
+      "screen": "unknown",
+      "size": "all",
+      "aspect": "content",
+      "element": "Duration tiles say 'No range total', but a p95 or mean is not a total. The charts say 'No measured values in this interval.' with no cause, and 'interval' clashes with 'range' used everywhere else",
+      "fix": "Use 'Not reported for this range' on duration tiles. Say why in the chart ('Providers did not report duration for these 128 events') and use 'range' consistently"
+    },
+    {
+      "screen": "unknown",
+      "size": "all",
+      "aspect": "controls_states",
+      "element": "'View data table' is still offered under charts that have no values",
+      "fix": "Hide it, or disable it with 'No rows', when the series is empty"
+    },
+    {
+      "screen": "requests",
+      "size": "1440, 2293, 390",
+      "aspect": "content",
+      "element": "Pager shows 'Page 1' under 3 rows while the header says '128 retained events'. There is no page count or row range",
+      "fix": "Show 'Rows 1–3 of 128 · Page 1 of 43' beside Previous/Next"
+    },
+    {
+      "screen": "requests",
+      "size": "all",
+      "aspect": "content",
+      "element": "Cell captions 'Usage presence reported', 'Unavailable / Unpriced' (two words for one fact) and 'Explicit zero rate' are internal jargon. Failed shows a bare '429'",
+      "fix": "Use 'Provider-reported', one muted 'Unpriced', 'Rate set to $0', and '429 · rate limited'"
+    },
+    {
+      "screen": "requests",
+      "size": "1440, 2293",
+      "aspect": "content",
+      "element": "The column header 'Details' sits above buttons that also say 'Details', so the same word appears twice",
+      "fix": "Leave the action column header blank (visually hidden text for screen readers)"
+    },
+    {
+      "screen": "rates",
+      "size": "all",
+      "aspect": "content",
+      "element": "Time-range pills and 'Current bucket: hour' stay active on a tab whose note says 'These are not historical rates', which suggests the table changes with the range",
+      "fix": "Disable or hide the range/bucket groups on Model Rates, or add 'Range does not apply to current rates' next to them"
+    },
+    {
+      "screen": "rates",
+      "size": "2293x840",
+      "aspect": "layout",
+      "element": "The 'Reference: current configured model rates…' note stops about 290 px short of the right edge, while the Model Rates card below is full width",
+      "fix": "Make the note full width like every other card, or move it into the Model Rates card"
+    },
+    {
+      "screen": "rates",
+      "size": "all",
+      "aspect": "content",
+      "element": "'current configured rates' appears in the top note and again in the caption. The amber catalog warning gives no next step, and 'Offline' is capitalised mid-sentence. The Billing model cell says 'Not reported / unavailable'",
+      "fix": "Caption: 'USD per million tokens · — = no rate configured'. Warning: '…reconnect the source in AI Providers to load its catalog'. Cell: 'Not reported'"
+    },
+    {
+      "screen": "cost",
+      "size": "all",
+      "aspect": "content",
+      "element": "'Legacy cache-write lifetime unavailable' is jargon with no reason or effect, and has no full stop although the sentence above it does",
+      "fix": "Say what it affects: 'Cache-write cost for older events is excluded because their cache lifetime was not recorded.'"
+    },
+    {
+      "screen": "empty",
+      "size": "all",
+      "aspect": "content",
+      "element": "With 0 events, Estimated cost and p95 duration say 'Unavailable / No range total', which reads as a measurement fault rather than no activity. The Reported input tile claims 'Uncached 0' here, but Tokens says uncached input is Unavailable",
+      "fix": "Show '$0.00' and '— · No events'. Show 'Uncached' only where it is measured, or show 'Uncached —'"
+    },
+    {
+      "screen": "empty",
+      "size": "all",
+      "aspect": "content",
+      "element": "Failed events tile reads '0 / of 0 events'",
+      "fix": "Hide the 'of N events' caption when N is 0"
+    },
+    {
+      "screen": "empty",
+      "size": "all",
+      "aspect": "controls_states",
+      "element": "Empty banner says 'Choose a longer range to look further back.' but offers no control",
+      "fix": "Add a one-click 'Show last 7 days' button in the banner"
+    },
+    {
+      "screen": "error",
+      "size": "all",
+      "aspect": "content",
+      "element": "'The local analytics dataset is not configured or is temporarily unavailable. Check the server dataset binding, then retry.' hedges between two causes and uses jargon ('dataset binding')",
+      "fix": "Separate the two cases if the API allows it. Otherwise name the setting to check and link it, e.g. 'Set usage-statistics storage in Config Panel'"
+    },
+    {
+      "screen": "error",
+      "size": "all",
+      "aspect": "controls_states",
+      "element": "Retry in the error card and Refresh in the toolbar do the same thing, and the filters stay enabled although nothing can load",
+      "fix": "Dim or disable the filter row while in error and keep Retry as the single recovery action"
+    },
+    {
+      "screen": "loading",
+      "size": "all",
+      "aspect": "layout",
+      "element": "Loading is a single 'Loading analytics...' bar, so the page jumps when 8 KPI tiles and a 300 px chart arrive. The text uses three dots instead of an ellipsis",
+      "fix": "Render skeleton KPI tiles and a chart-height placeholder in the final grid, and use '…'"
+    }
+  ],
+  "regressions": [
+    "overview/tokens/cost (all sizes): the flat-series note changed from 'No change across the range' to 'Flat trend' but is still inline after the value, so the Failed events tile now reads '8 Flat trend of 128 events'. That is terser but no clearer, and 'trend' is still easy to read as 'vs previous period'. Small change, not a real regression.",
+    "No other data/content regressions. Improvements: the 1366 orphan Refresh row is gone and the tokens chart now fits whole at 1366x768 (cut off in r12)."
+  ],
+  "reference_gaps": [
+    "No 'Custom' range pill closing the time-range group",
+    "Bucket group offers only Auto / Hourly / Daily. The reference shows finer buckets (1 Min, 15 Min) and disables unavailable ones instead of leaving them out",
+    "Search shares a row with Apply and the filters. The reference gives search its own full-width row with filters below and has no Apply button",
+    "Filters are native selects with OS chevrons, not styled dropdowns matching the pill height and radius",
+    "No auto-refresh status pill (the reference's '(6s)') next to Refresh",
+    "No 'Show advanced filters' disclosure. All filters are always visible"
+  ]
+}

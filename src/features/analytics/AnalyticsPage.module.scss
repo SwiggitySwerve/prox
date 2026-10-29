@@ -3,7 +3,8 @@
   --analytics-requests: var(--primary-color);
   --analytics-tokens: #a99cff;
   --analytics-cost: #67d4e0;
-  --analytics-duration: var(--text-secondary);
+  // A mid grey: clearly apart from request white, still readable as small axis text.
+  --analytics-duration: #9a9a9a;
   // Charts and cards size against the page's own width, not the viewport.
   container-type: inline-size;
   min-width: 0;
@@ -156,6 +157,12 @@
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+// The shared Button wraps its content in one span; space the icon from its label.
+.actions :global(.btn-sm) > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .bucketNote {
   color: var(--text-secondary);
@@ -850,8 +857,23 @@ button.rankedRow {
     margin-top: 12px;
   }
 }
-.state {
-  padding: 22px 20px;
+// Loading placeholders take the loaded page's shape: card row, then the chart panel.
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.skeletonCard {
+  height: 102px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+.skeletonChart {
+  display: grid;
+  place-items: center;
+  height: clamp(320px, 45dvh, 560px);
+  margin: 0;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-primary);
@@ -872,6 +894,9 @@ button.rankedRow {
 @media (max-width: 700px), (pointer: coarse) {
   .page :is(button, select, input:not([type='checkbox'])) {
     min-height: 44px;
+  }
+  .page .actions :global(.btn-sm) {
+    min-width: 44px;
   }
   .page summary {
     padding-block: 13px;
@@ -1081,7 +1106,8 @@ button.rankedRow {
     padding-top: 24px;
   }
   .header {
-    min-height: 46px;
+    // As tall as the floating controls beside it, so the toolbar below never meets them.
+    min-height: 52px;
     padding-right: 200px;
   }
 }
@@ -1090,6 +1116,25 @@ button.rankedRow {
 @container (max-width: 1080px) {
   .bucketNote {
     display: none;
+  }
+}
+// Medium pages: Clear and Refresh keep their names for assistive tech and tooltips but show
+// icons only, so they stay on the preset row. Phones give them a full row with labels.
+@container (min-width: 601px) and (max-width: 1000px) {
+  .actionLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .page .actions :global(.btn-sm) {
+    width: 32px;
+    padding: 0;
+  }
+  .segmented button {
+    padding: 0 7px;
   }
 }
 @container (max-width: 1000px) {
@@ -1101,6 +1146,13 @@ button.rankedRow {
   }
 }
 // Phones: pills become an even grid instead of one row too wide for the screen.
+@container (max-width: 360px) {
+  .segmented button,
+  .tabs button {
+    padding: 0 4px;
+    font-size: 11px;
+  }
+}
 @container (max-width: 600px) {
   .segmented,
   .tabs {
@@ -1130,9 +1182,6 @@ button.rankedRow {
 @media (min-width: 701px) and (max-height: 800px) {
   .page {
     gap: 8px;
-  }
-  .header {
-    min-height: 40px;
   }
   .toolbar,
   .filters {
