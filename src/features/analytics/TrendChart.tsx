@@ -86,12 +86,20 @@ export function TrendChart({
   const compactCounts = series.some((s, index) => !s.currency && lines[index].maximum >= 10_000);
   const tick = (index: number, fraction: number) => {
     const v = lines[index].maximum * fraction;
-    if (series[index].currency && lines[index].maximum >= 4 && lines[index].maximum < 10_000)
+    if (series[index].currency && lines[index].maximum < 10_000) {
+      // Enough decimals for the tick step: $2 steps need none, $2.50 steps need cents.
+      const step = lines[index].maximum / 4;
+      let digits = 0;
+      while (digits < 8 && Math.abs(step * 10 ** digits - Math.round(step * 10 ** digits)) > 1e-9)
+        digits++;
+      if (digits > 0) digits = Math.max(2, digits);
       return new Intl.NumberFormat(i18n.language, {
         style: 'currency',
         currency: 'USD',
-        maximumFractionDigits: 0,
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
       }).format(v);
+    }
     return series[index].currency || compactCounts
       ? analyticsCompact(v, i18n.language, series[index].currency)
       : analyticsNumber(v, i18n.language);
@@ -125,7 +133,7 @@ export function TrendChart({
           </ul>
         )}
       </div>
-      {!measured.some(Boolean) ? (
+      {points.length === 0 ? (
         <p className={styles.muted}>{t('analytics.empty_chart')}</p>
       ) : (
         <>
@@ -272,6 +280,10 @@ export function TrendChart({
                 );
               })}
             </svg>
+            {/* Retained buckets with no measured values keep their drilldown and table. */}
+            {!measured.some(Boolean) && (
+              <p className={styles.trendNoValues}>{t('analytics.no_measured_values')}</p>
+            )}
             <div className={styles.trendTime} aria-hidden="true">
               {ticks.map((at, index) => (
                 <span

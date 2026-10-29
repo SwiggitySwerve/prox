@@ -27,8 +27,13 @@ export function lineSegments(
 ) {
   const maximum = shared ?? Math.max(0, ...points.map((p) => p.value ?? 0));
   const span = Math.max(1, frame.to - frame.from);
-  const x = (at: number) =>
-    frame.left + ((at + frame.interval / 2 - frame.from) / span) * (frame.right - frame.left);
+  // A bucket sits at the middle of its part inside the range, so partial edge buckets stay on the plot.
+  const x = (at: number) => {
+    const start = Math.max(frame.from, at);
+    const end = Math.min(frame.to, at + frame.interval);
+    const mid = end > start ? (start + end) / 2 : Math.min(Math.max(at, frame.from), frame.to);
+    return frame.left + ((mid - frame.from) / span) * (frame.right - frame.left);
+  };
   const y = (value: number) =>
     frame.bottom - (maximum > 0 ? value / maximum : 0) * (frame.bottom - frame.top);
   const segments: Array<Array<[number, number]>> = [];

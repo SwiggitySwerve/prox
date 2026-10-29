@@ -407,6 +407,15 @@
     fill: var(--primary-10);
   }
 }
+.trendNoValues {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
+  margin: 0;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
 .trendTime {
   grid-column: 2;
   grid-row: 2;

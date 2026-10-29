@@ -2499,6 +2499,7 @@
     "empty_unfiltered": "Không có gì được lưu trong khoảng thời gian này. Hãy chọn khoảng dài hơn để xem xa hơn.",
     "trend_gaps": "Khoảng trống là thời gian chưa đo.",
     "no_data": "không có dữ liệu",
+    "no_measured_values": "Không có giá trị đo trong khoảng này.",
     "no_hourly_series": "Không có chuỗi theo giờ",
     "trend_shared_scale": "Mọi đường dùng chung một thang mili giây. Khoảng trống là thời gian chưa đo.",
     "title": "Phân tích",

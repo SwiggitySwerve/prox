@@ -321,6 +321,55 @@ describe('Analytics SSR presentation', () => {
     expect(new Set(ticks.slice(1).map((at, i) => at - ticks[i])).size).toBe(1);
     expect(ticks.every((at) => at % 3_600_000 === 0)).toBe(true);
   });
+  test('a partly covered bucket is drawn inside the selected range', () => {
+    const hour = 3_600_000;
+    const from = 11 * hour + 10 * 60_000; // 11:10–12:10, buckets at 11:00 and 12:00
+    const frame = { from, to: from + hour, interval: hour, left: 0, right: 1000, top: 0, bottom: 100 };
+    const line = lineSegments(
+      [
+        { at: 11 * hour, value: 1 },
+        { at: 12 * hour, value: 2 },
+      ],
+      frame
+    );
+    for (const [x] of line.segments[0]) expect(x).toBeGreaterThanOrEqual(0);
+    for (const [x] of line.segments[0]) expect(x).toBeLessThanOrEqual(1000);
+    // 11:10–12:00 centres at 11:35; 12:00–12:10 centres at 12:05.
+    expect(line.x(11 * hour)).toBeCloseTo((25 / 60) * 1000, 6);
+    expect(line.x(12 * hour)).toBeCloseTo((55 / 60) * 1000, 6);
+  });
+  test('currency ticks keep enough decimals to stay distinct and exact', () => {
+    const render = (peak: number) =>
+      renderToStaticMarkup(
+        createElement(TrendChart, {
+          title: 'Cost',
+          series: [{ key: 'c', label: 'Cost', color: 'cyan', currency: true }],
+          points: [{ at: 0, values: [peak] }],
+          from: 0,
+          to: 3_600_000,
+          interval: 3_600_000,
+        })
+      );
+    expect(render(9.2)).toContain('$7.50');
+    expect(render(8)).toContain('>$6<');
+    expect(render(0.001)).toContain('$0.00075');
+  });
+  test('buckets whose measurements are all missing keep drilldown and the table', () => {
+    const markup = renderToStaticMarkup(
+      createElement(TrendChart, {
+        title: 'TTFT',
+        series: [{ key: 't', label: 'TTFT', color: 'white' }],
+        points: [{ at: 0, values: [null] }],
+        from: 0,
+        to: 3_600_000,
+        interval: 3_600_000,
+        onSelect: noop,
+      })
+    );
+    expect(markup).toContain('role="button" tabindex="0"');
+    expect(markup).toContain('<table>');
+    expect(markup).toContain('No measured values');
+  });
   test('breakdowns rank categories and keep missing values without a bar', () => {
     const markup = renderToStaticMarkup(
       createElement(AnalyticsChart, {
