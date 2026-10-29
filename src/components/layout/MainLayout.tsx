@@ -569,6 +569,12 @@ export function MainLayout() {
           icon: sidebarIcons.quota,
         },
         {
+          path: '/analytics',
+          labelKey: 'analytics.title',
+          metaKey: 'analytics.nav_meta',
+          icon: sidebarIcons.dashboard,
+        },
+        {
           path: '/logs',
           labelKey: 'nav.logs',
           metaKey: 'nav_meta.logs',

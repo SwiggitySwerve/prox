@@ -199,3 +199,32 @@ reviewer's original reproducer now returns HTTP 200.
 Remote CI was unavailable for the setup merge; these verification results are
 local checks. Inference and CPA-Manager-Plus container start timestamps remain
 unchanged from before the Prox work.
+# Analytics
+
+The Observe sidebar's **Analytics** page reads retained request events from CPA
+Manager. It includes Overview, Tokens & Cache, Cost, Performance, Requests and
+Model Rates. Filters and chart drilldowns share the same server-side query; request
+pages use stable timestamp/ID cursors. The request inspector shows an allowlisted
+projection, never raw request bodies, headers or credential files.
+
+`deploy/provider-sources.json` explicitly grants the history management key access
+to the complete `homelab` CPA dataset. The `analytics` entry fixes the CPA origin
+and references `/run/secrets/cpa-admin-key`. Install the existing CPA admin key
+privately at `~/.config/prox/cpa-admin-key` with mode 0600; the history container
+mounts it read-only. This credential is separate from proxy management and client
+inference keys and is never sent to the browser. This grant is for the trusted
+homelab administrator, not for tenants with different data permissions.
+
+The existing `/v8/management/prox/analytics` route reaches the authenticated Prox
+server, which calls CPA's dedicated `/v0/management/monitoring/prox-analytics`
+endpoint. This is the CPA server's contract, not a fallback to an older proxy API.
+The inference instances remain on v8. CPA remains the sole usage queue consumer.
+Registered model lists are read independently from every configured source using
+that source's client key. Source failures remain visible in the rate table.
+
+Prices are **equivalent API estimates at the currently configured rates**, not
+subscription bills or historical invoice prices. Unpriced models and incomplete
+measurements remain explicitly unavailable. Retained events do not establish
+coverage of every inbound request: old missing-usage records, pre-admission failures
+and queue/process losses cannot be reconstructed. Timing methods are displayed;
+full-duration output rate must not be presented as pure generation speed.

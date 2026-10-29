@@ -20,6 +20,12 @@ export interface SourceManifest {
     readonly managementKeyFile: string;
   };
   readonly sources: readonly DeploymentSource[];
+  /** Explicit grant: the history management key may read this complete CPA dataset. */
+  readonly analytics?: {
+    readonly upstreamOrigin: string;
+    readonly adminKeyFile: string;
+    readonly dataset: 'homelab';
+  };
 }
 
 export interface SourceDiscovery {

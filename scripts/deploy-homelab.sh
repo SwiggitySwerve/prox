@@ -3,6 +3,10 @@
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo"
+if [[ ! -s "$HOME/.config/prox/cpa-admin-key" ]]; then
+  echo 'Missing private CPA admin credential: see Analytics in docs/PROX-SETUP.md.' >&2
+  exit 1
+fi
 package_manager=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager")
 npm exec --yes --package="$package_manager" -- bun install --frozen-lockfile
 npm exec --yes --package="$package_manager" -- bun run verify

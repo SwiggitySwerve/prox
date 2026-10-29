@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
   "defaultInstanceId": "codex-primary",
+  "analytics": {
+    "dataset": "homelab",
+    "upstreamOrigin": "http://127.0.0.1:18317",
+    "adminKeyFile": "/run/secrets/cpa-admin-key"
+  },
   "history": {
     "upstreamOrigin": "http://127.0.0.1:18319",
     "managementKeyFile": "/run/secrets/proxy-management-key"

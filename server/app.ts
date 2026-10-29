@@ -44,7 +44,7 @@ function json(value: unknown, status = 200): Response {
   });
 }
 
-function authorized(request: Request, keyFile: string): boolean {
+export function authorized(request: Request, keyFile: string): boolean {
   const header = request.headers.get('authorization') ?? '';
   if (!header.startsWith('Bearer ') || header.length > 4096) return false;
   const key = readFileSync(keyFile, 'utf8').trim();

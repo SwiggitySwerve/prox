@@ -97,7 +97,7 @@ function sourceList(value: unknown): unknown[] {
 
 export function validateSourceManifest(input: unknown): SourceManifest {
   const value = record(input);
-  keys(value, ['schemaVersion', 'defaultInstanceId', 'history', 'sources']);
+  keys(value, ['schemaVersion', 'defaultInstanceId', 'history', 'sources', 'analytics']);
   if (value.schemaVersion !== 1) throw new Error('Unsupported source manifest version');
   const sources = sourceList(value.sources).map((entry): DeploymentSource => {
     const source = record(entry);
@@ -112,10 +112,22 @@ export function validateSourceManifest(input: unknown): SourceManifest {
   validateInventory(sources, defaultInstanceId);
   const history = record(value.history);
   keys(history, ['upstreamOrigin', 'managementKeyFile']);
+  let analytics: SourceManifest['analytics'];
+  if (value.analytics !== undefined) {
+    const config = record(value.analytics);
+    keys(config, ['upstreamOrigin', 'adminKeyFile', 'dataset']);
+    if (config.dataset !== 'homelab') throw new Error('Unknown analytics dataset grant');
+    analytics = Object.freeze({
+      upstreamOrigin: origin(config.upstreamOrigin),
+      adminKeyFile: keyFile(config.adminKeyFile),
+      dataset: 'homelab',
+    });
+  }
   return Object.freeze({
     schemaVersion: 1,
     defaultInstanceId,
     sources: Object.freeze(sources),
+    ...(analytics ? { analytics } : {}),
     history: Object.freeze({
       upstreamOrigin: origin(history.upstreamOrigin),
       managementKeyFile: keyFile(history.managementKeyFile),

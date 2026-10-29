@@ -1,6 +1,7 @@
 import { AuthFileEditorBoundary } from '@/components/sources/AuthFileEditorBoundary';
 import { SelectedSourceBoundary } from '@/components/sources/SelectedSourceBoundary';
 import { Navigate, useRoutes, type Location } from 'react-router-dom';
+import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { ProvidersWorkbenchPage } from '@/features/providers/ProvidersWorkbenchPage';
 import { AuthFilesPage } from '@/features/authFiles/AuthFilesPage';
@@ -19,6 +20,7 @@ import { SystemPage } from '@/pages/SystemPage';
 const createMainRoutes = () => [
   { path: '/', element: <Navigate to="/quota" replace /> },
   { path: '/dashboard', element: <DashboardPage /> },
+  { path: '/analytics', element: <AnalyticsPage /> },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },
   { path: '/quick-start', element: <ProvidersWorkbenchPage fixedBrand="apikeyFun" /> },
