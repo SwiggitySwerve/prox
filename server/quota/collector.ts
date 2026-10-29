@@ -1,3 +1,4 @@
+import { readJson } from '../http/readJson';
 import { readFile } from 'node:fs/promises';
 import type { DeploymentSource } from '../../src/domain/providerSources/types';
 import { loadSourceManifest } from '../providerSources/config';
@@ -449,23 +450,7 @@ export class QuotaCollector {
       await response.body?.cancel();
       throw new Error('Quota request unavailable');
     }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let size = 0;
-    let text = '';
-    try {
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        size += chunk.value.byteLength;
-        if (size > MAX_RESPONSE_BYTES) throw new Error('Quota response too large');
-        text += decoder.decode(chunk.value, { stream: true });
-      }
-      return JSON.parse(text + decoder.decode());
-    } finally {
-      await reader.cancel();
-      reader.releaseLock();
-    }
+    return readJson(response.body, MAX_RESPONSE_BYTES, 'Quota response too large');
   }
 
   private async collect(signal: AbortSignal): Promise<void> {
