@@ -75,3 +75,49 @@ export function timeTicks(from: number, to: number, interval: number, maxTicks: 
   for (let at = Math.ceil(from / step) * step; at <= to; at += step) ticks.push(at);
   return ticks;
 }
+
+/**
+ * Every UTC bucket in the range, marking which ones the server returned. CPA only returns
+ * buckets that hold events, so an absent bucket in fully retained data had no traffic.
+ */
+export function bucketTimeline(present: number[], from: number, to: number, interval: number) {
+  const seen = new Set(present);
+  const buckets: { at: number; present: boolean }[] = [];
+  for (let at = Math.floor(from / interval) * interval; at < to; at += interval)
+    buckets.push({ at, present: seen.has(at) });
+  return buckets;
+}
+
+const round = (n: number) => Math.round(n * 100) / 100;
+/**
+ * A monotone cubic path through the points (Fritsch–Carlson tangents): smooth, but never
+ * overshooting between readings, so flat runs stay flat and zero never dips below the axis.
+ */
+export function smoothPath(points: Array<[number, number]>) {
+  const [first] = points;
+  if (!first) return '';
+  let path = `M${round(first[0])},${round(first[1])}`;
+  if (points.length < 3) {
+    for (const [x, y] of points.slice(1)) path += ` L${round(x)},${round(y)}`;
+    return path;
+  }
+  const n = points.length;
+  const dx = points.slice(1).map(([x], i) => x - points[i][0]);
+  const slope = points.slice(1).map(([, y], i) => (y - points[i][1]) / (dx[i] || 1));
+  const tangent = points.map((_, i) => {
+    if (i === 0) return slope[0];
+    if (i === n - 1) return slope[n - 2];
+    const [a, b] = [slope[i - 1], slope[i]];
+    if (a * b <= 0) return 0;
+    return (3 * (dx[i - 1] + dx[i])) / ((2 * dx[i] + dx[i - 1]) / a + (dx[i] + 2 * dx[i - 1]) / b);
+  });
+  for (let i = 0; i < n - 1; i++) {
+    const [x0, y0] = points[i];
+    const [x1, y1] = points[i + 1];
+    const third = dx[i] / 3;
+    path += ` C${round(x0 + third)},${round(y0 + tangent[i] * third)} ${round(x1 - third)},${round(
+      y1 - tangent[i + 1] * third
+    )} ${round(x1)},${round(y1)}`;
+  }
+  return path;
+}

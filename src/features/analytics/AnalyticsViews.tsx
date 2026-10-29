@@ -18,7 +18,7 @@ import {
   IconUpload,
 } from '@/components/ui/icons';
 import { AnalyticsChart } from './AnalyticsChart';
-import { lineSegments } from './chartGeometry';
+import { bucketTimeline, lineSegments, smoothPath } from './chartGeometry';
 import { analyticsCompact, analyticsMoney, analyticsNumber } from './format';
 import type { AnalyticsTab } from './queryState';
 import { TrendChart, type TrendSeries } from './TrendChart';
@@ -116,6 +116,8 @@ const valueOf = (metrics: AnalyticsMetrics, metric: Metric): number | null =>
       ? (metrics.cost[metric] ?? null)
       : metrics[metric];
 const isDuration = (metric: Metric) => metric.endsWith('_ms');
+/** Sums: an hour with no retained events really is zero. Durations have no reading then. */
+const additive = (metric: Metric) => !isDuration(metric);
 
 export function AnalyticsViews({
   tab,
@@ -132,6 +134,19 @@ export function AnalyticsViews({
 }) {
   const { t, i18n } = useTranslation();
   const interval = data.granularity === 'day' ? 86_400_000 : 3_600_000;
+  // CPA returns only buckets with events. When the range is fully retained, an absent bucket
+  // is a quiet hour: sums draw it as zero instead of breaking the line. Durations still break.
+  const byBucket = new Map(data.timeline.map((point) => [point.bucket_ms, point]));
+  const buckets = data.coverage.raw_complete
+    ? bucketTimeline([...byBucket.keys()], data.from_ms, data.to_ms, interval)
+    : data.timeline.map((point) => ({ at: point.bucket_ms, present: true }));
+  const hourly = (metric: Metric) =>
+    buckets
+      .filter((bucket) => bucket.present || additive(metric))
+      .map((bucket) => {
+        const point = byBucket.get(bucket.at);
+        return { at: bucket.at, value: point ? valueOf(point, metric) : 0 };
+      });
   const trend = trends[tab];
   // Metrics whose hourly values this tab draws in a trend chart.
   const plotted = new Set<Metric>([
@@ -196,23 +211,24 @@ export function AnalyticsViews({
                 ? 'var(--error-color)'
                 : undefined
               : METRIC_COLOR[metric];
-          const spark = lineSegments(
-            data.timeline.map((p) => ({ at: p.bucket_ms, value: valueOf(p, metric) })),
-            {
-              from: data.from_ms,
-              to: data.to_ms,
-              interval,
-              left: 0,
-              right: 100,
-              top: 2,
-              bottom: 26,
-            }
-          );
+          const sparkPoints = hourly(metric);
+          const spark = lineSegments(sparkPoints, {
+            from: data.from_ms,
+            to: data.to_ms,
+            interval,
+            left: 0,
+            right: 100,
+            top: 2,
+            bottom: 26,
+          });
           // A sparkline only adds context to a known total that actually varies.
           const sparkValues = data.timeline
             .map((p) => valueOf(p, metric))
             .filter((v): v is number => v !== null);
-          const sparkShown = value !== null && new Set(sparkValues).size > 1;
+          // Varies across the drawn hours, including quiet hours drawn as zero.
+          const sparkShown =
+            value !== null &&
+            new Set(sparkPoints.map((p) => p.value).filter((v) => v !== null)).size > 1;
           // A missing total says why; it points below only when this tab charts the hourly values.
           const sub =
             value === null && sparkValues.length > 0
@@ -256,11 +272,7 @@ export function AnalyticsViews({
                   {spark.segments
                     .filter((segment) => segment.length > 2)
                     .map((segment, index) => (
-                      <path
-                        key={index}
-                        d={segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ')}
-                        vectorEffect="non-scaling-stroke"
-                      />
+                      <path key={index} d={smoothPath(segment)} vectorEffect="non-scaling-stroke" />
                     ))}
                 </svg>
               ) : (
@@ -300,10 +312,17 @@ export function AnalyticsViews({
               dash,
               currency: metric === 'cost',
             }))}
-            points={data.timeline.map((point) => ({
-              at: point.bucket_ms,
-              values: trend.map(({ metric }) => valueOf(point, metric)),
-            }))}
+            points={buckets
+              .filter((bucket) => bucket.present || trend.some(({ metric }) => additive(metric)))
+              .map((bucket) => {
+                const point = byBucket.get(bucket.at);
+                return {
+                  at: bucket.at,
+                  values: trend.map(({ metric }) =>
+                    point ? valueOf(point, metric) : additive(metric) ? 0 : null
+                  ),
+                };
+              })}
             from={data.from_ms}
             to={data.to_ms}
             interval={interval}

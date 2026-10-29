@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { lineSegments, niceMaximum, timeTicks } from './chartGeometry';
+import { lineSegments, niceMaximum, smoothPath, timeTicks } from './chartGeometry';
 import { analyticsCompact, analyticsNumber, analyticsShortTime, analyticsTime } from './format';
 import styles from './AnalyticsPage.module.scss';
 
@@ -194,7 +194,7 @@ export function TrendChart({
               ))}
               {lines.map((line, index) =>
                 line.segments.map((segment, part) => {
-                  const path = segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ');
+                  const path = smoothPath(segment);
                   return (
                     <g key={`${series[index].key}-${part}`}>
                       {index === 0 && filled && segment.length > 1 && (

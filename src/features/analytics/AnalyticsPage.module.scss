@@ -3,6 +3,8 @@
   --analytics-requests: var(--primary-color);
   --analytics-tokens: #a99cff;
   --analytics-cost: #67d4e0;
+  // Charts and cards size against the page's own width, not the viewport.
+  container-type: inline-size;
   min-width: 0;
   max-width: 100%;
   display: flex;
@@ -328,13 +330,15 @@
     stroke-linecap: round;
   }
 }
-.trendPlot[data-empty='true'] {
+.trendPlot[data-empty='true'],
+.page .trendPlot[data-empty='true'] {
   grid-template-rows: 120px auto;
 }
 .trendPlot {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: 240px auto;
+  // Taller on wide pages so the lines keep their shape instead of flattening out.
+  grid-template-rows: clamp(240px, 22cqw, 420px) auto;
   column-gap: 10px;
   margin-top: 16px;
   &[data-axes='2'] {
@@ -898,5 +902,15 @@ button.rankedRow {
   // Desktop keeps source names on one line; stacked cards must wrap them.
   .rates td:first-child {
     white-space: normal;
+  }
+}
+
+// Wide pages: every card on one row, like the summary strip of a dashboard.
+@container (min-width: 1500px) {
+  .metrics[data-count='8'] {
+    --cols: 8;
+  }
+  .metrics[data-count='6'] {
+    --cols: 6;
   }
 }
