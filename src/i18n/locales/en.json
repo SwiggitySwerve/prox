@@ -2469,6 +2469,30 @@
     "mutation_unconfirmed": "The operation could not be confirmed. Review the refreshed state before retrying."
   },
   "analytics": {
+    "card": {
+      "succeeded": "{{value}} succeeded",
+      "of_events": "of {{value}} events",
+      "ttft": "p95 TTFT {{value}}",
+      "reasoning": "Reasoning {{value}}",
+      "uncached": "Uncached {{value}}",
+      "writes": "Cache writes {{value}}"
+    },
+    "trend": {
+      "overview": "Usage trend",
+      "tokens": "Token trend",
+      "cost": "Cost trend",
+      "performance": "Duration trend · ms",
+      "ttft": "First token trend · ms · mixed methods"
+    },
+    "legend": "Series",
+    "trend_help": "Lines share the time axis. Each time bucket is a control; activate one to open its events.",
+    "trend_hint": "Hover or focus a time to compare values; activate it to open matching events.",
+    "trend_reference_hint": "Hover a time to compare values.",
+    "trend_own_scale": "Lines use separate scales; read each against the axis in its colour. Gaps are unmeasured periods.",
+    "trend_own_scale_narrow": "Lines use separate scales; focus or tap a time for exact values. Gaps are unmeasured periods.",
+    "trend_gaps": "Gaps are unmeasured periods.",
+    "no_data": "no data",
+    "trend_shared_scale": "All lines share one millisecond scale. Gaps are unmeasured periods.",
     "title": "Analytics",
     "nav_meta": "Usage, cost and execution trends",
     "subtitle": "Explore retained usage across your configured dataset.",
@@ -2525,7 +2549,6 @@
     },
     "empty": "No retained events match these filters. Try a wider range or clear filters.",
     "empty_chart": "No samples in this interval.",
-    "chart_help": "Bars show server values. Missing measurements remain gaps. Focus a bar and press Enter to inspect its events; the table provides the same values and actions.",
     "table_alternative": "View data table",
     "bucket_category": "UTC bucket / category",
     "unavailable_value": "Unavailable",
@@ -2556,7 +2579,6 @@
     "detail_note": "Operational metadata only. Unreported fields are not inferred. This event does not establish an exact retry count or the final inbound-request outcome.",
     "price_reasons": "Pricing limitations",
     "rate_note": "Reference: current configured model rates, including unused registered and unpriced models. These are not historical rates. Tier schedules list input / output prices.",
-    "input_rate_chart": "Reference input rate · USD / million tokens",
     "catalog_unavailable": "Model catalog unavailable for {{source}}; registrations may be incomplete.",
     "empty_rates": "No model rates or registrations were returned.",
     "rate_unit": "USD per million tokens · current configured rates",
@@ -2624,6 +2646,7 @@
       "usage_presence": "Usage measurement presence"
     },
     "metrics": {
+      "total_tokens": "Total tokens",
       "input_tokens": "Reported input tokens",
       "output_tokens": "Reported output tokens",
       "uncached_input_tokens": "Uncached input tokens",
@@ -2637,9 +2660,6 @@
       "p95_latency_ms": "p95 execution duration · ms",
       "p95_ttft_ms": "p95 reported TTFT · ms · mixed methods"
     },
-    "chart_reference_help": "Bars show current configured reference rates. Missing rates remain gaps. The table provides the same values.",
-    "chart_readout_hint": "Focus or hover a bar for its value; activate to open matching events.",
-    "chart_reference_hint": "Hover a bar or open the data table to inspect rates.",
     "presence_values": {
       "reported": "Usage presence reported",
       "unknown": "Presence unknown",

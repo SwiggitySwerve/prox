@@ -12,7 +12,8 @@ import { AnalyticsChart } from '../src/features/analytics/AnalyticsChart';
 import { AnalyticsViews } from '../src/features/analytics/AnalyticsViews';
 import { RequestDetails, RequestTable } from '../src/features/analytics/RequestTable';
 import { ModelRates } from '../src/features/analytics/ModelRates';
-import { barGeometry } from '../src/features/analytics/chartGeometry';
+import { lineSegments, niceMaximum, timeTicks } from '../src/features/analytics/chartGeometry';
+import { TrendChart } from '../src/features/analytics/TrendChart';
 import { analyticsNumber } from '../src/features/analytics/format';
 import {
   analyticsTabs,
@@ -154,7 +155,7 @@ describe('Analytics SSR presentation', () => {
       expect(markup).toContain('View data table');
       expect(markup).toContain('Fixture model (billing alias)');
       expect(markup).not.toContain('NaN');
-      if (tab === 'overview') expect(markup).toContain('<strong>128</strong>');
+      if (tab === 'overview') expect(markup).toContain('<strong title="128">128</strong>');
       if (tab === 'tokens') expect(markup).toContain('Legacy data cannot establish');
       if (tab === 'cost') expect(markup).toContain('Not subscription spend');
       if (tab === 'performance') {
@@ -267,20 +268,34 @@ describe('Analytics SSR presentation', () => {
       expect(markup).toContain(expected);
     expect(markup).toContain('<summary>Rate details</summary>');
   });
-  test('charts preserve timestamp gaps and nulls, and render keyboard controls and data tables', () => {
-    const data = [
-      { key: 'a', label: 'Start', at: 0, value: 4 },
-      { key: 'b', label: 'Missing measurement', at: 2000, value: null },
-      { key: 'c', label: 'End', at: 3000, value: 0 },
-    ];
-    const bars = barGeometry(data, 0, 4000, 1000);
-    expect(bars[1].x - bars[0].x).toBe(276);
-    expect(bars[1].height).toBeNull();
-    expect(bars[2].height).toBe(0);
+  test('trend lines break at nulls and missing buckets, and render keyboard controls and data tables', () => {
+    const frame = { from: 0, to: 5000, interval: 1000, left: 0, right: 1000, top: 0, bottom: 100 };
+    const line = lineSegments(
+      [
+        { at: 0, value: 4 },
+        { at: 1000, value: 2 },
+        { at: 2000, value: null },
+        { at: 3000, value: 0 },
+        // 4000 is a missing bucket, not a zero.
+        { at: 5000, value: 1 },
+      ],
+      frame
+    );
+    expect(line.segments.map((segment) => segment.length)).toEqual([2, 1, 1]);
+    expect(line.segments[0][0]).toEqual([100, 0]);
+    expect(line.segments[1][0][1]).toBe(100);
+    expect(lineSegments([{ at: 0, value: 5 }], frame, 10).segments[0][0][1]).toBe(50);
     const markup = renderToStaticMarkup(
-      createElement(AnalyticsChart, {
+      createElement(TrendChart, {
         title: 'Synthetic counts',
-        data,
+        series: [
+          { key: 'a', label: 'Events', color: 'white' },
+          { key: 'b', label: 'Cost', color: 'pink', currency: true },
+        ],
+        points: [
+          { at: 0, values: [4, 1.5] },
+          { at: 2000, values: [null, 0] },
+        ],
         from: 0,
         to: 4000,
         interval: 1000,
@@ -288,10 +303,39 @@ describe('Analytics SSR presentation', () => {
       })
     );
     expect(markup).toContain('role="button" tabindex="0"');
-    expect(markup).toContain('aria-label="Missing measurement: Unavailable"');
+    expect(markup).toContain('Events: Unavailable · Cost: $0.00');
     expect(markup).toContain('<table>');
-    expect(markup).not.toContain('<path');
     expect(markup).not.toContain('<text'); // Labels do not shrink with the SVG viewBox on mobile.
+  });
+  test('axis maxima round to 1-2-2.5-5 steps and time ticks are evenly spaced UTC hours', () => {
+    expect([
+      niceMaximum(3_800),
+      niceMaximum(4.9),
+      niceMaximum(1_050),
+      niceMaximum(12),
+      niceMaximum(0),
+    ]).toEqual([4_000, 8, 2_000, 20, 0]);
+    const from = Date.UTC(2026, 9, 28, 12, 30);
+    const ticks = timeTicks(from, from + 86_400_000, 3_600_000, 6);
+    expect(ticks.length).toBeLessThanOrEqual(6);
+    expect(new Set(ticks.slice(1).map((at, i) => at - ticks[i])).size).toBe(1);
+    expect(ticks.every((at) => at % 3_600_000 === 0)).toBe(true);
+  });
+  test('breakdowns rank categories and keep missing values without a bar', () => {
+    const markup = renderToStaticMarkup(
+      createElement(AnalyticsChart, {
+        title: 'By provider',
+        data: [
+          { key: 'codex', label: 'GPT / Codex', value: 2 },
+          { key: 'claude', label: 'Claude', value: 5 },
+          { key: 'other', label: 'Missing measurement', value: null },
+        ],
+        onSelect: noop,
+      })
+    );
+    expect(markup.indexOf('Claude')).toBeLessThan(markup.indexOf('GPT / Codex'));
+    expect(markup).toContain('background:var(--claude-color)');
+    expect(markup).toContain('aria-label="Missing measurement: Unavailable"');
   });
   test('empty charts and rates have explicit empty states', () => {
     expect(

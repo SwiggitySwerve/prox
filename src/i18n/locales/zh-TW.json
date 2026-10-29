@@ -2495,6 +2495,30 @@
     "mutation_unconfirmed": "無法確認操作結果。重試前請檢查重新整理後的狀態。"
   },
   "analytics": {
+    "card": {
+      "succeeded": "成功 {{value}}",
+      "of_events": "共 {{value}} 個事件",
+      "ttft": "p95 首 Token {{value}}",
+      "reasoning": "推理 {{value}}",
+      "uncached": "未快取 {{value}}",
+      "writes": "快取寫入 {{value}}"
+    },
+    "trend": {
+      "overview": "用量趨勢",
+      "tokens": "Token 趨勢",
+      "cost": "成本趨勢",
+      "performance": "耗時趨勢 · ms",
+      "ttft": "首 Token 趨勢 · ms · 混合方法"
+    },
+    "legend": "系列",
+    "trend_help": "各線共用時間軸。每個時間段都可操作，啟用後開啟對應事件。",
+    "trend_hint": "懸停或聚焦某個時間以比較數值；啟用可開啟符合的事件。",
+    "trend_reference_hint": "懸停某個時間以比較數值。",
+    "trend_own_scale": "各線使用獨立刻度，請對照同色座標軸讀取。空缺表示未測量的時段。",
+    "trend_own_scale_narrow": "各線使用獨立刻度；聚焦或輕觸某個時間可查看精確值。空缺表示未測量的時段。",
+    "trend_gaps": "空缺表示未測量的時段。",
+    "no_data": "無資料",
+    "trend_shared_scale": "所有線共用同一毫秒刻度。空缺表示未測量的時段。",
     "title": "分析",
     "nav_meta": "用量、成本與執行趨勢",
     "subtitle": "查看已設定資料集中的保留用量。",
@@ -2551,7 +2575,6 @@
     },
     "empty": "沒有符合篩選條件的保留事件。請擴大範圍或清除篩選。",
     "empty_chart": "此區間沒有樣本。",
-    "chart_help": "長條顯示伺服器值，缺失測量保留為空白。聚焦長條後按 Enter 查看事件；表格提供相同數值和操作。",
     "table_alternative": "檢視資料表",
     "bucket_category": "UTC 時間桶 / 類別",
     "unavailable_value": "無法使用",
@@ -2582,7 +2605,6 @@
     "detail_note": "僅顯示操作中繼資料，不推斷未回報欄位。此事件不能確定準確重試次數或傳入請求的最終結果。",
     "price_reasons": "定價限制",
     "rate_note": "參考：目前設定的模型費率，包括未使用的已註冊模型和未定價模型。並非歷史費率。分層表列出輸入 / 輸出價格。",
-    "input_rate_chart": "參考輸入費率 · USD / 百萬權杖",
     "catalog_unavailable": "{{source}} 的模型目錄無法使用；註冊清單可能不完整。",
     "empty_rates": "未傳回模型費率或註冊資訊。",
     "rate_unit": "每百萬權杖 USD · 目前設定費率",
@@ -2650,6 +2672,7 @@
       "usage_presence": "用量測量存在性"
     },
     "metrics": {
+      "total_tokens": "總 Token",
       "input_tokens": "回報輸入權杖",
       "output_tokens": "回報輸出權杖",
       "uncached_input_tokens": "未快取輸入權杖",
@@ -2663,9 +2686,6 @@
       "p95_latency_ms": "p95 執行時長 · 毫秒",
       "p95_ttft_ms": "p95 回報 TTFT · 毫秒 · 混合方法"
     },
-    "chart_reference_help": "長條顯示目前設定的參考費率。缺失費率保留為空白。表格提供相同數值。",
-    "chart_readout_hint": "聚焦或懸停長條查看數值；啟動以開啟符合事件。",
-    "chart_reference_hint": "懸停長條或開啟資料表查看費率。",
     "presence_values": {
       "reported": "已回報用量存在性",
       "unknown": "存在性未知",

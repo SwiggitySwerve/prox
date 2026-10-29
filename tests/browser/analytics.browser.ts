@@ -21,10 +21,12 @@ test('all controls, keyboard drilldown, paging, details and model schedules', as
     path: test.info().outputPath('expanded-rates.png'),
     animations: 'disabled',
   });
+  // The first-token chart has unmeasured hours, so its table must say Unavailable.
+  await app.tab('Performance');
   const alternative = page
-    .locator('details')
-    .filter({ has: page.getByText('View data table', { exact: true }) })
-    .first();
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: /^First token trend/ }) })
+    .locator('details');
   await alternative.locator('summary').click();
   await expect(alternative.locator('table')).toBeVisible();
   await expect(alternative.locator('table')).toContainText('Unavailable');
@@ -237,7 +239,7 @@ test('chart inspection follows the selected metric instead of retaining an old v
   const chart = page.locator('section').filter({
     has: page.getByRole('heading', { name: 'By provider · Retained events', exact: true }),
   });
-  await chart.locator('rect[role=button]').first().focus();
+  await chart.getByRole('button', { name: /^Claude: / }).focus();
   await expect(chart.locator('output')).toHaveText('Claude: 128');
   await app.tab('Tokens & Cache');
   const changed = page.locator('section').filter({

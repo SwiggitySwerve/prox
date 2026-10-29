@@ -1,31 +1,43 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { analyticsNumber, analyticsShortTime } from './format';
-import { barGeometry, type ChartDatum } from './chartGeometry';
+import { analyticsCompact, analyticsMoney, analyticsNumber } from './format';
+import type { ChartDatum } from './chartGeometry';
 import styles from './AnalyticsPage.module.scss';
 
+/** Provider identity colours; other categories use the neutral bar. */
+const categoryColor = (key: string) =>
+  key === 'claude' ? 'var(--claude-color)' : key === 'codex' ? 'var(--codex-color)' : undefined;
+
+/**
+ * Categories ranked by their server-supplied value as horizontal bars, so long names stay
+ * readable. Missing values sort last and draw no bar; the table repeats every value.
+ */
 export function AnalyticsChart({
   title,
   data,
-  currency = false,
-  from,
-  to,
-  interval,
+  format = 'compact',
   onSelect,
 }: {
   title: string;
   data: ChartDatum[];
-  currency?: boolean;
-  from?: number;
-  to?: number;
-  interval?: number;
+  /** compact: 12.5K counts; exact: durations; money: dollars to the cent. */
+  format?: 'compact' | 'exact' | 'money';
   onSelect?: (key: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const [inspectedKey, setInspectedKey] = useState<string | null>(null);
   const readout = data.find((point) => point.key === inspectedKey);
-  const bars = barGeometry(data, from, to, interval);
+  const maximum = Math.max(0, ...data.map((d) => d.value ?? 0));
+  const ranked = [...data].sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
+  const currency = format === 'money';
+  const exact = (value: number | null) => analyticsNumber(value, i18n.language, currency);
+  const shown = (value: number | null) =>
+    format === 'money'
+      ? analyticsMoney(value, i18n.language)
+      : format === 'exact'
+        ? analyticsNumber(value, i18n.language)
+        : analyticsCompact(value, i18n.language);
   return (
     <section className={styles.panel} aria-labelledby={id}>
       <h3 id={id}>{title}</h3>
@@ -33,73 +45,50 @@ export function AnalyticsChart({
         <p className={styles.muted}>{t('analytics.empty_chart')}</p>
       ) : (
         <>
-          <div className={styles.chartScale}>
-            {analyticsNumber(
-              data.some((d) => d.value !== null)
-                ? Math.max(0, ...data.map((d) => d.value ?? 0))
-                : null,
-              i18n.language,
-              currency
-            )}
-          </div>
-          <svg
-            viewBox="0 0 600 150"
-            preserveAspectRatio="none"
-            className={styles.chart}
-            role="group"
-            aria-labelledby={`${id}-title`}
-          >
-            <title id={`${id}-title`}>{title}</title>
-            <desc>{t(onSelect ? 'analytics.chart_help' : 'analytics.chart_reference_help')}</desc>
-            <line x1="24" y1="136" x2="576" y2="136" className={styles.axis} />
-            {bars.map((bar) => (
-              <g key={bar.key}>
-                {bar.height !== null && (
-                  <rect
-                    x={bar.x}
-                    y={136 - bar.height}
-                    width={bar.width}
-                    height={Math.max(1, bar.height)}
-                    className={styles.bar}
-                  />
-                )}
-                <rect
-                  x={bar.x}
-                  y="16"
-                  width={bar.width}
-                  height="124"
-                  fill="transparent"
-                  role={onSelect ? 'button' : 'img'}
-                  tabIndex={onSelect ? 0 : undefined}
-                  aria-label={`${bar.label}: ${bar.value === null ? t('analytics.unavailable_value') : analyticsNumber(bar.value, i18n.language, currency)}`}
-                  onFocus={() => setInspectedKey(bar.key)}
-                  onMouseEnter={() => setInspectedKey(bar.key)}
-                  onClick={() => onSelect?.(bar.key)}
-                  onKeyDown={(event) => {
-                    if (onSelect && (event.key === 'Enter' || event.key === ' ')) {
-                      event.preventDefault();
-                      onSelect(bar.key);
-                    }
-                  }}
-                >
-                  <title>{`${bar.label}: ${analyticsNumber(bar.value, i18n.language, currency)}`}</title>
-                </rect>
-              </g>
-            ))}
-          </svg>
-          <div className={styles.chartLabels} aria-hidden="true">
-            {[data[0], ...(data.length > 1 ? [data[data.length - 1]] : [])].map((point) => (
-              <span key={point.key} title={point.label}>
-                {point.at === undefined
-                  ? point.label
-                  : `${analyticsShortTime(point.at, i18n.language, interval === 86_400_000)} UTC`}
-              </span>
-            ))}
-          </div>
+          <ol className={styles.ranked}>
+            {ranked.map((d) => {
+              const content = (
+                <>
+                  <span className={styles.rankedLabel} title={d.label}>
+                    {d.label}
+                  </span>
+                  <span className={styles.rankedTrack} aria-hidden="true">
+                    {d.value !== null && (
+                      <span
+                        style={{
+                          width: `${maximum > 0 ? Math.max(0.5, (d.value / maximum) * 100) : 0}%`,
+                          background: categoryColor(d.key),
+                        }}
+                      />
+                    )}
+                  </span>
+                  <strong title={exact(d.value)}>{shown(d.value)}</strong>
+                </>
+              );
+              return (
+                <li key={d.key}>
+                  {onSelect ? (
+                    <button
+                      type="button"
+                      className={styles.rankedRow}
+                      aria-label={`${d.label}: ${exact(d.value)}`}
+                      onFocus={() => setInspectedKey(d.key)}
+                      onMouseEnter={() => setInspectedKey(d.key)}
+                      onClick={() => onSelect(d.key)}
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div className={styles.rankedRow} onMouseEnter={() => setInspectedKey(d.key)}>
+                      {content}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
           <output className={styles.chartReadout} aria-live="polite">
-            {readout
-              ? `${readout.label}: ${analyticsNumber(readout.value, i18n.language, currency)}`
-              : t(onSelect ? 'analytics.chart_readout_hint' : 'analytics.chart_reference_hint')}
+            {readout ? `${readout.label}: ${exact(readout.value)}` : null}
           </output>
           <details className={styles.readout}>
             <summary>{t('analytics.table_alternative')}</summary>
@@ -129,9 +118,7 @@ export function AnalyticsChart({
                         )}
                       </th>
                       <td>
-                        {d.value === null
-                          ? t('analytics.unavailable_value')
-                          : analyticsNumber(d.value, i18n.language, currency)}
+                        {d.value === null ? t('analytics.unavailable_value') : exact(d.value)}
                       </td>
                     </tr>
                   ))}

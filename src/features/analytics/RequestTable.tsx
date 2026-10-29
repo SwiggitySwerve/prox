@@ -169,11 +169,10 @@ export function RequestTable({
             <tbody>
               {data.items.map((r) => (
                 <tr key={r.id}>
-                  <td>
+                  <td data-label={t('analytics.timestamp')}>
                     {analyticsTime(r.timestamp_ms, i18n.language)}
-                    <small>UTC</small>
                   </td>
-                  <td>
+                  <td data-label={t('analytics.provider_model')}>
                     <strong>{r.model}</strong>
                     <small>{r.provider}</small>
                     {r.requested_model && r.requested_model !== r.model && (
@@ -182,29 +181,29 @@ export function RequestTable({
                       </small>
                     )}
                   </td>
-                  <td>
+                  <td data-label={t('analytics.outcome')}>
                     <span className={r.failed ? styles.failure : styles.success}>
                       {t(`analytics.${r.failed ? 'failed_outcome' : 'success'}`)}
                     </span>
                     {r.status_code !== undefined && <small>{r.status_code}</small>}
                   </td>
-                  <td>
+                  <td data-label={t('analytics.tokens_in_out')} data-numeric>
                     {n(r.input_tokens)} / {n(r.output_tokens)}
                     <small>{t(`analytics.presence_values.${r.usage_presence ?? 'unknown'}`)}</small>
                   </td>
-                  <td>
+                  <td data-label={t('analytics.cache_read_write')} data-numeric>
                     {n(r.cache_read_tokens)} / {n(r.cache_creation_tokens)}
                   </td>
-                  <td>
+                  <td data-label={t('analytics.estimated_cost')} data-numeric>
                     {n(r.cost.usd, true)}
                     <small>{t(`analytics.price_status.${r.cost.status}`)}</small>
                   </td>
-                  <td>
-                    {n(r.latency_ms)} {t('analytics.ms')}
+                  <td data-label={t('analytics.duration')} data-numeric>
+                    {n(r.latency_ms)}
                   </td>
                   <td>
                     <Button
-                      variant="secondary"
+                      variant="ghost"
                       size="sm"
                       onClick={() => onSelect(r)}
                       aria-label={t('analytics.open_request', { id: r.id })}

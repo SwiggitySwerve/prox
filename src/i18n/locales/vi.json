@@ -2475,6 +2475,30 @@
     "mutation_unconfirmed": "Chưa xác nhận được kết quả thao tác. Kiểm tra trạng thái vừa tải lại trước khi thử lại."
   },
   "analytics": {
+    "card": {
+      "succeeded": "{{value}} thành công",
+      "of_events": "trên {{value}} sự kiện",
+      "ttft": "p95 TTFT {{value}}",
+      "reasoning": "Suy luận {{value}}",
+      "uncached": "Không cache {{value}}",
+      "writes": "Ghi cache {{value}}"
+    },
+    "trend": {
+      "overview": "Xu hướng sử dụng",
+      "tokens": "Xu hướng token",
+      "cost": "Xu hướng chi phí",
+      "performance": "Xu hướng thời lượng · ms",
+      "ttft": "Xu hướng token đầu tiên · ms · nhiều phương pháp"
+    },
+    "legend": "Chuỗi",
+    "trend_help": "Các đường dùng chung trục thời gian. Mỗi khoảng thời gian là một nút; kích hoạt để mở sự kiện.",
+    "trend_hint": "Di chuột hoặc chọn một thời điểm để so sánh; kích hoạt để mở sự kiện tương ứng.",
+    "trend_reference_hint": "Di chuột vào một thời điểm để so sánh giá trị.",
+    "trend_own_scale": "Các đường dùng thang riêng; đọc mỗi đường theo trục cùng màu. Khoảng trống là thời gian chưa đo.",
+    "trend_own_scale_narrow": "Các đường dùng thang riêng; chọn hoặc chạm một thời điểm để xem giá trị chính xác. Khoảng trống là thời gian chưa đo.",
+    "trend_gaps": "Khoảng trống là thời gian chưa đo.",
+    "no_data": "không có dữ liệu",
+    "trend_shared_scale": "Mọi đường dùng chung một thang mili giây. Khoảng trống là thời gian chưa đo.",
     "title": "Phân tích",
     "nav_meta": "Xu hướng sử dụng, chi phí và thực thi",
     "subtitle": "Khám phá dữ liệu sử dụng được lưu trong tập dữ liệu đã cấu hình.",
@@ -2531,7 +2555,6 @@
     },
     "empty": "Không có sự kiện phù hợp. Thử mở rộng thời gian hoặc xóa bộ lọc.",
     "empty_chart": "Không có mẫu trong khoảng này.",
-    "chart_help": "Cột hiển thị giá trị từ máy chủ. Số đo thiếu được để trống. Chọn cột và nhấn Enter để xem sự kiện; bảng cung cấp cùng dữ liệu và thao tác.",
     "table_alternative": "Xem bảng dữ liệu",
     "bucket_category": "Khoảng UTC / danh mục",
     "unavailable_value": "Không khả dụng",
@@ -2562,7 +2585,6 @@
     "detail_note": "Chỉ hiển thị siêu dữ liệu vận hành. Không suy đoán trường chưa báo cáo. Sự kiện không xác định chính xác số lần thử lại hay kết quả cuối của yêu cầu đến.",
     "price_reasons": "Giới hạn định giá",
     "rate_note": "Tham khảo đơn giá hiện tại, gồm mô hình đã đăng ký chưa dùng và chưa định giá. Không phải đơn giá lịch sử. Các bậc liệt kê giá đầu vào / đầu ra.",
-    "input_rate_chart": "Đơn giá đầu vào tham khảo · USD / triệu token",
     "catalog_unavailable": "Danh mục mô hình của {{source}} không khả dụng; danh sách đăng ký có thể chưa đầy đủ.",
     "empty_rates": "Không có đơn giá hoặc đăng ký mô hình được trả về.",
     "rate_unit": "USD mỗi triệu token · đơn giá hiện tại",
@@ -2630,6 +2652,7 @@
       "usage_presence": "Trạng thái số đo sử dụng"
     },
     "metrics": {
+      "total_tokens": "Tổng token",
       "input_tokens": "Token đầu vào báo cáo",
       "output_tokens": "Token đầu ra báo cáo",
       "uncached_input_tokens": "Token đầu vào không lưu đệm",
@@ -2643,9 +2666,6 @@
       "p95_latency_ms": "p95 thời lượng thực thi · ms",
       "p95_ttft_ms": "p95 TTFT báo cáo · ms · nhiều phương pháp"
     },
-    "chart_reference_help": "Cột hiển thị đơn giá tham khảo hiện tại. Đơn giá thiếu được để trống. Bảng cung cấp cùng giá trị.",
-    "chart_readout_hint": "Chọn hoặc trỏ vào cột để xem giá trị; kích hoạt để mở sự kiện phù hợp.",
-    "chart_reference_hint": "Trỏ vào cột hoặc mở bảng để xem đơn giá.",
     "presence_values": {
       "reported": "Đã báo cáo trạng thái sử dụng",
       "unknown": "Chưa rõ trạng thái",

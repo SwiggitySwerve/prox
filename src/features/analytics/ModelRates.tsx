@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsResponse } from '@/domain/analytics/types';
-import { AnalyticsChart } from './AnalyticsChart';
 import { analyticsNumber, analyticsTime } from './format';
 import styles from './AnalyticsPage.module.scss';
 
@@ -10,15 +9,6 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
   return (
     <>
       <p className={styles.notice}>{t('analytics.rate_note')}</p>
-      <AnalyticsChart
-        title={t('analytics.input_rate_chart')}
-        currency
-        data={data.rates.map((r, index) => ({
-          key: String(index),
-          label: `${r.instance_label} · ${r.provider} · ${r.id}`,
-          value: r.input_per_million,
-        }))}
-      />
       <section className={styles.panel}>
         <h2>{t('analytics.tabs.rates')}</h2>
         {data.catalog_sources

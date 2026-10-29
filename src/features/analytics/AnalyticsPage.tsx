@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsQuery, AnalyticsRequest } from '@/domain/analytics/types';
 import { Button } from '@/components/ui/Button';
-import { IconRefreshCw } from '@/components/ui/icons';
+import { IconAlertTriangle, IconRefreshCw } from '@/components/ui/icons';
 import { useAnalytics } from './useAnalytics';
 import {
   analyticsTab,
@@ -162,12 +162,12 @@ export function AnalyticsPage() {
               placeholder={t('analytics.search_hint')}
             />
           </label>
-          <Button type="submit" size="sm" variant="secondary">
+          <Button type="submit" size="sm" variant="primary">
             {t('analytics.apply')}
           </Button>
         </form>
         <Button
-          variant="ghost"
+          variant="secondary"
           size="sm"
           onClick={() => {
             setPages([rangeQuery(range, Date.now())]);
@@ -236,8 +236,11 @@ export function AnalyticsPage() {
           </p>
         )}
         {error && (
-          <div role="alert" className={styles.state}>
-            <h2>{t('analytics.error_title')}</h2>
+          <div role="alert" className={`${styles.state} ${styles.errorState}`}>
+            <h2>
+              <IconAlertTriangle size={18} aria-hidden="true" />
+              {t('analytics.error_title')}
+            </h2>
             <p>{t(`analytics.errors.${error}`)}</p>
             <Button size="sm" variant="secondary" onClick={reload}>
               {t('analytics.retry')}
