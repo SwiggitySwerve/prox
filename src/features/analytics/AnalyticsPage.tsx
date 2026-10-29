@@ -236,15 +236,15 @@ export function AnalyticsPage() {
           </p>
         )}
         {error && (
-          <div role="alert" className={`${styles.state} ${styles.errorState}`}>
-            <h2>
-              <IconAlertTriangle size={18} aria-hidden="true" />
-              {t('analytics.error_title')}
-            </h2>
-            <p>{t(`analytics.errors.${error}`)}</p>
-            <Button size="sm" variant="primary" onClick={reload}>
-              {t('analytics.retry')}
-            </Button>
+          <div role="alert" className={`${styles.emptyState} ${styles.errorState}`}>
+            <IconAlertTriangle size={20} aria-hidden="true" />
+            <div>
+              <h2>{t('analytics.error_title')}</h2>
+              <p>{t(`analytics.errors.${error}`)}</p>
+              <Button size="sm" variant="primary" onClick={reload}>
+                {t('analytics.retry')}
+              </Button>
+            </div>
           </div>
         )}
         {data && (

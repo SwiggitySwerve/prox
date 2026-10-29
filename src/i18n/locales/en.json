@@ -2487,7 +2487,7 @@
     "trend_help": "Lines share the time axis. Each time bucket is a control; activate one to open its events.",
     "trend_hint": "Hover or focus a time to compare values; activate it to open matching events.",
     "trend_reference_hint": "Hover a time to compare values.",
-    "trend_own_scale": "Lines use separate scales; read each against the axis in its colour. Gaps are unmeasured periods.",
+    "trend_own_scale": "Lines use separate scales; read each against the axis marked with its colour and line style. Gaps are unmeasured periods.",
     "trend_own_scale_narrow": "Lines use separate scales; each range is in the legend. Gaps are unmeasured periods.",
     "empty_title": "No retained events",
     "empty_unfiltered": "Nothing was retained in this time range. Choose a longer range to look further back.",

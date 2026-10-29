@@ -88,7 +88,7 @@ const cards: Record<View, Metric[]> = {
     'reasoning_tokens',
   ],
   cost: ['cost', 'priced_calls', 'unpriced_calls'],
-  performance: ['average_latency_ms', 'p95_latency_ms', 'p95_ttft_ms'],
+  performance: ['p95_latency_ms', 'average_latency_ms', 'p95_ttft_ms'],
 };
 /** Durations share one millisecond scale and one ink, told apart by line style. */
 const trends: Record<View, { metric: Metric; dash?: TrendSeries['dash'] }[]> = {

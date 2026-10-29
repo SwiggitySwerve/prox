@@ -78,6 +78,12 @@ export function TrendChart({
   const tick = (index: number, fraction: number) => {
     const v = lines[index].maximum * fraction;
     // One format per axis, chosen by its maximum, so ticks never mix 5,000 with 10K.
+    if (series[index].currency && lines[index].maximum >= 4 && lines[index].maximum < 10_000)
+      return new Intl.NumberFormat(i18n.language, {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      }).format(v);
     return series[index].currency || lines[index].maximum >= 10_000
       ? analyticsCompact(v, i18n.language, series[index].currency)
       : analyticsNumber(v, i18n.language);
@@ -86,7 +92,7 @@ export function TrendChart({
     <section className={`${styles.panel} ${styles.trend}`} aria-labelledby={id}>
       <div className={styles.trendHeader}>
         <h3 id={id}>{title}</h3>
-        {!single && (
+        {!single && measured.some(Boolean) && (
           <ul className={styles.legend} aria-label={t('analytics.legend')}>
             {series.map((s, index) => (
               <li key={s.key} data-empty={!measured[index]}>
@@ -124,6 +130,19 @@ export function TrendChart({
                 style={{ color: sharedScale ? undefined : series[index].color }}
                 aria-hidden="true"
               >
+                {/* Same-ink series are told apart by line style, so each axis shows its own. */}
+                {!single && !sharedScale && (
+                  <svg viewBox="0 0 24 8" className={styles.axisKey}>
+                    <line
+                      x1="2"
+                      y1="4"
+                      x2="22"
+                      y2="4"
+                      style={{ stroke: series[index].color }}
+                      strokeDasharray={series[index].dash ? DASH[series[index].dash] : undefined}
+                    />
+                  </svg>
+                )}
                 {TICKS.map((fraction) => (
                   <span key={fraction}>{tick(index, fraction)}</span>
                 ))}
@@ -155,7 +174,7 @@ export function TrendChart({
                   const path = segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ');
                   return (
                     <g key={`${series[index].key}-${part}`}>
-                      {index === 0 && segment.length > 2 && (
+                      {index === 0 && segment.length > 1 && (
                         <path
                           d={`${path} L${segment[segment.length - 1][0]},${FRAME.bottom} L${segment[0][0]},${FRAME.bottom} Z`}
                           style={{ fill: series[index].color }}
@@ -247,7 +266,8 @@ export function TrendChart({
                   // Narrow screens show every other label.
                   data-minor={index % 2 === 1}
                 >
-                  {analyticsShortTime(at, i18n.language, daily)}
+                  {/* Hourly axes name the day where it changes. */}
+                  {analyticsShortTime(at, i18n.language, daily || at % 86_400_000 === 0)}
                 </span>
               ))}
             </div>

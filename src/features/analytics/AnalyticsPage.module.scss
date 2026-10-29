@@ -191,18 +191,19 @@
   border-radius: var(--radius-md);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto;
+  // The sparkline row absorbs spare height so sublines align along a row of cards.
+  grid-template-rows: auto auto 1fr auto;
   grid-template-areas:
     'label'
     'value'
     'spark'
     'sub';
   gap: 6px;
-  // Cards in a row share a height; spare height must not stretch the value line.
-  align-content: start;
 }
 .metricLabel {
   grid-area: label;
+  // Two lines reserved, so values line up even when a neighbour's label wraps.
+  min-height: 29px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -249,6 +250,7 @@
 }
 .spark {
   grid-area: spark;
+  align-self: end;
   width: 100%;
   height: 24px;
   overflow: visible;
@@ -334,6 +336,7 @@
   }
 }
 .trendAxis {
+  position: relative;
   grid-row: 1;
   display: flex;
   flex-direction: column;
@@ -346,8 +349,25 @@
   white-space: nowrap;
   &[data-side='left'] {
     grid-column: 1;
+    // One gutter width for every chart, so a given time sits at the same x on each.
+    min-width: 44px;
     text-align: right;
   }
+}
+.axisKey {
+  position: absolute;
+  top: -14px;
+  left: 0;
+  width: 22px;
+  height: 8px;
+  line {
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+}
+.trendAxis[data-side='left'] .axisKey {
+  left: auto;
+  right: 0;
 }
 .trendSvg {
   grid-column: 2;
@@ -512,7 +532,8 @@ button.rankedRow {
   color: var(--text-secondary);
 }
 .providerName {
-  display: inline-flex !important;
+  display: flex !important;
+  width: fit-content;
   align-items: center;
   gap: 6px;
   &::before {
@@ -528,6 +549,14 @@ button.rankedRow {
   &[data-provider='codex']::before {
     background: var(--codex-color);
   }
+}
+.rowAction {
+  border: 1px solid var(--border-primary);
+  font-weight: 500;
+}
+.rates th[scope='row'] {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 .warningNotice {
   background: var(--warning-bg);
@@ -613,8 +642,6 @@ button.rankedRow {
 .rates summary {
   cursor: pointer;
   color: var(--text-primary);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 .textButton {
   border: 0;
@@ -661,15 +688,12 @@ button.rankedRow {
 }
 .errorState {
   border-left: 3px solid var(--error-color);
-  background: var(--bg-primary);
-  > button {
-    margin-top: 10px;
-  }
+  > svg,
   h2 {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
     color: var(--failure-badge-text);
+  }
+  button {
+    margin-top: 12px;
   }
 }
 .state {
@@ -820,8 +844,6 @@ button.rankedRow {
   .rates th[scope='row'] {
     grid-column: 1 / -1;
     max-width: none;
-    font-weight: 600;
-    color: var(--text-primary);
   }
   .rates {
     min-width: 0;

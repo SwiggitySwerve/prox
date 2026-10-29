@@ -6,6 +6,7 @@ import styles from './AnalyticsPage.module.scss';
 export function ModelRates({ data }: { data: AnalyticsResponse }) {
   const { t, i18n } = useTranslation();
   const money = (n: number | null) => analyticsNumber(n, i18n.language, true);
+  const providerLabels = new Map(data.providers.map((p) => [p.key, p.label]));
   return (
     <>
       <p className={styles.notice}>{t('analytics.rate_note')}</p>
@@ -53,7 +54,9 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
                   <tr key={`${rate.instance_id}:${rate.provider}:${rate.id}:${index}`}>
                     <td data-label={t('analytics.source_provider')}>
                       {rate.instance_label}
-                      <small>{rate.provider}</small>
+                      <small className={styles.providerName} data-provider={rate.provider}>
+                        {providerLabels.get(rate.provider) ?? rate.provider}
+                      </small>
                     </td>
                     <th scope="row" data-label={t('analytics.model')}>
                       {rate.id}

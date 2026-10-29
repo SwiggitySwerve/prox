@@ -208,8 +208,9 @@ export function RequestTable({
                   </td>
                   <td>
                     <Button
-                      variant="secondary"
+                      variant="ghost"
                       size="sm"
+                      className={styles.rowAction}
                       onClick={() => onSelect(r)}
                       aria-label={t('analytics.open_request', { id: r.id })}
                     >

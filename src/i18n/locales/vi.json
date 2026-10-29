@@ -2493,7 +2493,7 @@
     "trend_help": "Các đường dùng chung trục thời gian. Mỗi khoảng thời gian là một nút; kích hoạt để mở sự kiện.",
     "trend_hint": "Di chuột hoặc chọn một thời điểm để so sánh; kích hoạt để mở sự kiện tương ứng.",
     "trend_reference_hint": "Di chuột vào một thời điểm để so sánh giá trị.",
-    "trend_own_scale": "Các đường dùng thang riêng; đọc mỗi đường theo trục cùng màu. Khoảng trống là thời gian chưa đo.",
+    "trend_own_scale": "Các đường dùng thang riêng; đọc mỗi đường theo trục có cùng màu và kiểu nét. Khoảng trống là thời gian chưa đo.",
     "trend_own_scale_narrow": "Các đường dùng thang riêng; phạm vi nằm trong chú giải. Khoảng trống là thời gian chưa đo.",
     "empty_title": "Không có sự kiện được lưu",
     "empty_unfiltered": "Không có gì được lưu trong khoảng thời gian này. Hãy chọn khoảng dài hơn để xem xa hơn.",
