@@ -1,0 +1,201 @@
+{
+  "reviewer": "visual hierarchy and layout; screenshot-only review, keyboard behavior and measured contrast were not assessed",
+  "scores": {
+    "overview": {
+      "hierarchy": 9,
+      "layout": 8.2,
+      "type_numbers": 9,
+      "colour": 9.2,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "tokens": {
+      "hierarchy": 8.5,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 8.5,
+      "content": 8.5,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "cost": {
+      "hierarchy": 9.2,
+      "layout": 8.8,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 8.8,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "performance": {
+      "hierarchy": 9,
+      "layout": 8.4,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8.5,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8.8
+    },
+    "requests": {
+      "hierarchy": 9.1,
+      "layout": 8.6,
+      "type_numbers": 9,
+      "colour": 9.2,
+      "content": 9,
+      "controls_states": 9.2,
+      "consistency": 8.8,
+      "responsive_accessible": 9
+    },
+    "rates": {
+      "hierarchy": 9,
+      "layout": 8.7,
+      "type_numbers": 9,
+      "colour": 9.2,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 8.8,
+      "responsive_accessible": 9
+    },
+    "empty": {
+      "hierarchy": 9.3,
+      "layout": 8.8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9.2,
+      "controls_states": 9,
+      "consistency": 9.2,
+      "responsive_accessible": 9
+    },
+    "unknown": {
+      "hierarchy": 9,
+      "layout": 8.6,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8.7,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9.3,
+      "layout": 8.8,
+      "type_numbers": 9,
+      "colour": 9.3,
+      "content": 9,
+      "controls_states": 9.3,
+      "consistency": 9.2,
+      "responsive_accessible": 9.2
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 8.8,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 8.8,
+      "responsive_accessible": 9
+    }
+  },
+  "issues": [
+    {
+      "screen": "overview",
+      "width": "1024x768, 1280x720",
+      "aspect": "responsive_accessible",
+      "element": "Initial viewport: KPI grid takes two tall rows, leaving only the upper plot fragment visible.",
+      "fix": "Use a compact short-desktop arrangement for KPI cards and their sparklines so a useful full trend plot appears on load; preserve the values and secondary text. A height-aware layout should be evaluated at these two exact viewports."
+    },
+    {
+      "screen": "tokens",
+      "width": "1024x768, 1280x720",
+      "aspect": "layout",
+      "element": "Initial viewport: two tall card rows plus the explanatory notice push the actual token lines almost entirely below the bottom edge.",
+      "fix": "Reduce the pre-chart stack at short desktop heights: allow side-by-side values and short sparklines in the wider token cards, and put the detailed counter explanation behind a clearly labelled disclosure while keeping its essential warning visible."
+    },
+    {
+      "screen": "tokens",
+      "width": "1024x768, 1280x720",
+      "aspect": "responsive_accessible",
+      "element": "Token chart is technically introduced in the first viewport but its data is not visible.",
+      "fix": "Add a short-viewport layout that exposes the plot itself on load, then verify this with fold captures rather than full-height images."
+    },
+    {
+      "screen": "overview,tokens,cost,performance,requests,rates,empty,unknown,error,loading",
+      "width": "2560, 3440",
+      "aspect": "layout",
+      "element": "Filter bar: the compact search and Apply group ends far before Clear filters, leaving a large unused band and separating related filter actions.",
+      "fix": "Let the search field grow to a bounded useful width, such as 400\u2013480px, and keep Clear filters beside Apply; Refresh can remain aligned to the far edge."
+    },
+    {
+      "screen": "tokens",
+      "width": "390",
+      "aspect": "colour",
+      "element": "Three violet series cross repeatedly in a roughly 270px plotting width; dotted and dashed series require sustained tracing despite correct legend keys.",
+      "fix": "Increase dash-pattern contrast and separation at the narrow breakpoint, such as fewer longer dashes for output and larger round dots for cache-read, while retaining the violet meaning and the full data."
+    },
+    {
+      "screen": "tokens",
+      "width": "390",
+      "aspect": "content",
+      "element": "Counter-limitations notice is a dense five-line paragraph between cards and chart.",
+      "fix": "Lead with a short visible statement that counters overlap and cannot establish disjoint totals; place the detailed legacy qualifications in an adjacent disclosure without removing them."
+    },
+    {
+      "screen": "performance",
+      "width": "3440",
+      "aspect": "layout",
+      "element": "Two full-width, very tall charts stack vertically; the sparse TTFT chart occupies nearly as much area as the main duration chart.",
+      "fix": "Give the secondary TTFT chart a smaller bounded height on ultrawide windows, or arrange the two plots in a balanced two-column layout at that width. Keep all gaps and measurements."
+    },
+    {
+      "screen": "performance",
+      "width": "390",
+      "aspect": "content",
+      "element": "The long methodology paragraph precedes the first plot and competes with the performance data.",
+      "fix": "Keep the essential mixed-method TTFT caution visible, and group the detailed duration/speed caveats under a clearly labelled methodology disclosure."
+    },
+    {
+      "screen": "requests",
+      "width": "3440",
+      "aspect": "layout",
+      "element": "Request columns stretch across nearly the full ultrawide screen, creating large gaps between model identity, outcome, and token/cost numbers.",
+      "fix": "Bound the request table content width or define column sizing that gives extra width mainly to model identity instead of distributing it across every column."
+    },
+    {
+      "screen": "rates",
+      "width": "3440",
+      "aspect": "layout",
+      "element": "The model-rate row spreads its small set of values over almost the entire ultrawide content width.",
+      "fix": "Bound the table reading width or group the four price columns together with consistent compact spacing while retaining a generous model column."
+    },
+    {
+      "screen": "requests,rates",
+      "width": "1440, 390",
+      "aspect": "consistency",
+      "element": "Model identity is regular weight in Requests but bold in Model Rates; row actions also use a bordered button versus a plain disclosure.",
+      "fix": "Use one deliberate model-name emphasis across the two tables. The different button/disclosure mechanics may stay, but align their text weight and spacing."
+    },
+    {
+      "screen": "unknown",
+      "width": "390",
+      "aspect": "layout",
+      "element": "Three full-width unavailable metric cards and two empty plots create a long scan with little measured content.",
+      "fix": "Use a more compact unavailable-card layout and retain the two chart messages/data-table entries without the tall repeated treatment."
+    },
+    {
+      "screen": "loading",
+      "width": "1440, 3440",
+      "aspect": "consistency",
+      "element": "Loading panel uses a bare outline and centered text while empty/error states use a filled surface and a left-aligned status block.",
+      "fix": "Reuse the status-panel surface and alignment for loading, keeping its neutral status distinct from the error treatment."
+    }
+  ],
+  "regressions": [
+    "At 3440px, compared with analytics-main, the search field is much narrower even though most of the filter row is unused; Clear filters is now visually detached from Apply. The compact header and larger trend plot otherwise improve the compared Overview/Tokens screens at 1440px, 3440px, and 390px. No observed loss of displayed data meaning in those comparisons."
+  ]
+}

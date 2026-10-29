@@ -1,0 +1,107 @@
+{
+  "reviewer": "Independent r11 responsive, interaction-affordance and visible-accessibility screenshot review. Invocations: tools.view_image on every current full-page <screen>-1440.png and <screen>-390.png; all ten <screen>-3440x1440.png; every Overview/Tokens fold at keys 3440x1440, 3440, 2560, 1920, 1680, 1440, 1366, 1280, 1024, 768, 600, 390, 320; and expanded Overview/Tokens at 320, 390, 600. Current image artifacts: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r11/. Comparison invocations: tools.view_image on analytics-r10/fold/{overview,tokens}-{3440x1440,1440,1280,1024,390,320}.png. Binary visible observables: all requested screenshots opened successfully; no visible horizontal clipping, overlap, lost labels, or regression in the compared folds. Mobile shared-filter disclosure improves initial metric visibility; its expanded controls fit at 320px. Zero, unavailable, unpriced, explicit zero rate, failed, loading, and error states remain visually distinct. Long model identifiers wrap without obscuring values; mobile tables preserve field labels. Token-series dash patterns remain distinct and data-table disclosures are visible. Synthetic value inconsistencies were excluded from scoring. Scores assess rendered presentation only: keyboard operation, focus order/visibility/restore, screen-reader semantics, actual control behavior, and measured contrast are not proved by screenshots. No source code or other reviews consulted.",
+  "scores": {
+    "overview": {
+      "hierarchy": 9.3,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.2,
+      "controls_states": 9.0,
+      "consistency": 9.3,
+      "responsive_accessible": 9.0
+    },
+    "tokens": {
+      "hierarchy": 9.2,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.4,
+      "content": 9.3,
+      "controls_states": 9.0,
+      "consistency": 9.3,
+      "responsive_accessible": 9.0
+    },
+    "cost": {
+      "hierarchy": 9.3,
+      "layout": 9.2,
+      "type_numbers": 9.3,
+      "colour": 9.4,
+      "content": 9.4,
+      "controls_states": 9.0,
+      "consistency": 9.3,
+      "responsive_accessible": 9.1
+    },
+    "performance": {
+      "hierarchy": 9.2,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.3,
+      "controls_states": 9.0,
+      "consistency": 9.3,
+      "responsive_accessible": 9.0
+    },
+    "requests": {
+      "hierarchy": 9.2,
+      "layout": 9.0,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.4,
+      "controls_states": 9.1,
+      "consistency": 9.3,
+      "responsive_accessible": 9.1
+    },
+    "rates": {
+      "hierarchy": 9.2,
+      "layout": 9.0,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.4,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 9.1
+    },
+    "empty": {
+      "hierarchy": 9.4,
+      "layout": 9.2,
+      "type_numbers": 9.3,
+      "colour": 9.2,
+      "content": 9.4,
+      "controls_states": 9.0,
+      "consistency": 9.4,
+      "responsive_accessible": 9.1
+    },
+    "unknown": {
+      "hierarchy": 9.2,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.4,
+      "controls_states": 9.0,
+      "consistency": 9.3,
+      "responsive_accessible": 9.1
+    },
+    "error": {
+      "hierarchy": 9.4,
+      "layout": 9.3,
+      "type_numbers": 9.3,
+      "colour": 9.4,
+      "content": 9.3,
+      "controls_states": 9.3,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    },
+    "loading": {
+      "hierarchy": 9.1,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.1,
+      "content": 9.1,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 9.1
+    }
+  },
+  "issues": [],
+  "regressions": []
+}

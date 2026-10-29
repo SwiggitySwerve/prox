@@ -1,0 +1,122 @@
+{
+  "reviewer": "Independent visual layout and hierarchy review. Direct tools.view_image inspection of 74 PNG artifacts: all 10 analytics-r11 full pages at 1440 and 390; all 10 full pages at 3440x1440; all 26 Overview/Tokens first-viewport folds at 3440x1440, 3440, 2560, 1920, 1680, 1440, 1366, 1280, 1024, 768, 600, 390, 320; all six expanded Overview/Tokens views at 320, 390, 600; and all 12 matching analytics-r10 folds at 3440x1440, 1440, 1280, 1024, 390, 320. Current artifacts: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r11. Comparison artifacts: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r10. Scores assess visible presentation only; keyboard behavior and measured contrast were not established by screenshots. No source code, measurement JSON, or other review was consulted.",
+  "scores": {
+    "overview": {
+      "hierarchy": 9.2,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.2,
+      "controls_states": 9.1,
+      "consistency": 9.4,
+      "responsive_accessible": 9.1
+    },
+    "tokens": {
+      "hierarchy": 9.2,
+      "layout": 9.2,
+      "type_numbers": 9.1,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.4,
+      "responsive_accessible": 9.1
+    },
+    "cost": {
+      "hierarchy": 9.3,
+      "layout": 9.2,
+      "type_numbers": 9.3,
+      "colour": 9.3,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.4,
+      "responsive_accessible": 9.2
+    },
+    "performance": {
+      "hierarchy": 9.2,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.3,
+      "responsive_accessible": 9.1
+    },
+    "requests": {
+      "hierarchy": 9.0,
+      "layout": 8.8,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.3,
+      "controls_states": 9.2,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    },
+    "rates": {
+      "hierarchy": 9.0,
+      "layout": 8.9,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    },
+    "empty": {
+      "hierarchy": 9.3,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    },
+    "unknown": {
+      "hierarchy": 9.2,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9.1,
+      "consistency": 9.3,
+      "responsive_accessible": 9.1
+    },
+    "error": {
+      "hierarchy": 9.4,
+      "layout": 9.3,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.3,
+      "controls_states": 9.3,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    },
+    "loading": {
+      "hierarchy": 9.1,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.2,
+      "content": 9.2,
+      "controls_states": 9.0,
+      "consistency": 9.3,
+      "responsive_accessible": 9.2
+    }
+  },
+  "issues": [
+    {
+      "screen": "requests",
+      "width": "3440x1440",
+      "aspect": "layout",
+      "element": "The Requests table spans almost the full ultrawide content area, separating Provider / model, Recorded outcome, token values, and Details by long stretches of empty row space. Artifact: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r11/requests-3440x1440.png.",
+      "fix": "Constrain the Requests table reading width or constrain its column tracks at ultrawide widths so related request fields remain closer together; preserve the existing mobile card layout."
+    },
+    {
+      "screen": "rates",
+      "width": "3440x1440",
+      "aspect": "layout",
+      "element": "The Model Rates table spreads model identity and its price columns across nearly the full ultrawide area, increasing horizontal scanning for two compact records. Artifact: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r11/rates-3440x1440.png.",
+      "fix": "Give the rates table a maximum reading width or use bounded column widths at ultrawide sizes, keeping model identity and the four price columns within a more compact group."
+    }
+  ],
+  "regressions": []
+}

@@ -18,6 +18,7 @@ const claudeBody = {
   five_hour: { utilization: 25, resets_at: new Date(RESET).toISOString() },
   seven_day: { utilization: '60', resets_at: new Date(RESET).toISOString() },
   seven_day_sonnet: { utilization: 99 },
+  iguana_necktie: { utilization: 100, limit_dollars: 100, remaining_dollars: 0 },
 };
 const codexBody = {
   rate_limit: {
@@ -232,7 +233,7 @@ describe('QuotaCollector', () => {
     }
   });
 
-  test('keeps the latest reading of every reported window per account', async () => {
+  test('keeps reported quota windows per account without cloud-credit warnings', async () => {
     const { collector, store } = harness();
     await collector.refresh();
     const [claude, codex] = store.listAccounts();

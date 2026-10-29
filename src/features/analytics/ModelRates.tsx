@@ -10,7 +10,7 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
   return (
     <>
       <p className={styles.notice}>{t('analytics.rate_note')}</p>
-      <section className={styles.panel}>
+      <section className={`${styles.panel} ${styles.tablePanel}`}>
         <h2>{t('analytics.tabs.rates')}</h2>
         {data.catalog_sources
           ?.filter((source) => source.state === 'unavailable')

@@ -3,17 +3,27 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsQuery, AnalyticsRequest } from '@/domain/analytics/types';
 import { Button } from '@/components/ui/Button';
-import { IconAlertTriangle, IconInbox, IconRefreshCw } from '@/components/ui/icons';
+import {
+  IconAlertTriangle,
+  IconChevronDown,
+  IconInbox,
+  IconRefreshCw,
+  IconSearch,
+  IconX,
+} from '@/components/ui/icons';
 import { useAnalytics } from './useAnalytics';
 import {
   analyticsTab,
   analyticsTabs,
   bucketQuery,
+  buckets,
   nextPageQuery,
   rangeQuery,
   ranges,
   withoutCursor,
+  type AnalyticsBucket,
   type AnalyticsRange,
+  type AnalyticsTab,
 } from './queryState';
 import { AnalyticsViews } from './AnalyticsViews';
 import { ModelRates } from './ModelRates';
@@ -21,15 +31,57 @@ import { RequestTable } from './RequestTable';
 import { analyticsTime } from './format';
 import styles from './AnalyticsPage.module.scss';
 
+// Card counts per view, for loading placeholders that match the loaded layout.
+const skeletonCards: Record<AnalyticsTab, number> = {
+  overview: 8,
+  tokens: 6,
+  cost: 3,
+  performance: 3,
+  requests: 0,
+  rates: 0,
+};
+
+/** Segmented presets: every option visible, the current one pressed. */
+function Pills<T extends string>({
+  label,
+  values,
+  current,
+  onPick,
+  name,
+}: {
+  label: string;
+  values: readonly T[];
+  current: T;
+  onPick: (value: T) => void;
+  name: (value: T) => string;
+}) {
+  return (
+    <div role="group" aria-label={label} className={styles.segmented}>
+      {values.map((value) => (
+        <button
+          type="button"
+          key={value}
+          aria-pressed={current === value}
+          onClick={() => onPick(value)}
+        >
+          {name(value)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function AnalyticsPage() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
   const tab = analyticsTab(params.get('tab'));
   const [range, setRange] = useState<AnalyticsRange>('24h');
+  const [bucket, setBucket] = useState<AnalyticsBucket>('auto');
   const [pages, setPages] = useState<AnalyticsQuery[]>(() => [rangeQuery('24h', Date.now())]);
   const query = pages[pages.length - 1];
   const [search, setSearch] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [bucketSelected, setBucketSelected] = useState(false);
   const [selected, setSelected] = useState<{
     request: AnalyticsRequest;
@@ -37,6 +89,9 @@ export function AnalyticsPage() {
     session: number;
   } | null>(null);
   const { data, error, loading, session, filterOptions } = useAnalytics(query, refresh);
+  const activeFilters = [query.provider, query.model, query.search, query.outcome !== 'all'].filter(
+    Boolean
+  ).length;
   const setTab = (value: string) =>
     setParams(
       (previous) => {
@@ -56,14 +111,15 @@ export function AnalyticsPage() {
     setTab('requests');
   };
   const next = data ? nextPageQuery(query, data.requests) : null;
-  const resetRange = (value: AnalyticsRange) => {
+  const resetRange = (value: AnalyticsRange, size = bucket) => {
     setRange(value);
+    setBucket(size);
     setBucketSelected(false);
-    const interval = rangeQuery(value, Date.now());
+    const interval = rangeQuery(value, Date.now(), size);
     filter({ from_ms: interval.from_ms, to_ms: interval.to_ms, granularity: interval.granularity });
   };
   const reload = () => {
-    const interval = rangeQuery(range, Date.now());
+    const interval = rangeQuery(range, Date.now(), bucket);
     setSelected(null);
     setBucketSelected(false);
     setPages([
@@ -79,187 +135,24 @@ export function AnalyticsPage() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div>
+        <div className={styles.headline}>
           <h1>{t('analytics.title')}</h1>
-          <p>{t('analytics.subtitle')}</p>
-        </div>
-        <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
-          <IconRefreshCw size={15} /> {t('analytics.refresh')}
-        </Button>
-      </header>
-      <section className={styles.filters} aria-label={t('analytics.filters')}>
-        <label>
-          {t('analytics.range')}
-          <select
-            value={range}
-            onChange={(event) => resetRange(event.target.value as AnalyticsRange)}
-          >
-            {ranges.map((value) => (
-              <option key={value} value={value}>
-                {t(`analytics.ranges.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t('analytics.provider')}
-          <select
-            value={query.provider ?? ''}
-            onChange={(event) => filter({ provider: event.target.value || undefined })}
-          >
-            <option value="">{t('analytics.all')}</option>
-            {Array.from(
-              new Set([
-                ...(filterOptions?.providers ?? []),
-                ...(query.provider ? [query.provider] : []),
-              ])
-            ).map((provider) => (
-              <option key={provider}>{provider}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t('analytics.model')}
-          <select
-            value={query.model ?? ''}
-            onChange={(event) => filter({ model: event.target.value || undefined })}
-          >
-            <option value="">{t('analytics.all')}</option>
-            {Array.from(
-              new Set([...(filterOptions?.models ?? []), ...(query.model ? [query.model] : [])])
-            ).map((model) => (
-              <option key={model}>{model}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t('analytics.outcome')}
-          <select
-            value={query.outcome}
-            onChange={(event) =>
-              filter({ outcome: event.target.value as AnalyticsQuery['outcome'] })
-            }
-          >
-            <option value="all">{t('analytics.all')}</option>
-            <option value="success">{t('analytics.success')}</option>
-            <option value="failed">{t('analytics.failed_outcome')}</option>
-          </select>
-        </label>
-        <form
-          className={styles.searchForm}
-          onSubmit={(event) => {
-            event.preventDefault();
-            filter({ search: search.trim() || undefined });
-          }}
-        >
-          <label>
-            {t('analytics.search')}
-            <input
-              type="search"
-              value={search}
-              maxLength={200}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('analytics.search_hint')}
-            />
-          </label>
-          {/* While the dataset is unavailable, Retry is the one primary action. */}
-          <Button type="submit" size="sm" variant={error ? 'secondary' : 'primary'}>
-            {t('analytics.apply')}
-          </Button>
-        </form>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setPages([rangeQuery(range, Date.now())]);
-            setBucketSelected(false);
-            setSearch('');
-            setSelected(null);
-          }}
-        >
-          {t('analytics.clear_filters')}
-        </Button>
-      </section>
-      <p className={styles.scope}>
-        {analyticsTime(query.from_ms, i18n.language)} → {analyticsTime(query.to_ms, i18n.language)}{' '}
-        UTC{bucketSelected && <span> · {t('analytics.selected_bucket')}</span>}
-        {query.search && (
-          <span>
-            {' '}
-            · {t('analytics.search')}: {query.search}
-          </span>
-        )}
-      </p>
-      <nav className={styles.tabs} aria-label={t('analytics.views')} role="tablist">
-        {analyticsTabs.map((value) => (
-          <button
-            type="button"
-            id={`analytics-tab-${value}`}
-            key={value}
-            role="tab"
-            aria-selected={tab === value}
-            aria-controls="analytics-panel"
-            tabIndex={tab === value ? 0 : -1}
-            onClick={() => setTab(value)}
-            onKeyDown={(event) => {
-              const index = analyticsTabs.indexOf(value);
-              const target =
-                event.key === 'ArrowRight'
-                  ? analyticsTabs[(index + 1) % analyticsTabs.length]
-                  : event.key === 'ArrowLeft'
-                    ? analyticsTabs[(index + analyticsTabs.length - 1) % analyticsTabs.length]
-                    : event.key === 'Home'
-                      ? analyticsTabs[0]
-                      : event.key === 'End'
-                        ? analyticsTabs[analyticsTabs.length - 1]
-                        : undefined;
-              if (target) {
-                event.preventDefault();
-                setTab(target);
-                document.getElementById(`analytics-tab-${target}`)?.focus();
-              }
-            }}
-          >
-            {t(`analytics.tabs.${value}`)}
-          </button>
-        ))}
-      </nav>
-      <div
-        id="analytics-panel"
-        role="tabpanel"
-        aria-labelledby={`analytics-tab-${tab}`}
-        aria-busy={loading}
-        tabIndex={0}
-      >
-        {loading && (
-          <p role="status" className={styles.state}>
-            {t('analytics.loading')}
+          <p className={styles.scope}>
+            {analyticsTime(query.from_ms, i18n.language)} →{' '}
+            {analyticsTime(query.to_ms, i18n.language)} UTC
+            {bucketSelected && <span> · {t('analytics.selected_bucket')}</span>}
+            {query.search && <span> {`· ${t('analytics.search')}: ${query.search}`}</span>}
           </p>
-        )}
-        {error && (
-          <div role="alert" className={`${styles.emptyState} ${styles.errorState}`}>
-            <IconAlertTriangle size={20} aria-hidden="true" />
-            <div>
-              <h2>{t('analytics.error_title')}</h2>
-              <p>{t(`analytics.errors.${error}`)}</p>
-              <Button size="sm" variant="primary" onClick={reload}>
-                {t('analytics.retry')}
-              </Button>
-            </div>
-          </div>
-        )}
-        {data && (
-          <>
+          {data && (
             <aside className={styles.coverage} aria-label={t('analytics.coverage')}>
               <div>
-                <strong>{t('analytics.retained_scope')}</strong>
                 <span>
                   {t(
                     `analytics.${data.coverage.raw_complete ? 'retained_complete' : 'partial_coverage'}`
                   )}
                 </span>
                 <span>
-                  {t('analytics.updated')}: {analyticsTime(data.generated_at_ms, i18n.language)} UTC
+                  {`${t('analytics.updated')}: ${analyticsTime(data.generated_at_ms, i18n.language)} UTC`}
                 </span>
               </div>
               <details>
@@ -283,6 +176,236 @@ export function AnalyticsPage() {
                 )}
               </details>
             </aside>
+          )}
+        </div>
+      </header>
+      <div className={styles.toolbar}>
+        <nav className={styles.tabs} aria-label={t('analytics.views')} role="tablist">
+          {analyticsTabs.map((value) => (
+            <button
+              type="button"
+              id={`analytics-tab-${value}`}
+              key={value}
+              role="tab"
+              aria-selected={tab === value}
+              aria-controls="analytics-panel"
+              tabIndex={tab === value ? 0 : -1}
+              onClick={() => setTab(value)}
+              onKeyDown={(event) => {
+                const index = analyticsTabs.indexOf(value);
+                const target =
+                  event.key === 'ArrowRight'
+                    ? analyticsTabs[(index + 1) % analyticsTabs.length]
+                    : event.key === 'ArrowLeft'
+                      ? analyticsTabs[(index + analyticsTabs.length - 1) % analyticsTabs.length]
+                      : event.key === 'Home'
+                        ? analyticsTabs[0]
+                        : event.key === 'End'
+                          ? analyticsTabs[analyticsTabs.length - 1]
+                          : undefined;
+                if (target) {
+                  event.preventDefault();
+                  setTab(target);
+                  document.getElementById(`analytics-tab-${target}`)?.focus();
+                }
+              }}
+            >
+              {t(`analytics.tabs.${value}`)}
+            </button>
+          ))}
+        </nav>
+        <div className={styles.filterControls} data-expanded={filtersExpanded}>
+          <button
+            type="button"
+            className={styles.filterToggle}
+            aria-label={t('analytics.filters')}
+            aria-describedby="analytics-filter-summary"
+            aria-expanded={filtersExpanded}
+            aria-controls="analytics-filters"
+            onClick={() => setFiltersExpanded((expanded) => !expanded)}
+          >
+            {t('analytics.filters')}
+            <span id="analytics-filter-summary">
+              {t(bucketSelected ? 'analytics.selected_bucket' : `analytics.ranges.${range}`)}
+              {activeFilters > 0 && ` · ${t('analytics.filter_count', { count: activeFilters })}`}
+            </span>
+            <IconChevronDown size={14} aria-hidden="true" />
+          </button>
+          <section
+            id="analytics-filters"
+            className={styles.filters}
+            aria-label={t('analytics.filters')}
+          >
+            <div className={styles.presetRow}>
+              <Pills
+                label={t('analytics.range')}
+                values={ranges}
+                current={range}
+                onPick={(value) => resetRange(value)}
+                name={(value) => t(`analytics.ranges.${value}`)}
+              />
+              <Pills
+                label={t('analytics.bucket')}
+                values={buckets}
+                current={bucket}
+                onPick={(value) => resetRange(range, value)}
+                name={(value) => t(`analytics.buckets.${value}`)}
+              />
+              <div className={styles.actions}>
+                <span className={styles.bucketNote}>
+                  {t('analytics.current_bucket', {
+                    unit: t(`analytics.bucket_units.${query.granularity}`),
+                  })}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={activeFilters === 0 && !bucketSelected}
+                  title={t('analytics.clear_filters')}
+                  onClick={() => {
+                    setPages([rangeQuery(range, Date.now(), bucket)]);
+                    setBucketSelected(false);
+                    setSearch('');
+                    setSelected(null);
+                  }}
+                >
+                  <IconX size={13} aria-hidden="true" />
+                  <span className={styles.actionLabel}>{t('analytics.clear_filters')}</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={reload}
+                  disabled={loading}
+                  title={t('analytics.refresh')}
+                >
+                  <IconRefreshCw size={13} aria-hidden="true" />
+                  <span className={styles.actionLabel}>{t('analytics.refresh')}</span>
+                </Button>
+              </div>
+            </div>
+            <div className={styles.fieldRow}>
+              <form
+                className={styles.searchForm}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  filter({ search: search.trim() || undefined });
+                }}
+              >
+                <label>
+                  <IconSearch size={14} aria-hidden="true" />
+                  <span className={styles.srOnly}>{t('analytics.search')}</span>
+                  <input
+                    type="search"
+                    value={search}
+                    maxLength={200}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder={t('analytics.search_hint')}
+                  />
+                </label>
+                {/* Apply is live only when the typed search differs from the applied one;
+                    while the dataset is unavailable, Retry is the one primary action. */}
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant={
+                    !error && search.trim() !== (query.search ?? '') ? 'primary' : 'secondary'
+                  }
+                  disabled={search.trim() === (query.search ?? '')}
+                >
+                  {t('analytics.apply')}
+                </Button>
+              </form>
+              <label>
+                <span className={styles.srOnly}>{t('analytics.provider')}</span>
+                <select
+                  value={query.provider ?? ''}
+                  onChange={(event) => filter({ provider: event.target.value || undefined })}
+                >
+                  <option value="">{t('analytics.all_providers')}</option>
+                  {Array.from(
+                    new Set([
+                      ...(filterOptions?.providers ?? []),
+                      ...(query.provider ? [query.provider] : []),
+                    ])
+                  ).map((provider) => (
+                    <option key={provider}>{provider}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className={styles.srOnly}>{t('analytics.model')}</span>
+                <select
+                  value={query.model ?? ''}
+                  onChange={(event) => filter({ model: event.target.value || undefined })}
+                >
+                  <option value="">{t('analytics.all_models')}</option>
+                  {Array.from(
+                    new Set([
+                      ...(filterOptions?.models ?? []),
+                      ...(query.model ? [query.model] : []),
+                    ])
+                  ).map((model) => (
+                    <option key={model}>{model}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className={styles.srOnly}>{t('analytics.outcome')}</span>
+                <select
+                  value={query.outcome}
+                  onChange={(event) =>
+                    filter({ outcome: event.target.value as AnalyticsQuery['outcome'] })
+                  }
+                >
+                  <option value="all">{t('analytics.all_outcomes')}</option>
+                  <option value="success">{t('analytics.success')}</option>
+                  <option value="failed">{t('analytics.failed_outcome')}</option>
+                </select>
+              </label>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div
+        id="analytics-panel"
+        role="tabpanel"
+        aria-labelledby={`analytics-tab-${tab}`}
+        aria-busy={loading}
+        tabIndex={0}
+      >
+        {/* First load: placeholders in the page's own shape, so nothing jumps when data lands. */}
+        {loading && !data && (
+          <div role="status" className={styles.skeleton}>
+            {skeletonCards[tab] > 0 && (
+              <div className={styles.metrics} data-count={skeletonCards[tab]} aria-hidden="true">
+                {Array.from({ length: skeletonCards[tab] }, (_, index) => (
+                  <span key={index} className={styles.skeletonCard} />
+                ))}
+              </div>
+            )}
+            <p className={styles.skeletonChart}>{t('analytics.loading')}</p>
+          </div>
+        )}
+        {loading && data && (
+          <p role="status" className={styles.srOnly}>
+            {t('analytics.loading')}
+          </p>
+        )}
+        {error && (
+          <div role="alert" className={`${styles.emptyState} ${styles.errorState}`}>
+            <IconAlertTriangle size={20} aria-hidden="true" />
+            <div>
+              <h2>{t('analytics.error_title')}</h2>
+              <p>{t(`analytics.errors.${error}`)}</p>
+              <Button size="sm" variant="primary" onClick={reload}>
+                {t('analytics.retry')}
+              </Button>
+            </div>
+          </div>
+        )}
+        {data && (
+          <>
             {data.summary.calls === 0 && tab !== 'rates' && (
               <div className={styles.emptyState} role="status">
                 <IconInbox size={20} aria-hidden="true" />

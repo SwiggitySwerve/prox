@@ -51,6 +51,19 @@ describe('Analytics query and transport contracts', () => {
     });
     expect(rangeQuery('30d', 3_000_000_000).from_ms).toBe(408_000_000);
   });
+  test('today and yesterday are UTC calendar days; a chosen bucket overrides auto', () => {
+    const day = 86_400_000;
+    const now = 20 * day + 5 * 3_600_000;
+    expect(rangeQuery('today', now)).toMatchObject({ from_ms: 20 * day, to_ms: now });
+    expect(rangeQuery('yesterday', now)).toMatchObject({
+      from_ms: 19 * day,
+      to_ms: 20 * day,
+      granularity: 'hour',
+    });
+    expect(rangeQuery('30d', now, 'hour').granularity).toBe('hour');
+    expect(rangeQuery('24h', now, 'day').granularity).toBe('day');
+    expect(rangeQuery('7d', now, 'auto').granularity).toBe('day');
+  });
   test('bucket drilldown intersects the UTC bucket and keeps filters, clearing the cursor', () => {
     const query = {
       ...rangeQuery('24h', 10_000_000),
@@ -120,7 +133,7 @@ describe('Analytics query and transport contracts', () => {
   test('refresh advances the selected window and clears paging while preserving filters', () => {
     const source = read('src/features/analytics/AnalyticsPage.tsx');
     const reload = source.slice(source.indexOf('const reload ='), source.indexOf('return <'));
-    expect(reload).toContain('rangeQuery(range, Date.now())');
+    expect(reload).toContain('rangeQuery(range, Date.now(), bucket)');
     expect(reload).toContain('withoutCursor(query)');
     expect(reload).toContain('to_ms: interval.to_ms');
     expect(reload).toContain('setPages([');

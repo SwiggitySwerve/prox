@@ -39,7 +39,7 @@ describe('Claude Fable quota', () => {
     ]);
   });
 
-  test('shows a dollar-denominated legacy field as cloud session credits, not Fable', () => {
+  test('omits dollar-denominated cloud credits from quota windows', () => {
     const reset = '2026-11-05T07:59:00+00:00';
     const windows = buildClaudeQuotaWindows(
       {
@@ -58,20 +58,10 @@ describe('Claude Fable quota', () => {
       t
     );
 
-    expect(windows).toEqual([
-      {
-        id: 'cloud-session-credits',
-        label: 'claude_quota.cloud_session_credits',
-        labelKey: 'claude_quota.cloud_session_credits',
-        usedPercent: 5.043595,
-        resetLabel: formatQuotaResetTime(reset),
-        resetAtMs: Date.parse(reset),
-        periodHours: null,
-      },
-    ]);
+    expect(windows).toEqual([]);
   });
 
-  test('shows both cloud session credits and the scoped Fable limit', () => {
+  test('keeps the scoped Fable limit while omitting cloud credits', () => {
     const windows = buildClaudeQuotaWindows(
       {
         iguana_necktie: {
@@ -94,12 +84,11 @@ describe('Claude Fable quota', () => {
     );
 
     expect(windows.map((window) => [window.id, window.usedPercent])).toEqual([
-      ['cloud-session-credits', 5],
       ['seven-day-fable', 64],
     ]);
   });
 
-  test('treats a legacy field with only remaining_dollars as cloud session credits', () => {
+  test('omits partial dollar pools without mislabelling them as Fable', () => {
     const windows = buildClaudeQuotaWindows(
       {
         iguana_necktie: {
@@ -121,7 +110,6 @@ describe('Claude Fable quota', () => {
     );
 
     expect(windows.map((window) => [window.id, window.usedPercent])).toEqual([
-      ['cloud-session-credits', 5],
       ['seven-day-fable', 64],
     ]);
   });

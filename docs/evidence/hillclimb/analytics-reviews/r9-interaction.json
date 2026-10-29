@@ -1,0 +1,167 @@
+{
+  "reviewer": "interaction/accessibility/responsive (screenshot-only)",
+  "scores": {
+    "overview": {
+      "hierarchy": 8.6,
+      "layout": 8.2,
+      "type_numbers": 9,
+      "colour": 9.2,
+      "content": 9,
+      "controls_states": 8.7,
+      "consistency": 9,
+      "responsive_accessible": 8
+    },
+    "tokens": {
+      "hierarchy": 8.4,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 8.4,
+      "content": 8.2,
+      "controls_states": 8.7,
+      "consistency": 9,
+      "responsive_accessible": 7.8
+    },
+    "cost": {
+      "hierarchy": 9,
+      "layout": 8.8,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 8.7,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8.8
+    },
+    "performance": {
+      "hierarchy": 8.7,
+      "layout": 8.3,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8.8,
+      "consistency": 9,
+      "responsive_accessible": 8.3
+    },
+    "requests": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9.2,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8.6
+    },
+    "rates": {
+      "hierarchy": 8.8,
+      "layout": 8,
+      "type_numbers": 9,
+      "colour": 9.2,
+      "content": 8.8,
+      "controls_states": 9,
+      "consistency": 8.9,
+      "responsive_accessible": 8.6
+    },
+    "empty": {
+      "hierarchy": 9.2,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9.2,
+      "content": 9.2,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 9
+    },
+    "unknown": {
+      "hierarchy": 8.8,
+      "layout": 8.6,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 8.6,
+      "controls_states": 9,
+      "consistency": 9,
+      "responsive_accessible": 8.7
+    },
+    "error": {
+      "hierarchy": 9.4,
+      "layout": 9.1,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9,
+      "controls_states": 9.4,
+      "consistency": 9.1,
+      "responsive_accessible": 9.1
+    },
+    "loading": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9.2,
+      "colour": 9.1,
+      "content": 9.2,
+      "controls_states": 8.8,
+      "consistency": 9,
+      "responsive_accessible": 9
+    }
+  },
+  "issues": [
+    {
+      "screen": "overview",
+      "width": "1280x720; 1024x768; 390x844",
+      "aspect": "responsive_accessible",
+      "element": "Default viewport: filters and full KPI grid occupy most of the screen; at 1280 and 1024 only the top of the first chart is visible, and at 390 the chart starts below a full viewport.",
+      "fix": "Use a compact KPI presentation on short desktop windows, and a compact filter disclosure with visible active scope on phones; preserve readable text and touch targets. The first graph should become discoverable earlier rather than shrinking chart labels."
+    },
+    {
+      "screen": "tokens",
+      "width": "1280x720; 1024x768",
+      "aspect": "layout",
+      "element": "Two rows of tall cards followed by the explanatory notice push the plot below the initial viewport; at 1280 only the chart heading and top tick show.",
+      "fix": "Keep the wide three-column KPI cards compact at these widths, including side-by-side value/sparkline where space permits, and shorten the initial notice to a concise qualification with full methodology in a disclosure."
+    },
+    {
+      "screen": "tokens",
+      "width": "390",
+      "aspect": "responsive_accessible",
+      "element": "Three intersecting violet traces in the narrow Token trend plot are difficult to follow through crossings despite the solid/dashed/dotted legend.",
+      "fix": "Strengthen the distinction between the dashed and dotted strokes using longer dashes and more separated round dots, or present aligned small multiples on narrow screens while retaining every series, time range, and scale."
+    },
+    {
+      "screen": "performance",
+      "width": "390",
+      "aspect": "content",
+      "element": "The full execution-time/TTFT methodology paragraph creates a large dense block between the three metric cards and the first plot.",
+      "fix": "Show the short operational qualification beside the metrics, such as 'TTFT methods differ; values are not comparable', and place the complete definitions and limitations in a clearly labelled expandable Methods section."
+    },
+    {
+      "screen": "requests",
+      "width": "3440",
+      "aspect": "layout",
+      "element": "The small three-row table stretches across almost the full ultrawide page, leaving a long scan from model/outcome to Details.",
+      "fix": "Bound the table's reading width, or allocate the extra width mainly to the model column while grouping numeric columns and their Details action closely enough to scan a row."
+    },
+    {
+      "screen": "rates",
+      "width": "3440",
+      "aspect": "layout",
+      "element": "Model identity and its input/output/cache prices are separated by very large empty column gaps in the stretched table.",
+      "fix": "Give identifier columns deliberate widths and group price columns within a bounded table width; preserve room for long model names without distributing every column across the full ultrawide canvas."
+    },
+    {
+      "screen": "overview,tokens,cost,performance,requests,rates,empty,unknown,error,loading",
+      "width": "2560;3440",
+      "aspect": "controls_states",
+      "element": "Apply sits next to Search while Clear filters and Refresh sit at the far opposite edge of a largely empty filter bar.",
+      "fix": "Keep related filter actions visually grouped, with flexible space outside the group, so reset and apply are easy to locate together on ultrawide screens."
+    },
+    {
+      "screen": "overview,tokens,cost,performance,requests,rates,empty,unknown,error,loading",
+      "width": "all",
+      "aspect": "responsive_accessible",
+      "element": "Evidence limitation: static screenshots show neither a focused control nor open menus, tooltip/drilldown states, or keyboard navigation; rendered contrast and hit-target dimensions were not measured by this reviewer.",
+      "fix": "Treat these ratings as visual evidence only. Verify keyboard order, visible focus, chart/table alternatives, actual touch targets, and pixel contrast independently."
+    }
+  ],
+  "regressions": [
+    "Overview and Tokens at 3440: compared with analytics-main, the bounded filter fields leave a very large blank gap between Apply and Clear filters/Refresh; action grouping is less immediate. Group related actions while retaining the compact bar.",
+    "No visible loss of chart series, provider/status meaning, long model names, or error recovery in the compared Overview/Tokens captures. Compact header and shorter cards materially improve chart access at desktop sizes."
+  ]
+}

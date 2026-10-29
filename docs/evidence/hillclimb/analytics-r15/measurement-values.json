@@ -1,0 +1,1502 @@
+{
+  "cost-1440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "cost-2293": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "cost-3440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "cost-3440x1440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "cost-390": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "empty-1440": {
+    "minimum_text_contrast": 8.73,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "empty-2293": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "empty-3440": {
+    "minimum_text_contrast": 8.73,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "empty-3440x1440": {
+    "minimum_text_contrast": 8.73,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "empty-390": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "error-1440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "error-2293": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "error-3440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "error-3440x1440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "error-390": {
+    "minimum_text_contrast": 9.28,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "expanded/overview-320": {
+    "minimum_text_contrast": 9.21,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "expanded/overview-390": {
+    "minimum_text_contrast": 9.18,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "expanded/overview-600": {
+    "minimum_text_contrast": 9.28,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "expanded/tokens-320": {
+    "minimum_text_contrast": 9.18,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "expanded/tokens-390": {
+    "minimum_text_contrast": 9.15,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "expanded/tokens-600": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/cost-1440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/cost-2293": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/cost-3440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/cost-3440x1440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/cost-390": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/empty-1440": {
+    "minimum_text_contrast": 8.73,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/empty-2293": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/empty-3440": {
+    "minimum_text_contrast": 8.73,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/empty-3440x1440": {
+    "minimum_text_contrast": 8.73,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/empty-390": {
+    "minimum_text_contrast": 8.73,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/error-1440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/error-2293": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/error-3440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/error-3440x1440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/error-390": {
+    "minimum_text_contrast": 9.28,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/loading-1440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/loading-2293": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/loading-3440": {
+    "minimum_text_contrast": 9.28,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/loading-3440x1440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/loading-390": {
+    "minimum_text_contrast": 9.28,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-1024": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-1280": {
+    "minimum_text_contrast": 6.54,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-1366": {
+    "minimum_text_contrast": 7.77,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-1440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-1680": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-1920": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-1920x950": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-2293": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-2560": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-2752": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-320": {
+    "minimum_text_contrast": 9.05,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-3440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-3440x1440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-390": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-600": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/overview-768": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/performance-1440": {
+    "minimum_text_contrast": 6.76,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/performance-2293": {
+    "minimum_text_contrast": 5.35,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/performance-3440": {
+    "minimum_text_contrast": 5.37,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/performance-3440x1440": {
+    "minimum_text_contrast": 5.37,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/performance-390": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/rates-1440": {
+    "minimum_text_contrast": 7.19,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/rates-2293": {
+    "minimum_text_contrast": 7.47,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/rates-3440": {
+    "minimum_text_contrast": 7.47,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/rates-3440x1440": {
+    "minimum_text_contrast": 7.47,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/rates-390": {
+    "minimum_text_contrast": 7.47,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/requests-1440": {
+    "minimum_text_contrast": 8.16,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/requests-2293": {
+    "minimum_text_contrast": 8.13,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/requests-3440": {
+    "minimum_text_contrast": 8.13,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/requests-3440x1440": {
+    "minimum_text_contrast": 8.13,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/requests-390": {
+    "minimum_text_contrast": 8.13,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-1024": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-1280": {
+    "minimum_text_contrast": 6.28,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-1366": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-1440": {
+    "minimum_text_contrast": 6.28,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-1680": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-1920": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-1920x950": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-2293": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-2560": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-2752": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-320": {
+    "minimum_text_contrast": 8.17,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-3440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-3440x1440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-390": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-600": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/tokens-768": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/unknown-1440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/unknown-2293": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/unknown-3440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/unknown-3440x1440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "fold/unknown-390": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "loading-1440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "loading-2293": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "loading-3440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "loading-3440x1440": {
+    "minimum_text_contrast": 9.2,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 30,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "loading-390": {
+    "minimum_text_contrast": 9.28,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-1024": {
+    "minimum_text_contrast": 6.54,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-1280": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-1366": {
+    "minimum_text_contrast": 7.77,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-1440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-1680": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-1920": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-1920x950": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-2293": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-2560": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-2752": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-320": {
+    "minimum_text_contrast": 8.17,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-3440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-3440x1440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-390": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-600": {
+    "minimum_text_contrast": 8.36,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "overview-768": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": 34.24,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "performance-1440": {
+    "minimum_text_contrast": 5.37,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "performance-2293": {
+    "minimum_text_contrast": 5.35,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "performance-3440": {
+    "minimum_text_contrast": 5.37,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "performance-3440x1440": {
+    "minimum_text_contrast": 5.37,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "performance-390": {
+    "minimum_text_contrast": 5.37,
+    "minimum_series_contrast": 6.76,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "rates-1440": {
+    "minimum_text_contrast": 7.19,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "rates-2293": {
+    "minimum_text_contrast": 7.47,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "rates-3440": {
+    "minimum_text_contrast": 7.47,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "rates-3440x1440": {
+    "minimum_text_contrast": 7.47,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "rates-390": {
+    "minimum_text_contrast": 7.47,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "requests-1440": {
+    "minimum_text_contrast": 8.16,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "requests-2293": {
+    "minimum_text_contrast": 8.13,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "requests-3440": {
+    "minimum_text_contrast": 8.13,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "requests-3440x1440": {
+    "minimum_text_contrast": 8.13,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 28,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "requests-390": {
+    "minimum_text_contrast": 8.13,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-1024": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-1280": {
+    "minimum_text_contrast": 6.28,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-1366": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-1440": {
+    "minimum_text_contrast": 6.28,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-1680": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-1920": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-1920x950": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-2293": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-2560": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-2752": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-320": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-3440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-3440x1440": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-390": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-600": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "tokens-768": {
+    "minimum_text_contrast": 6.34,
+    "minimum_series_contrast": 8.05,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "unknown-1440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "unknown-2293": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "unknown-3440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "unknown-3440x1440": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 24,
+    "target_threshold_px": 24,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  },
+  "unknown-390": {
+    "minimum_text_contrast": 8.57,
+    "minimum_series_contrast": null,
+    "minimum_target_px": 44,
+    "target_threshold_px": 44,
+    "minimum_distinct_series_delta_e": null,
+    "horizontal_overflow_px": 0,
+    "clipped_elements": 0,
+    "toolbar_border_contrast": 5.37
+  }
+}

@@ -5,3 +5,8 @@ existing credential UI and the Prox history collector. Provider data modules
 re-export the builders for existing callers. Keep IDs, reset parsing, periods,
 fallbacks, labels, and missing values consistent here; do not add a second raw
 payload parser in the history service or dashboard.
+
+Cloud-session dollar credits are excluded from Claude quota windows, including
+partial dollar payloads. Do not relabel them as Fable or use them for low-quota
+warnings. Legacy percentage-only Fable windows and modern scoped Fable limits
+remain supported; the OAuth usage snapshot owns any separate dollar balances.

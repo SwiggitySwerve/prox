@@ -1,0 +1,102 @@
+{
+  "overview": {
+    "hierarchy": 8,
+    "layout": 8.7,
+    "type_numbers": 9.2,
+    "colour": 9.2,
+    "content": 9.1,
+    "controls_states": 9,
+    "consistency": 9.2,
+    "responsive_accessible": 8.0
+  },
+  "tokens": {
+    "hierarchy": 8,
+    "layout": 8.7,
+    "type_numbers": 9.1,
+    "colour": 9.2,
+    "content": 9.3,
+    "controls_states": 9,
+    "consistency": 9.2,
+    "responsive_accessible": 8.0
+  },
+  "cost": {
+    "hierarchy": 9.2,
+    "layout": 9.1,
+    "type_numbers": 9.3,
+    "colour": 9.4,
+    "content": 9.2,
+    "controls_states": 9.0,
+    "consistency": 9.2,
+    "responsive_accessible": 9
+  },
+  "performance": {
+    "hierarchy": 9.1,
+    "layout": 9.1,
+    "type_numbers": 9.2,
+    "colour": 9.2,
+    "content": 9.2,
+    "controls_states": 9.0,
+    "consistency": 9.2,
+    "responsive_accessible": 9
+  },
+  "requests": {
+    "hierarchy": 9.1,
+    "layout": 9.1,
+    "type_numbers": 9.2,
+    "colour": 9.2,
+    "content": 9.3,
+    "controls_states": 9.2,
+    "consistency": 9.2,
+    "responsive_accessible": 9.1
+  },
+  "rates": {
+    "hierarchy": 9.1,
+    "layout": 9.1,
+    "type_numbers": 9.2,
+    "colour": 9.2,
+    "content": 9.3,
+    "controls_states": 9.1,
+    "consistency": 9.1,
+    "responsive_accessible": 9.1
+  },
+  "empty": {
+    "hierarchy": 9.2,
+    "layout": 9.1,
+    "type_numbers": 9.2,
+    "colour": 9.2,
+    "content": 9.3,
+    "controls_states": 9.0,
+    "consistency": 9.2,
+    "responsive_accessible": 9.0
+  },
+  "unknown": {
+    "hierarchy": 9.1,
+    "layout": 9.1,
+    "type_numbers": 9.2,
+    "colour": 9.2,
+    "content": 9.3,
+    "controls_states": 9,
+    "consistency": 9.2,
+    "responsive_accessible": 9.0
+  },
+  "error": {
+    "hierarchy": 9.3,
+    "layout": 9.2,
+    "type_numbers": 9.2,
+    "colour": 9.3,
+    "content": 9.2,
+    "controls_states": 9.3,
+    "consistency": 9.2,
+    "responsive_accessible": 9.1
+  },
+  "loading": {
+    "hierarchy": 9.0,
+    "layout": 9.0,
+    "type_numbers": 9.1,
+    "colour": 9.1,
+    "content": 9.0,
+    "controls_states": 9,
+    "consistency": 9.1,
+    "responsive_accessible": 9.0
+  }
+}

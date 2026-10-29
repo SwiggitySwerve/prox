@@ -1,0 +1,273 @@
+{
+  "reviewer": "layout",
+  "scores": {
+    "overview": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "tokens": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 8
+    },
+    "cost": {
+      "hierarchy": 9,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "performance": {
+      "hierarchy": 9,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "requests": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "rates": {
+      "hierarchy": 8,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 8,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "empty": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 7,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "unknown": {
+      "hierarchy": 8,
+      "layout": 8,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "error": {
+      "hierarchy": 9,
+      "layout": 9,
+      "type_numbers": 9,
+      "colour": 9,
+      "content": 9,
+      "controls_states": 9,
+      "consistency": 8,
+      "responsive_accessible": 9
+    },
+    "loading": {
+      "hierarchy": 7,
+      "layout": 7,
+      "type_numbers": 8,
+      "colour": 9,
+      "content": 7,
+      "controls_states": 8,
+      "consistency": 8,
+      "responsive_accessible": 9
+    }
+  },
+  "issues": [
+    {
+      "screen": "all",
+      "size": "1280, 1366, 1440, 1920, 2293, 3440",
+      "aspect": "layout / consistency",
+      "element": "Global header utility cluster (refresh / globe / sign-out) at top right: its bordered box overhangs the content column's right edge by about 25-30px (e.g. 1440: box right edge ~1415 vs toolbar/card edge 1388; 2293: ~2275 vs ~2243) and is ~52px tall, taller than the 32px toolbar controls and the title line. It breaks the single right edge every card shares.",
+      "fix": "Align the cluster's right edge to the content column (same right inset as the toolbar card) and drop it to the 32px control height, or remove its border so it reads as page chrome rather than a misplaced card."
+    },
+    {
+      "screen": "overview",
+      "size": "all desktop (1280-3440), 390, 600",
+      "aspect": "consistency / layout",
+      "element": "Failed events KPI tile: puts 'Flat trend' as inline text next to the number where every other tile has a sparkline, then 'of 128 events' on a third line. The tile anatomy (number row / sparkline / footnote) breaks, and at 390/600 the tile stacks to a different height than its neighbour.",
+      "fix": "Keep the same anatomy in every tile: draw a flat or dashed baseline sparkline in the sparkline slot and put 'Flat trend \u00b7 of 128 events' on the single footnote line."
+    },
+    {
+      "screen": "tokens",
+      "size": "1366, 1440, 2293, 390",
+      "aspect": "consistency",
+      "element": "Cache-write tokens and Reported reasoning tokens tiles: 'Flat trend' text sits inline where the sparkline goes, so their number rows read differently from the sparkline tiles beside them. The 'Unavailable' tile also uses a lighter, smaller value style with no sparkline slot.",
+      "fix": "Same as Failed events: flat baseline sparkline plus a 'Flat trend' footnote. Give 'Unavailable' the same baseline position as numeric values."
+    },
+    {
+      "screen": "cost",
+      "size": "2293, 3440",
+      "aspect": "layout",
+      "element": "KPI row: three tiles about 640px wide each at 2293. Priced events and Unpriced events fill only the left ~20% ('100 Flat trend', '28 Flat trend'), leaving roughly 500px of dead tile on each. Estimated cost's sparkline floats mid-tile.",
+      "fix": "Cap KPI tile width at the Overview tile width (about 240-260px at 2293) and left-pack the tiles, or give Priced/Unpriced real sparklines so the width carries content."
+    },
+    {
+      "screen": "cost",
+      "size": "1440, 2293, 390",
+      "aspect": "content",
+      "element": "Cost note card: a second line, 'Legacy cache-write lifetime unavailable', sits as a bare fragment under the explanatory sentence with no verb or consequence.",
+      "fix": "Merge it into the sentence ('Cache-write lifetime is unavailable for legacy events, so their cache-write cost is excluded.') or move it under a 'Measurement details' disclosure like Tokens and Performance."
+    },
+    {
+      "screen": "rates",
+      "size": "2293",
+      "aspect": "layout",
+      "element": "Reference note bar above the Model Rates card stops at about x=1910 (2293 px) while every other card spans to about x=2243, leaving a ragged right edge.",
+      "fix": "Make the note full content width like the Tokens and Performance note bars."
+    },
+    {
+      "screen": "rates",
+      "size": "2293",
+      "aspect": "layout / type_numbers",
+      "element": "Model Rates table: the right-aligned 'Cache write' header and values sit about 14px from the left-aligned 'Rate details' column, so '$3.75 \u25b8 Rate details' reads as one cluster, while columns elsewhere are 100-200px apart.",
+      "fix": "Add a gutter of at least 32px before Rate details, or right-align the Rate details disclosure to the table edge."
+    },
+    {
+      "screen": "rates",
+      "size": "1440, 2293, 390",
+      "aspect": "type_numbers",
+      "element": "Card heading 'Model Rates' is Title Case. Every other card heading is sentence case ('Usage trend', 'Cost trend', 'Token trend', 'Requests').",
+      "fix": "Rename the card heading to 'Model rates'. The tab label can stay as the tab style dictates."
+    },
+    {
+      "screen": "rates",
+      "size": "1440",
+      "aspect": "hierarchy",
+      "element": "Two stacked notices before the table (a grey reference bar, then an amber catalog warning inside the card), then a third caption line ('USD per million tokens\u2026'). Three explanation blocks push the table to y\u2248450.",
+      "fix": "Fold the reference sentence into the caption line under the card title, and keep only the amber warning as a separate block."
+    },
+    {
+      "screen": "overview",
+      "size": "1024",
+      "aspect": "layout / responsive_accessible",
+      "element": "Toolbar: Clear filters and Refresh wrap onto their own row, right-aligned, leaving the left two-thirds of that row empty. KPI row: the Estimated cost sparkline drops under the number while the neighbouring tiles keep it inline, and the 'p95 execution duration \u00b7 ms' and 'Reported output tokens' labels wrap to two lines, so tile interiors don't line up.",
+      "fix": "At this width, place Clear filters and Refresh at the end of the bucket segment row (as at 768). Pick one tile layout per breakpoint (all stacked sparklines below 1100px). Shorten labels ('p95 duration \u00b7 ms', 'Output tokens') so they fit on one line."
+    },
+    {
+      "screen": "overview",
+      "size": "1920, 1920x950",
+      "aspect": "layout",
+      "element": "8-up KPI row: 'p95 execution duration \u00b7 ms' and 'Reported output tokens' wrap to two lines. Their icons centre against two-line labels while the other six sit on one line, so the label row is visibly uneven.",
+      "fix": "Use the 4x2 KPI grid below about 2100px, or shorten the two labels."
+    },
+    {
+      "screen": "overview",
+      "size": "1280, 1366",
+      "aspect": "content / consistency",
+      "element": "The 'Current bucket: hour' readout shows at 1440 and wider but is silently dropped at 1366 and 1280 (r12 showed it at 1366).",
+      "fix": "Keep it by moving it under the bucket segment group, or make Auto's selected label read 'Auto \u00b7 hour'."
+    },
+    {
+      "screen": "overview",
+      "size": "320",
+      "aspect": "responsive_accessible",
+      "element": "View tabs in a 3-column grid: 'Tokens & Cache' and 'Model Rates' wrap to two lines, so the tab cells have uneven text blocks. KPI labels wrap to three lines ('p95 execution duration \u00b7').",
+      "fix": "Below 360px, use a 2-column tab grid and a single-column KPI list."
+    },
+    {
+      "screen": "tokens",
+      "size": "390",
+      "aspect": "responsive_accessible",
+      "element": "Selected tab 'Tokens & Cache' wraps to two lines because the bold selected weight is wider than the regular weight, so that cell is taller than its siblings. This is unchanged from r12.",
+      "fix": "Reserve bold width for every tab label (for example a hidden bold pseudo-element), or use a 2-column grid at 390."
+    },
+    {
+      "screen": "requests",
+      "size": "1440, 2293, 390",
+      "aspect": "layout",
+      "element": "Card header: the 'Requests' title and the '128 retained events' count are not on a shared baseline. The count sits about 6px lower.",
+      "fix": "Put title and count in one flex row with baseline alignment."
+    },
+    {
+      "screen": "requests",
+      "size": "2293",
+      "aspect": "layout / hierarchy",
+      "element": "Table columns spread across about 1650px with 150-300px gaps. 'Details' buttons sit at the far right, a long way from the time and model they act on, and the model name still wraps.",
+      "fix": "Give the slack to the Provider/model column (no wrap) and cap numeric column widths, or cap the table width and left-pack it."
+    },
+    {
+      "screen": "empty",
+      "size": "1440, 2293, 390",
+      "aspect": "content / controls_states",
+      "element": "The 'No retained events' card tells the user to choose a longer range but offers no button for it. Eight KPI tiles of '0' / 'Unavailable' then repeat the empty message. The header still shows 'Partial coverage' and 'Coverage limitations' with no data at all.",
+      "fix": "Add a 'Show last 7 days' button in the empty card, hide or dim the zero KPI grid, and drop the coverage chips when there are zero events."
+    },
+    {
+      "screen": "unknown",
+      "size": "1440, 2293, 390",
+      "aspect": "content",
+      "element": "'Unavailable' appears eight times across three KPI tiles, two empty charts and three breakdown rows, with no single statement of why durations are missing. The breakdown model label 'Fixture model (billing alias)' uses a different naming style from the model IDs shown on every other screen.",
+      "fix": "Show one section notice ('No duration was recorded for these events \u2014 why') and let the tiles show an em dash. Show the model ID consistently."
+    },
+    {
+      "screen": "loading",
+      "size": "1440, 2293, 390",
+      "aspect": "layout / hierarchy",
+      "element": "The loading state is a single 64px bar reading 'Loading analytics\u2026'. When data arrives the page jumps by about 600px, because the KPI grid and chart frame are not reserved.",
+      "fix": "Render skeleton KPI tiles and an empty chart frame at their final dimensions, with a subtle shimmer."
+    },
+    {
+      "screen": "loading",
+      "size": "390",
+      "aspect": "controls_states",
+      "element": "The header refresh icon renders in a lifted/pressed state during loading, while the toolbar Refresh button is dimmed. Two refresh controls show different states for the same action.",
+      "fix": "Treat both the same way (both show busy or both disabled), or drop the header refresh on Analytics since the toolbar has one."
+    },
+    {
+      "screen": "performance",
+      "size": "1440",
+      "aspect": "layout",
+      "element": "The p95 reported TTFT chart is full width and about 330px tall for 15 short, disconnected segments. Most of its area is empty. At 2293 it sits beside the duration chart, which works better.",
+      "fix": "At 1440, either pair the TTFT chart with the duration chart in a 2-column row, or reduce its height to about 220px."
+    },
+    {
+      "screen": "all",
+      "size": "all desktop",
+      "aspect": "type_numbers",
+      "element": "Unit suffixes use two formats: KPI labels say 'Estimated cost \u00b7 USD' and 'p95 execution duration \u00b7 ms', while axis values carry their own units ('$6.00') and token numbers have none ('80K').",
+      "fix": "Pick one rule (unit in the label, bare numbers in values) and apply it to the axes too, or put '$' and 'ms' in every value consistently."
+    }
+  ],
+  "regressions": [
+    "'Current bucket: hour' no longer shows at 1366 (r12 showed it). It was dropped to fix the r12 orphaned Refresh row, which is better, but the readout is lost.",
+    "Apply is no longer the white-filled primary button (r12) and now matches the grey toolbar buttons. Committing a typed search has less visual priority. This is acceptable within the grey-selection rule, but the search row no longer has a clear primary action.",
+    "No other screen got worse. r13 improves on r12: the header metadata fits on one line, which lifts the first chart by about 22px; the orphaned Refresh row at 1366 is gone; 'No change across the range' is shortened to 'Flat trend', which stops the tile text wrapping at 390."
+  ],
+  "reference_gaps": [
+    "The reference fits views, range and bucket, then search, then filters, each as one aligned row of equal-height segmented pills. In Prox, the view-tab group is shorter in width than the toolbar card and sits on its own row above range and bucket, so the toolbar reads as three stacked strips rather than the reference's two clean rows.",
+    "In the reference, search is a full-width live field with filters on their own equal-width row. Prox needs an explicit 'Apply' button and puts 3 native <select>s on the search row. The native chevrons sit tight to the right border and don't match the reference's padded custom dropdown chevrons.",
+    "The reference has a 'Custom' range option and an auto-refresh countdown chip next to Refresh. Prox has neither, so there is no visible sign of whether the data refreshes itself.",
+    "Reference refresh is a single bordered icon+label button at the far right. Prox has two refresh affordances (header icon cluster and toolbar Refresh) that compete at the same top-right corner.",
+    "The reference shows the unavailable bucket ('1 Min') greyed out in place. Prox offers only Auto/Hourly/Daily, with no visible disabled option to show which granularities exist but don't apply."
+  ]
+}

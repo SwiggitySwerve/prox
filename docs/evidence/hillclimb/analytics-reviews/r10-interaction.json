@@ -1,0 +1,136 @@
+{
+  "reviewer": "Independent responsive, interaction and accessibility screenshot reviewer. Inspected with view_image: current full pages for all ten screens at 1440 and 390, all ten full pages at 3440x1440, every current Overview/Tokens initial fold (3440x1440, 3440, 2560, 1920, 1680, 1440, 1366, 1280, 1024, 768, 600, 390, 320); previous matching Overview/Tokens folds at 3440x1440, 1440, 1280, 1024, 390 and previous cost/performance/requests/rates/empty/unknown/error/loading full pages at 390. Artifacts are under /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r10 and /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r9-expanded. Scores assess visible presentation only. Keyboard operation, focus order and restoration, accessible names and roles, live announcements, actual touch target bounds and measured contrast are not proven by screenshots. Synthetic fixture arithmetic was excluded from judgment.",
+  "scores": {
+    "overview": {
+      "hierarchy": 8.0,
+      "layout": 8.7,
+      "type_numbers": 9.0,
+      "colour": 9.2,
+      "content": 9.1,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 8.0
+    },
+    "tokens": {
+      "hierarchy": 8.0,
+      "layout": 8.7,
+      "type_numbers": 8.9,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 8.0
+    },
+    "cost": {
+      "hierarchy": 9.1,
+      "layout": 9.0,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.2,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 9.0
+    },
+    "performance": {
+      "hierarchy": 9.0,
+      "layout": 9.0,
+      "type_numbers": 9.1,
+      "colour": 9.1,
+      "content": 9.2,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 9.0
+    },
+    "requests": {
+      "hierarchy": 9.1,
+      "layout": 9.1,
+      "type_numbers": 9.1,
+      "colour": 9.2,
+      "content": 9.2,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 9.1
+    },
+    "rates": {
+      "hierarchy": 9.0,
+      "layout": 9.1,
+      "type_numbers": 9.0,
+      "colour": 9.2,
+      "content": 9.3,
+      "controls_states": 9.0,
+      "consistency": 9.1,
+      "responsive_accessible": 9.1
+    },
+    "empty": {
+      "hierarchy": 9.2,
+      "layout": 9.1,
+      "type_numbers": 9.1,
+      "colour": 9.1,
+      "content": 9.2,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 9.0
+    },
+    "unknown": {
+      "hierarchy": 9.1,
+      "layout": 9.0,
+      "type_numbers": 9.1,
+      "colour": 9.1,
+      "content": 9.3,
+      "controls_states": 9.0,
+      "consistency": 9.2,
+      "responsive_accessible": 9.0
+    },
+    "error": {
+      "hierarchy": 9.3,
+      "layout": 9.2,
+      "type_numbers": 9.2,
+      "colour": 9.3,
+      "content": 9.1,
+      "controls_states": 9.2,
+      "consistency": 9.2,
+      "responsive_accessible": 9.1
+    },
+    "loading": {
+      "hierarchy": 9.0,
+      "layout": 9.0,
+      "type_numbers": 9.0,
+      "colour": 9.0,
+      "content": 9.0,
+      "controls_states": 8.8,
+      "consistency": 9.1,
+      "responsive_accessible": 9.0
+    }
+  },
+  "issues": [
+    {
+      "screen": "overview",
+      "width": "320x568",
+      "aspect": "hierarchy",
+      "element": "Initial viewport: title, coverage metadata, expanded filter panel and two rows of tabs occupy the fold; no KPI value is visible. Artifact: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r10/fold/overview-320.png",
+      "fix": "At this narrow width, show a compact filter summary with an explicit Filters disclosure, keeping the selected range visible and making the first KPI row visible on initial load."
+    },
+    {
+      "screen": "overview",
+      "width": "320x568",
+      "aspect": "responsive_accessible",
+      "element": "Expanded filter panel consumes about 217 pixels above the metrics. Direct observation via view_image on /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r10/fold/overview-320.png: zero KPI values appear inside the 568-pixel initial viewport.",
+      "fix": "Offer an initially collapsed filter panel at compact widths with a comfortably sized toggle, preserving entered values and a visible count or summary of active filters. Verify focus handling and the expanded state in an interactive follow-up."
+    },
+    {
+      "screen": "tokens",
+      "width": "320x568",
+      "aspect": "hierarchy",
+      "element": "Initial viewport: title, coverage metadata, expanded filter panel and two rows of tabs occupy the fold; no KPI value is visible. Artifact: /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r10/fold/tokens-320.png",
+      "fix": "At this narrow width, show a compact filter summary with an explicit Filters disclosure, keeping the selected range visible and making the first KPI row visible on initial load."
+    },
+    {
+      "screen": "tokens",
+      "width": "320x568",
+      "aspect": "responsive_accessible",
+      "element": "Expanded filter panel consumes about 217 pixels above the metrics. Direct observation via view_image on /home/swerve/src/prox/docs/evidence/hillclimb/analytics-r10/fold/tokens-320.png: zero KPI values appear inside the 568-pixel initial viewport.",
+      "fix": "Offer an initially collapsed filter panel at compact widths with a comfortably sized toggle, preserving entered values and a visible count or summary of active filters. Verify focus handling and the expanded state in an interactive follow-up."
+    }
+  ],
+  "regressions": []
+}

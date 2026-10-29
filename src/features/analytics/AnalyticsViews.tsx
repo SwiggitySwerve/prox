@@ -51,6 +51,16 @@ const METRIC_COLOR: Partial<Record<Metric, string>> = {
   output_tokens: 'var(--analytics-tokens)',
   cache_read_tokens: 'var(--analytics-tokens)',
   cost: 'var(--analytics-cost)',
+  // Every token and count metric keeps its family's ink, charted or not.
+  cache_creation_tokens: 'var(--analytics-tokens)',
+  reasoning_tokens: 'var(--analytics-tokens)',
+  uncached_input_tokens: 'var(--analytics-tokens)',
+  priced_calls: 'var(--analytics-requests)',
+  unpriced_calls: 'var(--analytics-requests)',
+  // Durations share the neutral duration ink, never the request-count white.
+  p95_latency_ms: 'var(--analytics-duration)',
+  average_latency_ms: 'var(--analytics-duration)',
+  p95_ttft_ms: 'var(--analytics-duration)',
 };
 const ICONS: Record<Metric, ComponentType<{ size?: number }>> = {
   calls: IconInbox,
@@ -231,9 +241,9 @@ export function AnalyticsViews({
             new Set(sparkPoints.map((p) => p.value).filter((v) => v !== null)).size > 1;
           // A missing total says why; it points below only when this tab charts the hourly values.
           const sub =
-            value === null && sparkValues.length > 0
+            value === null
               ? t(
-                  plotted.has(metric)
+                  sparkValues.length > 0 && plotted.has(metric)
                     ? 'analytics.card.hourly_only'
                     : 'analytics.card.no_range_total'
                 )
@@ -252,103 +262,128 @@ export function AnalyticsViews({
                 </span>
                 {label(metric)}
               </span>
-              <strong
-                title={analyticsNumber(value, i18n.language, metric === 'cost')}
-                className={metric === 'failure_calls' && value ? styles.failure : undefined}
-                data-unavailable={value === null}
-              >
-                {display(metric, value)}
-              </strong>
-              <small>{sub ?? ' '}</small>
-              {sparkShown ? (
-                <svg
-                  viewBox="0 0 100 28"
-                  preserveAspectRatio="none"
-                  className={styles.spark}
-                  data-charted={color !== undefined}
-                  aria-hidden="true"
+              <div className={styles.metricValue}>
+                <strong
+                  title={analyticsNumber(value, i18n.language, metric === 'cost')}
+                  className={metric === 'failure_calls' && value ? styles.failure : undefined}
+                  data-unavailable={value === null}
                 >
-                  {/* Runs of one or two hours read as specks at card size; the trend chart marks them. */}
-                  {spark.segments
-                    .filter((segment) => segment.length > 2)
-                    .map((segment, index) => (
-                      <path key={index} d={smoothPath(segment)} vectorEffect="non-scaling-stroke" />
-                    ))}
-                </svg>
-              ) : (
-                // The page-level empty state already says nothing was retained.
-                value !== null &&
-                data.summary.calls > 0 && (
-                  <span className={styles.noSpark}>
-                    {t(
-                      sparkValues.length > 0
-                        ? 'analytics.no_hourly_change'
-                        : 'analytics.no_hourly_series'
-                    )}
-                  </span>
-                )
-              )}
+                  {display(metric, value)}
+                </strong>
+                {sparkShown ? (
+                  <svg
+                    viewBox="0 0 100 28"
+                    preserveAspectRatio="none"
+                    className={styles.spark}
+                    data-charted={color !== undefined}
+                    aria-hidden="true"
+                  >
+                    {/* Runs of one or two hours read as specks at card size; the trend chart marks them. */}
+                    {spark.segments
+                      .filter((segment) => segment.length > 2)
+                      .map((segment, index) => (
+                        <path
+                          key={index}
+                          d={smoothPath(segment)}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
+                  </svg>
+                ) : // The page-level empty state already says nothing was retained.
+                value !== null && data.summary.calls > 0 && sparkValues.length > 0 ? (
+                  // The same value every hour: a level line keeps the card's shape.
+                  <>
+                    <svg
+                      viewBox="0 0 100 28"
+                      preserveAspectRatio="none"
+                      className={styles.spark}
+                      data-charted={color !== undefined}
+                      aria-hidden="true"
+                    >
+                      <path d="M0,14 L100,14" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                    <span className={styles.srOnly}>{t('analytics.no_hourly_change')}</span>
+                  </>
+                ) : (
+                  value !== null &&
+                  data.summary.calls > 0 && (
+                    <span className={styles.noSpark}>{t('analytics.no_hourly_series')}</span>
+                  )
+                )}
+              </div>
+              {sub && <small>{sub}</small>}
             </article>
           );
         })}
       </div>
-      {tab === 'tokens' && <p className={styles.notice}>{t('analytics.tokens_note')}</p>}
+      {(tab === 'tokens' || tab === 'performance') && (
+        <div className={`${styles.notice} ${styles.methodNote}`}>
+          <span>{t(`analytics.${tab === 'tokens' ? 'tokens_summary' : 'timing_summary'}`)}</span>
+          <details>
+            <summary>{t('analytics.measurement_details')}</summary>
+            <p>{t(`analytics.${tab === 'tokens' ? 'tokens_note' : 'timing_note'}`)}</p>
+          </details>
+        </div>
+      )}
       {tab === 'cost' && (
         <div className={styles.notice}>
           <p>{t('analytics.price_note')}</p>
           {data.summary.cost.reasons.length > 0 && <p>{data.summary.cost.reasons.join(' · ')}</p>}
         </div>
       )}
-      {tab === 'performance' && <p className={styles.notice}>{t('analytics.timing_note')}</p>}
       {/* With nothing retained the page notice explains it; empty charts would only repeat it. */}
       {hasSamples && (
         <>
-          <TrendChart
-            title={t(`analytics.trend.${tab}`)}
-            series={trend.map(({ metric, dash }) => ({
-              key: metric,
-              label: t(`analytics.metrics.${metric}`),
-              color: METRIC_COLOR[metric] ?? 'var(--primary-color)',
-              dash,
-              currency: metric === 'cost',
-            }))}
-            points={buckets
-              .filter((bucket) => bucket.present || trend.some(({ metric }) => additive(metric)))
-              .map((bucket) => {
-                const point = byBucket.get(bucket.at);
-                return {
-                  at: bucket.at,
-                  values: trend.map(({ metric }) =>
-                    point ? valueOf(point, metric) : additive(metric) ? 0 : null
-                  ),
-                };
-              })}
-            from={data.from_ms}
-            to={data.to_ms}
-            interval={interval}
-            sharedScale={tab === 'performance'}
-            onSelect={onBucket}
-          />
-          {tab === 'performance' && (
+          <div className={styles.trendCharts} data-view={tab}>
             <TrendChart
-              title={t('analytics.metrics.p95_ttft_ms')}
-              series={[
-                {
-                  key: 'p95_ttft_ms',
-                  label: t('analytics.metrics.p95_ttft_ms'),
-                  color: 'var(--primary-color)',
-                },
-              ]}
-              points={data.timeline.map((point) => ({
-                at: point.bucket_ms,
-                values: [point.p95_ttft_ms],
+              title={t(`analytics.trend.${tab}`)}
+              series={trend.map(({ metric, dash }) => ({
+                key: metric,
+                label: t(`analytics.metrics.${metric}`),
+                color: METRIC_COLOR[metric] ?? 'var(--primary-color)',
+                dash,
+                currency: metric === 'cost',
               }))}
+              points={buckets
+                .filter((bucket) => bucket.present || trend.some(({ metric }) => additive(metric)))
+                .map((bucket) => {
+                  const point = byBucket.get(bucket.at);
+                  return {
+                    at: bucket.at,
+                    values: trend.map(({ metric }) =>
+                      point ? valueOf(point, metric) : additive(metric) ? 0 : null
+                    ),
+                  };
+                })}
               from={data.from_ms}
               to={data.to_ms}
               interval={interval}
+              sharedScale={tab === 'performance'}
+              area={tab !== 'performance'}
               onSelect={onBucket}
             />
-          )}
+            {tab === 'performance' && (
+              <TrendChart
+                title={t('analytics.metrics.p95_ttft_ms')}
+                series={[
+                  {
+                    key: 'p95_ttft_ms',
+                    label: t('analytics.metrics.p95_ttft_ms'),
+                    color: 'var(--analytics-duration)',
+                  },
+                ]}
+                points={data.timeline.map((point) => ({
+                  at: point.bucket_ms,
+                  values: [point.p95_ttft_ms],
+                }))}
+                from={data.from_ms}
+                to={data.to_ms}
+                interval={interval}
+                area={false}
+                onSelect={onBucket}
+              />
+            )}
+          </div>
           <div className={styles.chartGrid}>
             <AnalyticsChart
               title={`${t('analytics.by_provider')} · ${t(`analytics.metrics.${breakdownMetric}`)}`}
