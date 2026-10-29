@@ -2500,7 +2500,7 @@
     "empty_unfiltered": "Không có gì được lưu trong khoảng thời gian này. Hãy chọn khoảng dài hơn để xem xa hơn.",
     "trend_gaps": "Khoảng trống là thời gian chưa đo.",
     "no_data": "không có dữ liệu",
-    "rate_dash_note": "— nghĩa là chưa cấu hình giá.",
+    "rate_dash_note": "— nghĩa là chưa cấu hình giá.",
     "no_measured_values": "Không có giá trị đo trong khoảng này.",
     "no_hourly_series": "Không có chuỗi theo giờ",
     "no_hourly_change": "Không thay đổi trong khoảng",

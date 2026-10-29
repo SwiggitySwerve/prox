@@ -52,12 +52,13 @@ export function lineSegments(
   return { maximum, segments, x, y };
 }
 
-/** Axis maximum on a 1-1.5-2-2.5-3-5 step: round quarter ticks with little headroom. */
+/** Axis maximum on a 1-1.5-2-2.5-3-4-5 step: round quarter ticks with little headroom. */
 export function niceMaximum(value: number) {
   if (!(value > 0)) return 0;
-  const raw = value / 4;
+  // 5% headroom, so peaks never sit on the top gridline.
+  const raw = (value * 1.05) / 4;
   const power = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 1.5, 2, 2.5, 3, 5, 10].map((m) => m * power).find((s) => s >= raw - 1e-9)!;
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 10].map((m) => m * power).find((s) => s >= raw - 1e-9)!;
   return step * 4;
 }
 

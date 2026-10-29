@@ -70,18 +70,18 @@ export function TrendChart({
       .map((s, index) => `${s.label}: ${value(index, point.values[index])}`)
       .join(' · ')}`;
   const current = points.find((p) => p.at === inspected);
-  const axes = sharedScale
-    ? [0]
-    : series
-        .map((_, index) => index)
-        .filter((index) => measured[index])
-        .slice(0, 3);
+  const anyMeasured = measured.some(Boolean);
+  // No measured value means no scale to show: an all-zero axis would read as real zeros.
+  const axes = !anyMeasured
+    ? []
+    : sharedScale
+      ? [0]
+      : series
+          .map((_, index) => index)
+          .filter((index) => measured[index])
+          .slice(0, 3);
   const pct = (at: number) => ((at - from) / Math.max(1, to - from)) * 100;
   const ticks = timeTicks(from, to, interval, 6);
-  const midnight = Math.max(
-    0,
-    ticks.findIndex((at) => at % 86_400_000 === 0)
-  );
   // One count format for the whole chart, so neighbouring axes never mix 2,000 with 20K.
   const compactCounts = series.some((s, index) => !s.currency && lines[index].maximum >= 10_000);
   const tick = (index: number, fraction: number) => {
@@ -138,7 +138,9 @@ export function TrendChart({
         <p className={styles.muted}>{t('analytics.empty_chart')}</p>
       ) : (
         <>
-          <div className={styles.trendPlot} data-axes={axes.length}>
+          <div className={styles.trendPlot} data-axes={axes.length} data-empty={!anyMeasured}>
+            {/* Keeps the plot's left edge aligned with neighbouring charts. */}
+            {axes.length === 0 && <div className={styles.trendAxis} data-side="left" />}
             {axes.map((index) => (
               <div
                 key={index}
@@ -291,9 +293,9 @@ export function TrendChart({
                   key={at}
                   style={{ left: `${pct(at)}%` }}
                   data-edge={pct(at) < 4 ? 'start' : pct(at) > 96 ? 'end' : undefined}
-                  // Narrow screens show every other label, keeping the ends and midnight.
+                  // Narrow screens keep only the range ends and the date change.
                   data-minor={
-                    index > 0 && index < ticks.length - 1 && Math.abs(index - midnight) % 2 === 1
+                    index > 0 && index < ticks.length - 1 && ticks[index] % 86_400_000 !== 0
                   }
                 >
                   {/* Hourly axes name the day where it changes. */}
@@ -302,22 +304,26 @@ export function TrendChart({
               ))}
             </div>
           </div>
-          <p className={styles.trendScale}>
-            {single ? (
-              t('analytics.trend_gaps')
-            ) : sharedScale ? (
-              t('analytics.trend_shared_scale')
-            ) : (
-              <>
-                <span className={styles.wideOnly}>{t('analytics.trend_own_scale')}</span>
-                <span className={styles.narrowOnly}>{t('analytics.trend_own_scale_narrow')}</span>
-              </>
-            )}
-          </p>
+          {anyMeasured && (
+            <p className={styles.trendScale}>
+              {single ? (
+                t('analytics.trend_gaps')
+              ) : sharedScale ? (
+                t('analytics.trend_shared_scale')
+              ) : (
+                <>
+                  <span className={styles.wideOnly}>{t('analytics.trend_own_scale')}</span>
+                  <span className={styles.narrowOnly}>{t('analytics.trend_own_scale_narrow')}</span>
+                </>
+              )}
+            </p>
+          )}
           <output className={styles.chartReadout} aria-live="polite">
             {current
               ? pointLabel(current)
-              : t(onSelect ? 'analytics.trend_hint' : 'analytics.trend_reference_hint')}
+              : anyMeasured
+                ? t(onSelect ? 'analytics.trend_hint' : 'analytics.trend_reference_hint')
+                : null}
           </output>
           <details className={styles.readout}>
             <summary>{t('analytics.table_alternative')}</summary>

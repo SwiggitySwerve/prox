@@ -2520,7 +2520,7 @@
     "empty_unfiltered": "此時間範圍內沒有保留任何事件。請選擇更長的範圍以查看更早的資料。",
     "trend_gaps": "空缺表示未測量的時段。",
     "no_data": "無資料",
-    "rate_dash_note": "— 表示未設定費率。",
+    "rate_dash_note": "— 表示未設定費率。",
     "no_measured_values": "此時段內沒有測量值。",
     "no_hourly_series": "無每小時序列",
     "no_hourly_change": "區間內無變化",

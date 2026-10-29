@@ -180,7 +180,7 @@ export function AnalyticsViews({
   };
   return (
     <>
-      <div className={styles.metrics} data-count={cards[tab].length}>
+      <div className={styles.metrics} data-count={cards[tab].length} data-tab={tab}>
         {cards[tab].map((metric) => {
           const Icon = ICONS[metric];
           const value = valueOf(data.summary, metric);
@@ -243,25 +243,16 @@ export function AnalyticsViews({
                   data-charted={color !== undefined}
                   aria-hidden="true"
                 >
-                  {/* Same span as the trend chart; short runs are dots so they never read as stray marks. */}
-                  {spark.segments.map((segment, index) =>
-                    segment.length > 2 ? (
+                  {/* Runs of one or two hours read as specks at card size; the trend chart marks them. */}
+                  {spark.segments
+                    .filter((segment) => segment.length > 2)
+                    .map((segment, index) => (
                       <path
                         key={index}
                         d={segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ')}
                         vectorEffect="non-scaling-stroke"
                       />
-                    ) : (
-                      segment.map(([x, y]) => (
-                        <path
-                          key={`${index}-${x}`}
-                          d={`M${x},${y} l0.01,0`}
-                          className={styles.sparkDot}
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      ))
-                    )
-                  )}
+                    ))}
                 </svg>
               ) : (
                 // The page-level empty state already says nothing was retained.

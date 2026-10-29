@@ -254,10 +254,6 @@
   color: var(--text-secondary);
   font-size: 11px;
 }
-.sparkDot {
-  stroke-width: 3;
-  stroke-linecap: round;
-}
 .spark {
   grid-area: spark;
   align-self: end;
@@ -331,6 +327,9 @@
     stroke-width: 2.5;
     stroke-linecap: round;
   }
+}
+.trendPlot[data-empty='true'] {
+  grid-template-rows: 120px auto;
 }
 .trendPlot {
   display: grid;
@@ -417,6 +416,9 @@
   align-self: center;
   justify-self: center;
   margin: 0;
+  padding: 2px 10px;
+  // A solid chip, so gridlines never run through the message.
+  background: var(--bg-primary);
   color: var(--text-secondary);
   pointer-events: none;
 }
@@ -578,9 +580,7 @@ button.rankedRow {
   background: transparent;
   font-weight: 500;
 }
-.requests td:nth-child(2) {
-  min-width: 220px !important;
-}
+
 .requests th {
   white-space: nowrap;
 }
@@ -793,8 +793,12 @@ button.rankedRow {
   .narrowOnly {
     display: inline;
   }
-  // Three cards stack full width: long labels like TTFT's never squeeze into a half card.
-  .metrics[data-count='3'] {
+  // Three cards: the lead spans the row and two pair beneath; Performance stacks, as its
+  // TTFT label is too long for a half card.
+  .metrics[data-count='3'] > :first-child {
+    grid-column: 1 / -1;
+  }
+  .metrics[data-tab='performance'] {
     --cols: 1;
   }
   .header {

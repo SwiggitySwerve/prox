@@ -307,14 +307,14 @@ describe('Analytics SSR presentation', () => {
     expect(markup).toContain('<table>');
     expect(markup).not.toContain('<text'); // Labels do not shrink with the SVG viewBox on mobile.
   });
-  test('axis maxima round to 1-1.5-2-2.5-3-5 steps and time ticks are evenly spaced UTC hours', () => {
+  test('axis maxima round to 1-1.5-2-2.5-3-4-5 steps with headroom and time ticks are evenly spaced UTC hours', () => {
     expect([
       niceMaximum(3_800),
       niceMaximum(4.9),
       niceMaximum(1_050),
       niceMaximum(12),
       niceMaximum(0),
-    ]).toEqual([4_000, 6, 1_200, 12, 0]);
+    ]).toEqual([4_000, 6, 1_200, 16, 0]);
     const from = Date.UTC(2026, 9, 28, 12, 30);
     const ticks = timeTicks(from, from + 86_400_000, 3_600_000, 6);
     expect(ticks.length).toBeLessThanOrEqual(6);
@@ -359,8 +359,8 @@ describe('Analytics SSR presentation', () => {
         })
       );
     expect(render(9.2)).toContain('$7.50');
-    expect(render(8)).toContain('>$6<');
-    expect(render(0.001)).toContain('$0.00075');
+    expect(render(7.5)).toContain('>$6<');
+    expect(render(0.0009)).toContain('$0.00075');
   });
   test('a small axis keeps its tick precision beside a compact one', () => {
     const markup = renderToStaticMarkup(
@@ -370,7 +370,7 @@ describe('Analytics SSR presentation', () => {
           { key: 'calls', label: 'Events', color: 'white' },
           { key: 'tokens', label: 'Tokens', color: 'violet' },
         ],
-        points: [{ at: 0, values: [1, 10_000] }],
+        points: [{ at: 0, values: [0.95, 9_500] }],
         from: 0,
         to: 3_600_000,
         interval: 3_600_000,

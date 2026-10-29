@@ -2494,7 +2494,7 @@
     "empty_unfiltered": "Nothing was retained in this time range. Choose a longer range to look further back.",
     "trend_gaps": "Gaps are unmeasured periods.",
     "no_data": "no data",
-    "rate_dash_note": "— means no configured rate.",
+    "rate_dash_note": "— means no configured rate.",
     "no_measured_values": "No measured values in this interval.",
     "no_hourly_series": "No hourly series",
     "no_hourly_change": "No change across the range",
