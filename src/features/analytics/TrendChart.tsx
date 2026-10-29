@@ -293,9 +293,12 @@ export function TrendChart({
                   key={at}
                   style={{ left: `${pct(at)}%` }}
                   data-edge={pct(at) < 4 ? 'start' : pct(at) > 96 ? 'end' : undefined}
-                  // Narrow screens keep only the range ends and the date change.
+                  // Narrow screens keep the range ends and, on hourly axes, the date change.
+                  // Daily ticks all fall on midnight, so they thin to every other label instead.
                   data-minor={
-                    index > 0 && index < ticks.length - 1 && ticks[index] % 86_400_000 !== 0
+                    index > 0 &&
+                    index < ticks.length - 1 &&
+                    (daily ? index % 2 === 1 : ticks[index] % 86_400_000 !== 0)
                   }
                 >
                   {/* Hourly axes name the day where it changes. */}

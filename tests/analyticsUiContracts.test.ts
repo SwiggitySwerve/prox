@@ -380,6 +380,26 @@ describe('Analytics SSR presentation', () => {
     expect(markup).toContain('0.75');
     expect(markup).toContain('10K');
   });
+  test('narrow daily axes thin their labels; hourly axes keep the date change', () => {
+    const day = 86_400_000;
+    const majors = (interval: number, span: number) => {
+      const markup = renderToStaticMarkup(
+        createElement(TrendChart, {
+          title: 'Usage',
+          series: [{ key: 'c', label: 'Events', color: 'white' }],
+          points: [{ at: 0, values: [3] }],
+          from: 0,
+          to: span,
+          interval,
+        })
+      );
+      return (markup.match(/data-minor="false"/g) ?? []).length;
+    };
+    // 30 days of daily buckets: ends plus every other tick, never every tick.
+    expect(majors(day, 30 * day)).toBeLessThanOrEqual(4);
+    // 24 hourly buckets crossing midnight: both ends plus the date change.
+    expect(majors(3_600_000, day + 12 * 3_600_000)).toBeLessThanOrEqual(4);
+  });
   test('buckets whose measurements are all missing keep drilldown and the table', () => {
     const markup = renderToStaticMarkup(
       createElement(TrendChart, {
