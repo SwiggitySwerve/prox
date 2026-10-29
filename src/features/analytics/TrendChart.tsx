@@ -77,7 +77,8 @@ export function TrendChart({
   const pct = (at: number) => ((at - from) / Math.max(1, to - from)) * 100;
   const tick = (index: number, fraction: number) => {
     const v = lines[index].maximum * fraction;
-    return series[index].currency || v >= 10_000
+    // One format per axis, chosen by its maximum, so ticks never mix 5,000 with 10K.
+    return series[index].currency || lines[index].maximum >= 10_000
       ? analyticsCompact(v, i18n.language, series[index].currency)
       : analyticsNumber(v, i18n.language);
   };
@@ -101,12 +102,16 @@ export function TrendChart({
                 </svg>
                 {s.label}
                 {!measured[index] && ` · ${t('analytics.no_data')}`}
+                {/* Narrow screens drop the coloured right axes; their ranges move here. */}
+                {!sharedScale && index > 0 && measured[index] && (
+                  <span className={styles.narrowOnly}> · 0–{tick(index, 1)}</span>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
-      {points.length === 0 ? (
+      {!measured.some(Boolean) ? (
         <p className={styles.muted}>{t('analytics.empty_chart')}</p>
       ) : (
         <>
@@ -150,20 +155,32 @@ export function TrendChart({
                   const path = segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ');
                   return (
                     <g key={`${series[index].key}-${part}`}>
-                      {index === 0 && segment.length > 1 && (
+                      {index === 0 && segment.length > 2 && (
                         <path
                           d={`${path} L${segment[segment.length - 1][0]},${FRAME.bottom} L${segment[0][0]},${FRAME.bottom} Z`}
                           style={{ fill: series[index].color }}
                           className={styles.trendArea}
                         />
                       )}
-                      <path
-                        d={segment.length > 1 ? path : `${path} l0.01,0`}
-                        style={{ stroke: series[index].color }}
-                        strokeDasharray={series[index].dash ? DASH[series[index].dash] : undefined}
-                        className={styles.trendLine}
-                        vectorEffect="non-scaling-stroke"
-                      />
+                      {segment.length > 1 ? (
+                        <path
+                          d={path}
+                          style={{ stroke: series[index].color }}
+                          strokeDasharray={
+                            series[index].dash ? DASH[series[index].dash] : undefined
+                          }
+                          className={styles.trendLine}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ) : (
+                        // An isolated measured hour: a visible marker, not a 1px stub.
+                        <path
+                          d={`${path} l0.01,0`}
+                          style={{ stroke: series[index].color }}
+                          className={styles.trendPoint}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )}
                     </g>
                   );
                 })

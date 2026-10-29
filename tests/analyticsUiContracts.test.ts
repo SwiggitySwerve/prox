@@ -155,7 +155,7 @@ describe('Analytics SSR presentation', () => {
       expect(markup).toContain('View data table');
       expect(markup).toContain('Fixture model (billing alias)');
       expect(markup).not.toContain('NaN');
-      if (tab === 'overview') expect(markup).toContain('<strong title="128">128</strong>');
+      if (tab === 'overview') expect(markup).toMatch(/<strong title="128"[^>]*>128<\/strong>/);
       if (tab === 'tokens') expect(markup).toContain('Legacy data cannot establish');
       if (tab === 'cost') expect(markup).toContain('Not subscription spend');
       if (tab === 'performance') {

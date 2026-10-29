@@ -14,7 +14,7 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
         {data.catalog_sources
           ?.filter((source) => source.state === 'unavailable')
           .map((source) => (
-            <p className={styles.notice} key={source.instance_id}>
+            <p className={`${styles.notice} ${styles.warningNotice}`} key={source.instance_id}>
               {t('analytics.catalog_unavailable', { source: source.label })}
             </p>
           ))}
@@ -27,7 +27,7 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
             tabIndex={0}
             aria-label={t('analytics.tabs.rates')}
           >
-            <table className={styles.rates}>
+            <table className={`${styles.rates} ${styles.stacked}`}>
               <caption>{t('analytics.rate_unit')}</caption>
               <thead>
                 <tr>
@@ -51,20 +51,37 @@ export function ModelRates({ data }: { data: AnalyticsResponse }) {
               <tbody>
                 {data.rates.map((rate, index) => (
                   <tr key={`${rate.instance_id}:${rate.provider}:${rate.id}:${index}`}>
-                    <td>
+                    <td data-label={t('analytics.source_provider')}>
                       {rate.instance_label}
                       <small>{rate.provider}</small>
                     </td>
-                    <th scope="row">{rate.id}</th>
-                    <td>
+                    <th scope="row" data-label={t('analytics.model')}>
+                      {rate.id}
+                    </th>
+                    <td data-label={t('analytics.registration')}>
                       {t(`analytics.${rate.registered ? 'registered' : 'observed'}`)}
                       <small>{t(`analytics.price_status.${rate.status}`)}</small>
                     </td>
-                    <td>{rate.matched_model ?? t('analytics.not_reported')}</td>
-                    <td>{money(rate.input_per_million)}</td>
-                    <td>{money(rate.output_per_million)}</td>
-                    <td>{money(rate.cache_read_per_million)}</td>
-                    <td>{money(rate.cache_write_per_million)}</td>
+                    <td data-label={t('analytics.billing_model')}>
+                      {rate.matched_model ?? t('analytics.not_reported')}
+                    </td>
+                    {(
+                      [
+                        ['input', rate.input_per_million],
+                        ['output', rate.output_per_million],
+                        ['cache_read', rate.cache_read_per_million],
+                        ['cache_write', rate.cache_write_per_million],
+                      ] as const
+                    ).map(([key, value]) => (
+                      <td
+                        key={key}
+                        data-label={t(`analytics.${key}`)}
+                        data-numeric
+                        data-missing={value === null}
+                      >
+                        {money(value)}
+                      </td>
+                    ))}
                     <td>
                       <details>
                         <summary>{t('analytics.rate_details')}</summary>

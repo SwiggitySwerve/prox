@@ -116,6 +116,7 @@ export function RequestTable({
   canPrevious,
   canNext,
   page,
+  providerLabels,
 }: {
   data: AnalyticsResponse['requests'];
   selected: AnalyticsRequest | null;
@@ -125,6 +126,8 @@ export function RequestTable({
   canPrevious: boolean;
   canNext: boolean;
   page: number;
+  /** Server display names for provider keys, as used by the breakdown charts. */
+  providerLabels?: ReadonlyMap<string, string>;
 }) {
   const { t, i18n } = useTranslation();
   const n = (value: number | null, currency = false) =>
@@ -146,7 +149,7 @@ export function RequestTable({
           role="region"
           aria-label={t('analytics.tabs.requests')}
         >
-          <table className={styles.requests}>
+          <table className={`${styles.requests} ${styles.stacked}`}>
             <caption className={styles.srOnly}>{t('analytics.tabs.requests')}</caption>
             <thead>
               <tr>
@@ -174,7 +177,9 @@ export function RequestTable({
                   </td>
                   <td data-label={t('analytics.provider_model')}>
                     <strong>{r.model}</strong>
-                    <small>{r.provider}</small>
+                    <small className={styles.providerName} data-provider={r.provider}>
+                      {providerLabels?.get(r.provider) ?? r.provider}
+                    </small>
                     {r.requested_model && r.requested_model !== r.model && (
                       <small>
                         {t('analytics.fields.requested_model')}: {r.requested_model}
@@ -203,7 +208,7 @@ export function RequestTable({
                   </td>
                   <td>
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
                       onClick={() => onSelect(r)}
                       aria-label={t('analytics.open_request', { id: r.id })}

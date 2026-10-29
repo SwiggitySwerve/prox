@@ -39,7 +39,7 @@ export function AnalyticsChart({
         ? analyticsNumber(value, i18n.language)
         : analyticsCompact(value, i18n.language);
   return (
-    <section className={styles.panel} aria-labelledby={id}>
+    <section className={`${styles.panel} ${styles.breakdown}`} aria-labelledby={id}>
       <h3 id={id}>{title}</h3>
       {data.length === 0 ? (
         <p className={styles.muted}>{t('analytics.empty_chart')}</p>
@@ -52,17 +52,20 @@ export function AnalyticsChart({
                   <span className={styles.rankedLabel} title={d.label}>
                     {d.label}
                   </span>
-                  <span className={styles.rankedTrack} aria-hidden="true">
-                    {d.value !== null && (
+                  {/* A missing value draws no track: an empty track would read as zero. */}
+                  {d.value !== null && (
+                    <span className={styles.rankedTrack} aria-hidden="true">
                       <span
                         style={{
                           width: `${maximum > 0 ? Math.max(0.5, (d.value / maximum) * 100) : 0}%`,
                           background: categoryColor(d.key),
                         }}
                       />
-                    )}
-                  </span>
-                  <strong title={exact(d.value)}>{shown(d.value)}</strong>
+                    </span>
+                  )}
+                  <strong title={exact(d.value)} data-unavailable={d.value === null}>
+                    {shown(d.value)}
+                  </strong>
                 </>
               );
               return (

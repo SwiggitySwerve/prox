@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsQuery, AnalyticsRequest } from '@/domain/analytics/types';
 import { Button } from '@/components/ui/Button';
-import { IconAlertTriangle, IconRefreshCw } from '@/components/ui/icons';
+import { IconAlertTriangle, IconInbox, IconRefreshCw } from '@/components/ui/icons';
 import { useAnalytics } from './useAnalytics';
 import {
   analyticsTab,
@@ -242,7 +242,7 @@ export function AnalyticsPage() {
               {t('analytics.error_title')}
             </h2>
             <p>{t(`analytics.errors.${error}`)}</p>
-            <Button size="sm" variant="secondary" onClick={reload}>
+            <Button size="sm" variant="primary" onClick={reload}>
               {t('analytics.retry')}
             </Button>
           </div>
@@ -283,7 +283,19 @@ export function AnalyticsPage() {
               </details>
             </aside>
             {data.summary.calls === 0 && tab !== 'rates' && (
-              <p className={styles.notice}>{t('analytics.empty')}</p>
+              <div className={styles.emptyState} role="status">
+                <IconInbox size={20} aria-hidden="true" />
+                <div>
+                  <h2>{t('analytics.empty_title')}</h2>
+                  <p>
+                    {t(
+                      query.provider || query.model || query.search || query.outcome !== 'all'
+                        ? 'analytics.empty'
+                        : 'analytics.empty_unfiltered'
+                    )}
+                  </p>
+                </div>
+              </div>
             )}
             {tab === 'rates' ? (
               <ModelRates data={data} />
@@ -297,6 +309,7 @@ export function AnalyticsPage() {
                 }
                 onSelect={(request) => setSelected(request ? { request, query, session } : null)}
                 page={pages.length}
+                providerLabels={new Map(data.providers.map((p) => [p.key, p.label]))}
                 canPrevious={pages.length > 1}
                 canNext={next !== null}
                 onPrevious={() => {

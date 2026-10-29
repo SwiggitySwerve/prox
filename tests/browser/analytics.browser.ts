@@ -25,7 +25,7 @@ test('all controls, keyboard drilldown, paging, details and model schedules', as
   await app.tab('Performance');
   const alternative = page
     .locator('section')
-    .filter({ has: page.getByRole('heading', { name: /^First token trend/ }) })
+    .filter({ has: page.getByRole('heading', { name: /^p95 reported TTFT/ }) })
     .locator('details');
   await alternative.locator('summary').click();
   await expect(alternative.locator('table')).toBeVisible();
@@ -222,12 +222,12 @@ test('loading, error, retry and obsolete responses', async ({ page, app }, info)
     page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('codex')
   );
   await app.tab('Requests');
-  await expect(page.locator('tbody')).toContainText('codex');
+  await expect(page.locator('tbody')).toContainText('GPT / Codex');
   const settled = app.settled;
   app.release();
   await expect.poll(() => app.settled).toBeGreaterThan(settled);
   await expect(page.locator('#analytics-panel')).toHaveAttribute('aria-busy', 'false');
-  await expect(page.locator('tbody')).not.toContainText('claude');
+  await expect(page.locator('tbody')).not.toContainText('Claude');
 });
 
 test('chart inspection follows the selected metric instead of retaining an old value', async ({

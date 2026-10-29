@@ -46,8 +46,9 @@ type View = Exclude<AnalyticsTab, 'rates' | 'requests'>;
 const METRIC_COLOR: Partial<Record<Metric, string>> = {
   calls: 'var(--analytics-requests)',
   total_tokens: 'var(--analytics-tokens)',
-  output_tokens: 'var(--analytics-output)',
-  cache_read_tokens: 'var(--analytics-cache)',
+  // Token series share the token ink and are told apart by line style.
+  output_tokens: 'var(--analytics-tokens)',
+  cache_read_tokens: 'var(--analytics-tokens)',
   cost: 'var(--analytics-cost)',
 };
 const ICONS: Record<Metric, ComponentType<{ size?: number }>> = {
@@ -94,8 +95,8 @@ const trends: Record<View, { metric: Metric; dash?: TrendSeries['dash'] }[]> = {
   overview: [{ metric: 'calls' }, { metric: 'total_tokens' }, { metric: 'cost' }],
   tokens: [
     { metric: 'total_tokens' },
-    { metric: 'output_tokens' },
-    { metric: 'cache_read_tokens' },
+    { metric: 'output_tokens', dash: 'dashed' },
+    { metric: 'cache_read_tokens', dash: 'dotted' },
   ],
   cost: [{ metric: 'cost' }],
   // TTFT has its own chart: mixed methods, and far smaller than execution durations.
@@ -149,16 +150,16 @@ export function AnalyticsViews({
   // Sublines add a related server value that has no card of its own on this tab.
   const subline = (metric: Metric): string | null => {
     const s = data.summary;
-    if (tab !== 'overview')
-      return metric === 'cost' ? t(`analytics.price_status.${s.cost.status}`) : null;
+    // An unavailable cost already says so in the value; don't repeat it.
+    if (metric === 'cost')
+      return s.cost.usd === null ? null : t(`analytics.price_status.${s.cost.status}`);
+    if (tab !== 'overview') return null;
     const n = (value: number | null) => analyticsCompact(value, i18n.language);
     switch (metric) {
       case 'calls':
         return t('analytics.card.succeeded', { value: n(s.success_calls) });
       case 'failure_calls':
         return t('analytics.card.of_events', { value: n(s.calls) });
-      case 'cost':
-        return t(`analytics.price_status.${s.cost.status}`);
       case 'p95_latency_ms':
         return s.p95_ttft_ms === null
           ? null
@@ -209,7 +210,10 @@ export function AnalyticsViews({
           const sparkValues = data.timeline
             .map((p) => valueOf(p, metric))
             .filter((v): v is number => v !== null);
-          const sparkShown = value !== null && new Set(sparkValues).size > 1;
+          const sparkShown =
+            value !== null &&
+            new Set(sparkValues).size > 1 &&
+            spark.segments.some((segment) => segment.length > 1);
           return (
             <article
               key={metric}
@@ -240,13 +244,16 @@ export function AnalyticsViews({
                   data-charted={color !== undefined}
                   aria-hidden="true"
                 >
-                  {spark.segments.map((segment, index) => (
-                    <path
-                      key={index}
-                      d={segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ')}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ))}
+                  {/* Lone points would read as stray marks at sparkline size. */}
+                  {spark.segments
+                    .filter((segment) => segment.length > 1)
+                    .map((segment, index) => (
+                      <path
+                        key={index}
+                        d={segment.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ')}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
                 </svg>
               )}
             </article>
@@ -285,7 +292,7 @@ export function AnalyticsViews({
           />
           {tab === 'performance' && (
             <TrendChart
-              title={t('analytics.trend.ttft')}
+              title={t('analytics.metrics.p95_ttft_ms')}
               series={[
                 {
                   key: 'p95_ttft_ms',

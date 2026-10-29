@@ -2,8 +2,6 @@
   // Metric inks for charts: distinct from provider, status and warning colours.
   --analytics-requests: var(--primary-color);
   --analytics-tokens: #a99cff;
-  --analytics-output: #f58fd6;
-  --analytics-cache: #b8e986;
   --analytics-cost: #67d4e0;
   min-width: 0;
   max-width: 100%;
@@ -193,7 +191,7 @@
   border-radius: var(--radius-md);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto 24px auto;
+  grid-template-rows: auto auto auto auto;
   grid-template-areas:
     'label'
     'value'
@@ -368,6 +366,10 @@
 .trendArea {
   opacity: 0.1;
 }
+.trendPoint {
+  stroke-width: 6;
+  stroke-linecap: round;
+}
 .trendDot {
   stroke-width: 8;
   stroke-linecap: round;
@@ -408,6 +410,15 @@
   color: var(--text-secondary);
   font-size: 11px;
 }
+// Paired breakdown cards keep their table disclosures on one baseline.
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  > details {
+    margin-top: auto;
+    padding-top: 8px;
+  }
+}
 .ranked {
   display: flex;
   flex-direction: column;
@@ -440,6 +451,10 @@
 }
 button.rankedRow {
   cursor: pointer;
+}
+.rankedRow strong[data-unavailable='true'] {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 .rankedRow:hover {
   background: var(--bg-hover);
@@ -482,8 +497,64 @@ button.rankedRow {
       100% no-repeat scroll;
 }
 .requests td[data-numeric],
-.requests th:nth-child(n + 4):nth-child(-n + 7) {
+.requests th:nth-child(n + 4):nth-child(-n + 7),
+.rates td[data-numeric],
+.rates th:nth-child(n + 5):nth-child(-n + 8) {
   text-align: right;
+}
+.requests td:first-child {
+  white-space: nowrap;
+}
+.requests td:last-child {
+  vertical-align: top;
+}
+.rates td[data-missing='true'] {
+  color: var(--text-secondary);
+}
+.providerName {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+  }
+  &[data-provider='claude']::before {
+    background: var(--claude-color);
+  }
+  &[data-provider='codex']::before {
+    background: var(--codex-color);
+  }
+}
+.warningNotice {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+.emptyState {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  h2 {
+    margin: 0 0 4px;
+    color: var(--text-primary);
+    font-size: 15px;
+  }
+  p {
+    margin: 0;
+  }
+  > svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
 }
 .tableScroll table {
   border-collapse: collapse;
@@ -590,6 +661,10 @@ button.rankedRow {
 }
 .errorState {
   border-left: 3px solid var(--error-color);
+  background: var(--bg-primary);
+  > button {
+    margin-top: 10px;
+  }
   h2 {
     display: inline-flex;
     align-items: center;
@@ -658,14 +733,6 @@ button.rankedRow {
   .metrics[data-count='3'] > :last-child {
     grid-column: 1 / -1;
   }
-  .tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .tabs button {
-    flex-shrink: 0;
-  }
 
   .header {
     align-items: flex-start;
@@ -688,6 +755,10 @@ button.rankedRow {
   }
 }
 
+.chartReadout:empty {
+  min-height: 0;
+  margin: 0;
+}
 .chartReadout {
   display: block;
   min-height: 20px;
@@ -698,16 +769,17 @@ button.rankedRow {
   overflow-wrap: anywhere;
 }
 
-// Narrow screens: each request becomes a card of label/value pairs instead of a wide table.
+// Narrow screens: each table row becomes a card of label/value pairs instead of a wide table.
 @media (max-width: 600px) {
-  .requests {
+  .stacked {
     min-width: 0;
     thead {
       display: none;
     }
     tbody,
     tr,
-    td {
+    td,
+    th {
       display: block;
     }
     tr {
@@ -717,30 +789,41 @@ button.rankedRow {
       padding: 12px 0;
       border-bottom: 1px solid var(--border-color);
     }
-    td {
+    td,
+    th {
       padding: 0;
       border: 0;
       max-width: none;
       min-width: 0;
       text-align: left;
+      white-space: normal;
     }
     td[data-numeric] {
       text-align: left;
     }
-    td[data-label]::before {
+    [data-label]::before {
       content: attr(data-label);
       display: block;
       margin-bottom: 2px;
       color: var(--text-secondary);
       font-size: 11px;
+      font-weight: 400;
     }
-    td:nth-child(2),
     td:last-child {
       grid-column: 1 / -1;
-      max-width: none;
     }
     td:last-child button {
       width: 100%;
     }
+  }
+  .requests td:nth-child(2),
+  .rates th[scope='row'] {
+    grid-column: 1 / -1;
+    max-width: none;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .rates {
+    min-width: 0;
   }
 }
