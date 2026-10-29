@@ -100,9 +100,10 @@ export function TrendChart({
         maximumFractionDigits: digits,
       }).format(v);
     }
-    return series[index].currency || compactCounts
+    // Compact only from 1,000 up; a 0–1 axis beside a 10K axis keeps 0.25, not 0.3.
+    return (series[index].currency || compactCounts) && Math.abs(v) >= 1000
       ? analyticsCompact(v, i18n.language, series[index].currency)
-      : analyticsNumber(v, i18n.language);
+      : analyticsNumber(v, i18n.language, series[index].currency);
   };
   return (
     <section className={`${styles.panel} ${styles.trend}`} aria-labelledby={id}>

@@ -2497,6 +2497,7 @@
     "rate_dash_note": "— means no configured rate.",
     "no_measured_values": "No measured values in this interval.",
     "no_hourly_series": "No hourly series",
+    "no_hourly_change": "No change across the range",
     "trend_shared_scale": "All lines share one millisecond scale. Gaps are unmeasured periods.",
     "title": "Analytics",
     "nav_meta": "Usage, cost and execution trends",

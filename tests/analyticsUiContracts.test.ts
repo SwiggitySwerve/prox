@@ -362,6 +362,24 @@ describe('Analytics SSR presentation', () => {
     expect(render(8)).toContain('>$6<');
     expect(render(0.001)).toContain('$0.00075');
   });
+  test('a small axis keeps its tick precision beside a compact one', () => {
+    const markup = renderToStaticMarkup(
+      createElement(TrendChart, {
+        title: 'Usage',
+        series: [
+          { key: 'calls', label: 'Events', color: 'white' },
+          { key: 'tokens', label: 'Tokens', color: 'violet' },
+        ],
+        points: [{ at: 0, values: [1, 10_000] }],
+        from: 0,
+        to: 3_600_000,
+        interval: 3_600_000,
+      })
+    );
+    expect(markup).toContain('0.25');
+    expect(markup).toContain('0.75');
+    expect(markup).toContain('10K');
+  });
   test('buckets whose measurements are all missing keep drilldown and the table', () => {
     const markup = renderToStaticMarkup(
       createElement(TrendChart, {

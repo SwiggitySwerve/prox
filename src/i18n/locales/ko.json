@@ -2497,6 +2497,7 @@
     "rate_dash_note": "—는 설정된 요율이 없음을 뜻합니다.",
     "no_measured_values": "이 구간에는 측정값이 없습니다.",
     "no_hourly_series": "시간별 계열 없음",
+    "no_hourly_change": "구간 내 변화 없음",
     "trend_shared_scale": "모든 선이 하나의 밀리초 눈금을 공유합니다. 빈 구간은 측정되지 않은 기간입니다.",
     "title": "분석",
     "nav_meta": "사용량, 비용 및 실행 추세",

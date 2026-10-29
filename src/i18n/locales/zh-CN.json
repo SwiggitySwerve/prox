@@ -2495,6 +2495,7 @@
     "rate_dash_note": "— 表示未配置费率。",
     "no_measured_values": "此时段内没有测量值。",
     "no_hourly_series": "无按小时序列",
+    "no_hourly_change": "区间内无变化",
     "trend_shared_scale": "所有线共用同一毫秒刻度。空缺表示未测量的时段。",
     "title": "分析",
     "nav_meta": "用量、成本与执行趋势",
