@@ -2476,7 +2476,8 @@
       "reasoning": "추론 {{value}}",
       "uncached": "비캐시 {{value}}",
       "writes": "캐시 쓰기 {{value}}",
-      "hourly_only": "구간 합계 없음, 시간별 값은 아래에 있음"
+      "hourly_only": "구간 합계 없음, 시간별 값은 아래에 있음",
+      "no_range_total": "구간 합계 없음"
     },
     "trend": {
       "overview": "사용량 추이",

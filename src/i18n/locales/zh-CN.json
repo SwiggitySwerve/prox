@@ -2474,7 +2474,8 @@
       "reasoning": "推理 {{value}}",
       "uncached": "未缓存 {{value}}",
       "writes": "缓存写入 {{value}}",
-      "hourly_only": "无区间总计；下方为每小时数值"
+      "hourly_only": "无区间总计；下方为每小时数值",
+      "no_range_total": "无区间总计"
     },
     "trend": {
       "overview": "用量趋势",

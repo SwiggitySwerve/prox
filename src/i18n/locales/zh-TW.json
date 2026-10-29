@@ -2502,7 +2502,8 @@
       "reasoning": "推理 {{value}}",
       "uncached": "未快取 {{value}}",
       "writes": "快取寫入 {{value}}",
-      "hourly_only": "無區間總計；下方為每小時數值"
+      "hourly_only": "無區間總計；下方為每小時數值",
+      "no_range_total": "無區間總計"
     },
     "trend": {
       "overview": "用量趨勢",

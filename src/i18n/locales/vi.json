@@ -2482,7 +2482,8 @@
       "reasoning": "Suy luận {{value}}",
       "uncached": "Không cache {{value}}",
       "writes": "Ghi cache {{value}}",
-      "hourly_only": "Không có tổng cho khoảng; giá trị theo giờ ở dưới"
+      "hourly_only": "Không có tổng cho khoảng; giá trị theo giờ ở dưới",
+      "no_range_total": "Không có tổng cho khoảng"
     },
     "trend": {
       "overview": "Xu hướng sử dụng",

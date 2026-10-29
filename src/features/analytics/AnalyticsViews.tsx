@@ -133,6 +133,11 @@ export function AnalyticsViews({
   const { t, i18n } = useTranslation();
   const interval = data.granularity === 'day' ? 86_400_000 : 3_600_000;
   const trend = trends[tab];
+  // Metrics whose hourly values this tab draws in a trend chart.
+  const plotted = new Set<Metric>([
+    ...trend.map((s) => s.metric),
+    ...(tab === 'performance' ? (['p95_ttft_ms'] as const) : []),
+  ]);
   const breakdownMetric = breakdowns[tab];
   const breakdownFormat =
     breakdownMetric === 'cost' ? 'money' : isDuration(breakdownMetric) ? 'exact' : 'compact';
@@ -208,10 +213,14 @@ export function AnalyticsViews({
             .map((p) => valueOf(p, metric))
             .filter((v): v is number => v !== null);
           const sparkShown = value !== null && new Set(sparkValues).size > 1;
-          // A missing total with hourly values says why, so the chart below doesn't look wrong.
+          // A missing total says why; it points below only when this tab charts the hourly values.
           const sub =
             value === null && sparkValues.length > 0
-              ? t('analytics.card.hourly_only')
+              ? t(
+                  plotted.has(metric)
+                    ? 'analytics.card.hourly_only'
+                    : 'analytics.card.no_range_total'
+                )
               : subline(metric);
           return (
             <article

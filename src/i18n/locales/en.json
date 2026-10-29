@@ -2476,7 +2476,8 @@
       "reasoning": "Reasoning {{value}}",
       "uncached": "Uncached {{value}}",
       "writes": "Cache writes {{value}}",
-      "hourly_only": "No range total; hourly values below"
+      "hourly_only": "No range total; hourly values below",
+      "no_range_total": "No range total"
     },
     "trend": {
       "overview": "Usage trend",

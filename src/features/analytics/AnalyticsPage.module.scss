@@ -895,4 +895,8 @@ button.rankedRow {
   .rates {
     min-width: 0;
   }
+  // Desktop keeps source names on one line; stacked cards must wrap them.
+  .rates td:first-child {
+    white-space: normal;
+  }
 }
