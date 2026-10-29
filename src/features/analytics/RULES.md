@@ -5,7 +5,10 @@ CPA owns token accounting, cost, coverage, rate resolution and performance metri
 prices, token relationships, ratios or aggregate metrics from request pages.
 
 The UI owns UTC range selection, cursor navigation, formatting and chart geometry. Timeline
-bars use actual bucket timestamps and never connect missing measurements. A chart drilldown
+lines use actual bucket timestamps and never connect missing measurements. CPA returns only
+buckets that hold events, so when coverage is `raw_complete` an absent bucket is a quiet period:
+sums (events, tokens, cost) draw it as zero; durations and TTFT still break the line. With
+partial coverage every absent bucket stays a gap. A chart drilldown
 retains all query filters and clears only pagination. Rate inventory is a current configured
 rate reference, including unused/unpriced registrations; it is not historical spend.
 

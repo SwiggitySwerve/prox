@@ -12,7 +12,13 @@ import { AnalyticsChart } from '../src/features/analytics/AnalyticsChart';
 import { AnalyticsViews } from '../src/features/analytics/AnalyticsViews';
 import { RequestDetails, RequestTable } from '../src/features/analytics/RequestTable';
 import { ModelRates } from '../src/features/analytics/ModelRates';
-import { lineSegments, niceMaximum, timeTicks } from '../src/features/analytics/chartGeometry';
+import {
+  bucketTimeline,
+  lineSegments,
+  niceMaximum,
+  smoothPath,
+  timeTicks,
+} from '../src/features/analytics/chartGeometry';
 import { TrendChart } from '../src/features/analytics/TrendChart';
 import { analyticsNumber } from '../src/features/analytics/format';
 import {
@@ -415,6 +421,63 @@ describe('Analytics SSR presentation', () => {
     expect(markup).toContain('role="button" tabindex="0"');
     expect(markup).toContain('<table>');
     expect(markup).toContain('No measured values');
+  });
+  test('hours the server omits are listed so counts can draw them as zero', () => {
+    const hour = 3_600_000;
+    // CPA only returns hours with events: 01:00 is absent, not unmeasured.
+    const buckets = bucketTimeline([0, 2 * hour], 0, 3 * hour, hour);
+    expect(buckets).toEqual([
+      { at: 0, present: true },
+      { at: hour, present: false },
+      { at: 2 * hour, present: true },
+    ]);
+    // A partial first bucket still starts on its own boundary.
+    expect(bucketTimeline([], hour / 2, 2 * hour, hour).map((b) => b.at)).toEqual([0, hour]);
+  });
+  test('fully retained ranges draw quiet hours as zero for sums, never for durations', () => {
+    const hour = 3_600_000;
+    const from = analyticsUiResponse.timeline[0].bucket_ms;
+    const data = (complete: boolean) => ({
+      ...analyticsUiResponse,
+      from_ms: from,
+      to_ms: from + 3 * hour,
+      granularity: 'hour' as const,
+      coverage: { ...analyticsUiResponse.coverage, raw_complete: complete },
+      // The middle hour had no events, so the server returned no bucket for it.
+      timeline: [
+        { ...analyticsUiResponse.timeline[0], bucket_ms: from },
+        { ...analyticsUiResponse.timeline[0], bucket_ms: from + 2 * hour },
+      ],
+    });
+    const rows = (tab: 'overview' | 'performance', complete: boolean) =>
+      (
+        renderToStaticMarkup(
+          createElement(AnalyticsViews, {
+            tab,
+            data: data(complete),
+            onBucket: noop,
+            onModel: noop,
+            onProvider: noop,
+          })
+        ).match(/UTC<\/button>/g) ?? []
+      ).length;
+    expect(rows('overview', true)).toBe(3); // quiet hour listed, drawn as zero
+    expect(rows('overview', false)).toBe(2); // partial coverage: absence may be missing data
+    expect(rows('performance', true)).toBe(2 + 2); // duration and TTFT tables: measured hours only
+  });
+  test('smooth paths pass through every point without overshooting flat or monotone runs', () => {
+    const path = smoothPath([
+      [0, 10],
+      [10, 0],
+      [20, 0],
+      [30, 5],
+    ]);
+    expect(path.startsWith('M0,10')).toBe(true);
+    for (const point of ['10,0', '20,0', '30,5']) expect(path).toContain(point);
+    // The flat 0→0 stretch stays flat: both control points sit on y = 0.
+    const flat = path.split('C')[2].trim().split(' ');
+    expect(flat.map((xy) => Number(xy.split(',')[1]))).toEqual([0, 0, 0]);
+    expect(smoothPath([[0, 1]])).toBe('M0,1');
   });
   test('breakdowns rank categories and keep missing values without a bar', () => {
     const markup = renderToStaticMarkup(

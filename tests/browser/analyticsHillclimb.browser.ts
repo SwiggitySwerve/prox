@@ -91,8 +91,11 @@ const screens: Array<{ name: string; tab: string; scenario: AnalyticsScenario; s
     { name: 'error', tab: 'Overview', scenario: 'ready', status: 503 },
   ];
 
-for (const width of [1440, 390]) {
-  for (const screen of screens) {
+for (const width of [1920, 1440, 390]) {
+  // Wide desktop only for the chart-heavy tabs, where layout changes with width.
+  for (const screen of width === 1920
+    ? screens.filter((s) => ['overview', 'tokens'].includes(s.name))
+    : screens) {
     test(`capture ${screen.name} ${width}`, async ({ page, app }) => {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
       app.scenario = screen.scenario;
