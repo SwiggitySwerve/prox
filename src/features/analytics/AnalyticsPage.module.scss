@@ -9,7 +9,7 @@
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   font-size: 13px;
   color: var(--text-primary);
   h1 {
@@ -65,15 +65,22 @@
 .header > div {
   min-width: 0;
 }
-.header > button {
-  flex-shrink: 0;
+// Title, range and coverage share one line, so the first chart starts above the fold.
+.headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+  p {
+    margin: 0;
+  }
 }
 .filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px;
-  padding: 12px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
   border-radius: var(--radius-md);
@@ -83,7 +90,6 @@
   flex: 1 1 120px;
   min-width: 0;
   flex-direction: column;
-  gap: 5px;
   color: var(--text-secondary);
   font-size: 11px;
 }
@@ -105,7 +111,7 @@
   display: flex;
   flex: 2 1 240px;
   min-width: 0;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
 }
 .scope {
@@ -117,10 +123,10 @@
   gap: 3px;
   flex-wrap: wrap;
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 6px;
+  padding-bottom: 4px;
 }
 .tabs button {
-  padding: 9px 12px;
+  padding: 7px 12px;
   border: 0;
   border-radius: 6px;
   color: var(--text-secondary);
@@ -142,17 +148,26 @@
   gap: 14px;
 }
 .coverage {
-  background: var(--bg-primary);
-  border-left: 2px solid var(--border-hover);
-  padding: 10px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
   font-size: 11px;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
+  // Opened limitations take a full-width row of their own below the header line.
+  &:has(details[open]),
+  details[open] {
+    flex-basis: 100%;
+  }
+  details[open] p {
+    margin: 4px 0;
+  }
 }
 .coverage > div {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
+  gap: 4px 18px;
 }
 .coverage strong {
   color: var(--text-primary);
@@ -187,23 +202,24 @@
 .metric {
   --metric-color: var(--text-secondary);
   min-width: 0;
-  padding: 12px 14px;
+  padding: 10px 14px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  // The qualifier sits under the value; the sparkline row absorbs spare height at the bottom.
-  grid-template-rows: auto auto auto 1fr;
-  grid-template-areas:
-    'label'
-    'value'
-    'sub'
-    'spark';
-  gap: 6px;
+  align-content: start;
+  gap: 4px;
+}
+// The sparkline sits beside the value when the card has room, and wraps beneath it when not.
+.metricValue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  min-width: 0;
 }
 .metricLabel {
-  grid-area: label;
   // Two lines reserved, so values line up even when a neighbour's label wraps.
   min-height: 29px;
   display: flex;
@@ -230,7 +246,6 @@
   color: var(--metric-color);
 }
 .metric strong {
-  grid-area: value;
   font-size: 22px;
   line-height: 1.2;
   letter-spacing: -0.5px;
@@ -245,22 +260,18 @@
   color: var(--text-secondary);
 }
 .metric small {
-  grid-area: sub;
   color: var(--text-secondary);
   font-size: 11px;
   overflow-wrap: anywhere;
 }
 .noSpark {
-  grid-area: spark;
-  align-self: end;
+  flex: 1 1 110px;
   color: var(--text-secondary);
   font-size: 11px;
 }
 .spark {
-  grid-area: spark;
-  align-self: end;
-  width: 100%;
-  height: 24px;
+  flex: 1 1 72px;
+  height: 26px;
   overflow: visible;
   path {
     fill: none;
@@ -909,8 +920,18 @@ button.rankedRow {
 @container (min-width: 1500px) {
   .metrics[data-count='8'] {
     --cols: 8;
+    :is(.spark, .noSpark) {
+      flex-basis: 100%;
+    }
   }
   .metrics[data-count='6'] {
     --cols: 6;
+  }
+}
+// Narrow cards: every sparkline goes beneath its value, so cards in a row line up.
+@container (max-width: 1030px) {
+  .spark,
+  .noSpark {
+    flex-basis: 100%;
   }
 }

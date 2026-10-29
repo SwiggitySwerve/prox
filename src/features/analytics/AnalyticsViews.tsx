@@ -252,42 +252,48 @@ export function AnalyticsViews({
                 </span>
                 {label(metric)}
               </span>
-              <strong
-                title={analyticsNumber(value, i18n.language, metric === 'cost')}
-                className={metric === 'failure_calls' && value ? styles.failure : undefined}
-                data-unavailable={value === null}
-              >
-                {display(metric, value)}
-              </strong>
-              <small>{sub ?? ' '}</small>
-              {sparkShown ? (
-                <svg
-                  viewBox="0 0 100 28"
-                  preserveAspectRatio="none"
-                  className={styles.spark}
-                  data-charted={color !== undefined}
-                  aria-hidden="true"
+              <div className={styles.metricValue}>
+                <strong
+                  title={analyticsNumber(value, i18n.language, metric === 'cost')}
+                  className={metric === 'failure_calls' && value ? styles.failure : undefined}
+                  data-unavailable={value === null}
                 >
-                  {/* Runs of one or two hours read as specks at card size; the trend chart marks them. */}
-                  {spark.segments
-                    .filter((segment) => segment.length > 2)
-                    .map((segment, index) => (
-                      <path key={index} d={smoothPath(segment)} vectorEffect="non-scaling-stroke" />
-                    ))}
-                </svg>
-              ) : (
-                // The page-level empty state already says nothing was retained.
-                value !== null &&
-                data.summary.calls > 0 && (
-                  <span className={styles.noSpark}>
-                    {t(
-                      sparkValues.length > 0
-                        ? 'analytics.no_hourly_change'
-                        : 'analytics.no_hourly_series'
-                    )}
-                  </span>
-                )
-              )}
+                  {display(metric, value)}
+                </strong>
+                {sparkShown ? (
+                  <svg
+                    viewBox="0 0 100 28"
+                    preserveAspectRatio="none"
+                    className={styles.spark}
+                    data-charted={color !== undefined}
+                    aria-hidden="true"
+                  >
+                    {/* Runs of one or two hours read as specks at card size; the trend chart marks them. */}
+                    {spark.segments
+                      .filter((segment) => segment.length > 2)
+                      .map((segment, index) => (
+                        <path
+                          key={index}
+                          d={smoothPath(segment)}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
+                  </svg>
+                ) : (
+                  // The page-level empty state already says nothing was retained.
+                  value !== null &&
+                  data.summary.calls > 0 && (
+                    <span className={styles.noSpark}>
+                      {t(
+                        sparkValues.length > 0
+                          ? 'analytics.no_hourly_change'
+                          : 'analytics.no_hourly_series'
+                      )}
+                    </span>
+                  )
+                )}
+              </div>
+              <small>{sub ?? ' '}</small>
             </article>
           );
         })}

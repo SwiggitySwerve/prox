@@ -263,3 +263,24 @@ test('logging out while analytics is pending hides the previous session', async 
   await expect.poll(() => app.settled).toBeGreaterThan(settled);
   await expect(page.locator('#analytics-panel')).toHaveCount(0);
 });
+
+// The page opens on its first chart: header, filters, tabs and cards fit above it.
+for (const [width, height] of [
+  [1920, 1000],
+  [1440, 900],
+] as const) {
+  test(`first chart is on screen at ${width}x${height}`, async ({ page, app }) => {
+    await page.setViewportSize({ width, height });
+    app.scenario = 'large';
+    await app.login();
+    await app.loaded();
+    for (const name of ['Overview', 'Tokens & Cache']) {
+      await app.tab(name);
+      const bottom = await page
+        .locator('[class*=trendTime]')
+        .first()
+        .evaluate((el) => el.getBoundingClientRect().bottom);
+      expect(bottom, `${name} chart bottom`).toBeLessThanOrEqual(height);
+    }
+  });
+}

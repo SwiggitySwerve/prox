@@ -79,17 +79,59 @@ export function AnalyticsPage() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div>
+        <div className={styles.headline}>
           <h1>{t('analytics.title')}</h1>
-          <p>{t('analytics.subtitle')}</p>
+          <p className={styles.scope}>
+            {analyticsTime(query.from_ms, i18n.language)} →{' '}
+            {analyticsTime(query.to_ms, i18n.language)} UTC
+            {bucketSelected && <span> · {t('analytics.selected_bucket')}</span>}
+            {query.search && (
+              <span>
+                {' '}
+                · {t('analytics.search')}: {query.search}
+              </span>
+            )}
+          </p>
+          {data && (
+            <aside className={styles.coverage} aria-label={t('analytics.coverage')}>
+              <div>
+                <strong>{t('analytics.retained_scope')}</strong>
+                <span>
+                  {t(
+                    `analytics.${data.coverage.raw_complete ? 'retained_complete' : 'partial_coverage'}`
+                  )}
+                </span>
+                <span>
+                  {t('analytics.updated')}: {analyticsTime(data.generated_at_ms, i18n.language)} UTC
+                </span>
+              </div>
+              <details>
+                <summary>{t('analytics.coverage_limits')}</summary>
+                <p>{t('analytics.coverage_note')}</p>
+                <p>
+                  {t('analytics.price_note')} · {t('analytics.revision')}:{' '}
+                  {data.coverage.price_revision}
+                </p>
+                <p>
+                  {t('analytics.source_attribution')}:{' '}
+                  {t(`analytics.attribution.${data.coverage.source_attribution}`)} ·{' '}
+                  {t('analytics.fields.timing_method')}: {data.coverage.timing_method}
+                </p>
+                {data.coverage.limitations.length > 0 && (
+                  <ul>
+                    {data.coverage.limitations.map((limitation, index) => (
+                      <li key={index}>{limitation}</li>
+                    ))}
+                  </ul>
+                )}
+              </details>
+            </aside>
+          )}
         </div>
-        <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
-          <IconRefreshCw size={15} /> {t('analytics.refresh')}
-        </Button>
       </header>
       <section className={styles.filters} aria-label={t('analytics.filters')}>
         <label>
-          {t('analytics.range')}
+          <span className={styles.srOnly}>{t('analytics.range')}</span>
           <select
             value={range}
             onChange={(event) => resetRange(event.target.value as AnalyticsRange)}
@@ -102,12 +144,12 @@ export function AnalyticsPage() {
           </select>
         </label>
         <label>
-          {t('analytics.provider')}
+          <span className={styles.srOnly}>{t('analytics.provider')}</span>
           <select
             value={query.provider ?? ''}
             onChange={(event) => filter({ provider: event.target.value || undefined })}
           >
-            <option value="">{t('analytics.all')}</option>
+            <option value="">{t('analytics.all_providers')}</option>
             {Array.from(
               new Set([
                 ...(filterOptions?.providers ?? []),
@@ -119,12 +161,12 @@ export function AnalyticsPage() {
           </select>
         </label>
         <label>
-          {t('analytics.model')}
+          <span className={styles.srOnly}>{t('analytics.model')}</span>
           <select
             value={query.model ?? ''}
             onChange={(event) => filter({ model: event.target.value || undefined })}
           >
-            <option value="">{t('analytics.all')}</option>
+            <option value="">{t('analytics.all_models')}</option>
             {Array.from(
               new Set([...(filterOptions?.models ?? []), ...(query.model ? [query.model] : [])])
             ).map((model) => (
@@ -133,14 +175,14 @@ export function AnalyticsPage() {
           </select>
         </label>
         <label>
-          {t('analytics.outcome')}
+          <span className={styles.srOnly}>{t('analytics.outcome')}</span>
           <select
             value={query.outcome}
             onChange={(event) =>
               filter({ outcome: event.target.value as AnalyticsQuery['outcome'] })
             }
           >
-            <option value="all">{t('analytics.all')}</option>
+            <option value="all">{t('analytics.all_outcomes')}</option>
             <option value="success">{t('analytics.success')}</option>
             <option value="failed">{t('analytics.failed_outcome')}</option>
           </select>
@@ -153,7 +195,7 @@ export function AnalyticsPage() {
           }}
         >
           <label>
-            {t('analytics.search')}
+            <span className={styles.srOnly}>{t('analytics.search')}</span>
             <input
               type="search"
               value={search}
@@ -179,17 +221,10 @@ export function AnalyticsPage() {
         >
           {t('analytics.clear_filters')}
         </Button>
+        <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
+          <IconRefreshCw size={15} /> {t('analytics.refresh')}
+        </Button>
       </section>
-      <p className={styles.scope}>
-        {analyticsTime(query.from_ms, i18n.language)} → {analyticsTime(query.to_ms, i18n.language)}{' '}
-        UTC{bucketSelected && <span> · {t('analytics.selected_bucket')}</span>}
-        {query.search && (
-          <span>
-            {' '}
-            · {t('analytics.search')}: {query.search}
-          </span>
-        )}
-      </p>
       <nav className={styles.tabs} aria-label={t('analytics.views')} role="tablist">
         {analyticsTabs.map((value) => (
           <button
@@ -250,39 +285,6 @@ export function AnalyticsPage() {
         )}
         {data && (
           <>
-            <aside className={styles.coverage} aria-label={t('analytics.coverage')}>
-              <div>
-                <strong>{t('analytics.retained_scope')}</strong>
-                <span>
-                  {t(
-                    `analytics.${data.coverage.raw_complete ? 'retained_complete' : 'partial_coverage'}`
-                  )}
-                </span>
-                <span>
-                  {t('analytics.updated')}: {analyticsTime(data.generated_at_ms, i18n.language)} UTC
-                </span>
-              </div>
-              <details>
-                <summary>{t('analytics.coverage_limits')}</summary>
-                <p>{t('analytics.coverage_note')}</p>
-                <p>
-                  {t('analytics.price_note')} · {t('analytics.revision')}:{' '}
-                  {data.coverage.price_revision}
-                </p>
-                <p>
-                  {t('analytics.source_attribution')}:{' '}
-                  {t(`analytics.attribution.${data.coverage.source_attribution}`)} ·{' '}
-                  {t('analytics.fields.timing_method')}: {data.coverage.timing_method}
-                </p>
-                {data.coverage.limitations.length > 0 && (
-                  <ul>
-                    {data.coverage.limitations.map((limitation, index) => (
-                      <li key={index}>{limitation}</li>
-                    ))}
-                  </ul>
-                )}
-              </details>
-            </aside>
             {data.summary.calls === 0 && tab !== 'rates' && (
               <div className={styles.emptyState} role="status">
                 <IconInbox size={20} aria-hidden="true" />
