@@ -50,6 +50,9 @@ def delta_e(a, b):
 
 
 def pixels(im, box):
+    # Elements cut by a first-screen capture's edge are measured whole in the full capture.
+    if box["y"] + box["h"] > im.height + 0.5 or box["x"] + box["w"] > im.width + 0.5:
+        return Counter()
     x0, y0 = max(0, math.floor(box["x"])), max(0, math.floor(box["y"]))
     x1, y1 = min(im.width, math.ceil(box["x"] + box["w"])), min(im.height, math.ceil(box["y"] + box["h"]))
     if x1 <= x0 or y1 <= y0:

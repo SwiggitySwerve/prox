@@ -182,7 +182,7 @@ export function RequestTable({
                     </small>
                     {r.requested_model && r.requested_model !== r.model && (
                       <small>
-                        {t('analytics.fields.requested_model')}: {r.requested_model}
+                        {`${t('analytics.fields.requested_model')}: ${r.requested_model}`}
                       </small>
                     )}
                   </td>

@@ -3,6 +3,7 @@
   --analytics-requests: var(--primary-color);
   --analytics-tokens: #a99cff;
   --analytics-cost: #67d4e0;
+  --analytics-duration: var(--text-secondary);
   // Charts and cards size against the page's own width, not the viewport.
   container-type: inline-size;
   min-width: 0;
@@ -149,8 +150,14 @@
     font-size: 13px;
   }
 }
-.bucketNote {
+// Bucket note, Clear and Refresh travel together at the row's end and never split.
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+.bucketNote {
   color: var(--text-secondary);
   font-size: 11px;
   white-space: nowrap;
@@ -198,9 +205,8 @@
 .searchForm input {
   padding-left: 30px;
 }
-// Filter actions match the fields beside them: same height, corners and text size.
-.page .filters .presetRow > button,
-.page .searchForm button {
+// Small buttons match the 32px fields everywhere on the page: same height, corners and text.
+.page :global(.btn-sm) {
   height: 32px;
   padding: 0 12px;
   border-radius: 5px;
@@ -1081,13 +1087,12 @@ button.rankedRow {
 }
 // Medium pages: search and the three filters keep one row; the bucket note gives way,
 // since the pressed pill and the time axis already show the bucket.
-@container (max-width: 1000px) {
+@container (max-width: 1080px) {
   .bucketNote {
     display: none;
   }
-  .presetRow > button:first-of-type {
-    margin-left: auto;
-  }
+}
+@container (max-width: 1000px) {
   .fieldRow > label {
     flex-basis: 120px;
   }
@@ -1107,8 +1112,9 @@ button.rankedRow {
       white-space: normal;
     }
   }
-  .bucketNote {
-    margin-left: 0;
+  .actions {
+    flex-wrap: wrap;
+    width: 100%;
   }
 }
 // Eight cards in a row stay narrow until the page is very wide.

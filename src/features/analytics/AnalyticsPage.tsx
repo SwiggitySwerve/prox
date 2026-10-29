@@ -129,24 +129,18 @@ export function AnalyticsPage() {
             {analyticsTime(query.from_ms, i18n.language)} →{' '}
             {analyticsTime(query.to_ms, i18n.language)} UTC
             {bucketSelected && <span> · {t('analytics.selected_bucket')}</span>}
-            {query.search && (
-              <span>
-                {' '}
-                · {t('analytics.search')}: {query.search}
-              </span>
-            )}
+            {query.search && <span> {`· ${t('analytics.search')}: ${query.search}`}</span>}
           </p>
           {data && (
             <aside className={styles.coverage} aria-label={t('analytics.coverage')}>
               <div>
-                <strong>{t('analytics.retained_scope')}</strong>
                 <span>
                   {t(
                     `analytics.${data.coverage.raw_complete ? 'retained_complete' : 'partial_coverage'}`
                   )}
                 </span>
                 <span>
-                  {t('analytics.updated')}: {analyticsTime(data.generated_at_ms, i18n.language)} UTC
+                  {`${t('analytics.updated')}: ${analyticsTime(data.generated_at_ms, i18n.language)} UTC`}
                 </span>
               </div>
               <details>
@@ -245,26 +239,29 @@ export function AnalyticsPage() {
                 onPick={(value) => resetRange(range, value)}
                 name={(value) => t(`analytics.buckets.${value}`)}
               />
-              <span className={styles.bucketNote}>
-                {t('analytics.current_bucket', {
-                  unit: t(`analytics.bucket_units.${query.granularity}`),
-                })}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setPages([rangeQuery(range, Date.now(), bucket)]);
-                  setBucketSelected(false);
-                  setSearch('');
-                  setSelected(null);
-                }}
-              >
-                {t('analytics.clear_filters')}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
-                <IconRefreshCw size={13} /> {t('analytics.refresh')}
-              </Button>
+              <div className={styles.actions}>
+                <span className={styles.bucketNote}>
+                  {t('analytics.current_bucket', {
+                    unit: t(`analytics.bucket_units.${query.granularity}`),
+                  })}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={activeFilters === 0 && !bucketSelected}
+                  onClick={() => {
+                    setPages([rangeQuery(range, Date.now(), bucket)]);
+                    setBucketSelected(false);
+                    setSearch('');
+                    setSelected(null);
+                  }}
+                >
+                  {t('analytics.clear_filters')}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
+                  <IconRefreshCw size={13} /> {t('analytics.refresh')}
+                </Button>
+              </div>
             </div>
             <div className={styles.fieldRow}>
               <form
@@ -285,8 +282,15 @@ export function AnalyticsPage() {
                     placeholder={t('analytics.search_hint')}
                   />
                 </label>
-                {/* While the dataset is unavailable, Retry is the one primary action. */}
-                <Button type="submit" size="sm" variant={error ? 'secondary' : 'primary'}>
+                {/* Apply stands out only when the typed search differs from the applied one;
+                    while the dataset is unavailable, Retry is the one primary action. */}
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant={
+                    !error && search.trim() !== (query.search ?? '') ? 'primary' : 'secondary'
+                  }
+                >
                   {t('analytics.apply')}
                 </Button>
               </form>

@@ -51,6 +51,10 @@ const METRIC_COLOR: Partial<Record<Metric, string>> = {
   output_tokens: 'var(--analytics-tokens)',
   cache_read_tokens: 'var(--analytics-tokens)',
   cost: 'var(--analytics-cost)',
+  // Durations share the neutral duration ink, never the request-count white.
+  p95_latency_ms: 'var(--analytics-duration)',
+  average_latency_ms: 'var(--analytics-duration)',
+  p95_ttft_ms: 'var(--analytics-duration)',
 };
 const ICONS: Record<Metric, ComponentType<{ size?: number }>> = {
   calls: IconInbox,
@@ -350,7 +354,7 @@ export function AnalyticsViews({
                   {
                     key: 'p95_ttft_ms',
                     label: t('analytics.metrics.p95_ttft_ms'),
-                    color: 'var(--primary-color)',
+                    color: 'var(--analytics-duration)',
                   },
                 ]}
                 points={data.timeline.map((point) => ({

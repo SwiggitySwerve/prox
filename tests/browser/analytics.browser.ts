@@ -311,6 +311,15 @@ for (const { width, height } of analyticsViewports.filter((size) => size.width >
         .locator('section[aria-label="Shared filters"] :is(select, input, button)')
         .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
       expect(new Set(heights).size, `control heights ${heights}`).toBe(1);
+      // Clear filters and Refresh stay together on one row.
+      const actionTops = await Promise.all(
+        ['Clear filters', 'Refresh'].map((name) =>
+          page
+            .getByRole('button', { name, exact: true })
+            .evaluate((el) => Math.round(el.getBoundingClientRect().top))
+        )
+      );
+      expect(actionTops[0], 'Clear filters and Refresh share a row').toBe(actionTops[1]);
       for (const name of ['Overview', 'Tokens & Cache']) {
         await app.tab(name);
         const bottom = await page
