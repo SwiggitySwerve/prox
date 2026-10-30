@@ -17,6 +17,8 @@ export interface TrafficWindow {
   peakIndex: number;
   /** 窗口跨度（分钟） */
   windowMinutes: number;
+  /** 每个桶覆盖的分钟数：最近请求为 10，分析数据为 60 */
+  bucketMinutes: number;
 }
 
 /** 单个供应商的流量切片 */

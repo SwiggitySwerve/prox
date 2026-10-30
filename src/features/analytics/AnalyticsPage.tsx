@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsQuery, AnalyticsRequest } from '@/domain/analytics/types';
 import { Button } from '@/components/ui/Button';
+import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import {
   IconAlertTriangle,
   IconChevronDown,
@@ -201,6 +202,7 @@ export function AnalyticsPage() {
     ]);
     setRefresh((value) => value + 1);
   };
+  useHeaderRefresh(reload);
   return (
     <div className={styles.page}>
       <header className={styles.header}>
