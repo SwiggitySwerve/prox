@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsQuery, AnalyticsRequest } from '@/domain/analytics/types';
@@ -75,14 +75,16 @@ function Pills<T extends string>({
 export function AnalyticsPage() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
-  // The last view on this machine; a tab in the URL still wins.
+  // The address wins, then the last view on this machine, then the defaults.
   const [saved] = useState(readAnalyticsUiState);
   const tab = analyticsTab(params.get('tab') ?? saved.tab ?? null);
-  const [range, setRange] = useState<AnalyticsRange>(saved.range ?? '24h');
-  const [bucket, setBucket] = useState<AnalyticsBucket>(saved.bucket ?? 'auto');
+  const range: AnalyticsRange =
+    ranges.find((value) => value === params.get('range')) ?? saved.range ?? '24h';
+  const bucket: AnalyticsBucket =
+    buckets.find((value) => value === params.get('bucket')) ?? saved.bucket ?? 'auto';
   const [pages, setPages] = useState<AnalyticsQuery[]>(() => [
     {
-      ...rangeQuery(saved.range ?? '24h', Date.now(), saved.bucket ?? 'auto'),
+      ...rangeQuery(range, Date.now(), bucket),
       provider: saved.provider,
       model: saved.model,
       outcome: saved.outcome ?? 'all',
@@ -91,6 +93,25 @@ export function AnalyticsPage() {
   ]);
   const query = pages[pages.length - 1];
   const [search, setSearch] = useState(saved.search ?? '');
+  // Keep tab, range and bucket in the address, so a copied link opens this exact view.
+  useEffect(() => {
+    if (
+      params.get('tab') === tab &&
+      params.get('range') === range &&
+      params.get('bucket') === bucket
+    )
+      return;
+    setParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('tab', tab);
+        next.set('range', range);
+        next.set('bucket', bucket);
+        return next;
+      },
+      { replace: true }
+    );
+  }, [params, setParams, tab, range, bucket]);
   useEffect(() => {
     writeAnalyticsUiState({
       tab,
@@ -133,12 +154,38 @@ export function AnalyticsPage() {
     setTab('requests');
   };
   const next = data ? nextPageQuery(query, data.requests) : null;
-  const resetRange = (value: AnalyticsRange, size = bucket) => {
-    setRange(value);
-    setBucket(size);
+  // The query was last built for this view; a new view in the address rebuilds it once.
+  const builtFor = useRef(`${range}:${bucket}`);
+  const applyView = useCallback((value: AnalyticsRange, size: AnalyticsBucket) => {
+    builtFor.current = `${value}:${size}`;
     setBucketSelected(false);
+    setSelected(null);
     const interval = rangeQuery(value, Date.now(), size);
-    filter({ from_ms: interval.from_ms, to_ms: interval.to_ms, granularity: interval.granularity });
+    setPages((current) => [
+      {
+        ...withoutCursor(current[current.length - 1]),
+        from_ms: interval.from_ms,
+        to_ms: interval.to_ms,
+        granularity: interval.granularity,
+      },
+    ]);
+  }, []);
+  // Pills, followed links and edited addresses all change the view through the address.
+  useEffect(() => {
+    if (builtFor.current !== `${range}:${bucket}`) applyView(range, bucket);
+  }, [range, bucket, applyView]);
+  const resetRange = (value: AnalyticsRange, size = bucket) => {
+    // Choosing the current view again re-applies it, clearing a chart drilldown.
+    if (value === range && size === bucket) return applyView(value, size);
+    setParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('range', value);
+        next.set('bucket', size);
+        return next;
+      },
+      { replace: true }
+    );
   };
   const reload = () => {
     const interval = rangeQuery(range, Date.now(), bucket);

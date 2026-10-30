@@ -505,3 +505,47 @@ test('a collapsed sidebar stays collapsed after a reload', async ({ page, app })
   await app.loaded();
   await expect(page.locator('.app-shell')).toHaveClass(/sidebar-is-collapsed/);
 });
+
+test('range and bucket live in the address, so a link opens that exact view', async ({
+  page,
+  app,
+}) => {
+  await app.login();
+  await app.loaded();
+  // Writing the view into the address never refetches it.
+  await page.waitForTimeout(300);
+  expect(app.queries).toHaveLength(1);
+  await expect(page).toHaveURL(/[?&]range=24h(&|$)/);
+  await app.change(() => page.getByRole('button', { name: 'Last 7 days', exact: true }).click());
+  await app.change(() => page.getByRole('button', { name: 'Hourly', exact: true }).click());
+  await expect(page).toHaveURL(/[?&]range=7d(&|$)/);
+  await expect(page).toHaveURL(/[?&]bucket=hour(&|$)/);
+  // Opening a link mounts the page straight into its view.
+  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+  const before = app.queries.length;
+  await app.change(() => page.goto('/#/analytics?tab=tokens&range=30d&bucket=day'));
+  await page.waitForTimeout(300);
+  expect(app.queries.length - before).toBe(1);
+  await expect(page.getByRole('tab', { name: 'Tokens & Cache', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+  for (const name of ['Last 30 days', 'Daily'])
+    await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  expect(app.queries.at(-1)).toMatchObject({ granularity: 'day' });
+  expect(app.queries.at(-1)!.to_ms - app.queries.at(-1)!.from_ms).toBe(2_592_000_000);
+  // Changing the address while the page is open moves the data with it.
+  await app.change(() => page.goto('/#/analytics?tab=tokens&range=yesterday&bucket=auto'));
+  await expect(page.getByRole('button', { name: 'Yesterday', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect(app.queries.at(-1)).toMatchObject({
+    from_ms: Date.UTC(2026, 9, 28),
+    to_ms: Date.UTC(2026, 9, 29),
+    granularity: 'hour',
+  });
+});
