@@ -16,6 +16,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/common/PageTransition';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { MainRoutes } from '@/router/MainRoutes';
 import { loadPluginSourceInventories } from '@/features/plugins/pluginSourceInventory';
 import { createAuthFilesApi } from '@/services/api/authFiles';
@@ -235,7 +236,8 @@ export function MainLayout() {
   const setLanguage = useLanguageStore((state) => state.setLanguage);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Remembered across reloads and new windows on this machine.
+  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage('layout.sidebarCollapsed', false);
   const [authFilesCount, setAuthFilesCount] = useState<number | null>(null);
   const [railTooltip, setRailTooltip] = useState<{
     targetID: string;
@@ -774,7 +776,7 @@ export function MainLayout() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hideRailTooltip]);
+  }, [hideRailTooltip, setSidebarCollapsed]);
 
   const renderNavBadge = (badge?: number, badgeLabel?: string) =>
     typeof badge === 'number' ? (

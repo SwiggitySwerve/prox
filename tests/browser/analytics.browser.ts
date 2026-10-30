@@ -453,3 +453,55 @@ test('the shell top fade waits for scrolling, so the raised title stays readable
   await page.locator('.content').evaluate((el) => el.scrollBy(0, 300));
   await expect.poll(() => fade.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
 });
+
+test('the last view comes back after a reload and a fresh sign-in', async ({ page, app }) => {
+  await app.login();
+  await app.loaded();
+  await app.tab('Tokens & Cache');
+  await app.change(() => page.getByRole('button', { name: 'Last 7 days', exact: true }).click());
+  await app.change(() => page.getByRole('button', { name: 'Hourly', exact: true }).click());
+  await app.change(() =>
+    page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('claude')
+  );
+  await app.change(() =>
+    page.getByRole('combobox', { name: 'Recorded outcome', exact: true }).selectOption('failed')
+  );
+  await page.getByRole('searchbox').fill('synthetic-trace');
+  await app.change(() => page.getByRole('button', { name: 'Apply', exact: true }).click());
+  const chosen = app.queries.at(-1)!;
+  await page.goto('about:blank');
+  await app.login();
+  await app.loaded();
+  await expect(page.getByRole('tab', { name: 'Tokens & Cache', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+  for (const name of ['Last 7 days', 'Hourly'])
+    await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  await expect(page.getByRole('combobox', { name: 'Provider', exact: true })).toHaveValue('claude');
+  await expect(page.getByRole('searchbox')).toHaveValue('synthetic-trace');
+  // The window is recomputed from the saved range; everything else is the same query.
+  const restored = app.queries.at(-1)!;
+  expect(restored).toMatchObject({
+    provider: 'claude',
+    outcome: 'failed',
+    search: 'synthetic-trace',
+    granularity: 'hour',
+  });
+  expect(restored.to_ms - restored.from_ms).toBe(chosen.to_ms - chosen.from_ms);
+});
+
+test('a collapsed sidebar stays collapsed after a reload', async ({ page, app }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await app.login();
+  await app.loaded();
+  await page.locator('.sidebar-toggle-floating').click();
+  await expect(page.locator('.app-shell')).toHaveClass(/sidebar-is-collapsed/);
+  await page.goto('about:blank');
+  await app.login();
+  await app.loaded();
+  await expect(page.locator('.app-shell')).toHaveClass(/sidebar-is-collapsed/);
+});

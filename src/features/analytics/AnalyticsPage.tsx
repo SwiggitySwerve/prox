@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsQuery, AnalyticsRequest } from '@/domain/analytics/types';
@@ -29,6 +29,7 @@ import { AnalyticsViews } from './AnalyticsViews';
 import { ModelRates } from './ModelRates';
 import { RequestTable } from './RequestTable';
 import { analyticsTime } from './format';
+import { readAnalyticsUiState, writeAnalyticsUiState } from './uiState';
 import styles from './AnalyticsPage.module.scss';
 
 // Card counts per view, for loading placeholders that match the loaded layout.
@@ -74,12 +75,33 @@ function Pills<T extends string>({
 export function AnalyticsPage() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
-  const tab = analyticsTab(params.get('tab'));
-  const [range, setRange] = useState<AnalyticsRange>('24h');
-  const [bucket, setBucket] = useState<AnalyticsBucket>('auto');
-  const [pages, setPages] = useState<AnalyticsQuery[]>(() => [rangeQuery('24h', Date.now())]);
+  // The last view on this machine; a tab in the URL still wins.
+  const [saved] = useState(readAnalyticsUiState);
+  const tab = analyticsTab(params.get('tab') ?? saved.tab ?? null);
+  const [range, setRange] = useState<AnalyticsRange>(saved.range ?? '24h');
+  const [bucket, setBucket] = useState<AnalyticsBucket>(saved.bucket ?? 'auto');
+  const [pages, setPages] = useState<AnalyticsQuery[]>(() => [
+    {
+      ...rangeQuery(saved.range ?? '24h', Date.now(), saved.bucket ?? 'auto'),
+      provider: saved.provider,
+      model: saved.model,
+      outcome: saved.outcome ?? 'all',
+      search: saved.search,
+    },
+  ]);
   const query = pages[pages.length - 1];
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(saved.search ?? '');
+  useEffect(() => {
+    writeAnalyticsUiState({
+      tab,
+      range,
+      bucket,
+      provider: query.provider,
+      model: query.model,
+      outcome: query.outcome,
+      search: query.search,
+    });
+  }, [tab, range, bucket, query.provider, query.model, query.outcome, query.search]);
   const [refresh, setRefresh] = useState(0);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [bucketSelected, setBucketSelected] = useState(false);

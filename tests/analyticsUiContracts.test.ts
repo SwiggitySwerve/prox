@@ -21,6 +21,7 @@ import {
 } from '../src/features/analytics/chartGeometry';
 import { TrendChart } from '../src/features/analytics/TrendChart';
 import { analyticsNumber } from '../src/features/analytics/format';
+import { parseAnalyticsUiState } from '../src/features/analytics/uiState';
 import {
   analyticsTabs,
   bucketQuery,
@@ -137,6 +138,47 @@ describe('Analytics query and transport contracts', () => {
     expect(reload).toContain('withoutCursor(query)');
     expect(reload).toContain('to_ms: interval.to_ms');
     expect(reload).toContain('setPages([');
+  });
+});
+
+describe('Analytics remembered view', () => {
+  test('restores valid selections and drops unknown or tampered fields one by one', () => {
+    const saved = JSON.stringify({
+      tab: 'tokens',
+      range: '7d',
+      bucket: 'hour',
+      provider: 'claude',
+      model: 'claude-opus-5-5',
+      outcome: 'failed',
+      search: 'trace',
+    });
+    expect(parseAnalyticsUiState(saved)).toEqual({
+      tab: 'tokens',
+      range: '7d',
+      bucket: 'hour',
+      provider: 'claude',
+      model: 'claude-opus-5-5',
+      outcome: 'failed',
+      search: 'trace',
+    });
+    expect(
+      parseAnalyticsUiState(
+        JSON.stringify({ tab: 'admin', range: '90d', bucket: 'minute', provider: 4, search: '' })
+      )
+    ).toEqual({
+      tab: undefined,
+      range: undefined,
+      bucket: undefined,
+      provider: undefined,
+      model: undefined,
+      outcome: undefined,
+      search: undefined,
+    });
+    expect(parseAnalyticsUiState('{not json')).toEqual({});
+    expect(parseAnalyticsUiState(null)).toEqual({});
+    expect(
+      parseAnalyticsUiState(JSON.stringify({ search: 'x'.repeat(201) })).search
+    ).toBeUndefined();
   });
 });
 
