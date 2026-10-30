@@ -121,6 +121,27 @@ describe('combined provider totals', () => {
     ).toEqual([null, null, null, null, null]);
     expect(combineProjections([[], [point(0, 10)]])).toEqual([]);
   });
+  test('no reports hold the total and every provider layer flat instead of breaking', () => {
+    const gap = accounts.flatMap((account, index) =>
+      [now - 2 * HOUR_MS, now].map((observedAtMs, i) => ({
+        accountId: account.id,
+        window: 'weekly' as const,
+        observedAtMs,
+        remainingPercent: i ? 50 : 80,
+        resetAtMs: now + (index + 1) * HOUR_MS,
+        periodHours: 168,
+      }))
+    );
+    const all = buildDashboard(accounts, gap, options, collection).combined!.all;
+    expect(all.series!.recorded.map((p) => [p.atMs, p.remainingPoints])).toEqual([
+      [now - 2 * HOUR_MS, 160],
+      [now - 1, 160],
+      [now, 100],
+    ]);
+    for (const layer of all.layers!) {
+      expect(layer.recorded.map((p) => p.remainingPoints)).toEqual([80, 80, 50]);
+    }
+  });
   test('unknown current windows suppress the total and forecast, keeping known history', () => {
     const broken = samples.map((s) =>
       s.accountId === 'a1' && s.observedAtMs === now - 1000 ? { ...s, remainingPercent: null } : s

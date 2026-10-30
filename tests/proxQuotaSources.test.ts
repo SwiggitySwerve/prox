@@ -143,7 +143,12 @@ function fixture(ids = ['source-a', 'source-b', 'source-c']) {
           return new Response(SENTINEL, { status: failures.get(instanceId)! });
         return Response.json(inventories.get(instanceId));
       }
-      if (quotaFailures.has(instanceId)) return Response.json({ status_code: 429, body: SENTINEL });
+      if (quotaFailures.has(instanceId))
+        return Response.json({
+          status_code: 429,
+          header: { 'Retry-After': ['30'], 'Set-Cookie': [SENTINEL] },
+          body: SENTINEL,
+        });
       return Response.json({
         status_code: 200,
         body: usage(call.body.url === CLAUDE_USAGE_URL ? 'claude' : 'codex'),
@@ -354,7 +359,7 @@ describe('enumerated quota sources', () => {
     expect(f.store.listSamples(NOW, NOW + MANUAL_REFRESH_INTERVAL_MS)).toHaveLength(12);
   });
 
-  test('failed quota polls log the provider and numeric status, never the upstream body', async () => {
+  test('failed quota polls log status, retry-after and header names, never upstream values', async () => {
     const f = fixture();
     await f.collector.refresh();
     f.quotaFailures.add('source-a');
@@ -363,7 +368,11 @@ describe('enumerated quota sources', () => {
     await f.collector.refresh();
     const lines = logged.mock.calls.map((call) => call.join(' '));
     logged.mockRestore();
-    expect(lines).toContain('Quota request failed: claude 429');
+    expect(lines).toContainEqual(
+      expect.stringMatching(
+        /^Quota request failed: claude 429 account=\S{8} retry-after=30 headers=retry-after,set-cookie$/
+      )
+    );
     expect(lines.join('\n')).not.toContain(SENTINEL);
   });
 

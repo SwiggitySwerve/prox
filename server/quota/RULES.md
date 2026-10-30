@@ -48,6 +48,11 @@ credential UI. The store owns persistence; the collector uses only public APIs.
   observation, immediately superseding that window's previous balance.
   A failed poll marks an account errored only once its latest sample is older than
   15 minutes (or it has none); one failed poll never hides a still-fresh sample.
+  Recorded charts hold the last balance flat across a stretch with no reports at
+  all (the point 1 ms before the next report; rates stay unknown). An account
+  missing while others report is still unknown, never held.
+  Collections are at least 4 minutes apart: Anthropic's usage endpoint returns 429
+  to bursts. Each failed poll logs status, retry-after seconds and header names.
   Disabled/retired accounts are excluded. A failed inventory cannot look like
   an empty healthy provider. History describes the current eligible membership.
 - Burn is measured depletion per hour within matching reset cycles, excluding

@@ -220,6 +220,26 @@ function quotaSamples(
   };
 }
 
+/**
+ * Log detail for a failed poll: numeric status, retry-after seconds and header names only, so
+ * upstream bodies, header values and identities never reach the log.
+ */
+function failureDetail(accountId: string, response: unknown): string {
+  const status =
+    isRecord(response) && typeof response.status_code === 'number'
+      ? response.status_code
+      : 'no-status';
+  const headers = isRecord(response) && isRecord(response.header) ? response.header : {};
+  const names = Object.keys(headers)
+    .filter((name) => /^[A-Za-z0-9-]+$/.test(name))
+    .map((name) => name.toLowerCase())
+    .sort();
+  const retry = Object.entries(headers).find(([name]) => name.toLowerCase() === 'retry-after')?.[1];
+  const seconds =
+    Array.isArray(retry) && /^\d{1,6}$/.test(String(retry[0])) ? String(retry[0]) : 'none';
+  return `${status} account=${accountId.slice(-8)} retry-after=${seconds} headers=${names.join(',') || 'none'}`;
+}
+
 /** Enumerates each instance once, then collects supported read-only quota observations. */
 export class QuotaCollector {
   private readonly collectionSources: readonly CollectionSource[];
@@ -523,7 +543,7 @@ export class QuotaCollector {
         let samples: QuotaSample[];
         let windows: AccountQuotaWindow[];
         let usageBody: unknown;
-        let upstreamStatus: unknown;
+        let upstream: unknown;
         try {
           const claude = account.provider === 'claude';
           const response = await this.request(source, 'requests/api-call', key, signal, {
@@ -532,7 +552,7 @@ export class QuotaCollector {
             url: claude ? CLAUDE_USAGE_URL : CODEX_USAGE_URL,
             header: claude ? CLAUDE_REQUEST_HEADERS : CODEX_REQUEST_HEADERS,
           });
-          if (isRecord(response)) upstreamStatus = response.status_code;
+          upstream = response;
           if (
             !isRecord(response) ||
             response.status_code !== 200 ||
@@ -549,9 +569,8 @@ export class QuotaCollector {
           usageBody = response.body;
         } catch {
           if (!signal.aborted) {
-            // Only the provider and a numeric status: upstream bodies and identities stay out of logs.
             console.error(
-              `Quota request failed: ${account.provider} ${typeof upstreamStatus === 'number' ? upstreamStatus : 'no-status'}`
+              `Quota request failed: ${account.provider} ${failureDetail(account.id, upstream)}`
             );
             this.addIssue(source, account.provider, 'quota-unavailable');
             this.store.markAccountError(account.id, this.now());

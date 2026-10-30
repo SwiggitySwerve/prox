@@ -99,7 +99,7 @@ export function createPoolResource(
           if (!snapshot.loading) void reload();
         }, 15_000);
         // While graphs are on screen, ask the server to collect fresh usage every minute
-        // (the server's own schedule is 5 minutes and it allows one collection per minute).
+        // (the server's own schedule is 5 minutes and it allows one collection per 4 minutes).
         publish({ nextCollectAtMs: Date.now() + 60_000 });
         collector = setInterval(() => {
           publish({ nextCollectAtMs: Date.now() + 60_000 });

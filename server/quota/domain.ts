@@ -201,9 +201,17 @@ function recordedHistory(
     const bucket = Math.floor(sample.observedAtMs / REFRESH_INTERVAL_MS);
     bucketTimes.set(bucket, Math.max(bucketTimes.get(bucket) ?? 0, sample.observedAtMs));
   }
-  const recorded = (
-    sharedTimes ? [...sharedTimes] : [...bucketTimes.values()].sort((a, b) => a - b)
-  ).map((time): PoolPoint => {
+  const times = sharedTimes ? [...sharedTimes] : [...bucketTimes.values()].sort((a, b) => a - b);
+  // No reports at all is drawn as the last balance held flat until the next report: the point
+  // 1 ms before that report repeats the previous point, and it is the only one that follows a gap.
+  if (!sharedTimes) {
+    for (let i = times.length - 1; i > 0; i--) {
+      if (times[i] - times[i - 1] > STALE_MS) times.splice(i, 0, times[i] - 1);
+    }
+  }
+  return times.map((at, index): PoolPoint => {
+    const held = index > 0 && at - times[index - 1] > STALE_MS;
+    const time = held ? times[index - 1] : at;
     const snapshots = active.map((a) =>
       scale(a.id, currentSample(histories.get(a.id)!, time)?.remainingPercent ?? null)
     );
@@ -212,24 +220,12 @@ function recordedHistory(
       return { burn: scale(a.id, measured.burn), drain: scale(a.id, measured.drain) };
     });
     return {
-      atMs: time,
+      atMs: at,
       remainingPoints: sumKnown(snapshots),
-      burnPointsPerHour: sumKnown(historicalRates.map((r) => r.burn)),
-      drainPointsPerHour: sumKnown(historicalRates.map((r) => r.drain)),
+      burnPointsPerHour: held ? null : sumKnown(historicalRates.map((r) => r.burn)),
+      drainPointsPerHour: held ? null : sumKnown(historicalRates.map((r) => r.drain)),
     };
   });
-  // Break lines across unobserved collection gaps; SVG must not connect them.
-  for (let i = sharedTimes ? 0 : recorded.length - 1; i > 0; i--) {
-    if (recorded[i].atMs - recorded[i - 1].atMs > STALE_MS) {
-      recorded.splice(i, 0, {
-        atMs: recorded[i - 1].atMs + STALE_MS,
-        remainingPoints: null,
-        burnPointsPerHour: null,
-        drainPointsPerHour: null,
-      });
-    }
-  }
-  return recorded;
 }
 
 function buildPool(
