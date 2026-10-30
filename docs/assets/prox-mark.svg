@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="144" height="144" role="img" aria-label="Prox">
+  <title>Prox</title>
+  <!-- One entry point routing requests to the Claude (orange) and Codex (blue) upstreams. -->
+  <rect width="32" height="32" rx="8" fill="#202020"/>
+  <path d="M7 16h6c4.5 0 4.5-7 10-7M13 16c4.5 0 4.5 7 10 7" fill="none" stroke="#e7e7e7" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="7" cy="16" r="2.8" fill="#e7e7e7"/>
+  <circle cx="24" cy="9" r="3.2" fill="#ed9877"/>
+  <circle cx="24" cy="23" r="3.2" fill="#83adff"/>
+  <circle r="1.6" fill="#ed9877" opacity="0">
+    <animateMotion path="M7 16h6c4.5 0 4.5-7 10-7" dur="1.6s" begin="0.4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.9;1" dur="1.6s" begin="0.4s" repeatCount="indefinite"/>
+  </circle>
+  <circle r="1.6" fill="#83adff" opacity="0">
+    <animateMotion path="M7 16h6c4.5 0 4.5 7 10 7" dur="1.6s" begin="1.2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.9;1" dur="1.6s" begin="1.2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

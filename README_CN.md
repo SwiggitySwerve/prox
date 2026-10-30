@@ -1,155 +1,146 @@
 <div align="center">
 
-<img src="./logo.jpg" alt="CLI Proxy API" width="144">
+<img src="./docs/assets/prox-mark.svg" alt="Prox" width="128">
 
-# CLI Proxy API 管理中心
+# Prox
 
-**运行状态，一目了然。服务配置，尽在掌握。**
+**一个控制台，管理你运行的所有 CLI Proxy API 实例。**
 
-为 CLI Proxy API 打造的轻量 Web 管理界面。<br>
-提供商、凭据、配额与日志，一个 HTML 文件即可管理。
+为 Claude 与 Codex 运行时提供合并额度预测、用量分析和全部管理页面——只需一个 HTML 文件。
 
-[![后端：v8](https://img.shields.io/badge/Backend-v8-5865F2?style=flat-square)](https://github.com/router-for-me/CLIProxyAPI)
-[![单文件构建](https://img.shields.io/badge/Build-single_HTML-0F766E?style=flat-square)](#部署)
-[![许可证：MIT](https://img.shields.io/badge/License-MIT-64748B?style=flat-square)](LICENSE)
+[![Backend: v8](https://img.shields.io/badge/Backend-v8-5865F2?style=flat-square)](https://github.com/router-for-me/CLIProxyAPI)
+[![Single-file build](https://img.shields.io/badge/Build-single_HTML-0F766E?style=flat-square)](#构建与部署)
+[![License: MIT](https://img.shields.io/badge/License-MIT-64748B?style=flat-square)](LICENSE)
+[![Fork of Management Center](https://img.shields.io/badge/Fork_of-Management_Center-334155?style=flat-square)](https://github.com/router-for-me/Cli-Proxy-API-Management-Center)
 
 [English](README.md) · **简体中文**
 
-[快速开始](#快速开始) · [功能一览](#功能一览) · [本地开发](#本地开发) · [下载发布版本](https://github.com/router-for-me/Cli-Proxy-API-Management-Center/releases)
+[Prox 新增功能](#prox-新增功能) · [截图](#截图) · [整体架构](#整体架构) · [构建与部署](#构建与部署) · [开发](#开发)
 
 </div>
 
 ---
 
-## 一个界面，掌握服务全貌
-
-从日常配置到故障排查，让常用操作触手可及。
-
-| 配置服务 | 接入模型 | 观察运行 |
-| --- | --- | --- |
-| 可视化或 YAML 编辑，保存前查看差异。 | 统一管理提供商密钥、认证文件与 OAuth 授权。 | 查看服务状态、提供商配额与请求日志。 |
-
-**单文件部署** · **响应式布局** · **四种界面语言**
+Prox 是 [CLI Proxy API Management Center](https://github.com/router-for-me/Cli-Proxy-API-Management-Center) 的分支。它保留上游的全部管理页面，并补充了在一个家庭实验室中运行多个 CLI Proxy API 实例时所需的功能：覆盖所有 Claude 与 Codex 账号的额度池、已保留用量的分析，以及通过各自管理源访问每个实例的统一登录。
 
 > [!IMPORTANT]
-> 需要 **CLI Proxy API ≥ 8.0.0**，推荐使用最新 v8 版本。本仓库仅包含管理界面，**不是代理本体，不参与流量转发**。仅使用 **v8 Management API**（`/v8/management`）与 v8 配置结构，不提供 v0 回退；插件资源与自定义扩展保留后端声明的路径。
+> 需要 **CLI Proxy API ≥ 8.0.0**（v8 管理 API，`/v8/management`）。Prox 是管理界面，从不转发推理流量。分析功能还需要 [CPA-Manager-Plus](https://github.com/SwiggitySwerve/CPA-Manager-Plus) 用量数据集。
 
-## 快速开始
+## Prox 新增功能
 
-[CLI Proxy API](https://github.com/router-for-me/CLIProxyAPI) 已内置 Web UI，常规使用无需单独部署前端。
-
-1. 启动 CLI Proxy API 服务。
-2. 打开 `http://<host>:<api_port>/management.html`。
-3. 输入 **管理密钥** 并连接。
-
-页面会根据当前 URL 自动识别 API 地址，也支持手动修改。
-
-> [!NOTE]
-> **管理密钥**用于登录本界面；`access.api-keys` 中的客户端密钥用于请求代理接口，两者不能混用。
-
-<details>
-<summary><strong>连接设置与远程访问</strong></summary>
-
-支持 `localhost:8317`、`https://example.com:8317` 或 `http://example.com:8317/v8/management` 等地址格式；管理接口后缀会被自动移除。
-
-管理请求使用 `Authorization: Bearer <MANAGEMENT_KEY>`。远程访问可能需要在服务端开启 `management.allow-remote: true`。完整鉴权规则与服务端限制请参考[后端文档](https://github.com/router-for-me/CLIProxyAPI)。
-
-</details>
-
-<details>
-<summary><strong>从 v7 升级</strong></summary>
-
-请先升级后端并备份 `config.yaml`。后端读取时返回 v8 配置结构，成功的 v8 配置写入会迁移磁盘文件。编辑器仅写入 v8 字段：
-
-- `access.api-keys`：访问代理的客户端密钥。
-- 顶层 `api-keys`：上游提供商分组。
-
-</details>
-
-## 功能一览
-
-| 模块 | 你可以做什么 |
+| 模块 | 功能 |
 | --- | --- |
-| **仪表盘** | 快速查看连接状态、服务版本、构建时间与可用模型概览。 |
-| **配置面板** | 可视化编辑常用设置与客户端密钥；也可使用支持搜索、高亮和保存前差异预览的 YAML 编辑器。 |
-| **AI 提供商** | 配置 Gemini、Codex、Claude、Vertex 与 OpenAI 兼容提供商，管理密钥、请求头、代理和模型映射。 |
-| **认证文件与 OAuth** | 上传、下载和整理凭据，通过 OAuth 或设备码流程连接支持的提供商，管理模型别名与排除规则。 |
-| **配额** | 查看支持的提供商的配额与使用情况，包括 Claude、Antigravity、Codex、Kimi 和 xAI/Grok 等。 |
-| **日志** | 自动刷新、搜索日志、隐藏管理端流量，以及下载请求错误日志。 |
-| **插件** | 在已声明支持插件的后端上使用插件管理功能。 |
-| **系统信息** | 检查更新、查看可用模型，以及清理本地登录数据。 |
+| **额度管理** | 将所有 Claude 与 Codex 账号合并为一个额度池，按套餐加权计点（100 点 = 一个基础套餐，例如 Claude Pro 或 ChatGPT Plus）。显示历史记录与包含计划重置的预测余量，支持每周与五小时窗口、剩余/消耗/燃烧视图、单账号窗口，以及可见的 60 秒自动刷新。 |
+| **用量分析** | 汇总各实例的已保留用量：带迷你走势图的指标卡、按独立刻度绘制请求数/Token/成本的趋势图、按提供商与模型的分解、带详情的请求记录以及已配置的模型价格。分为概览、Token 与缓存、成本、性能、请求、模型价格六个标签页。 |
+| **快速、可分享的视图** | 用胶囊按钮选择时间范围（最近 1 小时、24 小时、今天、昨天、7 天、30 天）与分桶粒度（自动、按小时、按天）。地址栏保存当前视图——例如 `#/analytics?tab=tokens&range=7d&bucket=hour`——链接可直接打开该视图；本浏览器还会记住上次的视图与侧边栏状态。7 天视图的加载时间远低于一秒。 |
+| **适配屏幕** | 从 1024 到 3440 像素宽的各种桌面尺寸下（侧边栏展开或收起），首个图表在加载时完整可见，并由浏览器测试保证。手机上卡片堆叠显示，筛选项可折叠。 |
+| **如实的数据** | Prox 只显示后端报告的数值。成本是按已配置价格估算的 API 等价金额（缓存写入按缓存写入价格计费，与 CPA-Manager-Plus 仪表盘一致），存在未知成分时标记为 *部分*。空闲时段绘制为零，未测量时段保持空缺。 |
+| **多个运行时，一次登录** | 仓库中的清单（`deploy/provider-sources.json`）列出每个实例。账号、日志与配置页面作用于所选的 **管理源**；合并页面读取全部实例。 |
 
-支持 **English、简体中文、繁體中文和 Русский**，自动识别浏览器语言，也可手动切换。响应式布局适配桌面、平板与手机，支持现代 Chrome、Firefox、Safari 和 Edge 浏览器。
+上游的全部功能均已保留：仪表盘、可视化与 YAML 配置、AI 提供商、认证文件与 OAuth、各提供商额度、日志、插件以及系统信息。界面支持 **English、简体中文、繁體中文、Русский、한국어 与 Tiếng Việt**。
 
-## 部署
+## 截图
 
-如需自行构建单文件界面，使用 **Bun 1.4.3**：
+所有截图均使用合成测试数据，绝不包含真实账号或密钥。
+
+<p align="center">
+  <img src="./docs/assets/screenshots/analytics-overview.png" alt="带有时间范围与分桶胶囊按钮、指标卡和用量趋势图的分析概览" width="900">
+</p>
+
+<p align="center"><sub><b>用量分析</b>——指标卡、用量趋势与筛选项；在 1440×900 下首个图表完整可见。</sub></p>
+
+<p align="center">
+  <img src="./docs/assets/screenshots/quota-pools.png" alt="额度管理页面显示合并的 Claude 与 Codex 额度池及历史与预测余量" width="900">
+</p>
+
+<p align="center"><sub><b>额度管理</b>——合并的 Claude 与 Codex 额度池、历史记录与预测重置。</sub></p>
+
+<table>
+  <tr>
+    <td width="72%"><img src="./docs/assets/screenshots/analytics-ultrawide.png" alt="超宽窗口中的 Token 趋势"></td>
+    <td><img src="./docs/assets/screenshots/analytics-phone.png" alt="手机上的用量分析"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>150% 缩放的 3440×1440 屏幕上的 Token 与缓存</sub></td>
+    <td align="center"><sub>手机</sub></td>
+  </tr>
+</table>
+
+## 整体架构
+
+```mermaid
+flowchart LR
+  B[浏览器] --> P["prox<br/>nginx + 单文件界面<br/>:18318"]
+  P -->|"/v8/management"| X["CLI Proxy API · Codex<br/>:8317"]
+  P -->|"/claude/v8/management"| C["CLI Proxy API · Claude<br/>:8319"]
+  P -->|"/v8/management/prox/*"| H["prox-history<br/>Bun 服务 · :18319"]
+  H --> Q[("额度快照<br/>SQLite")]
+  H -->|"分析查询"| M["CPA-Manager-Plus<br/>:18317"]
+  H -.->|"读取额度"| X & C
+```
+
+- **`prox`** 提供界面，并把每个管理源路由到对应实例。管理密钥由浏览器发送；nginx 从不注入密钥。
+- **`prox-history`** 记录额度快照用于合并预测，并把受限的分析查询转发给 CPA-Manager-Plus；Token 统计、定价与延迟数据由后者负责。
+- 密钥保存在挂载进容器的仅服务器可读文件中，从不进入 Git 或打包产物。
+
+## 构建与部署
+
+使用 **Bun 1.4.3**（已在 `package.json` 中固定）：
 
 ```bash
 bun install --frozen-lockfile
 bun run build
 ```
 
-产物为 **`dist/index.html`**，JavaScript、CSS 与打包资源均已内联。发布工作流会将其重命名为 `management.html`，供后端托管。
+构建产物为 **`dist/index.html`**（完整界面，JavaScript 与 CSS 均已内联）和 **`dist/server.js`**（`prox-history` 服务）。构建还会检查生成的 nginx 路由与公开源列表是否与 `deploy/provider-sources.json` 一致；修改清单后请运行 `bun run sources:generate`。
 
-使用 `bun run preview` 本地预览。建议通过 HTTP 服务访问，直接用 `file://` 打开可能受到浏览器 CORS 限制。
+家庭实验室部署——无根 Podman 用户服务、端口、路由、Authentik 以及如何连接各运行时——请参见 [docs/PROX-SETUP.md](docs/PROX-SETUP.md)。提供商归属与凭据恢复请参见 [docs/PROVIDER-OWNERSHIP.md](docs/PROVIDER-OWNERSHIP.md)。
 
 <details>
-<summary><strong>发布细节</strong></summary>
+<summary><strong>作为普通 Management Center 使用</strong></summary>
 
-- `vX.Y.Z` 格式的标签会触发[发布工作流](.github/workflows/release.yml)。
-- UI 版本在构建时注入，依次取自 `VERSION`、git tag、package 版本，最终回退为 `dev`。
-- 使用 Hash 路由与 ES2020 构建目标，保持部署简单。
+`dist/index.html` 也可以像上游的 `management.html` 一样单独使用：部署后打开页面，输入实例地址和 **管理密钥** 即可。需要 `prox-history` 的页面（合并额度、用量分析）会提示不可用，而不是静默失败。
 
 </details>
 
-## 本地开发
+## 开发
 
 ```bash
 bun install --frozen-lockfile
 bun run dev
 ```
 
-打开 `http://localhost:5173`，连接你的后端实例。
+打开 `http://localhost:5173` 并连接后端。
 
-**技术栈**：React 19 · TypeScript 6 · Vite 8 · Zustand · Axios · React Router 7 · Motion · CodeMirror 6 · SCSS Modules · i18next。
+**技术栈** React 19 · TypeScript 6 · Vite 8 · Bun · Zustand · React Router 7 · Motion · CodeMirror 6 · SCSS Modules · i18next。
 
 | 命令 | 用途 |
 | --- | --- |
 | `bun run dev` | 启动 Vite 开发服务器 |
-| `bun run build` | TypeScript 编译与生产构建 |
-| `bun run preview` | 本地预览构建产物 |
-| `bun run test` | 运行 Bun 测试 |
-| `bun run lint` | 运行 ESLint，警告不视为失败 |
-| `bun run type-check` | 运行 `tsc --noEmit` |
-| `bun run verify` | 运行测试、lint 与构建 |
-| `bun run format` | 使用 Prettier 格式化源文件 |
+| `bun run build` | 类型检查，构建界面与 history 服务 |
+| `bun run test` | 运行 Bun 单元测试 |
+| `bun run lint` | 运行 ESLint；警告不视为失败 |
+| `bun run verify` | 测试、Lint 与构建——每个 PR 前运行 |
+| `bun run test:ui:analytics` | Playwright 浏览器测试：分析功能行为、16 种窗口尺寸的布局、触控目标 |
+| `bun run sources:generate` | 根据源清单重新生成 nginx 路由与公开发现文件 |
 
-欢迎提交 Issue 与 PR。请附上复现步骤、后端与 UI 版本、界面改动截图和验证结果。仓库约定见 [AGENTS.md](AGENTS.md)。
+视觉评审使用 `scripts/visual/` 中可重复运行的截图脚本，并测量对比度、目标尺寸与溢出；结果保存在 `docs/evidence/`。仓库约定请参见 [AGENTS.md](AGENTS.md)。
 
-## 安全提示
+## 安全
 
-请妥善保管管理密钥。启用 **记住密码** 后，密钥会以可逆混淆形式保存在浏览器存储中，**这不是加密**。
+- 请将管理密钥视为机密。启用 **记住密码** 后，密钥会以可逆混淆方式保存在浏览器存储中——**并非加密**。请使用可信设备或专用浏览器配置文件。
+- 分析授权可读取完整的已配置用量数据集；它面向单管理员的家庭实验室，不适用于共享或多租户访问。
+- 公开暴露 Prox 时，除管理密钥外还应放在认证网关之后（家庭实验室使用 Authentik）。
 
-建议使用可信设备或独立浏览器配置。开启远程管理前，请评估服务的暴露范围。
-
-## 常见问题
-
-<details>
-<summary><strong>连接或鉴权失败</strong></summary>
-
-- **无法连接 / 401**：检查 API 地址与管理密钥；远程连接可能需要服务端开启远程管理。
-- **反复鉴权失败**：服务端可能临时封禁远程 IP。
-
-</details>
+## 故障排查
 
 <details>
-<summary><strong>页面缺失、功能不支持或测试失败</strong></summary>
+<summary><strong>无法连接、额度或分析不可用</strong></summary>
 
-- **日志页面不显示**：请在基础设置中开启“写入日志文件”。
-- **功能提示不支持**：检查后端版本与相关接口是否启用，部分能力依赖后端支持。
-- **无法获取模型列表**：查询 `/v1/models` 至少需要一个代理 API Key。
-- **OpenAI 提供商测试失败**：测试在浏览器侧执行，受提供商网络可达性与 CORS 策略影响；失败不一定代表后端无法连接。
+- **无法连接 / 401：** 检查地址与管理密钥。远程连接可能需要在实例上设置 `management.allow-remote: true`。
+- **合并额度或用量分析不可用：** 检查 `systemctl --user status prox-history`。用量分析还需要该服务能够访问 CPA-Manager-Plus。
+- **模型列表不可用：** `/v1/models` 需要 `access.api-keys` 中至少有一个客户端 API 密钥。
+- **日志页面缺失：** 在基础设置中启用“记录日志到文件”。
 
 </details>
 
@@ -157,6 +148,6 @@ bun run dev
 
 <div align="center">
 
-[CLI Proxy API](https://github.com/router-for-me/CLIProxyAPI) · [反馈问题](https://github.com/router-for-me/Cli-Proxy-API-Management-Center/issues) · [MIT 许可证](LICENSE)
+[CLI Proxy API Management Center](https://github.com/router-for-me/Cli-Proxy-API-Management-Center)（Router-For.ME）的分支 · [CLI Proxy API](https://github.com/router-for-me/CLIProxyAPI) · [报告问题](https://github.com/SwiggitySwerve/prox/issues) · [MIT 许可证](LICENSE)
 
 </div>
