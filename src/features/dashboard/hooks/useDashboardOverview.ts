@@ -6,6 +6,8 @@ import { useProviderSource } from '@/features/providers/ProviderSourceContext';
 import { useAuthStore } from '@/stores';
 import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
 import { useProviderRecentRequests } from '@/components/providers/hooks/useProviderRecentRequests';
+import { PROVIDER_RECENT_REQUESTS_STALE_TIME_MS } from '@/components/providers/recentRequests';
+import { useInterval } from '@/hooks/useInterval';
 import {
   mergeRecentRequestBucketGroups,
   normalizeRecentRequestUsageEntry,
@@ -224,6 +226,15 @@ export function useDashboardOverview() {
     void loadAnalytics();
     return () => analyticsController.current?.abort();
   }, [loadAnalytics]);
+
+  // The counters poll on this cadence; without it the analytics numbers (and window) would
+  // freeze until a manual refresh, because the provider set rarely changes.
+  useInterval(
+    () => {
+      void loadAnalytics();
+    },
+    connected && analyticsKey ? PROVIDER_RECENT_REQUESTS_STALE_TIME_MS : null
+  );
 
   const refresh = useCallback(async () => {
     if (!connected) return;

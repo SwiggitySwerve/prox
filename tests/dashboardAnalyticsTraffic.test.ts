@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import type { AnalyticsResponse } from '../src/domain/analytics/types';
 import {
   analyticsUsable,
@@ -106,5 +107,13 @@ describe('when analytics may be used', () => {
     ).toBe(false);
     expect(analyticsUsable(['claude', 'codex'], new Map([['claude', ok]]))).toBe(false);
     expect(analyticsUsable([], new Map())).toBe(false);
+  });
+});
+
+describe('analytics numbers stay current', () => {
+  test('polls on the same cadence as the counters, not only when the provider set changes', () => {
+    const source = readFileSync('src/features/dashboard/hooks/useDashboardOverview.ts', 'utf8');
+    expect(source).toContain('PROVIDER_RECENT_REQUESTS_STALE_TIME_MS');
+    expect(source).toMatch(/useInterval\(\s*\(\) => \{\s*void loadAnalytics\(\)/);
   });
 });
