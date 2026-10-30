@@ -240,11 +240,20 @@ describe('dashboard evidence and privacy', () => {
     expect('windows' in result).toBe(false);
     expect(dashboard([account()], [sample(now, 50)]).pools[0].accounts[0].windows).toEqual([]);
   });
-  test('recorded histories break across outages', () => {
+  test('recorded histories hold the last balance flat across a stretch with no reports', () => {
     const recorded = dashboard([account()], [sample(now - HOUR_MS, 80), sample(now, 50)]).pools[0]
       .recorded;
-    expect(recorded).toHaveLength(3);
-    expect(recorded[1].remainingPoints).toBeNull();
+    expect(recorded.map((p) => [p.atMs, p.remainingPoints])).toEqual([
+      [now - HOUR_MS, 80],
+      [now - 1, 80],
+      [now, 50],
+    ]);
+    expect(recorded[1].burnPointsPerHour).toBeNull();
+  });
+  test('an explicit missing observation is not held across the gap after it', () => {
+    const samples = [sample(now - HOUR_MS, 0, { remainingPercent: null }), sample(now, 50)];
+    const recorded = dashboard([account()], samples).pools[0].recorded;
+    expect(recorded.map((p) => p.remainingPoints)).toEqual([null, null, 50]);
   });
   test('future scenarios scale predictions without changing recorded balances or rates', () => {
     const samples = [sample(now - 600_000, 60), sample(now, 50)];
