@@ -254,7 +254,11 @@ function buildPool(
     const sample = currentSample(history, nowMs);
     const status: PoolAccount['status'] = account.disabled
       ? 'disabled'
-      : account.lastErrorAtMs !== null && (!latest || account.lastErrorAtMs >= latest.observedAtMs)
+      : // One failed poll must not hide a sample that is still fresh.
+        account.lastErrorAtMs !== null &&
+          (!latest ||
+            (account.lastErrorAtMs >= latest.observedAtMs &&
+              nowMs - latest.observedAtMs > STALE_MS))
         ? 'error'
         : nowMs - account.lastSeenAtMs > STALE_MS ||
             (latest && nowMs - latest.observedAtMs > STALE_MS)

@@ -201,9 +201,21 @@ describe('dashboard evidence and privacy', () => {
     const samples = [sample(now - 600_000, 60), sample(now, 50)];
     expect(dashboard([account()], samples).pools[0].forecastState).toBe('ready');
     expect(dashboard([account(), account('missing')], samples).pools[0].projected).toEqual([]);
-    expect(
-      dashboard([account('a', { lastErrorAtMs: now })], samples).pools[0].remainingPoints
-    ).toBeNull();
+  });
+  test('a failed poll does not hide a sample that is still fresh', () => {
+    const samples = [sample(now - 720_000, 60), sample(now - 120_000, 50)];
+    const pool = dashboard([account('a', { lastErrorAtMs: now })], samples).pools[0];
+    expect(pool.accounts[0].status).toBe('ok');
+    expect(pool.forecastState).toBe('ready');
+    expect(pool.remainingPoints).toBe(50);
+  });
+  test('failed polls count once the latest sample is stale or absent', () => {
+    const stale = [sample(now - STALE_MS - 1, 50)];
+    for (const samples of [stale, []]) {
+      const pool = dashboard([account('a', { lastErrorAtMs: now })], samples).pools[0];
+      expect(pool.accounts[0].status).toBe('error');
+      expect(pool.remainingPoints).toBeNull();
+    }
   });
   test('inventory failure preserves uncertainty even when previous quota samples are current', () => {
     const result = buildDashboard([account()], [sample(now, 50)], options, {
