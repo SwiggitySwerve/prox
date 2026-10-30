@@ -46,6 +46,8 @@ credential UI. The store owns persistence; the collector uses only public APIs.
 - Missing, expired, errored or older-than-15-minute samples are unknown, not 0.
   A successful response without a general window records an explicit missing
   observation, immediately superseding that window's previous balance.
+  A failed poll marks an account errored only once its latest sample is older than
+  15 minutes (or it has none); one failed poll never hides a still-fresh sample.
   Disabled/retired accounts are excluded. A failed inventory cannot look like
   an empty healthy provider. History describes the current eligible membership.
 - Burn is measured depletion per hour within matching reset cycles, excluding

@@ -523,6 +523,7 @@ export class QuotaCollector {
         let samples: QuotaSample[];
         let windows: AccountQuotaWindow[];
         let usageBody: unknown;
+        let upstreamStatus: unknown;
         try {
           const claude = account.provider === 'claude';
           const response = await this.request(source, 'requests/api-call', key, signal, {
@@ -531,6 +532,7 @@ export class QuotaCollector {
             url: claude ? CLAUDE_USAGE_URL : CODEX_USAGE_URL,
             header: claude ? CLAUDE_REQUEST_HEADERS : CODEX_REQUEST_HEADERS,
           });
+          if (isRecord(response)) upstreamStatus = response.status_code;
           if (
             !isRecord(response) ||
             response.status_code !== 200 ||
@@ -547,6 +549,10 @@ export class QuotaCollector {
           usageBody = response.body;
         } catch {
           if (!signal.aborted) {
+            // Only the provider and a numeric status: upstream bodies and identities stay out of logs.
+            console.error(
+              `Quota request failed: ${account.provider} ${typeof upstreamStatus === 'number' ? upstreamStatus : 'no-status'}`
+            );
             this.addIssue(source, account.provider, 'quota-unavailable');
             this.store.markAccountError(account.id, this.now());
           }

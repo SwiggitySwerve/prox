@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -352,6 +352,19 @@ describe('enumerated quota sources', () => {
     ]);
     expect(f.collector.issues.some((issue) => issue.instanceId === 'source-c')).toBe(false);
     expect(f.store.listSamples(NOW, NOW + MANUAL_REFRESH_INTERVAL_MS)).toHaveLength(12);
+  });
+
+  test('failed quota polls log the provider and numeric status, never the upstream body', async () => {
+    const f = fixture();
+    await f.collector.refresh();
+    f.quotaFailures.add('source-a');
+    f.advance();
+    const logged = spyOn(console, 'error').mockImplementation(() => {});
+    await f.collector.refresh();
+    const lines = logged.mock.calls.map((call) => call.join(' '));
+    logged.mockRestore();
+    expect(lines).toContain('Quota request failed: claude 429');
+    expect(lines.join('\n')).not.toContain(SENTINEL);
   });
 
   test('HTTP exposes source pools and first-inventory failures without leaking configuration', async () => {
