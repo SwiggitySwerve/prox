@@ -43,6 +43,16 @@ export function bucketsToMinutes(bucketCount: number): number {
   return bucketCount * TRAFFIC_BUCKET_MINUTES;
 }
 
+/** 桶长度的本地化名称，如 "10 minutes" / "1 hour"，供文案插值 */
+export function formatBucketLength(minutes: number, locale: string): string {
+  const wholeHours = minutes % 60 === 0;
+  return new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: wholeHours ? 'hour' : 'minute',
+    unitDisplay: 'long',
+  }).format(wholeHours ? minutes / 60 : minutes);
+}
+
 export type MeterTone = 'good' | 'warning' | 'critical' | 'idle';
 
 /** 成功率 → 严重度。数值本身始终可见，颜色只是辅助通道。 */

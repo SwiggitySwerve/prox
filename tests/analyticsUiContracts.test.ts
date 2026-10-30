@@ -139,6 +139,11 @@ describe('Analytics query and transport contracts', () => {
     expect(reload).toContain('to_ms: interval.to_ms');
     expect(reload).toContain('setPages([');
   });
+  test('the top-right refresh button runs the same reload as the page button', () => {
+    const source = read('src/features/analytics/AnalyticsPage.tsx');
+    expect(source).toContain("import { useHeaderRefresh } from '@/hooks/useHeaderRefresh'");
+    expect(source).toContain('useHeaderRefresh(reload)');
+  });
 });
 
 describe('Analytics remembered view', () => {

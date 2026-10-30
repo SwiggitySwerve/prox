@@ -22,7 +22,13 @@ import { Meter } from './components/Meter';
 import { Sparkline } from './components/Sparkline';
 import { ThroughputChart } from './components/ThroughputChart';
 import { useCountUp, useRevealGroup, useRevealOnScroll } from '@/hooks/motion';
-import { providerLabel, splitWindowMinutes, toneForSuccessRate, type MeterTone } from './utils';
+import {
+  formatBucketLength,
+  providerLabel,
+  splitWindowMinutes,
+  toneForSuccessRate,
+  type MeterTone,
+} from './utils';
 import styles from './dashboard.module.scss';
 
 const DASH = '—';
@@ -95,6 +101,8 @@ function SourceDashboard() {
     if (minutes === 0) return t('dashboard.window_h', { hours });
     return t('dashboard.window_hm', { hours, minutes });
   }, [traffic.windowMinutes, t]);
+
+  const bucketLabel = formatBucketLength(traffic.bucketMinutes, i18n.language);
 
   const heroSparkPoints = useMemo(
     () => traffic.buckets.map((bucket) => bucket.success + bucket.failed),
@@ -303,7 +311,7 @@ function SourceDashboard() {
             {connected ? formatHeadline(animatedTotal) : DASH}
           </strong>
           <span className={styles.heroPanelMeta}>
-            {t('dashboard.hero_window_meta', { window: windowLabel })}
+            {t('dashboard.hero_window_meta', { window: windowLabel, bucket: bucketLabel })}
           </span>
           {traffic.total > 0 && (
             <div className={styles.ratioBar} aria-hidden="true">
@@ -377,7 +385,7 @@ function SourceDashboard() {
           <span className={styles.eyebrow}>{t('dashboard.traffic_eyebrow')}</span>
           <h2 className={styles.sectionTitle}>{t('dashboard.traffic_title')}</h2>
           <p className={styles.sectionDescription}>
-            {t('dashboard.traffic_description', { window: windowLabel })}
+            {t('dashboard.traffic_description', { window: windowLabel, bucket: bucketLabel })}
           </p>
         </header>
         <div className={styles.panel}>

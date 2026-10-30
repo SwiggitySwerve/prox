@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createAnalyticsApi } from '@/services/api/analytics';
+import { apiClient } from '@/services/api/client';
 import { createAuthFilesApi } from '@/services/api/authFiles';
 import { useProviderSource } from '@/features/providers/ProviderSourceContext';
 import { useAuthStore } from '@/stores';
@@ -9,8 +11,10 @@ import {
   normalizeRecentRequestUsageEntry,
   type RecentRequestBucket,
 } from '@/utils/recentRequests';
+import type { AnalyticsResponse } from '@/domain/analytics/types';
 import type { Config } from '@/types';
 import type { AuthFileItem } from '@/types/authFile';
+import { analyticsUsable, analyticsWindow, trafficFromAnalytics } from '../analyticsTraffic';
 import {
   TRAFFIC_BUCKET_MINUTES,
   type CredentialHealth,
@@ -28,6 +32,7 @@ const EMPTY_TRAFFIC: TrafficWindow = {
   peakTotal: 0,
   peakIndex: -1,
   windowMinutes: 0,
+  bucketMinutes: TRAFFIC_BUCKET_MINUTES,
 };
 
 /** `api-key-usage` 的键形如 `<baseUrl>|<apiKey>`，取第一个分隔符之后的部分 */
@@ -75,6 +80,7 @@ const buildTrafficWindow = (bucketGroups: RecentRequestBucket[][]): TrafficWindo
     peakTotal,
     peakIndex,
     windowMinutes: buckets.length * TRAFFIC_BUCKET_MINUTES,
+    bucketMinutes: TRAFFIC_BUCKET_MINUTES,
   };
 };
 
@@ -109,6 +115,10 @@ export const getProviderKeyCounts = (config: Config) => ({
  * 流量数据有两个互不重叠的来源：`api-key-usage`（配置内联的 API Key 凭证）
  * 与 `auth-files`（文件/运行时凭证）。后端对二者的判定条件互斥，但插件提供的
  * 凭证理论上可同时命中，因此这里按 `account_type` + `account` 做一次防御性去重。
+ *
+ * 这两个来源只是内存中的最近计数（约 200 分钟的桶 + 进程重启即清零的累计值），
+ * 所以只要分析数据（保留的用量事件）对本来源的每个供应商都完整可用，
+ * 流量与供应商数字就改用最近 24 小时的分析数据；否则退回上述计数。
  */
 export function useDashboardOverview() {
   const scope = useProviderSource();
@@ -162,6 +172,59 @@ export function useDashboardOverview() {
     void loadModels();
   }, [connected, fetchConfig, loadAuthFiles, loadModels]);
 
+  // Analytics answers per provider (it has no instance filter); this source's providers are
+  // the ones its own credentials and API keys belong to.
+  const analyticsKey = useMemo(() => {
+    const ids = new Set(usageByProvider.keys());
+    (authFiles ?? []).forEach((file) => ids.add(providerIdOfAuthFile(file)));
+    return ids.has('unknown') ? '' : [...ids].sort().join(',');
+  }, [usageByProvider, authFiles]);
+  const [analytics, setAnalytics] = useState<{
+    key: string;
+    window: ReturnType<typeof analyticsWindow>;
+    responses: Map<string, AnalyticsResponse>;
+  } | null>(null);
+  const analyticsController = useRef<AbortController | undefined>(undefined);
+
+  const loadAnalytics = useCallback(async () => {
+    if (!connected || !analyticsKey) return;
+    analyticsController.current?.abort();
+    const controller = new AbortController();
+    analyticsController.current = controller;
+    const revision = apiClient.getConnectionRevision();
+    const window = analyticsWindow(Date.now());
+    const api = createAnalyticsApi();
+    try {
+      const entries = await Promise.all(
+        analyticsKey.split(',').map(async (provider) => {
+          const response = await api.query(
+            {
+              ...window,
+              time_zone: 'UTC',
+              granularity: 'hour',
+              provider,
+              outcome: 'all',
+              limit: 1,
+            },
+            controller.signal
+          );
+          return [provider, response] as const;
+        })
+      );
+      scope.assertCurrent();
+      if (controller.signal.aborted || apiClient.getConnectionRevision() !== revision) return;
+      setAnalytics({ key: analyticsKey, window, responses: new Map(entries) });
+    } catch {
+      // Unsupported or unavailable analytics must not hide the counters below.
+      if (!controller.signal.aborted) setAnalytics(null);
+    }
+  }, [connected, analyticsKey, scope]);
+
+  useEffect(() => {
+    void loadAnalytics();
+    return () => analyticsController.current?.abort();
+  }, [loadAnalytics]);
+
   const refresh = useCallback(async () => {
     if (!connected) return;
     await Promise.allSettled([
@@ -169,12 +232,13 @@ export function useDashboardOverview() {
       loadAuthFiles(),
       loadModels(),
       refreshRecentRequests(),
+      loadAnalytics(),
     ]);
-  }, [connected, fetchConfig, loadAuthFiles, loadModels, refreshRecentRequests]);
+  }, [connected, fetchConfig, loadAuthFiles, loadModels, refreshRecentRequests, loadAnalytics]);
 
   const providerKeyCounts = useMemo(() => (config ? getProviderKeyCounts(config) : null), [config]);
 
-  const { traffic, providers } = useMemo(() => {
+  const recent = useMemo(() => {
     const accumulators = new Map<string, ProviderAccumulator>();
     const allBucketGroups: RecentRequestBucket[][] = [];
     const apiKeysFromUsage = new Set<string>();
@@ -247,6 +311,28 @@ export function useDashboardOverview() {
       providers: providerRows,
     };
   }, [usageByProvider, authFiles]);
+
+  const fromAnalytics = useMemo(
+    () =>
+      analytics?.key === analyticsKey &&
+      analyticsUsable(analyticsKey.split(','), analytics.responses)
+        ? trafficFromAnalytics(analytics.window, analytics.responses)
+        : null,
+    [analytics, analyticsKey]
+  );
+  const traffic = fromAnalytics?.traffic ?? recent.traffic;
+  const providers = useMemo(
+    () =>
+      fromAnalytics
+        ? recent.providers
+            .map((row) => ({ ...row, ...fromAnalytics.providers.get(row.id) }))
+            .sort(
+              (a, b) =>
+                b.total - a.total || b.credentials - a.credentials || a.id.localeCompare(b.id)
+            )
+        : recent.providers,
+    [fromAnalytics, recent.providers]
+  );
 
   const credentials = useMemo<CredentialHealth | null>(() => {
     if (!authFiles) return null;

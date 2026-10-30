@@ -3,6 +3,7 @@ import { formatCompactNumber, formatPercent } from '../src/utils/format';
 import { getProviderKeyCounts } from '../src/features/dashboard/hooks/useDashboardOverview';
 import {
   axisMax,
+  formatBucketLength,
   niceCeil,
   providerLabel,
   splitWindowMinutes,
@@ -133,5 +134,14 @@ describe('providerLabel', () => {
     expect(providerLabel('somenewbrand', 'Unattributed')).toBe('Somenewbrand');
     expect(providerLabel('unknown', 'Unattributed')).toBe('Unattributed');
     expect(providerLabel('', 'Unattributed')).toBe('Unattributed');
+  });
+});
+
+describe('formatBucketLength', () => {
+  test('names minute and hour buckets in the reader language', () => {
+    expect(formatBucketLength(10, 'en')).toBe('10 minutes');
+    expect(formatBucketLength(60, 'en')).toBe('1 hour');
+    expect(formatBucketLength(120, 'en')).toBe('2 hours');
+    expect(formatBucketLength(60, 'ko')).toBe('1시간');
   });
 });
