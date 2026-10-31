@@ -32,6 +32,12 @@ export class AnalyticsHarness {
   errors: string[] = [];
   pending: Array<() => void> = [];
   hold = false;
+  /** Credentials the Dashboard sees; empty by default. */
+  credentials: Array<Record<string, unknown>> = [];
+  /** Answer analytics as a complete retained ledger (the Dashboard only uses those). */
+  rawComplete = false;
+  /** Pages that use the source registry (Dashboard) need discovery the validator accepts. */
+  validDiscovery = false;
   constructor(readonly page: Page) {}
 
   async install() {
@@ -54,6 +60,7 @@ export class AnalyticsHarness {
         this.queries.push(query);
         // Capture the response at dispatch, so delayed responses exercise real stale-data guards.
         const response = analyticsScenario(this.scenario, query);
+        if (this.rawComplete) response.coverage.raw_complete = true;
         const status = this.status;
         if (this.hold) await new Promise<void>((resolve) => this.pending.push(resolve));
         if (status !== 200) return reply({ error: 'Synthetic analytics failure' }, status);
@@ -63,15 +70,18 @@ export class AnalyticsHarness {
           this.settled++;
         }
       }
-      if (url.pathname === '/prox/sources.json') return reply(discovery);
+      if (url.pathname === '/prox/sources.json')
+        return reply(this.validDiscovery ? { ...discovery, revision: 'a'.repeat(64) } : discovery);
       const path = url.pathname.replace(/^\/v8\/management/, '');
       if (request.method() === 'GET') {
         if (path === '/config') return reply(config);
         if (path === '/prox/pools') return reply({ error: 'Synthetic pool not collected' }, 503);
         if (path === '/auth-files') return reply({ files: [] });
+        if (path === '/credentials') return reply({ files: this.credentials });
         if (path === '/config/access/api-keys') return reply(['synthetic-client-key']);
         if (path === '/usage') return reply({ usage: { total_requests: 0, apis: {} } });
         if (path === '/api-key-usage') return reply({});
+        if (path === '/observability/usage/api-keys') return reply({});
         if (url.pathname === '/v1/models') return reply({ data: [] });
       }
       if (

@@ -474,7 +474,6 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-tertiary);
-
 }
 
 .sectionTitle {
@@ -599,6 +598,17 @@
   font-weight: 600;
   color: var(--text-primary);
   @include text-ellipsis;
+
+  // The name opens the matching Analytics view when the numbers come from analytics.
+  &:is(a) {
+    text-decoration: none;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
 }
 
 .fleetMeta {

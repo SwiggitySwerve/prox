@@ -16,7 +16,12 @@ import {
 import type { AnalyticsResponse } from '@/domain/analytics/types';
 import type { Config } from '@/types';
 import type { AuthFileItem } from '@/types/authFile';
-import { analyticsUsable, analyticsWindow, trafficFromAnalytics } from '../analyticsTraffic';
+import {
+  analyticsUsable,
+  analyticsWindow,
+  dashboardAnalyticsQuery,
+  trafficFromAnalytics,
+} from '../analyticsTraffic';
 import {
   TRAFFIC_BUCKET_MINUTES,
   type CredentialHealth,
@@ -194,20 +199,14 @@ export function useDashboardOverview() {
     const controller = new AbortController();
     analyticsController.current = controller;
     const revision = apiClient.getConnectionRevision();
-    const window = analyticsWindow(Date.now());
+    const now = Date.now();
+    const window = analyticsWindow(now);
     const api = createAnalyticsApi();
     try {
       const entries = await Promise.all(
         analyticsKey.split(',').map(async (provider) => {
           const response = await api.query(
-            {
-              ...window,
-              time_zone: 'UTC',
-              granularity: 'hour',
-              provider,
-              outcome: 'all',
-              limit: 1,
-            },
+            dashboardAnalyticsQuery(now, provider),
             controller.signal
           );
           return [provider, response] as const;
@@ -392,6 +391,7 @@ export function useDashboardOverview() {
     counts,
     providerKeyCounts,
     traffic,
+    trafficSource: fromAnalytics ? ('analytics' as const) : ('recent' as const),
     providers,
     credentials,
     refresh,

@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import i18n from '../src/i18n';
 import { apiClient } from '../src/services/api/client';
 import { createAnalyticsApi } from '../src/services/api/analytics';
+import { addressProvider, startingFilters } from '../src/features/analytics/queryState';
 import { ApiClient } from '../src/services/api/transport';
 import { AnalyticsPage } from '../src/features/analytics/AnalyticsPage';
 import { AnalyticsChart } from '../src/features/analytics/AnalyticsChart';
@@ -587,5 +588,28 @@ describe('Analytics SSR presentation', () => {
       }
     }
     for (const tab of analyticsTabs) expect(dictionaries[0][`tabs.${tab}`]).toBeTruthy();
+  });
+});
+
+describe('Analytics address provider', () => {
+  const saved = { provider: 'codex', model: 'm', outcome: 'failed' as const, search: 's' };
+  test('a provider in the address starts a fresh view, so remembered filters cannot narrow it', () => {
+    expect(startingFilters('claude', saved)).toEqual({
+      provider: 'claude',
+      model: undefined,
+      outcome: 'all',
+      search: undefined,
+    });
+  });
+  test('without one, the remembered filters are restored', () => {
+    expect(startingFilters(undefined, saved)).toEqual(saved);
+    expect(startingFilters(undefined, {})).toMatchObject({ outcome: 'all' });
+  });
+  test('only a short non-empty value is taken from the address', () => {
+    expect(addressProvider(' claude ')).toBe('claude');
+    expect(addressProvider('')).toBeUndefined();
+    expect(addressProvider('   ')).toBeUndefined();
+    expect(addressProvider(null)).toBeUndefined();
+    expect(addressProvider('x'.repeat(201))).toBeUndefined();
   });
 });
