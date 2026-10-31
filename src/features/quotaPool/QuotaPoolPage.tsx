@@ -351,6 +351,7 @@ export function QuotaPoolPage() {
           provider={provider}
           mode={mode}
           savedData={state.error || state.refreshError}
+          reveal={query.reveal}
           onRefresh={() => void refresh()}
         />
       )}
@@ -364,7 +365,6 @@ export function QuotaPoolPage() {
               mode={mode}
               reveal={query.reveal}
               savedData={state.error || state.refreshError}
-              onRefresh={() => void refresh()}
               move={
                 provider === 'all' && shown.length > 1
                   ? {

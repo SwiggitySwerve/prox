@@ -29,7 +29,6 @@ export function PoolCard({
   reveal,
   savedData = false,
   move,
-  onRefresh,
 }: {
   pool: QuotaPool;
   dashboard: PoolDashboard;
@@ -38,8 +37,6 @@ export function PoolCard({
   savedData?: boolean;
   /** Reorder controls; a missing direction is shown disabled. */
   move?: { up?: () => void; down?: () => void };
-  /** Offered beside a partial or stale notice, so the reader can act on it. */
-  onRefresh?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -245,10 +242,7 @@ export function PoolCard({
               </p>
               {mode === 'remaining' && (
                 <span>
-                  {t(
-                    `quota_pool.${pool[metricField[mode]] === null ? 'capacity_total' : 'of_capacity'}`,
-                    { capacity: number(pool.capacityPoints) }
-                  )}
+                  {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
                 </span>
               )}
             </div>
@@ -308,12 +302,8 @@ export function PoolCard({
       {/* Why the forecast or total is limited, across the card under its summary. */}
       {pool.forecastState !== 'ready' && (
         <p className={styles.stateNote} role="status" data-state={pool.forecastState}>
+          {/* The page's one "Refresh now" sits in the combined card's notice above. */}
           <span>{stateNote}</span>
-          {onRefresh && (pool.forecastState === 'partial' || pool.forecastState === 'stale') && (
-            <button type="button" className={styles.noteAction} onClick={onRefresh}>
-              {t('quota_pool.refresh_now')}
-            </button>
-          )}
         </p>
       )}
       <PoolGraph title={t('quota_pool.history_forecast')} id={`${id}-plot`} minimized={minimized}>

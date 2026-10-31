@@ -996,7 +996,7 @@ describe('pool presentation', () => {
     expect(markup).toContain('1 of 2 have a 5-hour limit');
     expect(markup).not.toContain('loaded ·');
   });
-  test('a partial pool names the accounts missing data and offers a refresh', async () => {
+  test('a partial pool names the accounts missing data; the combined card offers one refresh', async () => {
     await i18n.changeLanguage('en');
     const missing = {
       ...pool.accounts[0],
@@ -1005,24 +1005,42 @@ describe('pool presentation', () => {
       status: 'error' as const,
       remainingPercent: null,
     };
-    let refreshed = 0;
+    const partial = {
+      ...pool,
+      forecastState: 'partial' as const,
+      remainingPoints: null,
+      accounts: [pool.accounts[0], missing],
+    };
     const markup = renderToStaticMarkup(
-      createElement(PoolCard, {
-        pool: { ...pool, accounts: [pool.accounts[0], missing] },
-        dashboard,
-        mode: 'remaining',
-        reveal: false,
-        onRefresh: () => {
-          refreshed += 1;
-        },
-      })
+      createElement(PoolCard, { pool: partial, dashboard, mode: 'remaining', reveal: false })
     );
     expect(markup).toContain('No current quota data from gra•••er@ex•••.test.');
-    expect(markup).toContain('>Refresh now</button>');
+    // The page has one "Refresh now", on the combined card; pool notices only name the cause.
+    expect(markup).not.toContain('Refresh now');
     // The forecast is withheld: its dash-only stats are not shown, Next reset stays.
     expect(markup).not.toContain('Pool empty');
     expect(markup).toContain('Next reset');
-    expect(refreshed).toBe(0);
+    const combined = renderToStaticMarkup(
+      createElement(CombinedPoolCard, {
+        pools: [partial],
+        dashboard: {
+          ...dashboard,
+          combined: {
+            all: {
+              series: partial,
+              layers: [{ ...partial, provider: 'claude' }],
+              unavailableReason: null,
+            },
+          },
+        },
+        provider: 'all',
+        mode: 'remaining',
+        savedData: false,
+        onRefresh: () => {},
+      })
+    );
+    expect(combined).toContain('No current quota data from gra•••er@ex•••.test.');
+    expect(combined.match(/Refresh now/g)).toHaveLength(1);
   });
   test('stale accounts are counted as stale, not as missing', async () => {
     await i18n.changeLanguage('en');

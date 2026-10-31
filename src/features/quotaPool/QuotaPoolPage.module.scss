@@ -775,14 +775,17 @@ $pool-error: #ff5252;
   &[data-status='stale'] strong small {
     color: var(--warning-text);
   }
-  // A stale reading is still shown, in secondary text, so it doesn't pass for a current one.
-  // Bars keep full strength: meaningful graphics need 3:1.
-  &[data-status='stale'] strong,
-  &[data-status='stale'] .limits strong {
-    color: var(--text-secondary);
+  // A stale reading is still shown, in muted text, so it doesn't pass for a current one.
+  // Low values stay red, and bars keep full strength: meaningful graphics need 3:1.
+  &[data-status='stale'] > summary > strong:not([data-low]),
+  &[data-status='stale'] .limits li:not([data-low='true']) strong {
+    color: var(--text-quaternary); // #888 on the card is 5.2:1
   }
-  &[open] {
-    background: var(--fill-soft);
+  // Wide tables tint an open row; phones keep dividers only, so no box sits in the card.
+  @media (min-width: 901px) {
+    &[open] {
+      background: var(--fill-soft);
+    }
   }
 }
 .accountName {
@@ -1213,14 +1216,14 @@ $pool-error: #ff5252;
     color: var(--text-secondary);
   }
 }
+// Label/value pairs in two aligned columns, like the pool facts.
 .footerFacts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 28px;
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 4px 16px;
   margin: 6px 0 0;
   > div {
-    display: flex;
-    gap: 8px;
+    display: contents;
   }
   dt {
     color: var(--text-tertiary);
@@ -1647,6 +1650,10 @@ $pool-error: #ff5252;
 }
 .account[open] .accountDisclosure {
   transform: none;
+}
+// A closed row centres its text on the first line; the chevron follows it.
+.account:not([open]) .accountDisclosure {
+  align-self: center;
 }
 .accounts > h3 .accountHeadingLabel {
   color: var(--text-primary);

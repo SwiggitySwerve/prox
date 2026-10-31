@@ -15,6 +15,7 @@ export function CombinedPoolCard({
   provider,
   mode,
   savedData,
+  reveal = false,
   onRefresh,
 }: {
   pools: QuotaPool[];
@@ -22,7 +23,8 @@ export function CombinedPoolCard({
   provider: PoolProviderId | 'all';
   mode: ChartMode;
   savedData: boolean;
-  /** Offered beside a partial or stale notice, as on the provider cards. */
+  reveal?: boolean;
+  /** The page's one "Refresh now", beside a partial or stale notice. */
   onRefresh?: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -39,6 +41,24 @@ export function CombinedPoolCard({
       : pools.flatMap((pool) => total!.layers!.filter((layer) => poolKey(layer) === poolKey(pool)));
   const headline = total?.series ? total.series[metricField[mode]] : null;
   const windowLabel = t(`quota_pool.${dashboard.window === 'weekly' ? 'weekly' : 'five_hour'}`);
+  // Name the accounts that hold the total back, as each provider card does.
+  const accounts = pools.flatMap((pool) => pool.accounts);
+  const names = (status: (typeof accounts)[number]['status'][]) => {
+    const named = accounts
+      .filter((account) => status.includes(account.status))
+      .map((account) =>
+        reveal && account.email ? account.email : (account.identifier ?? account.label)
+      );
+    return [...named.slice(0, 3), ...(named.length > 3 ? [`+${named.length - 3}`] : [])].join(', ');
+  };
+  const stateNote = (state: string) => {
+    const missing = names(['error', 'missing-window']);
+    const stale = names(['stale']);
+    if (state === 'partial' && missing)
+      return t('quota_pool.unavailable_named', { names: missing });
+    if (state === 'stale' && stale) return t('quota_pool.stale_named', { names: stale });
+    return t(`quota_pool.state_note.${state}`, { window: windowLabel });
+  };
   return (
     <section className={`${styles.pool} ${styles.combined}`} aria-labelledby={`${id}-title`}>
       <div className={styles.graphHeader}>
@@ -80,7 +100,7 @@ export function CombinedPoolCard({
           </p>
           {mode === 'remaining' && total?.series && (
             <span>
-              {t(`quota_pool.${headline === null ? 'capacity_total' : 'of_capacity'}`, {
+              {t('quota_pool.of_capacity', {
                 capacity: formatPoolNumber(total.series.capacityPoints, i18n.language),
               })}
             </span>
@@ -90,9 +110,7 @@ export function CombinedPoolCard({
       {/* Partial or stale data withholds the total; say why, as the provider cards do. */}
       {headline === null && total?.series && total.series.forecastState !== 'ready' && (
         <p className={styles.stateNote} role="status" data-state={total.series.forecastState}>
-          <span>
-            {t(`quota_pool.state_note.${total.series.forecastState}`, { window: windowLabel })}
-          </span>
+          <span>{stateNote(total.series.forecastState)}</span>
           {onRefresh &&
             (total.series.forecastState === 'partial' ||
               total.series.forecastState === 'stale') && (
