@@ -17,6 +17,7 @@
       "publicBasePath": "/codex",
       "aliases": [""],
       "authScope": "homelab-management",
+      "providers": ["codex"],
       "upstreamOrigin": "http://127.0.0.1:8317",
       "managementKeyFile": "/run/secrets/proxy-management-key"
     },
@@ -26,6 +27,7 @@
       "publicBasePath": "/claude",
       "aliases": [],
       "authScope": "homelab-management",
+      "providers": ["claude"],
       "upstreamOrigin": "http://127.0.0.1:8319",
       "managementKeyFile": "/run/secrets/proxy-management-key"
     }

@@ -65,6 +65,12 @@ build reject stale generated Nginx routes or public discovery. The browser reads
 the sanitized `/prox/sources.json`; upstream origins and key-file references are
 excluded. History collection reads the same manifest once at process start.
 
+Each source's `providers` list says which instance takes new credentials of that
+type. Every proxy accepts every provider, so OAuth logins go to the declared owner
+whichever source is selected, and an auth file uploaded to another source is refused
+with the owner's name. Undeclared providers stay on the selected source. Move a
+misplaced credential; never copy it, because both instances would rotate one token.
+
 These paths forward `/v8/management/` requests and the client-authenticated
 `/v1/models` catalog. Management authentication passes through from the browser;
 Nginx never injects it. Catalog requests use client API keys, not management keys.

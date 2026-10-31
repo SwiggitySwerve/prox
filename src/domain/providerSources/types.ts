@@ -5,6 +5,8 @@ export interface PublicSource {
   readonly publicBasePath: string;
   readonly aliases: readonly string[];
   readonly authScope: string;
+  /** Credential types whose new accounts belong on this instance. Absent: none claimed. */
+  readonly providers?: readonly string[];
 }
 
 export interface DeploymentSource extends PublicSource {

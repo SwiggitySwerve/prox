@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationStore } from '@/stores';
 import { createOAuthApi } from '@/services/api/oauth';
 import { pluginsApi } from '@/services/api/plugins';
 import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
+import { credentialDestination } from '@/domain/providerSources/ownership';
+import { useProviderSources } from '@/stores/useProviderSources';
 import { getErrorMessage, isRecord } from '@/utils/helpers';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import { createOAuthAttempts, type OAuthAttempt } from '../oauthAttempts';
@@ -84,7 +86,18 @@ export function usePluginOAuthProviders(apiBase: string | undefined) {
 export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions) {
   const { t } = useTranslation();
   const session = useSelectedSourceSession();
-  const oauthApi = useMemo(() => createOAuthApi(session), [session]);
+  const registry = useProviderSources();
+  // A login belongs to its provider's instance, whichever source the page is showing.
+  const destinationOf = (provider: string) => {
+    const view = credentialDestination(registry.sources, session.owner.instanceId, provider);
+    if (!view || view.source.instanceId === session.owner.instanceId) return session;
+    return view.status === 'ready' ? view.session : null;
+  };
+  const oauthApiOf = (provider: string) => {
+    const destination = destinationOf(provider);
+    if (!destination) throw new Error(t('auth_login.destination_unavailable'));
+    return createOAuthApi(destination);
+  };
   const { showNotification } = useNotificationStore();
   const [states, setStates] = useState<Record<string, ProviderFlowState>>({});
   /** 本次会话新增的凭证数（含 Vertex 导入），换连接时归零。 */
@@ -140,7 +153,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
 
   const completeProviderAuth = (provider: string) => {
     const resetAttempt = attempts.current.begin(provider);
-    notifyAuthFilesChanged(session.owner);
+    notifyAuthFilesChanged((destinationOf(provider) ?? session).owner);
     recordCredentialAdded();
     updateProviderState(provider, {
       url: undefined,
@@ -164,7 +177,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
 
   const startPolling = (provider: string, state: string, attempt: OAuthAttempt) => {
     attempt.poll(
-      () => oauthApi.getAuthStatus(state, attempt.signal),
+      () => oauthApiOf(provider).getAuthStatus(state, attempt.signal),
       (res) => {
         if (res.status === 'ok') {
           completeProviderAuth(provider);
@@ -219,7 +232,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
       callbackValidation: undefined,
     });
     try {
-      const result = await oauthApi.cancelSession(state, attempt.signal);
+      const result = await oauthApiOf(provider).cancelSession(state, attempt.signal);
       if (!attempt.isCurrent()) return;
       if (result.cancelled) {
         resetProviderAttempt(provider);
@@ -263,7 +276,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
       callbackSubmitting: false,
     });
     try {
-      const res = await oauthApi.startAuth(provider, attempt.signal);
+      const res = await oauthApiOf(provider).startAuth(provider, attempt.signal);
       if (!attempt.isCurrent()) return;
       if (!res.state) {
         const message = t('auth_login.missing_state');
@@ -347,7 +360,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
       callbackValidation: undefined,
     });
     try {
-      await oauthApi.submitCallback(provider, redirectUrl, attempt.signal);
+      await oauthApiOf(provider).submitCallback(provider, redirectUrl, attempt.signal);
       if (!attempt.isCurrent()) return;
       updateProviderState(provider, { callbackSubmitting: false, callbackStatus: 'success' });
       notify(provider, t('auth_login.oauth_callback_success'), 'success');

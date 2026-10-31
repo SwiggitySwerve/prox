@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": "0800c3397d1c06823c1ffcd7d8c3d89608b55d9d0d132cec7bf25797c85321e3",
+  "revision": "42f1755aeb5e7c68897d730715da7098d0e394783fc4729eab44aed37fb00791",
   "defaultInstanceId": "codex-primary",
   "sources": [
     {
@@ -10,14 +10,20 @@
       "aliases": [
         ""
       ],
-      "authScope": "homelab-management"
+      "authScope": "homelab-management",
+      "providers": [
+        "codex"
+      ]
     },
     {
       "instanceId": "claude-primary",
       "label": "Claude / Claude Code",
       "publicBasePath": "/claude",
       "aliases": [],
-      "authScope": "homelab-management"
+      "authScope": "homelab-management",
+      "providers": [
+        "claude"
+      ]
     }
   ]
 }

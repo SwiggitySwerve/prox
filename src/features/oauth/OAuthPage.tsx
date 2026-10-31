@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelectedSourceSession } from '@/components/sources/SelectedSourceBoundary';
 import { selectSource } from '@/services/providerSources/selection';
 import { useProviderSources } from '@/stores/useProviderSources';
+import { credentialDestination } from '@/domain/providerSources/ownership';
 import { useRevealGroup } from '@/hooks/motion';
 import { useThemeStore } from '@/stores';
 import iconVertex from '@/assets/icons/vertex.svg';
@@ -97,12 +98,18 @@ export function OAuthPage() {
   const iconOf = (card: OAuthProviderCard) =>
     card.kind === 'plugin' ? card.icon : resolveThemedIcon(card.icon, resolvedTheme);
 
+  const destinationOf = (card: OAuthProviderCard) => {
+    if (registry.sources.length < 2) return undefined;
+    const view = credentialDestination(registry.sources, session.owner.instanceId, card.id);
+    return view && t('auth_login.saves_to', { source: view.source.label });
+  };
+
   const headingOf = (card: OAuthProviderCard): DialogHeading => ({
     title:
       card.kind === 'plugin'
         ? t('auth_login.plugin_oauth_title', { name: card.title })
         : t(card.titleKey),
-    caption: captionOf(card),
+    caption: [captionOf(card), destinationOf(card)].filter(Boolean).join(' · '),
     icon: iconOf(card),
   });
 
