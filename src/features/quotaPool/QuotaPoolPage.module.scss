@@ -426,6 +426,10 @@ $pool-error: #ff5252;
     align-items: baseline;
   }
 }
+// An unavailable total is a word, not a number: its caption sits on the word's baseline.
+.headline[data-unavailable='true'] {
+  align-items: baseline;
+}
 // A missing total says so in the value slot; the notice below carries the warning colour.
 .unavailableValue {
   color: var(--text-secondary);
@@ -868,13 +872,10 @@ $pool-error: #ff5252;
 .account:not([open]) .limits small {
   display: none;
 }
-// Phone rows already show the counted limit as the row's value: a closed row doesn't repeat it,
-// and an open row keeps only its label and reset time.
+// Phone rows already show the counted limit as the row's value, so a closed row doesn't repeat
+// it; an open row lists every limit the same way, with its bar, value and reset.
 @media (max-width: 900px) {
   .account:not([open]) .limits li[data-counted='true'] {
-    display: none;
-  }
-  .account[open] .limits li[data-counted='true'] :is(.limitBar, strong) {
     display: none;
   }
 }
@@ -890,6 +891,10 @@ $pool-error: #ff5252;
 .limits li[data-missing='true'] {
   display: none;
   color: var(--text-quaternary);
+}
+// A low limit's track is tinted red, so "low" doesn't rest on red next to Claude coral alone.
+.limits li[data-low='true'] .limitBar {
+  background: color-mix(in srgb, #{$pool-error} 22%, transparent);
 }
 .limitBar {
   height: 6px;
@@ -1534,6 +1539,7 @@ $pool-error: #ff5252;
 }
 .graphHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1549,7 +1555,17 @@ $pool-error: #ff5252;
   align-items: center;
   gap: 8px 16px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  // In the title row: pushed right, clear of the chart toggle in the corner.
+  margin: 0 40px 0 auto;
+  @media (max-width: 900px) {
+    margin-right: 0;
+  }
+  // Phones: the title and toggle keep their row; the select takes the next one.
+  @media (max-width: 640px) {
+    order: 3;
+    flex-basis: 100%;
+    margin: 4px 0 0;
+  }
   select {
     font-size: 13px;
   }

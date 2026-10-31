@@ -63,6 +63,21 @@ export function CombinedPoolCard({
     <section className={`${styles.pool} ${styles.combined}`} aria-labelledby={`${id}-title`}>
       <div className={styles.graphHeader}>
         <h2 id={`${id}-title`}>{t('quota_pool.combined_usage')}</h2>
+        {/* The chart's view control sits on the card's title row, next to the chart toggle. */}
+        <div className={styles.combinedOptions}>
+          <label>
+            <span className={styles.srOnly}>{t('quota_pool.series_view')}</span>
+            <select
+              value={shownView}
+              onChange={(event) => setView(event.target.value as typeof view)}
+            >
+              <option value="providers">{t('quota_pool.provider_lines')}</option>
+              <option value="stacked" disabled={!stackable}>
+                {t('quota_pool.stacked_providers')}
+              </option>
+            </select>
+          </label>
+        </div>
         <span className={styles.reorder}>
           <PoolGraphToggle
             minimized={minimized}
@@ -107,7 +122,7 @@ export function CombinedPoolCard({
           )}
         </div>
       </div>
-      {/* Partial or stale data withholds the total; say why, as the provider cards do. */}
+      {/* Partial or stale data withholds the total; say why under the headline, as the provider cards do. */}
       {headline === null && total?.series && total.series.forecastState !== 'ready' && (
         <p className={styles.stateNote} role="status" data-state={total.series.forecastState}>
           <span>{stateNote(total.series.forecastState)}</span>
@@ -120,7 +135,7 @@ export function CombinedPoolCard({
             )}
         </p>
       )}
-      {/* Why there is no total to stack, beside the headline it explains. */}
+      {/* Why there is no total to stack, under the headline it explains. */}
       {!stackable && (
         <p className={styles.stateNote} role="status">
           {t(
@@ -130,20 +145,6 @@ export function CombinedPoolCard({
           )}
         </p>
       )}
-      <div className={styles.combinedOptions}>
-        <label>
-          <span className={styles.srOnly}>{t('quota_pool.series_view')}</span>
-          <select
-            value={shownView}
-            onChange={(event) => setView(event.target.value as typeof view)}
-          >
-            <option value="providers">{t('quota_pool.provider_lines')}</option>
-            <option value="stacked" disabled={!stackable}>
-              {t('quota_pool.stacked_providers')}
-            </option>
-          </select>
-        </label>
-      </div>
       <PoolGraph id={`${id}-plot`} title={t('quota_pool.history_forecast')} minimized={minimized}>
         {series.length > 0 && (
           <PoolComparisonChart
