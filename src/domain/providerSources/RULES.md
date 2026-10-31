@@ -16,6 +16,10 @@ are private deployment inputs. Public discovery is an explicit allowlist.
   Separate scopes require independent authentication. Never infer sharing from
   provider kind or origin alone. Current defaults preserve the checked-in shared
   credential-file routing; deployed compatibility still requires verification.
+- `providers` is an explicit operator declaration of which instance takes new
+  credentials of a type. Every instance accepts every provider, so a login or upload
+  must be sent there. A provider has at most one owner. Undeclared providers stay on
+  the selected source; an unavailable owner fails rather than falling back.
 - Public discovery never includes upstream origins, credential references or
   backend response fields. A missing optional discovery document supports the
   portable single-backend application. Malformed/failed known discovery is an

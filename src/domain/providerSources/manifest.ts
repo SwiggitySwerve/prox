@@ -63,7 +63,25 @@ function keyFile(value: unknown): string {
   return result;
 }
 
-const publicKeys = ['instanceId', 'label', 'publicBasePath', 'aliases', 'authScope'] as const;
+function providers(value: unknown): readonly string[] {
+  if (!Array.isArray(value) || !value.length) throw new Error('Invalid source providers');
+  return Object.freeze(
+    value.map((entry) => {
+      const result = id(entry);
+      if (result === 'anthropic') throw new Error('Source providers use the credential type');
+      return result;
+    })
+  );
+}
+
+const publicKeys = [
+  'instanceId',
+  'label',
+  'publicBasePath',
+  'aliases',
+  'authScope',
+  'providers',
+] as const;
 function publicSource(value: Record<string, unknown>): PublicSource {
   if (!Array.isArray(value.aliases)) throw new Error('Invalid source aliases');
   return Object.freeze({
@@ -72,18 +90,24 @@ function publicSource(value: Record<string, unknown>): PublicSource {
     publicBasePath: basePath(value.publicBasePath),
     aliases: Object.freeze(value.aliases.map(basePath)),
     authScope: id(value.authScope),
+    ...(value.providers === undefined ? {} : { providers: providers(value.providers) }),
   });
 }
 
 function validateInventory(sources: readonly PublicSource[], defaultInstanceId: string): void {
   const ids = new Set<string>();
   const paths = new Set<string>();
+  const owned = new Set<string>();
   for (const source of sources) {
     if (ids.has(source.instanceId)) throw new Error('Duplicate source identifier');
     ids.add(source.instanceId);
     for (const path of [source.publicBasePath, ...source.aliases]) {
       if (paths.has(path)) throw new Error('Duplicate source route');
       paths.add(path);
+    }
+    for (const provider of source.providers ?? []) {
+      if (owned.has(provider)) throw new Error('Provider declared by more than one source');
+      owned.add(provider);
     }
   }
   if (!ids.has(defaultInstanceId)) throw new Error('Default source is not configured');
@@ -141,13 +165,16 @@ export function publicSourceDiscovery(manifest: SourceManifest, revision: string
     schemaVersion: 1,
     revision,
     defaultInstanceId: manifest.defaultInstanceId,
-    sources: manifest.sources.map(({ instanceId, label, publicBasePath, aliases, authScope }) => ({
-      instanceId,
-      label,
-      publicBasePath,
-      aliases,
-      authScope,
-    })),
+    sources: manifest.sources.map(
+      ({ instanceId, label, publicBasePath, aliases, authScope, providers: owned }) => ({
+        instanceId,
+        label,
+        publicBasePath,
+        aliases,
+        authScope,
+        ...(owned ? { providers: owned } : {}),
+      })
+    ),
   });
 }
 

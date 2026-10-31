@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import type { AuthFileRefreshResult } from '@/services/api/authFiles';
 import { getAuthFileRefreshKey } from '@/features/authFiles/manualRefresh';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
+import { misplacedCredentialOwner } from '@/domain/providerSources/ownership';
+import { providerSources } from '@/stores/useProviderSources';
 
 import type { AuthFileItem } from '@/types';
 import { formatFileSize } from '@/utils/format';
@@ -293,6 +295,22 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
       uploadPendingRef.current = true;
       setUploading(true);
       try {
+        const { sources } = providerSources.getSnapshot();
+        for (const file of [...validFiles]) {
+          const owner = misplacedCredentialOwner(
+            sources,
+            sourceScope.session.owner.instanceId,
+            await file.text()
+          );
+          if (!owner) continue;
+          validFiles.splice(validFiles.indexOf(file), 1);
+          showNotification(
+            t('auth_files.upload_error_source', { name: file.name, source: owner.source.label }),
+            'error'
+          );
+        }
+        sourceScope.assertCurrent();
+        if (validFiles.length === 0) return;
         const result = await authFilesApi.uploadFiles(validFiles);
         sourceScope.assertCurrent();
         const successCount = result.uploaded;
