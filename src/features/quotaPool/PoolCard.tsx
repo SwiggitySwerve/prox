@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   IconAlertTriangle,
@@ -59,6 +59,10 @@ export function PoolCard({
   const [rosterQuery, setRosterQuery] = useState('');
   const [rosterSort, setRosterSort] = useState<AccountSort>('name');
   const [lowOnly, setLowOnly] = useState(false);
+  const [affectedOnly, setAffectedOnly] = useState(false);
+  // Bumped by the notice's action; the effect then brings the first affected row into focus.
+  const [affectedFocus, setAffectedFocus] = useState(0);
+  const accountsRef = useRef<HTMLElement>(null);
   const [showAll, setShowAll] = useState(false);
   // Opening a row reveals reset details; minimization only compacts closed rows.
   const [openAccounts, setOpenAccounts] = useState<ReadonlySet<string>>(() => new Set());
@@ -100,22 +104,40 @@ export function PoolCard({
   const showRosterControls = pool.accounts.length > ROSTER_CONTROLS_MIN;
   const accountName = (account: (typeof pool.accounts)[number]) =>
     reveal && account.email ? account.email : (account.identifier ?? account.label);
-  const nameList = (accounts: typeof pool.accounts) =>
-    [
-      ...accounts.slice(0, 3).map((account) => accountName(account)),
-      ...(accounts.length > 3 ? [`+${accounts.length - 3}`] : []),
-    ].join(', ');
   const missingAccounts = pool.accounts.filter(
     (account) => account.status === 'error' || account.status === 'missing-window'
   );
   const staleAccounts = pool.accounts.filter((account) => account.status === 'stale');
-  // Say which accounts hold the total back, so the notice points at something to fix.
+  // The accounts holding the total back. The notice counts them and its action shows them in
+  // the list, instead of naming masked addresses that wrap badly.
+  const affectedAccounts =
+    pool.forecastState === 'partial'
+      ? missingAccounts
+      : pool.forecastState === 'stale'
+        ? staleAccounts
+        : [];
+  const affectedIds = new Set(affectedAccounts.map((account) => account.id));
   const stateNote =
     pool.forecastState === 'partial' && missingAccounts.length
-      ? t('quota_pool.unavailable_named', { names: nameList(missingAccounts) })
+      ? t('quota_pool.unavailable_count', {
+          count: missingAccounts.length,
+          total: pool.accountCount,
+        })
       : pool.forecastState === 'stale' && staleAccounts.length
-        ? t('quota_pool.stale_named', { names: nameList(staleAccounts) })
+        ? t('quota_pool.stale_count', { count: staleAccounts.length, total: pool.accountCount })
         : t(`quota_pool.state_note.${pool.forecastState}`, { window: windowLabel });
+  const showAffected = () => {
+    setAffectedOnly(true);
+    setLowOnly(false);
+    setRosterQuery('');
+    setShowAll(false);
+    setAffectedFocus((value) => value + 1);
+  };
+  useEffect(() => {
+    if (!affectedFocus) return;
+    accountsRef.current?.scrollIntoView({ block: 'start' });
+    accountsRef.current?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
+  }, [affectedFocus]);
   const forecastWithheld = pool.forecastState !== 'ready' && pool.forecastState !== 'no-limit';
   // Claude names its weekly windows "7-day"; the page calls that window Weekly everywhere.
   const limitLabel = (limit: (typeof pool.accounts)[number]['windows'][number]) =>
@@ -134,7 +156,9 @@ export function PoolCard({
   ).length;
   const visibleAccounts = sortAccounts(
     matchingAccounts.filter(
-      (account) => !lowOnly || account.windows.some((limit) => isLowQuota(limit.remainingPercent))
+      (account) =>
+        (!lowOnly || account.windows.some((limit) => isLowQuota(limit.remainingPercent))) &&
+        (!affectedOnly || affectedIds.has(account.id))
     ),
     rosterSort,
     accountName,
@@ -323,6 +347,11 @@ export function PoolCard({
         <p className={styles.stateNote} role="status" data-state={pool.forecastState}>
           {/* The page's one "Refresh now" sits in the combined card's notice above. */}
           <span>{stateNote}</span>
+          {affectedAccounts.length > 0 && (
+            <button type="button" className={styles.noteAction} onClick={showAffected}>
+              {t('quota_pool.show_affected')}
+            </button>
+          )}
         </p>
       )}
       <PoolGraph title={t('quota_pool.history_forecast')} id={`${id}-plot`} minimized={minimized}>
@@ -335,7 +364,7 @@ export function PoolCard({
           minimized={minimized}
         />
       </PoolGraph>
-      <section className={styles.accounts} aria-labelledby={`${id}-accounts`}>
+      <section ref={accountsRef} className={styles.accounts} aria-labelledby={`${id}-accounts`}>
         <h3 id={`${id}-accounts`}>
           <span>
             <b className={styles.accountHeadingLabel}>{t('quota_pool.accounts')}</b>
@@ -387,30 +416,55 @@ export function PoolCard({
             </button>
           )}
         </h3>
-        {showRosterControls && (
+        {(showRosterControls || affectedOnly) && (
           <div className={styles.rosterTools}>
-            <input
-              type="search"
-              className={styles.rosterSearch}
-              value={rosterQuery}
-              onChange={(event) => setRosterQuery(event.target.value)}
-              placeholder={t('quota_pool.account_search')}
-              aria-label={t('quota_pool.account_search')}
-            />
-            <select
-              value={rosterSort}
-              onChange={(event) => setRosterSort(event.target.value as AccountSort)}
-              aria-label={t('quota_pool.account_sort')}
-            >
-              <option value="name">{t('quota_pool.sort_name')}</option>
-              <option value="lowest">{t('quota_pool.sort_lowest')}</option>
-            </select>
-            {(lowAccountCount > 0 || lowOnly) && (
+            {showRosterControls && (
+              <>
+                <input
+                  type="search"
+                  className={styles.rosterSearch}
+                  value={rosterQuery}
+                  onChange={(event) => setRosterQuery(event.target.value)}
+                  placeholder={t('quota_pool.account_search')}
+                  aria-label={t('quota_pool.account_search')}
+                />
+                <select
+                  value={rosterSort}
+                  onChange={(event) => setRosterSort(event.target.value as AccountSort)}
+                  aria-label={t('quota_pool.account_sort')}
+                >
+                  <option value="name">{t('quota_pool.sort_name')}</option>
+                  <option value="lowest">{t('quota_pool.sort_lowest')}</option>
+                </select>
+              </>
+            )}
+            {(affectedOnly || (showRosterControls && affectedAccounts.length > 0)) && (
+              <button
+                type="button"
+                className={styles.rosterLow}
+                aria-pressed={affectedOnly}
+                onClick={() => {
+                  setAffectedOnly((value) => !value);
+                  setLowOnly(false);
+                }}
+              >
+                {affectedOnly ? (
+                  <IconCheck size={14} aria-hidden="true" />
+                ) : (
+                  <IconAlertTriangle size={14} aria-hidden="true" />
+                )}
+                {t('quota_pool.accounts_affected', { count: affectedAccounts.length })}
+              </button>
+            )}
+            {showRosterControls && (lowAccountCount > 0 || lowOnly) && (
               <button
                 type="button"
                 className={styles.rosterLow}
                 aria-pressed={lowOnly}
-                onClick={() => setLowOnly((value) => !value)}
+                onClick={() => {
+                  setLowOnly((value) => !value);
+                  setAffectedOnly(false);
+                }}
               >
                 {lowOnly ? (
                   <IconCheck size={14} aria-hidden="true" />
@@ -421,7 +475,7 @@ export function PoolCard({
               </button>
             )}
             <span className={styles.rosterCount} role="status">
-              {query || lowOnly || pageAccounts.length < visibleAccounts.length
+              {query || lowOnly || affectedOnly || pageAccounts.length < visibleAccounts.length
                 ? t('quota_pool.accounts_shown', {
                     shown: pageAccounts.length,
                     // Paging counts against the filtered list; filtering counts against the whole roster.

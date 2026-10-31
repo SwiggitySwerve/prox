@@ -1042,7 +1042,7 @@ describe('pool presentation', () => {
     expect(markup).toContain('1 of 2 have a 5-hour limit');
     expect(markup).not.toContain('loaded ·');
   });
-  test('a partial pool names the accounts missing data; the combined card offers one refresh', async () => {
+  test('a partial pool counts the accounts missing data and offers to show them; the combined card offers one refresh', async () => {
     await i18n.changeLanguage('en');
     const missing = {
       ...pool.accounts[0],
@@ -1060,7 +1060,12 @@ describe('pool presentation', () => {
     const markup = renderToStaticMarkup(
       createElement(PoolCard, { pool: partial, dashboard, mode: 'remaining', reveal: false })
     );
-    expect(markup).toContain('No current quota data from gra•••er@ex•••.test.');
+    // The notice counts instead of listing masked names, and its action filters the list to them.
+    expect(markup).toContain(
+      'No current quota data from 1 of 2 accounts, so the total is withheld.'
+    );
+    expect(markup).toMatch(/<button[^>]*>Show in list<\/button>/);
+    expect(markup.match(/<p role="status"[^>]*>[\s\S]*?<\/p>/)?.[0]).not.toContain('gra•••er');
     // The page has one "Refresh now", on the combined card; pool notices only name the cause.
     expect(markup).not.toContain('Refresh now');
     // The forecast is withheld: its dash-only stats are not shown, Next reset stays.

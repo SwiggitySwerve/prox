@@ -512,6 +512,7 @@ async def main():
         ("loading-narrow", "loading", 390, 844),
         ("error-narrow", "error", 390, 844),
         ("partial-narrow", "partial", 390, 844),
+        ("partial-affected-narrow", "partial", 390, 844),
         ("stale-narrow", "stale", 390, 844),
         ("collecting-narrow", "collecting", 390, 844),
         ("refresh-pending-narrow", "refresh-pending", 390, 844),
@@ -643,6 +644,15 @@ async def main():
                     await page.get_by_role("combobox", name="Sort accounts").first.select_option("lowest")
                 if state == "many-low":
                     await page.get_by_role("button", name="40 low").first.click()
+                if name == "partial-affected-narrow":
+                    # The notice's action filters its card's list to the affected rows and focuses the first.
+                    show = page.get_by_role("button", name="Show in list").first
+                    card = show.locator("xpath=ancestor::article")
+                    await show.click()
+                    rows = await card.locator('details[class*="__account___"]').count()
+                    focused = await page.evaluate("document.activeElement && document.activeElement.tagName")
+                    if rows != 1 or focused != "SUMMARY":
+                        errors.append(f"show-affected: rows={rows} focus={focused}")
                 if state == "many-search":
                     await page.get_by_role("searchbox", name="Search accounts").first.fill("gra")
                 if state == "expanded":
