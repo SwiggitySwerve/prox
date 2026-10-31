@@ -12,6 +12,8 @@ import styles from './QuotaPoolPage.module.scss';
 
 /** Rosters longer than this get a search box and a sort, so one account can be found. */
 const ROSTER_CONTROLS_MIN = 8;
+/** Rows shown before "Show all", so a long roster doesn't bury the next pool. */
+const ROSTER_PAGE = 25;
 
 export function PoolCard({
   pool,
@@ -35,6 +37,7 @@ export function PoolCard({
   const [rosterQuery, setRosterQuery] = useState('');
   const [rosterSort, setRosterSort] = useState<'default' | 'lowest'>('default');
   const [lowOnly, setLowOnly] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   // Opening a row reveals reset details; minimization only compacts closed rows.
   const [openAccounts, setOpenAccounts] = useState<ReadonlySet<string>>(() => new Set());
   const allOpen = pool.accounts.length > 0 && pool.accounts.every((a) => openAccounts.has(a.id));
@@ -95,6 +98,20 @@ export function PoolCard({
     });
     return columns;
   }, []);
+  // The pool balance is the sample of one limit (server/quota/collector.ts): the 5-hour
+  // limit, or the provider's weekly one. Mark that column instead of repeating it.
+  const countedLimitId =
+    dashboard.window === 'five-hour'
+      ? 'five-hour'
+      : pool.provider === 'claude'
+        ? 'seven-day'
+        : 'weekly';
+  const balanceHasColumn = limitColumns.some((column) => column.id === countedLimitId);
+  const pageAccounts = showAll ? visibleAccounts : visibleAccounts.slice(0, ROSTER_PAGE);
+  const noLimitCount =
+    dashboard.window === 'five-hour'
+      ? pool.accounts.filter((account) => account.noFiveHourLimit).length
+      : 0;
   return (
     <article
       className={`${styles.pool} ${styles[pool.provider]}`}
@@ -262,10 +279,26 @@ export function PoolCard({
             {(pool.loadedCount !== pool.accountCount ||
               pool.eligibleCount !== pool.accountCount) && (
               <small className={styles.accountCoverage}>
-                {t('quota_pool.coverage', {
-                  loaded: pool.loadedCount,
-                  eligible: pool.eligibleCount,
-                })}
+                {/* In the 5-hour view an account without that limit is excluded, not missing. */}
+                {noLimitCount > 0
+                  ? [
+                      t('quota_pool.coverage_with_limit', {
+                        eligible: pool.eligibleCount,
+                        total: pool.accountCount,
+                      }),
+                      ...(pool.loadedCount < pool.eligibleCount
+                        ? [
+                            t('quota_pool.coverage', {
+                              loaded: pool.loadedCount,
+                              eligible: pool.eligibleCount,
+                            }),
+                          ]
+                        : []),
+                    ].join(' · ')
+                  : t('quota_pool.coverage', {
+                      loaded: pool.loadedCount,
+                      eligible: pool.eligibleCount,
+                    })}
               </small>
             )}
           </span>
@@ -312,10 +345,14 @@ export function PoolCard({
               </button>
             )}
             <span className={styles.rosterCount} role="status">
-              {query || lowOnly
+              {query || lowOnly || pageAccounts.length < visibleAccounts.length
                 ? t('quota_pool.accounts_shown', {
-                    shown: visibleAccounts.length,
-                    total: pool.accounts.length,
+                    shown: pageAccounts.length,
+                    // Paging counts against the filtered list; filtering counts against the whole roster.
+                    total:
+                      pageAccounts.length < visibleAccounts.length
+                        ? visibleAccounts.length
+                        : pool.accounts.length,
                   })
                 : null}
             </span>
@@ -324,6 +361,7 @@ export function PoolCard({
         <div
           className={styles.accountGrid}
           data-large={showRosterControls}
+          data-balance-column={!balanceHasColumn}
           style={{ '--limit-cols': Math.max(1, limitColumns.length) } as CSSProperties}
         >
           {visibleAccounts.length > 0 && (
@@ -332,9 +370,16 @@ export function PoolCard({
               <span />
               <span />
               {limitColumns.map((limit) => (
-                <span key={limit.id}>{t(limit.labelKey, limit.labelParams)}</span>
+                <span key={limit.id} data-counted={limit.id === countedLimitId || undefined}>
+                  {t(limit.labelKey, limit.labelParams)}
+                  {limit.id === countedLimitId && (
+                    <small>{t('quota_pool.counts_toward_total')}</small>
+                  )}
+                </span>
               ))}
-              <span>{t('quota_pool.account_remaining', { window: windowLabel })}</span>
+              {!balanceHasColumn && (
+                <span>{t('quota_pool.account_remaining', { window: windowLabel })}</span>
+              )}
             </div>
           )}
           {pool.accounts.length === 0 ? (
@@ -344,7 +389,7 @@ export function PoolCard({
               {t('quota_pool.no_account_matches')}
             </p>
           ) : (
-            visibleAccounts.map((account) => (
+            pageAccounts.map((account) => (
               <details
                 key={account.id}
                 className={styles.account}
@@ -380,7 +425,13 @@ export function PoolCard({
                           ? t('quota_pool.window_unavailable', { window: windowLabel })
                           : t(`quota_pool.account_status.${account.status}`)}
                   </span>
-                  <strong>
+                  <strong data-low={isLowQuota(account.remainingPercent) || undefined}>
+                    {isLowQuota(account.remainingPercent) && (
+                      <>
+                        <IconAlertTriangle size={14} aria-hidden="true" />
+                        <span className={styles.srOnly}>{t('quota_pool.limit_low')}</span>
+                      </>
+                    )}
                     {account.remainingPercent === null
                       ? '—'
                       : `${number(account.remainingPercent)}%`}
@@ -489,6 +540,15 @@ export function PoolCard({
             ))
           )}
         </div>
+        {pageAccounts.length < visibleAccounts.length && (
+          <button
+            type="button"
+            className={`${styles.expandAccounts} ${styles.showAll}`}
+            onClick={() => setShowAll(true)}
+          >
+            {t('quota_pool.show_all_accounts', { count: visibleAccounts.length })}
+          </button>
+        )}
       </section>
     </article>
   );

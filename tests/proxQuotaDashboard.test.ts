@@ -849,6 +849,87 @@ describe('pool presentation', () => {
     // The reason is its own paragraph; the view select is not nested inside it.
     expect(markup).toMatch(/unverified account overlap[^<]*<\/p>/);
   });
+  test('the limit that feeds the pool is marked, not repeated as another column', async () => {
+    await i18n.changeLanguage('en');
+    const weekly = {
+      id: 'seven-day',
+      labelKey: 'claude_quota.seven_day',
+      remainingPercent: 73,
+      resetAtMs: 900,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: {
+          ...pool,
+          accounts: [{ ...pool.accounts[0], windows: [...pool.accounts[0].windows, weekly] }],
+        },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).toContain(
+      '<span data-counted="true">7-day limit<small>counts toward total</small></span>'
+    );
+    // Only the phone heading label names the balance; the table has no duplicate column.
+    expect(markup.match(/Weekly remaining/g)).toHaveLength(1);
+  });
+  test('a low balance is marked on the row as well as on its limit', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, accounts: [{ ...pool.accounts[0], remainingPercent: 12 }] },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).toMatch(/<strong data-low="true">.*?12%<\/strong>/);
+  });
+  test('accounts without a 5-hour limit are counted as such, not as missing', async () => {
+    await i18n.changeLanguage('en');
+    const ultra = {
+      ...pool.accounts[0],
+      id: 'opaque-2',
+      status: 'no-limit' as const,
+      noFiveHourLimit: true,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: {
+          ...pool,
+          accounts: [pool.accounts[0], ultra],
+          accountCount: 2,
+          eligibleCount: 1,
+          loadedCount: 1,
+        },
+        dashboard: { ...dashboard, window: 'five-hour' },
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).toContain('1 of 2 have a 5-hour limit');
+    expect(markup).not.toContain('loaded ·');
+  });
+  test('long rosters show the first page and offer the rest', async () => {
+    await i18n.changeLanguage('en');
+    const accounts = Array.from({ length: 30 }, (_, index) => ({
+      ...pool.accounts[0],
+      id: `opaque-${index}`,
+      identifier: `acc${index}`,
+    }));
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, accounts, accountCount: 30, loadedCount: 30, eligibleCount: 30 },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup.match(/<details/g)).toHaveLength(25);
+    expect(markup).toContain('Show all 30 accounts');
+    expect(markup).toContain('25 of 30 shown');
+  });
   test('a limit an account does not have keeps its column and says why', async () => {
     await i18n.changeLanguage('en');
     const ultra = {

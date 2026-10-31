@@ -12,7 +12,7 @@ import {
 import type { PoolProviderId } from '@/domain/quotaPool/types';
 import type { PoolQuery } from '@/services/api/quotaPool';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useHeaderRefresh, useReportHeaderRefreshBusy } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
 import { PoolCard } from './PoolCard';
 import { CombinedPoolCard } from './CombinedPoolCard';
@@ -47,6 +47,7 @@ export function QuotaPoolPage() {
     if (!(await refresh())) throw new Error(t('quota_pool.refresh_error'));
   }, [refresh, t]);
   useHeaderRefresh(refreshFromHeader, state.connected);
+  useReportHeaderRefreshBusy(Boolean(refreshing) || (!data && state.loading));
   const date = (value: number | null, short = false) => formatPoolDate(value, i18n.language, short);
   const change = <K extends keyof PoolQuery>(key: K, value: PoolQuery[K]) =>
     setQuery((current) => ({ ...current, [key]: value }));

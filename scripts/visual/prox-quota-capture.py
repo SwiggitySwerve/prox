@@ -168,8 +168,8 @@ def fixture(state):
             # Weekly: the Ultra account still counts, at its 2,000-point weight (82.8% of 2,200).
             f = 1821.6 / 248.4
             pools[0].update(capacityPoints=2200, remainingPoints=1821.6,
-                            nextResetGainPoints=pools[0]["nextResetGainPoints"] * f,
-                            resets=[dict(r, gainPoints=r["gainPoints"] * f) for r in pools[0]["resets"]])
+                            nextResetGainPoints=round(pools[0]["nextResetGainPoints"] * f),
+                            resets=[dict(r, gainPoints=round(r["gainPoints"] * f)) for r in pools[0]["resets"]])
             for series in ("recorded", "projected"):
                 pools[0][series] = [dict(item, remainingPoints=item["remainingPoints"] * f)
                                     for item in pools[0][series]]
