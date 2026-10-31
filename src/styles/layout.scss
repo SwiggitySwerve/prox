@@ -915,7 +915,8 @@
   }
 }
 
-// Prox shell: quiet navigation and an outlined utility bar that stays visible on dark pages.
+// Prox shell: quiet navigation and a borderless utility bar. Its fill matches the page, so it
+// reads as part of the header at rest and stays legible over content scrolling under it.
 .app-shell {
   .top-gradient-blur {
     display: none;
@@ -931,8 +932,8 @@
     background: transparent;
   }
   .header-actions {
-    background: var(--bg-primary);
-    border-color: var(--text-quaternary);
+    background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+    border-color: transparent;
     box-shadow: none;
   }
   .sidebar-brand-subtitle {
