@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   IconAlertTriangle,
@@ -9,7 +9,6 @@ import {
   IconChevronLeft,
   IconFilterAll,
 } from '@/components/ui/icons';
-import type { PoolProviderId } from '@/domain/quotaPool/types';
 import type { PoolQuery } from '@/services/api/quotaPool';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh, useReportHeaderRefreshBusy } from '@/hooks/useHeaderRefresh';
@@ -18,7 +17,8 @@ import { PoolCard } from './PoolCard';
 import { CombinedPoolCard } from './CombinedPoolCard';
 import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
 import { PoolProviderMark } from './PoolProviderMark';
-import { viewRange, type ChartMode } from './chartGeometry';
+import { viewRange } from './chartGeometry';
+import { readViewState, sameView, writeViewState, type QuotaViewState } from './model/viewState';
 import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
@@ -33,15 +33,36 @@ const PLAN_WEIGHTS = [
 
 export function QuotaPoolPage() {
   const { t, i18n } = useTranslation();
-  const [provider, setProvider] = useState<PoolProviderId | 'all'>('all');
-  const [mode, setMode] = useState<ChartMode>('remaining');
-  const [query, setQuery] = useState<PoolQuery>({
-    window: 'weekly',
-    lookback: 3,
-    multiplier: 1,
-    offsetDays: 0,
-    reveal: false,
-  });
+  // Pool, window, measure and the two settings live in the address, so a link opens this view.
+  // The view is state first, so a click repaints at once; the address follows it, and a link or
+  // Back changes the view.
+  const [params, setParams] = useSearchParams();
+  const address = params.toString();
+  const [view, setViewState] = useState(() => readViewState(params));
+  const { provider, mode } = view;
+  const setView = (patch: Partial<QuotaViewState>) =>
+    setViewState((current) => ({ ...current, ...patch }));
+  useEffect(() => {
+    const next = readViewState(new URLSearchParams(address));
+    setViewState((current) => (sameView(current, next) ? current : next));
+  }, [address]);
+  useEffect(() => {
+    setParams(
+      (previous) => {
+        const next = writeViewState(previous, view);
+        return next.toString() === previous.toString() ? previous : next;
+      },
+      { replace: true }
+    );
+  }, [view, setParams]);
+  // The date offset is relative to today and "Show emails" is private, so neither is shared.
+  const [local, setLocal] = useState({ offsetDays: 0, reveal: false });
+  const query: PoolQuery = {
+    window: view.window,
+    lookback: view.lookback,
+    multiplier: view.future,
+    ...local,
+  };
   const state = usePoolDashboard(query);
   const { data, refresh } = state;
   const refreshStatus = state.refreshStatus ?? data;
@@ -60,8 +81,8 @@ export function QuotaPoolPage() {
   const date = (value: number | null, short = false) => formatPoolDate(value, i18n.language, short);
   // The span the charts show, which the 5-hour and rate views narrow.
   const range = data ? viewRange(data, mode) : null;
-  const change = <K extends keyof PoolQuery>(key: K, value: PoolQuery[K]) =>
-    setQuery((current) => ({ ...current, [key]: value }));
+  const change = <K extends keyof typeof local>(key: K, value: (typeof local)[K]) =>
+    setLocal((current) => ({ ...current, [key]: value }));
 
   return (
     <div className={styles.page}>
@@ -102,7 +123,7 @@ export function QuotaPoolPage() {
                 type="button"
                 key={item}
                 aria-pressed={provider === item}
-                onClick={() => setProvider(item)}
+                onClick={() => setView({ provider: item })}
                 className={item === 'all' ? undefined : styles[item]}
               >
                 {item !== 'all' && <PoolProviderMark provider={item} />}
@@ -123,7 +144,7 @@ export function QuotaPoolPage() {
                   type="button"
                   key={item}
                   aria-pressed={query.window === item}
-                  onClick={() => change('window', item)}
+                  onClick={() => setView({ window: item })}
                 >
                   {t(`quota_pool.${item === 'weekly' ? 'weekly' : 'five_hour'}`)}
                 </button>
@@ -135,7 +156,7 @@ export function QuotaPoolPage() {
                   type="button"
                   key={item}
                   aria-pressed={mode === item}
-                  onClick={() => setMode(item)}
+                  onClick={() => setView({ mode: item })}
                 >
                   {t(`quota_pool.${item}`)}
                 </button>
@@ -151,7 +172,7 @@ export function QuotaPoolPage() {
                 <select
                   value={query.lookback}
                   onChange={(event) =>
-                    change('lookback', Number(event.target.value) as PoolQuery['lookback'])
+                    setView({ lookback: Number(event.target.value) as QuotaViewState['lookback'] })
                   }
                 >
                   {([1, 3, 6] as const).map((hours) => (
@@ -176,7 +197,7 @@ export function QuotaPoolPage() {
                   disabled={mode !== 'remaining'}
                   aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
                   onChange={(event) =>
-                    change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
+                    setView({ future: Number(event.target.value) as QuotaViewState['future'] })
                   }
                 >
                   {([1, 0.5, 2, 0] as const).map((value) => (

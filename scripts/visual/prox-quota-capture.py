@@ -497,6 +497,7 @@ async def main():
         ("expanded", "expanded", 1920, 1280),
         ("expanded-narrow", "expanded", 390, 844),
         ("drain", "drain", 1440, 1000),
+        ("deep-link", "deep-link", 1440, 1000),
         ("burn-narrow", "burn", 390, 844),
         ("refresh-error", "refresh-error", 1440, 1000),
         ("refresh-pending", "refresh-pending", 1440, 1000),
@@ -644,6 +645,19 @@ async def main():
                     await page.get_by_role("combobox", name="Sort accounts").first.select_option("lowest")
                 if state == "many-low":
                     await page.get_by_role("button", name="40 low").first.click()
+                if state == "deep-link":
+                    # The address holds the view: a link opens it, and changing the view rewrites
+                    # the address with only the non-default keys.
+                    await page.evaluate("location.hash = '/quota?window=five-hour&mode=burn&lookback=6'")
+                    await page.get_by_role("button", name="Burn rate", exact=True).and_(
+                        page.locator('[aria-pressed="true"]')).wait_for()
+                    pressed = await page.locator('fieldset [aria-pressed="true"]').all_inner_texts()
+                    interval = await page.get_by_role("combobox", name="Rate interval", exact=True).input_value()
+                    await page.get_by_role("button", name="Remaining", exact=True).click()
+                    await page.wait_for_function("!location.hash.includes('mode=')")
+                    address = await page.evaluate("location.hash")
+                    if pressed != ["5-hour", "Burn rate"] or interval != "6" or address != "#/quota?window=five-hour&lookback=6":
+                        errors.append(f"deep-link: pressed={pressed} interval={interval} address={address}")
                 if name == "partial-affected-narrow":
                     # The notice's action filters its card's list to the affected rows and focuses the first.
                     show = page.get_by_role("button", name="Show in list").first
