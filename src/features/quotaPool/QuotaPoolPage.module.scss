@@ -245,7 +245,7 @@ $pool-error: #ff5252;
     border-radius: 999px;
     color: var(--text-secondary);
     min-height: 38px;
-    padding: 6px 16px;
+    padding: 6px 14px;
     white-space: nowrap;
   }
   button:hover:not(:disabled) {
@@ -312,6 +312,9 @@ $pool-error: #ff5252;
 .selectLabel[data-disabled] {
   position: relative;
   border-color: var(--hairline-soft);
+  .selectHint {
+    color: var(--text-tertiary);
+  }
 }
 .dateNavigation {
   // Follows the selects, so it never floats alone at the far edge or wraps right-aligned.
@@ -566,8 +569,10 @@ $pool-error: #ff5252;
   svg {
     flex: none;
   }
+  // Degraded states share their banner's amber, so a chip and its notice read as one state.
   &[data-tone='warning'] {
     color: var(--warning-text);
+    background: var(--warning-bg);
   }
 }
 .chart {
@@ -1369,23 +1374,16 @@ $pool-error: #ff5252;
   .toolbar > .segment:first-child {
     flex-basis: 100%;
   }
-  // The two selects split the row, like the full-width toggles above them.
+  // Each setting takes a full-width row, so its whole value or reason stays readable.
   .chartSettings {
     display: grid;
     width: 100%;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
   }
   .selectLabel {
     min-width: 0;
     padding-left: 12px;
-  }
-  // Two short lines fit the box's height, so the whole reason stays readable.
-  .selectHint {
-    min-width: 0;
-    padding-right: 10px;
-    white-space: normal;
-    line-height: 1.2;
   }
   .selectLabel select {
     flex: 1;

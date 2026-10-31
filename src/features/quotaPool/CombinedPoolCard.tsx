@@ -15,7 +15,6 @@ export function CombinedPoolCard({
   provider,
   mode,
   savedData,
-  reveal = false,
   onRefresh,
 }: {
   pools: QuotaPool[];
@@ -23,7 +22,6 @@ export function CombinedPoolCard({
   provider: PoolProviderId | 'all';
   mode: ChartMode;
   savedData: boolean;
-  reveal?: boolean;
   /** The page's one "Refresh now", beside a partial or stale notice. */
   onRefresh?: () => void;
 }) {
@@ -41,22 +39,17 @@ export function CombinedPoolCard({
       : pools.flatMap((pool) => total!.layers!.filter((layer) => poolKey(layer) === poolKey(pool)));
   const headline = total?.series ? total.series[metricField[mode]] : null;
   const windowLabel = t(`quota_pool.${dashboard.window === 'weekly' ? 'weekly' : 'five_hour'}`);
-  // Name the accounts that hold the total back, as each provider card does.
+  // Count the accounts that hold the total back, as each provider card does.
   const accounts = pools.flatMap((pool) => pool.accounts);
-  const names = (status: (typeof accounts)[number]['status'][]) => {
-    const named = accounts
-      .filter((account) => status.includes(account.status))
-      .map((account) =>
-        reveal && account.email ? account.email : (account.identifier ?? account.label)
-      );
-    return [...named.slice(0, 3), ...(named.length > 3 ? [`+${named.length - 3}`] : [])].join(', ');
-  };
+  const count = (status: (typeof accounts)[number]['status'][]) =>
+    accounts.filter((account) => status.includes(account.status)).length;
   const stateNote = (state: string) => {
-    const missing = names(['error', 'missing-window']);
-    const stale = names(['stale']);
+    const missing = count(['error', 'missing-window']);
+    const stale = count(['stale']);
     if (state === 'partial' && missing)
-      return t('quota_pool.unavailable_named', { names: missing });
-    if (state === 'stale' && stale) return t('quota_pool.stale_named', { names: stale });
+      return t('quota_pool.unavailable_count', { count: missing, total: accounts.length });
+    if (state === 'stale' && stale)
+      return t('quota_pool.stale_count', { count: stale, total: accounts.length });
     return t(`quota_pool.state_note.${state}`, { window: windowLabel });
   };
   return (

@@ -380,7 +380,6 @@ export function QuotaPoolPage() {
           provider={provider}
           mode={mode}
           savedData={state.error || state.refreshError}
-          reveal={query.reveal}
           onRefresh={() => void refresh()}
         />
       )}

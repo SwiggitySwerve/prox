@@ -2405,8 +2405,6 @@
     "coverage_with_limit": "{{eligible}} из {{total}} с 5-часовым лимитом",
     "weekly_limit": "Недельный лимит",
     "weekly_opus": "Недельный Opus",
-    "unavailable_named": "Нет текущих данных о квоте: {{names}}.",
-    "stale_named": "Нет свежих данных от {{names}}, поэтому итог не показан.",
     "unavailable_count": "Нет текущих данных о квоте у {{count}} из {{total}} аккаунтов, поэтому итог не показан.",
     "stale_count": "Нет свежих данных у {{count}} из {{total}} аккаунтов, поэтому итог не показан.",
     "show_affected": "Показать в списке",

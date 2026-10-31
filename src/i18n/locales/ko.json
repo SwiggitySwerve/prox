@@ -2412,8 +2412,6 @@
     "coverage_with_limit": "{{total}}개 중 {{eligible}}개에 5시간 한도 있음",
     "weekly_limit": "주간 한도",
     "weekly_opus": "주간 Opus",
-    "unavailable_named": "{{names}}의 현재 할당량 데이터가 없습니다.",
-    "stale_named": "{{names}}의 최근 데이터가 없어 합계를 표시하지 않습니다.",
     "unavailable_count": "계정 {{total}}개 중 {{count}}개에 현재 할당량 데이터가 없어 합계를 표시하지 않습니다.",
     "stale_count": "계정 {{total}}개 중 {{count}}개에 최근 데이터가 없어 합계를 표시하지 않습니다.",
     "show_affected": "목록에서 보기",

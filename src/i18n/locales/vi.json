@@ -2418,8 +2418,6 @@
     "coverage_with_limit": "{{eligible}}/{{total}} có giới hạn 5 giờ",
     "weekly_limit": "Giới hạn hằng tuần",
     "weekly_opus": "Opus hằng tuần",
-    "unavailable_named": "Không có dữ liệu hạn mức hiện tại từ {{names}}.",
-    "stale_named": "Không có số liệu gần đây từ {{names}}, nên tổng bị ẩn.",
     "unavailable_count": "{{count}}/{{total}} tài khoản không có dữ liệu hạn mức hiện tại, nên tổng bị ẩn.",
     "stale_count": "{{count}}/{{total}} tài khoản không có số liệu gần đây, nên tổng bị ẩn.",
     "show_affected": "Xem trong danh sách",

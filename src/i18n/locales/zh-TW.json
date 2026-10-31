@@ -2438,8 +2438,6 @@
     "coverage_with_limit": "{{total}} 個中有 {{eligible}} 個有 5 小時限額",
     "weekly_limit": "每週限額",
     "weekly_opus": "每週 Opus",
-    "unavailable_named": "{{names}} 沒有目前配額資料。",
-    "stale_named": "{{names}} 沒有最新讀數，因此不顯示總量。",
     "unavailable_count": "{{total}} 個帳號中有 {{count}} 個沒有目前配額資料，因此不顯示總量。",
     "stale_count": "{{total}} 個帳號中有 {{count}} 個沒有最新讀數，因此不顯示總量。",
     "show_affected": "在清單中顯示",

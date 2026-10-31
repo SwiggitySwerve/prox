@@ -1090,7 +1090,9 @@ describe('pool presentation', () => {
         onRefresh: () => {},
       })
     );
-    expect(combined).toContain('No current quota data from gra•••er@ex•••.test.');
+    expect(combined).toContain(
+      'No current quota data from 1 of 2 accounts, so the total is withheld.'
+    );
     expect(combined.match(/Refresh now/g)).toHaveLength(1);
   });
   test('stale accounts are counted as stale, not as missing', async () => {

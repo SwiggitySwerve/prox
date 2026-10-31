@@ -2410,8 +2410,6 @@
     "coverage_with_limit": "{{total}} 个中有 {{eligible}} 个有 5 小时限额",
     "weekly_limit": "每周限额",
     "weekly_opus": "每周 Opus",
-    "unavailable_named": "{{names}} 没有当前配额数据。",
-    "stale_named": "{{names}} 没有最新读数，因此不显示总量。",
     "unavailable_count": "{{total}} 个账号中有 {{count}} 个没有当前配额数据，因此不显示总量。",
     "stale_count": "{{total}} 个账号中有 {{count}} 个没有最新读数，因此不显示总量。",
     "show_affected": "在列表中显示",
