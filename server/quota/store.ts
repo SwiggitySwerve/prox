@@ -185,6 +185,18 @@ export class QuotaStore {
       .all(fromMs, toMs);
   }
 
+  /** Each account's earliest sample in any window: when it joined its pool's history. */
+  firstSampleTimes(): Map<string, number> {
+    return new Map(
+      this.db
+        .query<{ accountId: string; atMs: number }, []>(
+          'SELECT accountId, MIN(observedAtMs) AS atMs FROM quota_samples GROUP BY accountId'
+        )
+        .all()
+        .map(({ accountId, atMs }) => [accountId, atMs])
+    );
+  }
+
   firstSampleAtMs(): number | null {
     return (
       this.db

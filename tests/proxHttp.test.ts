@@ -23,6 +23,7 @@ function fixture() {
     },
     listSamples: () => [],
     firstSampleAtMs: () => null,
+    firstSampleTimes: () => new Map(),
   } as unknown as QuotaStore;
   const collector = {
     refreshing: false,
