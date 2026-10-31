@@ -1051,8 +1051,8 @@ $pool-error: #ff5252;
 .loadingRow {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 16px;
+  align-items: center;
+  gap: 8px 12px;
 }
 // Sizes follow the loaded toolbar; phones give each toggle its own full-width row.
 .loadingSegment {
@@ -1061,10 +1061,9 @@ $pool-error: #ff5252;
 .loadingSegmentWide {
   width: 330px;
 }
-.loadingSelect {
+.loadingSelects {
   display: inline-flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .loadingDate {
   width: 220px;
@@ -1072,8 +1071,12 @@ $pool-error: #ff5252;
 @media (max-width: 640px) {
   .loadingSegment,
   .loadingSegmentWide,
-  .loadingDate {
+  .loadingDate,
+  .loadingSelects {
     width: 100%;
+  }
+  .loadingSelects > * {
+    flex: 1;
   }
 }
 .loadingHero {

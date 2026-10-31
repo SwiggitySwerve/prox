@@ -280,7 +280,7 @@ export function QuotaPoolPage() {
       {!data && state.loading && state.connected && (
         <>
           {/* Placeholders shaped like the toolbar that will render: pool tabs, two view
-              toggles, two labelled selects and the date navigator. */}
+              toggles, the two settings boxes and the date navigator, all on one top edge. */}
           <div className={styles.loadingControls} aria-hidden="true">
             <div className={styles.loadingRow}>
               {[104, 92, 92].map((width, index) => (
@@ -290,12 +290,11 @@ export function QuotaPoolPage() {
             <div className={styles.loadingRow}>
               <Skeleton className={styles.loadingSegment} height={44} rounded={999} />
               <Skeleton className={styles.loadingSegmentWide} height={44} rounded={999} />
-              {[72, 132].map((width, index) => (
-                <span key={index} className={styles.loadingSelect}>
-                  <Skeleton width={64} height={10} rounded={4} />
-                  <Skeleton width={width} height={40} rounded={10} />
-                </span>
-              ))}
+              <span className={styles.loadingSelects}>
+                {[100, 184].map((width, index) => (
+                  <Skeleton key={index} width={width} height={46} rounded={999} />
+                ))}
+              </span>
               <Skeleton className={styles.loadingDate} height={40} rounded={10} />
             </div>
           </div>
