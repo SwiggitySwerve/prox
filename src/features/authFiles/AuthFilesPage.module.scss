@@ -112,6 +112,34 @@
   min-width: 0;
 }
 
+.sourceNav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  span {
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+
+  button {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color var(--dur-hover) var(--ease-out-strong);
+
+    &:hover {
+      border-color: var(--text-secondary);
+    }
+  }
+}
+
 .sourceHeading {
   display: flex;
   align-items: baseline;

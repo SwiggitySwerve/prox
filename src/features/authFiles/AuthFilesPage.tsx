@@ -55,6 +55,7 @@ import {
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
 import { useThemeStore } from '@/stores';
+import { AuthFilesSourceNav } from '@/features/authFiles/components/AuthFilesSourceNav';
 import { useProviderSources } from '@/stores/useProviderSources';
 import { sourceOwnerKey } from '@/services/api/sourceSession';
 import type { SourceView } from '@/services/providerSources/registry';
@@ -108,6 +109,7 @@ export function AuthFilesPage() {
           {t('provider_sources.discovery_error')}
         </div>
       )}
+      <AuthFilesSourceNav sources={sources} />
       {sources.map((view) => (
         <AuthFilesSourcePanel
           key={view.source.instanceId}
