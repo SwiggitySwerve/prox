@@ -89,9 +89,13 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
           (options.offsetDays - 3) * DAY_MS -
           6 * HOUR_MS
       );
+      const firstSamples = store.firstSampleTimes();
       return json(
         buildDashboard(
-          store.listAccounts(),
+          store.listAccounts().map((account) => ({
+            ...account,
+            firstSampleAtMs: firstSamples.get(account.id) ?? null,
+          })),
           store.listSamples(fromMs, options.nowMs, options.window),
           options,
           {

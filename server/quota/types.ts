@@ -13,6 +13,8 @@ export interface StoredAccount {
   /** Latest plan the provider reported, e.g. "promax" or "default_claude_max_20x". */
   plan?: string;
   planObservedAtMs?: number;
+  /** Earliest stored sample; null when it has none yet. Before it the account was not in the pool. */
+  firstSampleAtMs?: number | null;
 }
 
 export const QUOTA_PROVIDERS: readonly PoolProviderId[] = Object.freeze(['claude', 'codex']);

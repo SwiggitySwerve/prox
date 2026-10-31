@@ -115,7 +115,13 @@ describe('pooled forecast scenarios', () => {
       [
         { remaining: 0, rate: 0, resetAtMs: now + 19 * HOUR_MS, periodHours: 168, capacity: 2000 },
         { remaining: 0, rate: 0, resetAtMs: now + 84 * HOUR_MS, periodHours: 168, capacity: 2000 },
-        { remaining: 420, rate: 54, resetAtMs: now + 138 * HOUR_MS, periodHours: 168, capacity: 2000 },
+        {
+          remaining: 420,
+          rate: 54,
+          resetAtMs: now + 138 * HOUR_MS,
+          periodHours: 168,
+          capacity: 2000,
+        },
       ],
       now,
       now + 150 * HOUR_MS
@@ -254,6 +260,59 @@ describe('dashboard evidence and privacy', () => {
     const samples = [sample(now - HOUR_MS, 0, { remainingPercent: null }), sample(now, 50)];
     const recorded = dashboard([account()], samples).pools[0].recorded;
     expect(recorded.map((p) => p.remainingPoints)).toEqual([null, null, 50]);
+  });
+  test('an account added later joins the history at its first sample instead of blanking it', () => {
+    const minutes = 60_000;
+    const accounts = [
+      account('a', { firstSampleAtMs: now - 2 * HOUR_MS }),
+      account('b', { firstSampleAtMs: now }),
+    ];
+    const samples = [
+      sample(now - 10 * minutes, 80),
+      sample(now - 5 * minutes, 70),
+      sample(now, 60),
+      sample(now, 40, { accountId: 'b' }),
+    ];
+    const recorded = dashboard(accounts, samples).pools[0].recorded;
+    expect(recorded.map((p) => [p.atMs, p.remainingPoints])).toEqual([
+      [now - 10 * minutes, 80],
+      [now - 5 * minutes, 70],
+      [now, 100],
+    ]);
+  });
+  test('a provider added later stacks as zero before it joined, matching the combined total', () => {
+    const minutes = 60_000;
+    const accounts = [
+      account('c', { provider: 'codex', firstSampleAtMs: now - 2 * HOUR_MS }),
+      account('b', { firstSampleAtMs: now }),
+    ];
+    const samples = [
+      sample(now - 5 * minutes, 70, { accountId: 'c' }),
+      sample(now, 60, { accountId: 'c' }),
+      sample(now, 40, { accountId: 'b' }),
+    ];
+    const all = dashboard(accounts, samples).combined.all;
+    expect(all.series?.recorded.map((p) => p.remainingPoints)).toEqual([70, 100]);
+    const layer = (provider: string) =>
+      all.layers
+        ?.find((entry) => entry.provider === provider)
+        ?.recorded.map((p) => p.remainingPoints);
+    expect(layer('claude')).toEqual([0, 40]);
+    expect(layer('codex')).toEqual([70, 60]);
+  });
+  test('an account that reported before stays unknown while it is missing', () => {
+    const minutes = 60_000;
+    const accounts = [
+      account('a', { firstSampleAtMs: now - 2 * HOUR_MS }),
+      account('b', { firstSampleAtMs: now - 2 * HOUR_MS }),
+    ];
+    const samples = [
+      sample(now - 5 * minutes, 70),
+      sample(now, 60),
+      sample(now, 40, { accountId: 'b' }),
+    ];
+    const recorded = dashboard(accounts, samples).pools[0].recorded;
+    expect(recorded.map((p) => p.remainingPoints)).toEqual([null, 100]);
   });
   test('future scenarios scale predictions without changing recorded balances or rates', () => {
     const samples = [sample(now - 600_000, 60), sample(now, 50)];

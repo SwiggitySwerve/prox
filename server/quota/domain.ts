@@ -212,10 +212,16 @@ function recordedHistory(
   return times.map((at, index): PoolPoint => {
     const held = index > 0 && at - times[index - 1] > STALE_MS;
     const time = held ? times[index - 1] : at;
-    const snapshots = active.map((a) =>
+    // An account joins the pool at its first stored sample. Before that it was not a member,
+    // so adding an account does not turn the pool's earlier history unknown.
+    const members = active.filter(
+      (a) =>
+        a.firstSampleAtMs === undefined || (a.firstSampleAtMs !== null && a.firstSampleAtMs <= time)
+    );
+    const snapshots = members.map((a) =>
       scale(a.id, currentSample(histories.get(a.id)!, time)?.remainingPercent ?? null)
     );
-    const historicalRates = active.map((a) => {
+    const historicalRates = members.map((a) => {
       const measured = measuredRates(histories.get(a.id)!, time, lookbackHours);
       return { burn: scale(a.id, measured.burn), drain: scale(a.id, measured.drain) };
     });

@@ -54,7 +54,9 @@ credential UI. The store owns persistence; the collector uses only public APIs.
   Collections are at least 4 minutes apart: Anthropic's usage endpoint returns 429
   to bursts. Each failed poll logs status, retry-after seconds and header names.
   Disabled/retired accounts are excluded. A failed inventory cannot look like
-  an empty healthy provider. History describes the current eligible membership.
+  an empty healthy provider. History describes the current eligible membership;
+  an account joins it at its first stored sample, so adding an account never
+  turns the pool's earlier history unknown.
 - Burn is measured depletion per hour within matching reset cycles, excluding
   increasing balances and intervals longer than 15 minutes. At least ten
   minutes of eligible observations within the selected lookback are required.

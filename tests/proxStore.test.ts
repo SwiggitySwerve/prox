@@ -68,6 +68,23 @@ describe('QuotaStore', () => {
     expect(reopened.firstSampleAtMs()).toBe(NOW);
   });
 
+  test('reports the earliest sample of each account across windows', () => {
+    const { store } = open();
+    store.recordInventory('claude', [account(), account('claude:new')], NOW);
+    expect(store.firstSampleTimes()).toEqual(new Map());
+    store.recordSamples([
+      sample({ observedAtMs: NOW + 5 }),
+      sample({ window: 'five-hour', periodHours: 5, observedAtMs: NOW + 2 }),
+      sample({ accountId: 'claude:new', observedAtMs: NOW + 9 }),
+    ]);
+    expect(store.firstSampleTimes()).toEqual(
+      new Map([
+        ['claude:synthetic', NOW + 2],
+        ['claude:new', NOW + 9],
+      ])
+    );
+  });
+
   test('duplicate observations are idempotent, range boundaries inclusive, and windows independent', () => {
     const { store } = open();
     store.recordInventory('claude', [account()], NOW);
