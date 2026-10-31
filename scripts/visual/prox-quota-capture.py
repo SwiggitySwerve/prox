@@ -216,7 +216,9 @@ def fixture(state):
     if state == "no-limit":
         total.update(capacityPoints=400, remainingPoints=152)
         total["recorded"] = [dict(item, remainingPoints=value) for item, value in zip(total["recorded"], (160, 152))]
-        total["projected"] = [dict(item, remainingPoints=item["remainingPoints"] * 152 / 391.2) for item in total["projected"]]
+        # The total is the sum of the provider layers at the same moments, so the bands stack.
+        total["projected"] = [dict(a, remainingPoints=a["remainingPoints"] + b["remainingPoints"])
+                              for a, b in zip(pools[0]["projected"], pools[1]["projected"])]
     if state in ("partial","stale","collecting","long"):
         total.update(forecastState="partial" if state=="long" else state, projected=[],resets=[])
         if state!="collecting": total.update(remainingPoints=None,burnPointsPerHour=None,drainPointsPerHour=None)

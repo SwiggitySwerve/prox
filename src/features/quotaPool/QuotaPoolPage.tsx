@@ -18,7 +18,7 @@ import { PoolCard } from './PoolCard';
 import { CombinedPoolCard } from './CombinedPoolCard';
 import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
 import { PoolProviderMark } from './PoolProviderMark';
-import type { ChartMode } from './chartGeometry';
+import { viewRange, type ChartMode } from './chartGeometry';
 import { formatPoolDate } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
@@ -49,6 +49,8 @@ export function QuotaPoolPage() {
   useHeaderRefresh(refreshFromHeader, state.connected);
   useReportHeaderRefreshBusy(Boolean(refreshing) || (!data && state.loading));
   const date = (value: number | null, short = false) => formatPoolDate(value, i18n.language, short);
+  // The span the charts show, which the 5-hour and rate views narrow.
+  const range = data ? viewRange(data, mode) : null;
   const change = <K extends keyof PoolQuery>(key: K, value: PoolQuery[K]) =>
     setQuery((current) => ({ ...current, [key]: value }));
 
@@ -147,6 +149,8 @@ export function QuotaPoolPage() {
                 <select
                   value={query.multiplier}
                   disabled={mode !== 'remaining'}
+                  // The hint inside the label explains; it shouldn't become the control's name.
+                  aria-label={t('quota_pool.future_usage')}
                   aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
                   onChange={(event) =>
                     change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
@@ -160,10 +164,18 @@ export function QuotaPoolPage() {
                     </option>
                   ))}
                 </select>
+                {/* The reason sits under the disabled control it explains. */}
+                {mode !== 'remaining' && (
+                  <small id="pool-recorded-only" className={styles.selectHint}>
+                    {t('quota_pool.recorded_only_short')}
+                  </small>
+                )}
               </label>
             </div>
             <div className={styles.dateNavigation}>
-              <span>{data ? `${date(data.fromMs, true)} – ${date(data.toMs, true)}` : null}</span>
+              <span>
+                {range ? `${date(range.fromMs, true)} – ${date(range.toMs, true)}` : null}
+              </span>
               <button
                 type="button"
                 aria-label={t('quota_pool.previous')}
@@ -184,16 +196,9 @@ export function QuotaPoolPage() {
                 <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
               </button>
             </div>
-            {/* The reason Future usage is disabled sits with the controls it explains. */}
-            {mode !== 'remaining' && (
-              <p id="pool-recorded-only" className={styles.stateNote}>
-                {t('quota_pool.recorded_only')}
-              </p>
-            )}
           </fieldset>
         </>
       )}
-      {!chartUnavailable && <p className={styles.method}>{t('quota_pool.normalized_short')}</p>}
       {!state.connected && (
         <div className={styles.notice} role="status">
           {t('quota_pool.disconnected')}

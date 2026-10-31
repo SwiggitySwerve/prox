@@ -50,7 +50,11 @@ export function CombinedPoolCard({
         </span>
       </div>
       {/* Same headline block as a provider card, so an unavailable total keeps its caption. */}
-      <div className={styles.headline} data-unavailable={headline === null}>
+      <div
+        className={styles.headline}
+        data-unavailable={headline === null}
+        data-rate={mode !== 'remaining'}
+      >
         <strong>
           {headline === null
             ? t(

@@ -273,9 +273,29 @@ $pool-error: #ff5252;
   align-items: stretch;
   gap: 3px;
   color: #b5b5b5;
+  // Settings, not views: an outline instead of the toggles' filled track.
   select {
     max-width: 180px;
+    background-color: transparent;
+    border: 1px solid var(--hairline);
   }
+}
+// Hangs under its select without moving it, so the toolbar's controls stay on one line.
+.selectHint {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.selectLabel:has(.selectHint) {
+  position: relative;
+}
+.toolbar:has(.selectHint) {
+  padding-bottom: 20px;
 }
 .dateNavigation {
   margin-left: auto;
@@ -402,6 +422,10 @@ $pool-error: #ff5252;
     font-size: 16px;
     font-weight: 400;
     letter-spacing: 0;
+  }
+  // A one-line rate caption sits on the number's baseline, beside its unit.
+  &[data-rate='true'] {
+    align-items: baseline;
   }
   &[data-unavailable='true'] strong {
     font-size: 18px;
@@ -888,10 +912,9 @@ $pool-error: #ff5252;
   padding: 24px;
 }
 .errorNotice {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px 14px;
   margin-block: 12px;
   align-items: flex-start;
   border-color: color-mix(in srgb, #{$pool-error} 55%, transparent);
@@ -912,8 +935,8 @@ $pool-error: #ff5252;
     min-width: 0;
   }
   button {
-    flex-shrink: 0;
-    align-self: center;
+    grid-column: 2;
+    justify-self: start;
     margin-left: 0;
     min-height: 44px;
     padding-inline: 18px;
@@ -1192,6 +1215,16 @@ $pool-error: #ff5252;
   }
   .selectLabel {
     min-width: 0;
+  }
+  .chartSettings {
+    align-items: start;
+  }
+  .selectHint {
+    position: static;
+    white-space: normal;
+  }
+  .toolbar:has(.selectHint) {
+    padding-bottom: 0;
   }
   .selectLabel select {
     width: 100%;

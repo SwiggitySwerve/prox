@@ -9,10 +9,13 @@ import {
   stackSamples,
   bandSegments,
   dayTicks,
+  hourTicks,
+  inRange,
+  viewRange,
   metricField,
   type ChartMode,
 } from './chartGeometry';
-import { formatPoolDate, formatPoolNumber } from './presentation';
+import { formatPoolDate, formatPoolNumber, formatPoolTick } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
 type ChartPool = PoolTrace & {
@@ -22,7 +25,7 @@ type ChartPool = PoolTrace & {
 };
 
 interface ChartProps {
-  dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs'>;
+  dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs' | 'window'>;
   mode: ChartMode;
   savedData?: boolean;
   minimized?: boolean;
@@ -74,12 +77,13 @@ function PoolChartView({
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
   const [inspected, setInspected] = useState<number | null>(null);
-  const { fromMs, toMs, nowMs } = dashboard;
+  const { fromMs, toMs } = viewRange(dashboard, mode);
+  const { nowMs } = dashboard;
+  // Two days or less: one tick per few hours instead of one per day.
+  const hourly = toMs - fromMs <= 2.5 * 86_400_000;
   const field = metricField[mode];
   const rawSeries = pools.map((pool) => {
-    const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
-      ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
-    );
+    const samples = inRange(chartSamples(pool.recorded, pool.projected, mode), fromMs, toMs);
     return {
       pool,
       samples,
@@ -87,9 +91,7 @@ function PoolChartView({
     };
   });
   const totalSamples = stackedTotal
-    ? chartSamples(stackedTotal.recorded, stackedTotal.projected, mode).filter(
-        ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
-      )
+    ? inRange(chartSamples(stackedTotal.recorded, stackedTotal.projected, mode), fromMs, toMs)
     : [];
   const stacked = stackedTotal
     ? stackSamples(
@@ -196,7 +198,7 @@ function PoolChartView({
   const description = sample
     ? unobserved
       ? readingText
-      : `${latestPrefix}${readingAt.length > 1 ? `${date(sample.point.atMs)} · ` : ''}${readingText} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
+      : `${latestPrefix}${readingAt.length > 1 ? `${date(sample.point.atMs)} · ` : ''}${readingText}${sample.projected ? ` · ${t('quota_pool.projected')}` : ''}`
     : t('quota_pool.inspect_hint');
 
   const selectAtPointer = (event: PointerEvent<SVGSVGElement>) => {
@@ -292,7 +294,7 @@ function PoolChartView({
             </text>
           </g>
         ))}
-        {dayTicks(fromMs, toMs, tickCount).map((at) => {
+        {(hourly ? hourTicks : dayTicks)(fromMs, toMs, tickCount).map((at) => {
           const edge = 40;
           return (
             <g key={at} className={styles.grid}>
@@ -308,7 +310,7 @@ function PoolChartView({
                       : 'middle'
                 }
               >
-                {formatPoolDate(at, i18n.language, true)}
+                {formatPoolTick(at, i18n.language, hourly)}
               </text>
             </g>
           );
@@ -430,7 +432,14 @@ function PoolChartView({
             className={styles.nowLabel}
             x={x(nowMs)}
             y={chartFrame.top - 12}
-            textAnchor="middle"
+            // Near an edge (rate views end at the snapshot) the label turns inward to stay inside.
+            textAnchor={
+              chartFrame.right - x(nowMs) < 60
+                ? 'end'
+                : x(nowMs) - chartFrame.left < 60
+                  ? 'start'
+                  : 'middle'
+            }
           >
             {t(`quota_pool.${savedData ? 'saved_snapshot' : 'snapshot'}`)}
           </text>

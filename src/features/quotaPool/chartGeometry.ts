@@ -45,6 +45,62 @@ export function dayTicks(fromMs: number, toMs: number, maxTicks: number): number
   return ticks;
 }
 
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+
+/**
+ * The span a chart shows. A 5-hour window cycles within hours, so it shows a day either side of
+ * the snapshot; rates have no forecast, so their range ends just after the snapshot.
+ */
+export function viewRange(
+  view: { fromMs: number; toMs: number; nowMs: number; window: 'weekly' | 'five-hour' },
+  mode: ChartMode
+) {
+  // Browsing an earlier range keeps its own end as the reference point.
+  const anchor = Math.min(Math.max(view.nowMs, view.fromMs), view.toMs);
+  let { fromMs, toMs } = view;
+  if (view.window === 'five-hour') {
+    fromMs = Math.max(fromMs, anchor - DAY_MS);
+    toMs = Math.min(toMs, anchor + DAY_MS);
+  }
+  if (mode !== 'remaining') {
+    toMs = Math.min(toMs, Math.max(anchor + HOUR_MS, anchor + (anchor - fromMs) * 0.05));
+  }
+  return { fromMs, toMs };
+}
+
+/**
+ * Samples inside the range, plus the nearest one beyond each edge when the line crosses it, so a
+ * clipped chart draws the line up to its edge instead of stopping at the last sample inside.
+ */
+export function inRange<T extends ChartSample>(samples: T[], fromMs: number, toMs: number): T[] {
+  const kept: T[] = [];
+  for (const projected of [false, true]) {
+    const run = samples.filter((sample) => sample.projected === projected);
+    const at = (sample: T) => sample.point.atMs;
+    const first = run.findIndex((sample) => at(sample) >= fromMs);
+    let last = run.length - 1;
+    while (last >= 0 && at(run[last]) > toMs) last -= 1;
+    if (first === -1 || last === -1 || first > last + 1) continue;
+    kept.push(...run.slice(Math.max(0, first - 1), Math.min(run.length, last + 2)));
+  }
+  return kept;
+}
+
+/** Whole local hours, a fixed step apart, for ranges too short for one tick per day. */
+export function hourTicks(fromMs: number, toMs: number, maxTicks: number): number[] {
+  const step =
+    [1, 2, 3, 4, 6, 8, 12, 24].find((hours) => (toMs - fromMs) / (hours * HOUR_MS) < maxTicks) ??
+    24;
+  const at = new Date(fromMs);
+  at.setMinutes(0, 0, 0);
+  if (at.getTime() < fromMs) at.setHours(at.getHours() + 1);
+  while (at.getHours() % step) at.setHours(at.getHours() + 1);
+  const ticks: number[] = [];
+  for (; at.getTime() <= toMs; at.setHours(at.getHours() + step)) ticks.push(at.getTime());
+  return ticks;
+}
+
 export function chartSamples(recorded: PoolPoint[], projected: PoolPoint[], mode: ChartMode) {
   return [
     ...recorded.map((point) => ({ point, projected: false })),

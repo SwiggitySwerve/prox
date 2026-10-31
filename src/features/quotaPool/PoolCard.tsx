@@ -76,6 +76,13 @@ export function PoolCard({
       ),
       account.remainingPercent ?? Infinity
     );
+  // Claude names its weekly windows "7-day"; the page calls that window Weekly everywhere.
+  const limitLabel = (limit: (typeof pool.accounts)[number]['windows'][number]) =>
+    limit.id === 'seven-day'
+      ? t('quota_pool.weekly_limit')
+      : limit.id === 'seven-day-opus'
+        ? t('quota_pool.weekly_opus')
+        : t(limit.labelKey, limit.labelParams);
   const query = rosterQuery.trim().toLowerCase();
   const matchingAccounts = pool.accounts.filter(
     (account) => !query || accountName(account).toLowerCase().includes(query)
@@ -175,6 +182,7 @@ export function PoolCard({
           <div
             className={styles.headline}
             data-unavailable={pool[metricField[mode]] === null}
+            data-rate={mode !== 'remaining'}
             data-no-limit={pool.forecastState === 'no-limit'}
           >
             <strong>
@@ -215,11 +223,6 @@ export function PoolCard({
           {pool.forecastState !== 'ready' && (
             <p className={styles.stateNote} role="status" data-state={pool.forecastState}>
               {t(`quota_pool.state_note.${pool.forecastState}`, { window: windowLabel })}
-            </p>
-          )}
-          {savedData && (
-            <p className={styles.coverage}>
-              {t('quota_pool.saved_snapshot')}: {date(dashboard.nowMs)}
             </p>
           )}
         </div>
@@ -371,7 +374,7 @@ export function PoolCard({
               <span />
               {limitColumns.map((limit) => (
                 <span key={limit.id} data-counted={limit.id === countedLimitId || undefined}>
-                  {t(limit.labelKey, limit.labelParams)}
+                  {limitLabel(limit)}
                   {limit.id === countedLimitId && (
                     <small>{t('quota_pool.counts_toward_total')}</small>
                   )}
@@ -449,7 +452,7 @@ export function PoolCard({
                             } as CSSProperties
                           }
                         >
-                          <span>{t(limit.labelKey, limit.labelParams)}</span>
+                          <span>{limitLabel(limit)}</span>
                           <span className={styles.limitBar} aria-hidden="true">
                             <span style={{ width: `${limit.remainingPercent ?? 0}%` }} />
                           </span>
@@ -493,7 +496,7 @@ export function PoolCard({
                               } as CSSProperties
                             }
                           >
-                            <span>{t(column.labelKey, column.labelParams)}</span>
+                            <span>{limitLabel(column)}</span>
                             {/* The reason fills the cell, so the column still says why it is empty. */}
                             <em>
                               {account.noFiveHourLimit && column.id === 'five-hour'

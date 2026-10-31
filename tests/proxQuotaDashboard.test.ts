@@ -11,6 +11,9 @@ import {
   bandSegments,
   chartSamples,
   dayTicks,
+  hourTicks,
+  inRange,
+  viewRange,
   fitChartFrame,
 } from '../src/features/quotaPool/chartGeometry';
 import { createPoolResource } from '../src/features/quotaPool/poolResource';
@@ -445,6 +448,56 @@ describe('pool request lifetime', () => {
 });
 
 describe('honest chart geometry', () => {
+  test('the 5-hour and rate views show the span their data covers', () => {
+    const DAY = 86_400_000;
+    const view = { fromMs: 0, toMs: 10 * DAY, nowMs: 3 * DAY };
+    // Remaining, weekly: the whole requested range.
+    expect(viewRange({ ...view, window: 'weekly' }, 'remaining')).toEqual({
+      fromMs: 0,
+      toMs: 10 * DAY,
+    });
+    // 5-hour windows cycle within hours: a day either side of the snapshot.
+    expect(viewRange({ ...view, window: 'five-hour' }, 'remaining')).toEqual({
+      fromMs: 2 * DAY,
+      toMs: 4 * DAY,
+    });
+    // Rates have no forecast: the range ends just after the snapshot.
+    const rates = viewRange({ ...view, window: 'weekly' }, 'burn');
+    expect(rates.fromMs).toBe(0);
+    expect(rates.toMs).toBeGreaterThan(3 * DAY);
+    expect(rates.toMs).toBeLessThan(3.5 * DAY);
+    // Browsing an earlier range keeps the window inside that range.
+    const past = viewRange(
+      { fromMs: 0, toMs: DAY, nowMs: 3 * DAY, window: 'five-hour' },
+      'remaining'
+    );
+    expect(past.fromMs).toBeGreaterThanOrEqual(0);
+    expect(past.toMs).toBe(DAY);
+    expect(past.fromMs).toBeLessThan(past.toMs);
+  });
+  test('lines crossing the range edge keep their neighbour outside, so they reach the edge', () => {
+    const samples = [0, 100, 200, 300, 400].map((at) => ({
+      point: point(at, at),
+      projected: false,
+    }));
+    expect(inRange(samples, 150, 250).map(({ point }) => point.atMs)).toEqual([100, 200, 300]);
+    expect(inRange(samples, 500, 600)).toEqual([]);
+  });
+  test('short ranges tick on whole hours', () => {
+    const zone = process.env.TZ;
+    process.env.TZ = 'UTC';
+    try {
+      const from = Date.UTC(2026, 9, 26, 12);
+      const ticks = hourTicks(from, from + 2 * 86_400_000, 8);
+      expect(ticks.length).toBeGreaterThanOrEqual(4);
+      expect(ticks.length).toBeLessThanOrEqual(8);
+      for (const at of ticks) expect(new Date(at).getMinutes()).toBe(0);
+      expect(ticks[1] - ticks[0]).toBe(8 * 3_600_000);
+    } finally {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
+  });
   test('day ticks land on local midnights, so labels name the day they mark', () => {
     // UTC midnight is 6 PM the previous day in Denver; ticks there were labelled a day early.
     const zone = process.env.TZ;
@@ -638,7 +691,9 @@ describe('stacked chart geometry', () => {
     );
     expect(markup.match(/data-stack-band="recorded"/g) ?? []).toHaveLength(2);
     expect(markup).toContain('Codex ·');
-    expect(markup).toContain('30 points · Recorded');
+    // Only projected moments are tagged; a recorded reading needs no label.
+    expect(markup).toContain('30 points');
+    expect(markup).not.toContain('· Recorded');
     expect(markup).not.toContain('data-series="total"');
   });
   test('long rosters get search, sort and a low count; short ones stay plain', async () => {
@@ -684,7 +739,8 @@ describe('stacked chart geometry', () => {
     const markup = renderToStaticMarkup(
       createElement(PoolComparisonChart, { pools: [a, b], dashboard, mode: 'remaining' })
     );
-    expect(markup).toMatch(/Claude: 20 · Codex: 30 points · Recorded/);
+    expect(markup).toMatch(/Claude: 20 · Codex: 30 points/);
+    expect(markup).not.toContain('· Recorded');
   });
 });
 
@@ -869,7 +925,7 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).toContain(
-      '<span data-counted="true">7-day limit<small>counts toward total</small></span>'
+      '<span data-counted="true">Weekly limit<small>counts toward total</small></span>'
     );
     // Only the phone heading label names the balance; the table has no duplicate column.
     expect(markup.match(/Weekly remaining/g)).toHaveLength(1);
@@ -962,14 +1018,17 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).toContain('Saved forecast');
+    // The snapshot is marked on the chart; the card doesn't repeat its time.
     expect(markup).toContain('Saved snapshot');
+    expect(markup).not.toContain('Saved snapshot:');
     // The card's snapshot line dates every row, so rows don't repeat it.
     expect(markup).not.toContain('Saved observation');
     expect(markup).not.toContain('Forecast: Ready');
     expect(markup).not.toContain('>Current<');
     expect(markup).toContain('Weekly quota remaining: <strong>73</strong>');
     expect(markup).toContain('of 200 points');
-    expect(markup).toContain('3 points/h · Recorded');
+    expect(markup).toContain('3 points/h');
+    expect(markup).not.toContain('· Recorded');
   });
 
   test('absent projections have no projected legend or implied depletion estimate', async () => {

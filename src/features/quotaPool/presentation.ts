@@ -5,6 +5,12 @@ export const formatPoolNumber = (value: number | null, locale: string) =>
 export const isLowQuota = (remainingPercent: number | null) =>
   remainingPercent !== null && remainingPercent < 20;
 
+/** Axis label: the day, or on hourly axes the hour, with the day at midnight. */
+export const formatPoolTick = (value: number, locale: string, hourly: boolean) =>
+  hourly && new Date(value).getHours() !== 0
+    ? new Intl.DateTimeFormat(locale, { hour: 'numeric' }).format(value)
+    : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(value);
+
 export const formatPoolDate = (value: number | null, locale: string, short = false) => {
   if (value === null) return '—';
   const parts = new Intl.DateTimeFormat(
