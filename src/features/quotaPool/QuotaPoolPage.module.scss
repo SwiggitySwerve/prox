@@ -229,8 +229,8 @@ $pool-error: #ff5252;
   margin: 0 0 8px;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 16px;
+  align-items: center;
+  gap: 8px 12px;
   font-size: 13px;
 }
 .segment {
@@ -260,40 +260,58 @@ $pool-error: #ff5252;
   }
 }
 .chartSettings {
-  display: grid;
-  grid-template-columns: auto auto auto;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 .selectLabel {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 3px;
-  color: #b5b5b5;
-  // Settings, not views: an outline instead of the toggles' filled track.
+  // Settings, not views: an outlined box holding the setting's name and its value.
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding-left: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  &:focus-within {
+    border-color: var(--text-tertiary);
+  }
   select {
     max-width: 180px;
+    min-height: 44px;
+    padding-left: 6px;
     background-color: transparent;
-    border: 1px solid var(--hairline);
+    border: 0;
+    border-radius: 999px;
+    color: var(--text-primary);
+  }
+  select:focus-visible {
+    outline-offset: -2px;
   }
 }
-// Hangs under its select without moving it, so the toolbar's controls stay on one line.
-.selectHint {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
+.selectPrefix {
   color: var(--text-tertiary);
-  font-size: 12px;
-  line-height: 1.3;
   white-space: nowrap;
 }
-.selectLabel:has(.selectHint) {
-  position: relative;
+.selectHint {
+  padding: 0 16px 0 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
 }
-.toolbar:has(.selectHint) {
-  padding-bottom: 20px;
+// The disabled select stays in the box for its name and setting; the reason takes its place.
+.selectLabel[data-disabled] select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.selectLabel[data-disabled] {
+  position: relative;
+  border-color: var(--hairline-soft);
 }
 .dateNavigation {
   // Follows the selects, so it never floats alone at the far edge or wraps right-aligned.
@@ -541,36 +559,15 @@ $pool-error: #ff5252;
   gap: 6px;
   color: var(--text-secondary);
   background: var(--bg-tertiary);
-  border: 1px solid transparent;
   border-radius: 999px;
   padding: 2px 10px;
   font-size: 13px;
-  &::before {
-    content: '';
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--text-quaternary);
+  // One shape for every state: only the icon, word and text colour change.
+  svg {
+    flex: none;
   }
-  &[data-state='ready']::before {
-    background: var(--success-color);
-  }
-  &[data-state='saved']::before {
-    background: var(--warning-color);
-  }
-  &[data-state='partial'],
-  &[data-state='stale'] {
+  &[data-tone='warning'] {
     color: var(--warning-text);
-    border-color: var(--warning-border);
-    background: var(--warning-bg);
-    &::before {
-      background: var(--warning-color);
-    }
-  }
-  &[data-state='stale']::before {
-    box-sizing: border-box;
-    border: 2px solid var(--warning-color);
-    background: transparent;
   }
 }
 .chart {
@@ -1371,28 +1368,29 @@ $pool-error: #ff5252;
   }
   // The two selects split the row, like the full-width toggles above them.
   .chartSettings {
+    display: grid;
     width: 100%;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 6px;
   }
   .selectLabel {
     min-width: 0;
+    padding-left: 12px;
   }
-  .chartSettings {
-    align-items: start;
-  }
-  // One line under its select; the reason is short enough to run past the select's width.
+  // Two short lines fit the box's height, so the whole reason stays readable.
   .selectHint {
-    position: static;
-    white-space: nowrap;
-  }
-  .toolbar:has(.selectHint) {
-    padding-bottom: 0;
+    min-width: 0;
+    padding-right: 10px;
+    white-space: normal;
+    line-height: 1.2;
   }
   .selectLabel select {
+    flex: 1;
+    min-width: 0;
     width: 100%;
     max-width: 100%;
-    padding-inline: 8px;
+    padding-inline: 4px 8px;
+    text-overflow: ellipsis;
   }
   .dateNavigation {
     width: 100%;

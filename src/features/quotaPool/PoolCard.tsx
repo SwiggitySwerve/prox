@@ -6,6 +6,11 @@ import {
   IconArrowUp,
   IconCheck,
   IconChevronDown,
+  IconCircleHalf,
+  IconClock,
+  IconHistory,
+  IconInfo,
+  IconTimer,
 } from '@/components/ui/icons';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
@@ -14,6 +19,7 @@ import { PoolChart } from './PoolChart';
 import { PoolGraph } from './PoolGraph';
 import { PoolGraphToggle } from './PoolGraphToggle';
 import { PoolProviderMark } from './PoolProviderMark';
+import { poolChip, type PoolChipIcon } from './model/poolChip';
 import { formatPoolDate, formatPoolNumber, formatPoolPercent, isLowQuota } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
@@ -21,6 +27,14 @@ import styles from './QuotaPoolPage.module.scss';
 const ROSTER_CONTROLS_MIN = 8;
 /** Rows shown before "Show all", so a long roster doesn't bury the next pool. */
 const ROSTER_PAGE = 25;
+const CHIP_ICONS: Record<PoolChipIcon, typeof IconCheck> = {
+  check: IconCheck,
+  partial: IconCircleHalf,
+  stale: IconClock,
+  saved: IconHistory,
+  collecting: IconTimer,
+  info: IconInfo,
+};
 
 export function PoolCard({
   pool,
@@ -152,6 +166,8 @@ export function PoolCard({
     dashboard.window === 'five-hour'
       ? pool.accounts.filter((account) => account.noFiveHourLimit).length
       : 0;
+  const chip = poolChip(pool.forecastState, savedData);
+  const ChipIcon = CHIP_ICONS[chip.icon];
   return (
     <article
       className={`${styles.pool} ${styles[pool.provider]}`}
@@ -171,7 +187,13 @@ export function PoolCard({
             </h2>
             <div className={styles.poolMeta}>
               <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
-              <span className={styles.badge} data-state={savedData ? 'saved' : pool.forecastState}>
+              <span
+                className={styles.badge}
+                data-state={chip.state}
+                data-chip-icon={chip.icon}
+                data-tone={chip.tone}
+              >
+                <ChipIcon size={13} aria-hidden="true" />
                 {savedData
                   ? t('quota_pool.saved_forecast')
                   : t('quota_pool.forecast_status', {

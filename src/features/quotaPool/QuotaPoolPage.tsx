@@ -142,8 +142,12 @@ export function QuotaPoolPage() {
               ))}
             </div>
             <div className={styles.chartSettings}>
+              {/* The setting's name sits inside the box, so every toolbar control shares one top edge. */}
               <label className={styles.selectLabel}>
-                {t('quota_pool.rate_interval')}
+                <span className={styles.srOnly}>{t('quota_pool.rate_interval')}</span>
+                <span className={styles.selectPrefix} aria-hidden="true">
+                  {t('quota_pool.rate_prefix')}
+                </span>
                 <select
                   value={query.lookback}
                   onChange={(event) =>
@@ -157,13 +161,19 @@ export function QuotaPoolPage() {
                   ))}
                 </select>
               </label>
-              <label className={styles.selectLabel}>
-                {t('quota_pool.future_usage')}
+              {/* Outside the Remaining view the scenario changes nothing, so the box shows why
+                  in place of the value; the disabled select keeps the name and the setting. */}
+              <label
+                className={styles.selectLabel}
+                data-disabled={mode !== 'remaining' || undefined}
+              >
+                <span className={styles.srOnly}>{t('quota_pool.future_usage')}</span>
+                <span className={styles.selectPrefix} aria-hidden="true">
+                  {t('quota_pool.future_prefix')}
+                </span>
                 <select
                   value={query.multiplier}
                   disabled={mode !== 'remaining'}
-                  // The hint inside the label explains; it shouldn't become the control's name.
-                  aria-label={t('quota_pool.future_usage')}
                   aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
                   onChange={(event) =>
                     change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
@@ -177,7 +187,6 @@ export function QuotaPoolPage() {
                     </option>
                   ))}
                 </select>
-                {/* The reason sits under the disabled control it explains. */}
                 {mode !== 'remaining' && (
                   <small id="pool-recorded-only" className={styles.selectHint}>
                     {t('quota_pool.recorded_only_short')}

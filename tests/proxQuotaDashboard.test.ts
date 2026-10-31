@@ -1133,6 +1133,28 @@ describe('pool presentation', () => {
       /<li data-missing="true"[^>]*><span>5-hour limit<\/span><em>No 5-hour limit<\/em><\/li>/
     );
   });
+  test('every forecast state gets one chip shape with its own icon, and Ready is neutral', async () => {
+    await i18n.changeLanguage('en');
+    const chip = (forecastState: QuotaPool['forecastState'], savedData = false) => {
+      const markup = renderToStaticMarkup(
+        createElement(PoolCard, {
+          pool: { ...pool, forecastState },
+          dashboard,
+          mode: 'remaining',
+          reveal: false,
+          savedData,
+        })
+      );
+      const match = markup.match(/<span[^>]*data-chip-icon="([^"]+)"[^>]*data-tone="([^"]+)"/);
+      return match ? { icon: match[1], tone: match[2] } : null;
+    };
+    expect(chip('ready')).toEqual({ icon: 'check', tone: 'neutral' });
+    expect(chip('partial')).toEqual({ icon: 'partial', tone: 'warning' });
+    expect(chip('stale')).toEqual({ icon: 'stale', tone: 'warning' });
+    expect(chip('collecting')).toEqual({ icon: 'collecting', tone: 'neutral' });
+    expect(chip('no-limit')).toEqual({ icon: 'info', tone: 'neutral' });
+    expect(chip('ready', true)).toEqual({ icon: 'saved', tone: 'warning' });
+  });
   test('saved data qualifies forecasts once per card while retaining rate balances', async () => {
     await i18n.changeLanguage('en');
     const markup = renderToStaticMarkup(

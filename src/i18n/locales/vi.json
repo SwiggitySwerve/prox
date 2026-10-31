@@ -2369,6 +2369,8 @@
     "drain": "Tốc độ giảm ròng",
     "burn": "Tốc độ tiêu thụ",
     "rate_interval": "Khoảng tính tốc độ",
+    "rate_prefix": "Tốc độ",
+    "future_prefix": "Tương lai",
     "hours": "{{hours}} giờ",
     "future_usage": "Mức dùng tương lai",
     "window": "Chu kỳ hạn mức",

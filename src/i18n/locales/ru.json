@@ -2356,6 +2356,8 @@
     "drain": "Чистый расход",
     "burn": "Расход",
     "rate_interval": "Интервал расчёта",
+    "rate_prefix": "Интервал",
+    "future_prefix": "Прогноз",
     "hours": "{{hours}} ч",
     "future_usage": "Будущий расход",
     "window": "Период квоты",

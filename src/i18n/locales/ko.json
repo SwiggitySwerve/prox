@@ -2363,6 +2363,8 @@
     "drain": "순감소율",
     "burn": "소모율",
     "rate_interval": "소모율 측정 구간",
+    "rate_prefix": "측정 구간",
+    "future_prefix": "향후",
     "hours": "{{hours}}시간",
     "future_usage": "향후 사용량",
     "window": "할당량 기간",

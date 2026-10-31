@@ -2361,6 +2361,8 @@
     "drain": "净消耗速率",
     "burn": "消耗速率",
     "rate_interval": "速率时间区间",
+    "rate_prefix": "速率",
+    "future_prefix": "未来",
     "hours": "{{hours}}小时",
     "future_usage": "未来使用量",
     "window": "额度周期",
