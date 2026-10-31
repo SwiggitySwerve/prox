@@ -57,8 +57,9 @@ $pool-error: #ff5252;
   button[aria-pressed='true']:disabled {
     background: var(--bg-tertiary);
   }
+  // Neutral, so focus never reads as a provider colour.
   :is(button, select, input, summary, a, svg):focus-visible {
-    outline: 2px solid var(--focus-ring);
+    outline: 2px solid var(--text-primary);
     outline-offset: 3px;
   }
   h1,
@@ -160,9 +161,6 @@ $pool-error: #ff5252;
   white-space: nowrap;
   position: relative;
   min-width: 13em;
-  &[data-refreshing='true'] {
-    color: var(--text-primary);
-  }
   &[data-refreshing='true'] svg {
     animation: countdownSpin 1s linear infinite;
   }
@@ -344,7 +342,7 @@ $pool-error: #ff5252;
   display: flex;
   gap: 20px;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 .poolIdentity {
   min-width: 0;
@@ -427,11 +425,12 @@ $pool-error: #ff5252;
   &[data-rate='true'] {
     align-items: baseline;
   }
-  &[data-unavailable='true'] strong {
-    font-size: 18px;
-    letter-spacing: -0.3px;
-    color: var(--warning-text);
-  }
+}
+// A missing total says so in the value slot; the notice below carries the warning colour.
+.unavailableValue {
+  color: var(--text-secondary);
+  font-size: 28px;
+  letter-spacing: -0.02em;
 }
 .headlineContext {
   color: #b5b5b5;
@@ -462,12 +461,6 @@ $pool-error: #ff5252;
 .statsBlock {
   flex: 2;
   min-width: 0;
-  @media (min-width: 901px) {
-    &:has(.statsHeading) {
-      padding-left: 20px;
-      border-left: 1px solid var(--border-primary);
-    }
-  }
 }
 .stats {
   display: grid;
@@ -493,7 +486,27 @@ $pool-error: #ff5252;
 }
 .statsHeading {
   margin-bottom: 8px !important;
-  color: #b5b5b5;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+// "248.4 of 300 points" stays one value on one line.
+.stats dd small {
+  display: inline;
+}
+// One notice layout: the message, then its action on a line of its own.
+.stateNote .noteAction {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  margin: 8px 0 0;
+  min-height: 32px;
+  padding: 4px 14px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
   font-size: 13px;
 }
 .stateNote {
@@ -511,6 +524,10 @@ $pool-error: #ff5252;
     background: var(--warning-bg);
     color: var(--warning-text);
   }
+}
+.pool > .stateNote {
+  margin: 14px 0 4px !important;
+  padding: 8px 12px;
 }
 .forecast {
   margin-top: 14px;
@@ -649,6 +666,29 @@ $pool-error: #ff5252;
     border-top: 0;
     border-left: 2px solid var(--pool-accent);
   }
+  // Line-style keys sit apart from the provider colours, in neutral grey.
+  [data-divider] {
+    padding-left: 16px;
+    border-left: 1px solid var(--hairline);
+  }
+}
+.combined .legend [data-style-key] i {
+  border-top-color: var(--text-tertiary);
+}
+// Phones: provider keys on one row, line-style keys on the next, so no key is left alone.
+@media (max-width: 640px) {
+  .combined .legend::after {
+    content: '';
+    flex-basis: 100%;
+    order: 1;
+  }
+  .combined .legend [data-style-key] {
+    order: 2;
+  }
+  .legend [data-divider] {
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 .accounts {
   margin-top: 4px;
@@ -670,9 +710,10 @@ $pool-error: #ff5252;
 }
 .page .expandAccounts {
   margin-right: auto;
-  padding: 4px 10px;
+  padding: 4px 12px;
   background: transparent;
-  border-color: var(--border-primary);
+  border-color: var(--hairline);
+  border-radius: 999px;
   color: var(--text-secondary);
   font-size: 13px;
 }
@@ -733,6 +774,15 @@ $pool-error: #ff5252;
   }
   &[data-status='stale'] strong small {
     color: var(--warning-text);
+  }
+  // A stale reading is still shown, in secondary text, so it doesn't pass for a current one.
+  // Bars keep full strength: meaningful graphics need 3:1.
+  &[data-status='stale'] strong,
+  &[data-status='stale'] .limits strong {
+    color: var(--text-secondary);
+  }
+  &[open] {
+    background: var(--fill-soft);
   }
 }
 .accountName {
@@ -816,6 +866,15 @@ $pool-error: #ff5252;
 .account:not([open]) .limits small {
   display: none;
 }
+// The value slot already says the account has no such limit, so its status line doesn't.
+.account[data-status='no-limit'] .accountStatus {
+  display: none;
+}
+.noLimitValue {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+}
 .limits li[data-missing='true'] {
   display: none;
   color: var(--text-quaternary);
@@ -869,8 +928,10 @@ $pool-error: #ff5252;
     font-size: 13px;
   }
 }
-.pools > .notice {
+.pools > .emptyNotice {
   max-width: 640px;
+}
+.pools > .notice {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -972,10 +1033,34 @@ $pool-error: #ff5252;
   display: grid;
   gap: 12px;
   margin-bottom: 20px;
-  > div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+}
+.loadingRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 16px;
+}
+// Sizes follow the loaded toolbar; phones give each toggle its own full-width row.
+.loadingSegment {
+  width: 200px;
+}
+.loadingSegmentWide {
+  width: 330px;
+}
+.loadingSelect {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.loadingDate {
+  width: 220px;
+  margin-left: auto;
+}
+@media (max-width: 640px) {
+  .loadingSegment,
+  .loadingSegmentWide,
+  .loadingDate {
+    width: 100%;
   }
 }
 .loadingHero {
@@ -983,15 +1068,39 @@ $pool-error: #ff5252;
   flex-direction: column;
   gap: 12px;
 }
+// A headline number with its two-line label beside it, as in the loaded cards.
+.loadingNumber {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  > span {
+    display: grid;
+    gap: 6px;
+  }
+}
 .loadingStats {
   display: grid;
-  grid-template-columns: 1.2fr repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
+  align-items: start;
   gap: 20px;
-  // Phone cards list their facts one per line, so the placeholders do too.
+  // Phones list the facts as label/value rows under the headline, like the loaded card.
   @media (max-width: 640px) {
     grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
+    gap: 10px;
   }
+}
+.loadingFact {
+  display: grid;
+  gap: 6px;
+  @media (max-width: 640px) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+.loadingRows {
+  display: grid;
+  gap: 8px;
 }
 .loading + .loading {
   margin-top: 20px;
@@ -1036,6 +1145,12 @@ $pool-error: #ff5252;
     animation: none;
   }
 }
+.footerLabel {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
 .footer {
   display: grid;
   gap: 6px;
@@ -1047,15 +1162,18 @@ $pool-error: #ff5252;
   margin-bottom: 0 !important;
 }
 .about {
-  margin-top: 4px;
+  margin-top: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--hairline-soft);
   ul {
-    max-width: 60rem;
+    max-width: 70ch;
     margin: 0 0 6px;
     padding-left: 22px;
     color: var(--text-tertiary);
+    font-size: 14px;
   }
   li {
-    margin-bottom: 4px;
+    margin-bottom: 10px;
   }
   &[open] > summary svg {
     transform: none;
@@ -1077,6 +1195,22 @@ $pool-error: #ff5252;
   p {
     max-width: 60rem;
     margin: 0 0 6px;
+  }
+}
+.planWeights {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 2px 24px;
+  margin: 8px 0 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--hairline);
+  > div {
+    display: contents;
+  }
+  dd {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
   }
 }
 .footerFacts {
@@ -1168,6 +1302,10 @@ $pool-error: #ff5252;
   .titleRow .accountLink {
     flex-shrink: 0;
     padding-inline: 12px;
+  }
+  // Touch target size on phones.
+  .stateNote .noteAction {
+    min-height: 44px;
   }
   // Every row puts its plan under the name, whatever its status line holds.
   .accountPlan {
@@ -1601,9 +1739,11 @@ $pool-error: #ff5252;
   }
 }
 
+// A move that can't happen (first card up, last card down) stays in its slot, dimmed, so every card's controls line up.
 .reorder button:disabled {
   border-color: transparent;
-  opacity: 0.55;
+  color: var(--text-secondary);
+  opacity: 0.4;
 }
 
 // Wide screens: one heading row, then one line per account with a column per limit.
@@ -1661,9 +1801,10 @@ $pool-error: #ff5252;
         grid-column: 2 / 4;
         grid-row: 2;
       }
+      // Values sit on the name's line; a status line below the name never shifts them.
       > strong {
         grid-column: -2;
-        grid-row: 1 / 3;
+        grid-row: 1;
         font-weight: 600;
       }
     }
@@ -1675,7 +1816,7 @@ $pool-error: #ff5252;
         display: contents;
         li {
           grid-column: calc(var(--col) + 3);
-          grid-row: 1 / 3;
+          grid-row: 1;
           display: grid;
           grid-template-columns: 3.6em minmax(24px, 1fr);
           align-items: center;
@@ -1752,6 +1893,12 @@ $pool-error: #ff5252;
 }
 .page .showAll {
   margin: 10px 0 4px 10px;
+  padding: 4px 12px;
+  background: transparent;
+  border-color: var(--hairline);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 // Long rosters: find one account, or put the lowest first.
@@ -1765,15 +1912,25 @@ $pool-error: #ff5252;
 .rosterSearch::placeholder {
   color: var(--text-tertiary);
 }
-.rosterSearch {
+.rosterSearch,
+.rosterTools select {
   box-sizing: border-box;
   min-height: 44px;
-  min-width: min(100%, 14rem);
   padding: 8px 12px;
   color: var(--text-primary);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.rosterSearch {
+  min-width: min(100%, 14rem);
+}
+@media (min-width: 901px) and (pointer: fine) {
+  .rosterSearch {
+    min-height: 36px;
+    padding-block: 6px;
+  }
 }
 .rosterCount {
   color: var(--text-tertiary);
@@ -1785,19 +1942,27 @@ $pool-error: #ff5252;
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  border: 1px solid color-mix(in srgb, #{$pool-error} 45%, transparent);
+  border: 1px solid var(--hairline);
   border-radius: 999px;
   background: transparent;
-  color: $pool-error;
+  color: var(--text-secondary);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-  &:hover {
-    background: color-mix(in srgb, #{$pool-error} 10%, transparent);
-  }
-  &[aria-pressed='true'] {
-    background: color-mix(in srgb, #{$pool-error} 18%, transparent);
-    border-color: $pool-error;
+  // Off: a neutral filter with the warning icon. On: filled, with a check.
+  svg {
     color: $pool-error;
+  }
+  &:hover {
+    color: var(--text-primary);
+  }
+  // On: the page's pressed style and a check; red stays for the low values themselves.
+  &[aria-pressed='true'] {
+    background: var(--bg-pressed);
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+  }
+  &[aria-pressed='true'] svg {
+    color: var(--text-primary);
   }
   @media (max-width: 640px) {
     margin-left: 0;

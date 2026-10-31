@@ -889,7 +889,7 @@ async def main():
                     assert await page.locator('fieldset, [class*="__providerBar___"], [class*="__privacy___"]').count() == 0
                     interaction["no_chart_controls_without_data"] = "passed"
                 if state == "empty":
-                    assert await page.get_by_role("link", name="Add credentials", exact=True).get_attribute("href") == "#/oauth"
+                    assert await page.get_by_role("link", name="Open OAuth Login").get_attribute("href") == "#/oauth"
                     interaction["credential_action_targets_login"] = "passed"
                 if state == "ready":
                     interval = page.get_by_role("combobox", name="Rate interval", exact=True)

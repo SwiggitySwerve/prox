@@ -183,6 +183,7 @@ function PoolChartView({
           )
       : [sample]
     : [];
+  // Values keep their unit on the same line (\u00a0) when the readout wraps.
   const readingValue = (other: (typeof samples)[number]) =>
     other.point[field] === null ? t('quota_pool.no_observation') : number(other.point[field]);
   // A moment with no value is not a recording: say so once, without a Recorded/Projected tag.
@@ -190,10 +191,10 @@ function PoolChartView({
   const readingText = !sample
     ? ''
     : unobserved
-      ? `${t('quota_pool.no_observation')} · ${date(sample.point.atMs)}`
+      ? t('quota_pool.no_reading_at', { date: date(sample.point.atMs) })
       : readingAt.length > 1
-        ? `${readingAt.map((other) => `${poolLabel(other.pool)}: ${readingValue(other)}`).join(' · ')}${readingAt.some((other) => other.point[field] !== null) ? ` ${unit}` : ''}`
-        : `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`}`;
+        ? `${readingAt.map((other) => `${poolLabel(other.pool)}: ${readingValue(other)}`).join(' · ')}${readingAt.some((other) => other.point[field] !== null) ? `\u00a0${unit}` : ''}`
+        : `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])}\u00a0${unit}`}`;
   const latestPrefix = selected === latestRecorded ? `${t('quota_pool.latest_reading')} · ` : '';
   const description = sample
     ? unobserved
@@ -394,17 +395,26 @@ function PoolChartView({
                 x2={x(sample.point.atMs)}
                 y1={chartFrame.top}
                 y2={chartFrame.bottom}
-                stroke="var(--pool-accent)"
+                // On a combined chart the rule marks a moment, not a provider: keep it neutral.
+                stroke={comparison ? 'var(--text-tertiary)' : 'var(--pool-accent)'}
                 opacity=".5"
               />
-              <circle
-                cx={x(sample.point.atMs)}
-                cy={y(sample.position)}
-                r="5"
-                fill="var(--pool-accent)"
-                stroke="#111"
-                strokeWidth="2"
-              />
+              {/* A dot on every series the readout names, not only the one nearest the pointer. */}
+              {readingAt.map(
+                (other, index) =>
+                  other.position !== null && (
+                    <circle
+                      key={index}
+                      className={styles[other.pool.provider]}
+                      cx={x(other.point.atMs)}
+                      cy={y(other.position)}
+                      r="5"
+                      fill="var(--pool-accent)"
+                      stroke="#111"
+                      strokeWidth="2"
+                    />
+                  )
+              )}
             </g>
           )}
           {mode === 'remaining' &&
@@ -500,12 +510,13 @@ function PoolChartView({
                   ` · ${t(`quota_pool.state.${pool.forecastState}`)}`}
               </span>
             ))}
-          <span>
+          {/* Line styles are a separate key from provider colours, so they read as styles. */}
+          <span data-style-key data-divider={comparison || undefined}>
             <i />
             {t('quota_pool.recorded')}
           </span>
           {hasProjection && (
-            <span>
+            <span data-style-key>
               <i className={styles.dashed} />
               {t('quota_pool.projected')}
             </span>

@@ -1,8 +1,15 @@
 import { useId, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconAlertTriangle, IconChevronDown, IconChevronUp } from '@/components/ui/icons';
+import {
+  IconAlertTriangle,
+  IconArrowDown,
+  IconArrowUp,
+  IconCheck,
+  IconChevronDown,
+} from '@/components/ui/icons';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
+import { DAY_MS } from '@/utils/time/durations';
 import { PoolChart } from './PoolChart';
 import { PoolGraph } from './PoolGraph';
 import { PoolGraphToggle } from './PoolGraphToggle';
@@ -22,6 +29,7 @@ export function PoolCard({
   reveal,
   savedData = false,
   move,
+  onRefresh,
 }: {
   pool: QuotaPool;
   dashboard: PoolDashboard;
@@ -30,6 +38,8 @@ export function PoolCard({
   savedData?: boolean;
   /** Reorder controls; a missing direction is shown disabled. */
   move?: { up?: () => void; down?: () => void };
+  /** Offered beside a partial or stale notice, so the reader can act on it. */
+  onRefresh?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -55,7 +65,15 @@ export function PoolCard({
   const forecastDate = (value: number | null, available = pool.forecastState === 'ready') =>
     value === null ? (
       available ? (
-        t('quota_pool.not_predicted')
+        // Not reached before the server's forecast horizon (server/quota/domain.ts projects to
+        // the later of the range end and 14 days out), whatever the chart shows.
+        t('quota_pool.after_range', {
+          date: formatPoolDate(
+            Math.max(dashboard.toMs, dashboard.nowMs + 14 * DAY_MS),
+            i18n.language,
+            true
+          ),
+        })
       ) : (
         <>
           <span aria-hidden="true">—</span>
@@ -70,6 +88,23 @@ export function PoolCard({
   const showRosterControls = pool.accounts.length > ROSTER_CONTROLS_MIN;
   const accountName = (account: (typeof pool.accounts)[number]) =>
     reveal && account.email ? account.email : (account.identifier ?? account.label);
+  const nameList = (accounts: typeof pool.accounts) =>
+    [
+      ...accounts.slice(0, 3).map((account) => accountName(account)),
+      ...(accounts.length > 3 ? [`+${accounts.length - 3}`] : []),
+    ].join(', ');
+  const missingAccounts = pool.accounts.filter(
+    (account) => account.status === 'error' || account.status === 'missing-window'
+  );
+  const staleAccounts = pool.accounts.filter((account) => account.status === 'stale');
+  // Say which accounts hold the total back, so the notice points at something to fix.
+  const stateNote =
+    pool.forecastState === 'partial' && missingAccounts.length
+      ? t('quota_pool.unavailable_named', { names: nameList(missingAccounts) })
+      : pool.forecastState === 'stale' && staleAccounts.length
+        ? t('quota_pool.stale_named', { names: nameList(staleAccounts) })
+        : t(`quota_pool.state_note.${pool.forecastState}`, { window: windowLabel });
+  const forecastWithheld = pool.forecastState !== 'ready' && pool.forecastState !== 'no-limit';
   const lowestPercent = (account: (typeof pool.accounts)[number]) =>
     Math.min(
       ...account.windows.flatMap((limit) =>
@@ -163,7 +198,7 @@ export function PoolCard({
                     aria-label={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
                     title={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
                   >
-                    <IconChevronUp size={18} aria-hidden="true" />
+                    <IconArrowUp size={16} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
@@ -174,7 +209,7 @@ export function PoolCard({
                     })}
                     title={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
                   >
-                    <IconChevronDown size={18} aria-hidden="true" />
+                    <IconArrowDown size={16} aria-hidden="true" />
                   </button>
                 </>
               )}
@@ -187,13 +222,14 @@ export function PoolCard({
             data-no-limit={pool.forecastState === 'no-limit'}
           >
             <strong>
-              {pool.forecastState === 'no-limit'
-                ? t('quota_pool.no_window_limit', { window: windowLabel })
-                : pool[metricField[mode]] === null
-                  ? t(
-                      `quota_pool.${mode === 'remaining' ? 'total_unavailable_title' : 'forecast_unavailable'}`
-                    )
-                  : number(pool[metricField[mode]])}
+              {pool.forecastState === 'no-limit' ? (
+                t('quota_pool.no_window_limit', { window: windowLabel })
+              ) : pool[metricField[mode]] === null ? (
+                // The value slot says the total is missing; the label still names the metric.
+                <span className={styles.unavailableValue}>{t('quota_pool.value_unavailable')}</span>
+              ) : (
+                number(pool[metricField[mode]])
+              )}
               {mode !== 'remaining' && pool[metricField[mode]] !== null && (
                 <small> {t('quota_pool.points_hour')}</small>
               )}
@@ -209,37 +245,44 @@ export function PoolCard({
               </p>
               {mode === 'remaining' && (
                 <span>
-                  {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
+                  {t(
+                    `quota_pool.${pool[metricField[mode]] === null ? 'capacity_total' : 'of_capacity'}`,
+                    { capacity: number(pool.capacityPoints) }
+                  )}
                 </span>
               )}
             </div>
           </div>
-          {mode !== 'remaining' && (
-            <p className={styles.balanceContext}>
-              {balanceLabel}: <strong>{number(pool.remainingPoints)}</strong>{' '}
-              {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
-            </p>
-          )}
-          {/* Why the forecast or total is limited, under the headline it qualifies. */}
-          {pool.forecastState !== 'ready' && (
-            <p className={styles.stateNote} role="status" data-state={pool.forecastState}>
-              {t(`quota_pool.state_note.${pool.forecastState}`, { window: windowLabel })}
-            </p>
-          )}
         </div>
         <div className={styles.statsBlock}>
           {mode !== 'remaining' && (
             <p className={styles.statsHeading}>{t('quota_pool.remaining_forecast')}</p>
           )}
           <dl className={styles.stats}>
-            <div>
-              <dt>{t('quota_pool.pool_empty')}</dt>
-              <dd>{forecastDate(pool.poolEmptyAtMs)}</dd>
-            </div>
-            <div>
-              <dt>{t('quota_pool.first_empty')}</dt>
-              <dd>{forecastDate(pool.firstEmptyAtMs)}</dd>
-            </div>
+            {mode !== 'remaining' && (
+              <div>
+                <dt>{t('quota_pool.account_remaining', { window: windowLabel })}</dt>
+                <dd>
+                  {number(pool.remainingPoints)}{' '}
+                  <small>
+                    {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
+                  </small>
+                </dd>
+              </div>
+            )}
+            {/* A withheld forecast is explained by the notice; its empty facts aren't repeated. */}
+            {!(forecastWithheld && pool.poolEmptyAtMs === null) && (
+              <div>
+                <dt>{t('quota_pool.pool_empty')}</dt>
+                <dd>{forecastDate(pool.poolEmptyAtMs)}</dd>
+              </div>
+            )}
+            {!(forecastWithheld && pool.firstEmptyAtMs === null) && (
+              <div>
+                <dt>{t('quota_pool.first_empty')}</dt>
+                <dd>{forecastDate(pool.firstEmptyAtMs)}</dd>
+              </div>
+            )}
             <div>
               <dt>{t('quota_pool.next_reset')}</dt>
               <dd>{date(pool.nextResetAtMs)}</dd>
@@ -250,7 +293,7 @@ export function PoolCard({
               )}
             </div>
             {/* Rate views lead with the rate itself; this group is the remaining-quota forecast. */}
-            {mode === 'remaining' && (
+            {mode === 'remaining' && !(forecastWithheld && pool.burnPointsPerHour === null) && (
               <div>
                 <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
                 <dd>
@@ -262,6 +305,17 @@ export function PoolCard({
           </dl>
         </div>
       </div>
+      {/* Why the forecast or total is limited, across the card under its summary. */}
+      {pool.forecastState !== 'ready' && (
+        <p className={styles.stateNote} role="status" data-state={pool.forecastState}>
+          <span>{stateNote}</span>
+          {onRefresh && (pool.forecastState === 'partial' || pool.forecastState === 'stale') && (
+            <button type="button" className={styles.noteAction} onClick={onRefresh}>
+              {t('quota_pool.refresh_now')}
+            </button>
+          )}
+        </p>
+      )}
       <PoolGraph title={t('quota_pool.history_forecast')} id={`${id}-plot`} minimized={minimized}>
         <PoolChart
           key={`${mode}-${dashboard.fromMs}`}
@@ -284,25 +338,30 @@ export function PoolCard({
               pool.eligibleCount !== pool.accountCount) && (
               <small className={styles.accountCoverage}>
                 {/* In the 5-hour view an account without that limit is excluded, not missing. */}
-                {noLimitCount > 0
-                  ? [
-                      t('quota_pool.coverage_with_limit', {
+                {staleAccounts.length > 0
+                  ? t('quota_pool.coverage_stale', {
+                      current: pool.loadedCount,
+                      stale: staleAccounts.length,
+                    })
+                  : noLimitCount > 0
+                    ? [
+                        t('quota_pool.coverage_with_limit', {
+                          eligible: pool.eligibleCount,
+                          total: pool.accountCount,
+                        }),
+                        ...(pool.loadedCount < pool.eligibleCount
+                          ? [
+                              t('quota_pool.coverage', {
+                                loaded: pool.loadedCount,
+                                eligible: pool.eligibleCount,
+                              }),
+                            ]
+                          : []),
+                      ].join(' · ')
+                    : t('quota_pool.coverage', {
+                        loaded: pool.loadedCount,
                         eligible: pool.eligibleCount,
-                        total: pool.accountCount,
-                      }),
-                      ...(pool.loadedCount < pool.eligibleCount
-                        ? [
-                            t('quota_pool.coverage', {
-                              loaded: pool.loadedCount,
-                              eligible: pool.eligibleCount,
-                            }),
-                          ]
-                        : []),
-                    ].join(' · ')
-                  : t('quota_pool.coverage', {
-                      loaded: pool.loadedCount,
-                      eligible: pool.eligibleCount,
-                    })}
+                      })}
               </small>
             )}
           </span>
@@ -344,7 +403,11 @@ export function PoolCard({
                 aria-pressed={lowOnly}
                 onClick={() => setLowOnly((value) => !value)}
               >
-                <IconAlertTriangle size={14} aria-hidden="true" />
+                {lowOnly ? (
+                  <IconCheck size={14} aria-hidden="true" />
+                ) : (
+                  <IconAlertTriangle size={14} aria-hidden="true" />
+                )}
                 {t('quota_pool.accounts_low', { count: lowAccountCount })}
               </button>
             )}
@@ -422,7 +485,7 @@ export function PoolCard({
                   </span>
                   <span className={styles.accountStatus}>
                     {account.status === 'stale'
-                      ? `${t('quota_pool.account_status.stale')} · ${t('quota_pool.observed')}: ${date(account.observedAtMs)}`
+                      ? `${t('quota_pool.account_status.stale')} · ${t('quota_pool.observed')} ${date(account.observedAtMs)}`
                       : account.status === 'no-limit'
                         ? t('quota_pool.no_window_limit', { window: windowLabel })
                         : account.status === 'missing-window' || account.status === 'error'
@@ -436,7 +499,16 @@ export function PoolCard({
                         <span className={styles.srOnly}>{t('quota_pool.limit_low')}</span>
                       </>
                     )}
-                    {account.remainingPercent === null ? '—' : percent(account.remainingPercent)}
+                    {/* An account without this limit says so in the value slot, once. */}
+                    {account.status === 'no-limit' ? (
+                      <span className={styles.noLimitValue}>
+                        {t('quota_pool.no_window_limit', { window: windowLabel })}
+                      </span>
+                    ) : account.remainingPercent === null ? (
+                      '—'
+                    ) : (
+                      percent(account.remainingPercent)
+                    )}
                   </strong>
                   {account.windows.length > 0 && (
                     <ul className={styles.limits} aria-label={t('quota_pool.limits')}>
@@ -452,9 +524,12 @@ export function PoolCard({
                           }
                         >
                           <span>{limitLabel(limit)}</span>
-                          <span className={styles.limitBar} aria-hidden="true">
-                            <span style={{ width: `${limit.remainingPercent ?? 0}%` }} />
-                          </span>
+                          {/* No track for a missing value, so it can't read as 0%. */}
+                          {limit.remainingPercent !== null && (
+                            <span className={styles.limitBar} aria-hidden="true">
+                              <span style={{ width: `${limit.remainingPercent}%` }} />
+                            </span>
+                          )}
                           <strong>
                             {isLowQuota(limit.remainingPercent) && (
                               <>
@@ -548,7 +623,9 @@ export function PoolCard({
             className={`${styles.expandAccounts} ${styles.showAll}`}
             onClick={() => setShowAll(true)}
           >
-            {t('quota_pool.show_all_accounts', { count: visibleAccounts.length })}
+            {t('quota_pool.show_more_accounts', {
+              count: visibleAccounts.length - pageAccounts.length,
+            })}
           </button>
         )}
       </section>

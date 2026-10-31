@@ -15,12 +15,15 @@ export function CombinedPoolCard({
   provider,
   mode,
   savedData,
+  onRefresh,
 }: {
   pools: QuotaPool[];
   dashboard: PoolDashboard;
   provider: PoolProviderId | 'all';
   mode: ChartMode;
   savedData: boolean;
+  /** Offered beside a partial or stale notice, as on the provider cards. */
+  onRefresh?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -56,11 +59,12 @@ export function CombinedPoolCard({
         data-rate={mode !== 'remaining'}
       >
         <strong>
-          {headline === null
-            ? t(
-                `quota_pool.${mode === 'remaining' ? 'total_unavailable_title' : 'forecast_unavailable'}`
-              )
-            : formatPoolNumber(headline, i18n.language)}
+          {/* Same as the provider cards: the value slot says the total is missing. */}
+          {headline === null ? (
+            <span className={styles.unavailableValue}>{t('quota_pool.value_unavailable')}</span>
+          ) : (
+            formatPoolNumber(headline, i18n.language)
+          )}
           {mode !== 'remaining' && headline !== null && (
             <small> {t('quota_pool.points_hour')}</small>
           )}
@@ -76,7 +80,7 @@ export function CombinedPoolCard({
           </p>
           {mode === 'remaining' && total?.series && (
             <span>
-              {t('quota_pool.of_capacity', {
+              {t(`quota_pool.${headline === null ? 'capacity_total' : 'of_capacity'}`, {
                 capacity: formatPoolNumber(total.series.capacityPoints, i18n.language),
               })}
             </span>
@@ -86,7 +90,16 @@ export function CombinedPoolCard({
       {/* Partial or stale data withholds the total; say why, as the provider cards do. */}
       {headline === null && total?.series && total.series.forecastState !== 'ready' && (
         <p className={styles.stateNote} role="status" data-state={total.series.forecastState}>
-          {t(`quota_pool.state_note.${total.series.forecastState}`, { window: windowLabel })}
+          <span>
+            {t(`quota_pool.state_note.${total.series.forecastState}`, { window: windowLabel })}
+          </span>
+          {onRefresh &&
+            (total.series.forecastState === 'partial' ||
+              total.series.forecastState === 'stale') && (
+              <button type="button" className={styles.noteAction} onClick={onRefresh}>
+                {t('quota_pool.refresh_now')}
+              </button>
+            )}
         </p>
       )}
       {/* Why there is no total to stack, beside the headline it explains. */}
@@ -112,17 +125,6 @@ export function CombinedPoolCard({
             </option>
           </select>
         </label>
-        {series.length > 0 && (
-          <p className={styles.comparisonNote}>
-            {t(
-              shownView === 'providers'
-                ? 'quota_pool.combined_description'
-                : mode === 'remaining'
-                  ? 'quota_pool.stacked_description'
-                  : 'quota_pool.stacked_rate_description'
-            )}
-          </p>
-        )}
       </div>
       <PoolGraph id={`${id}-plot`} title={t('quota_pool.history_forecast')} minimized={minimized}>
         {series.length > 0 && (

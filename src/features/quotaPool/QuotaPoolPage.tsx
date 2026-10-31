@@ -19,8 +19,17 @@ import { CombinedPoolCard } from './CombinedPoolCard';
 import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
 import { PoolProviderMark } from './PoolProviderMark';
 import { viewRange, type ChartMode } from './chartGeometry';
-import { formatPoolDate } from './presentation';
+import { formatPoolDate, formatPoolNumber } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
+
+/** Points per plan (server/quota/plans.ts), listed in About so each weight reads on its own line. */
+const PLAN_WEIGHTS = [
+  ['Claude Pro · ChatGPT Plus', 100],
+  ['Claude Max', 500],
+  ['ChatGPT Pro', 1000],
+  ['Claude Ultra', 2000],
+  ['ChatGPT Pro 500', 2500],
+] as const;
 
 export function QuotaPoolPage() {
   const { t, i18n } = useTranslation();
@@ -60,7 +69,7 @@ export function QuotaPoolPage() {
         <div className={styles.titleRow}>
           <h1>{t('quota_pool.title')}</h1>
           <Link to="/quota/accounts" className={styles.accountLink}>
-            {t('quota_pool.accounts')} <span aria-hidden="true">↗</span>
+            {t('quota_pool.accounts')} <span aria-hidden="true">→</span>
           </Link>
         </div>
         <div className={styles.actions}>
@@ -77,7 +86,11 @@ export function QuotaPoolPage() {
           )}
           {/* Manual refresh is the header's refresh button; this shows when the next automatic one runs. */}
           {Boolean(data?.pools.length) && (
-            <RefreshCountdown dueAtMs={state.nextCollectAtMs} refreshing={Boolean(refreshing)} />
+            <RefreshCountdown
+              dueAtMs={state.nextCollectAtMs}
+              refreshing={Boolean(refreshing)}
+              retrying={Boolean(state.refreshError)}
+            />
           )}
         </div>
       </header>
@@ -210,9 +223,12 @@ export function QuotaPoolPage() {
           <div>
             <h2>{t(`quota_pool.${data ? 'refresh_failed_title' : 'load_failed_title'}`)}</h2>
             <p>
-              {t(
-                `quota_pool.${state.refreshError ? 'refresh_error' : data ? 'load_error' : 'load_error_initial'}`
-              )}
+              {/* A failed refresh says how old the data still on screen is. */}
+              {state.refreshError && data
+                ? t('quota_pool.refresh_error_dated', { date: date(data.nowMs) })
+                : t(
+                    `quota_pool.${state.refreshError ? 'refresh_error' : data ? 'load_error' : 'load_error_initial'}`
+                  )}
             </p>
             <p className={styles.errorCause}>
               {(state.refreshError ? state.refreshErrorStatus : state.errorStatus) === null
@@ -254,18 +270,25 @@ export function QuotaPoolPage() {
       )}
       {!data && state.loading && state.connected && (
         <>
-          {/* Placeholders where the provider filter and chart controls will render. */}
+          {/* Placeholders shaped like the toolbar that will render: pool tabs, two view
+              toggles, two labelled selects and the date navigator. */}
           <div className={styles.loadingControls} aria-hidden="true">
-            {[
-              [112, 84, 84],
-              [168, 250, 84, 120],
-            ].map((row, line) => (
-              <div key={line}>
-                {row.map((width, index) => (
-                  <Skeleton key={index} width={width} height={40} rounded={999} />
-                ))}
-              </div>
-            ))}
+            <div className={styles.loadingRow}>
+              {[104, 92, 92].map((width, index) => (
+                <Skeleton key={index} width={width} height={40} rounded={999} />
+              ))}
+            </div>
+            <div className={styles.loadingRow}>
+              <Skeleton className={styles.loadingSegment} height={44} rounded={999} />
+              <Skeleton className={styles.loadingSegmentWide} height={44} rounded={999} />
+              {[72, 132].map((width, index) => (
+                <span key={index} className={styles.loadingSelect}>
+                  <Skeleton width={64} height={10} rounded={4} />
+                  <Skeleton width={width} height={40} rounded={10} />
+                </span>
+              ))}
+              <Skeleton className={styles.loadingDate} height={40} rounded={10} />
+            </div>
           </div>
           <div className={styles.loading} aria-busy="true">
             <div className={styles.loadingHead}>
@@ -277,12 +300,19 @@ export function QuotaPoolPage() {
             </div>
             {/* The combined card has a headline and a view select, not the provider facts. */}
             <div className={styles.loadingHero}>
-              <Skeleton width={200} height={48} rounded={8} />
-              <Skeleton width={150} height={36} rounded={999} />
+              <span className={styles.loadingNumber}>
+                <Skeleton width={150} height={44} rounded={8} />
+                <span>
+                  <Skeleton width={150} height={12} rounded={4} />
+                  <Skeleton width={96} height={12} rounded={4} />
+                </span>
+              </span>
+              <Skeleton width={150} height={36} rounded={10} />
             </div>
             <Skeleton height={168} rounded={8} />
           </div>
-          {/* One placeholder per provider card that will follow. */}
+          {/* One placeholder per provider card, in the card's own order: headline and facts,
+              chart, then the first account rows. */}
           {(['claude', 'codex'] as const).map((item) => (
             <div key={item} className={styles.loading} aria-hidden="true">
               <h2 className={styles.loadingTitle}>
@@ -290,12 +320,26 @@ export function QuotaPoolPage() {
                 {t(`quota_pool.${item}`)}
               </h2>
               <div className={styles.loadingStats}>
-                <Skeleton height={56} rounded={6} />
+                <span className={styles.loadingNumber}>
+                  <Skeleton width={130} height={44} rounded={8} />
+                  <span>
+                    <Skeleton width={150} height={12} rounded={4} />
+                    <Skeleton width={96} height={12} rounded={4} />
+                  </span>
+                </span>
                 {[0, 1, 2, 3].map((index) => (
-                  <Skeleton key={index} height={36} rounded={6} />
+                  <span key={index} className={styles.loadingFact}>
+                    <Skeleton width={84} height={10} rounded={4} />
+                    <Skeleton width={128} height={16} rounded={4} />
+                  </span>
                 ))}
               </div>
               <Skeleton height={120} rounded={8} />
+              <div className={styles.loadingRows}>
+                {[0, 1].map((index) => (
+                  <Skeleton key={index} height={36} rounded={8} />
+                ))}
+              </div>
             </div>
           ))}
         </>
@@ -307,6 +351,7 @@ export function QuotaPoolPage() {
           provider={provider}
           mode={mode}
           savedData={state.error || state.refreshError}
+          onRefresh={() => void refresh()}
         />
       )}
       <div className={styles.pools} aria-busy={state.loading}>
@@ -319,6 +364,7 @@ export function QuotaPoolPage() {
               mode={mode}
               reveal={query.reveal}
               savedData={state.error || state.refreshError}
+              onRefresh={() => void refresh()}
               move={
                 provider === 'all' && shown.length > 1
                   ? {
@@ -334,11 +380,11 @@ export function QuotaPoolPage() {
             />
           ))}
         {data && data.pools.length === 0 && (
-          <div className={styles.notice}>
+          <div className={`${styles.notice} ${styles.emptyNotice}`}>
             <h2>{t('quota_pool.no_accounts_title')}</h2>
             <p>{t('quota_pool.no_accounts_help')}</p>
             <Link to="/oauth" className={styles.accountLink}>
-              {t('quota_pool.add_credentials')}
+              {t('quota_pool.add_credentials')} <span aria-hidden="true">→</span>
             </Link>
           </div>
         )}
@@ -346,6 +392,7 @@ export function QuotaPoolPage() {
       <footer className={styles.footer}>
         {data && data.pools.length > 0 && (
           <>
+            <h2 className={styles.footerLabel}>{t('quota_pool.data_collection')}</h2>
             <dl className={styles.footerFacts}>
               <div>
                 <dt>{t('quota_pool.history_since')}</dt>
@@ -362,7 +409,21 @@ export function QuotaPoolPage() {
                 {t('quota_pool.about_numbers')}
               </summary>
               <ul>
-                <li>{t('quota_pool.normalized')}</li>
+                <li>
+                  {t('quota_pool.normalized_intro')}
+                  <dl className={styles.planWeights}>
+                    {PLAN_WEIGHTS.map(([plan, points]) => (
+                      <div key={plan}>
+                        <dt>{plan}</dt>
+                        <dd>
+                          {formatPoolNumber(points, i18n.language)} {t('quota_pool.points')}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </li>
+                <li>{t('quota_pool.stacked_description')}</li>
+                <li>{t('quota_pool.rates_note')}</li>
                 <li>{t('quota_pool.limit_note')}</li>
                 <li>{t('quota_pool.polling')}</li>
               </ul>
@@ -378,9 +439,12 @@ export function QuotaPoolPage() {
 function RefreshCountdown({
   dueAtMs,
   refreshing,
+  retrying,
 }: {
   dueAtMs: number | null;
   refreshing: boolean;
+  /** After a failed refresh the next automatic one is a retry, and says so. */
+  retrying: boolean;
 }) {
   const { t } = useTranslation();
   const [now, setNow] = useState(() => Date.now());
@@ -394,7 +458,7 @@ function RefreshCountdown({
       <IconRefreshCw size={16} aria-hidden="true" />
       {refreshing
         ? t('quota_pool.refreshing')
-        : t('quota_pool.auto_refresh_in', {
+        : t(`quota_pool.${retrying ? 'auto_retry_in' : 'auto_refresh_in'}`, {
             seconds: Math.max(0, Math.ceil((dueAtMs - now) / 1000)),
           })}
     </span>

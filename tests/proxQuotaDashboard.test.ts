@@ -692,7 +692,8 @@ describe('stacked chart geometry', () => {
     expect(markup.match(/data-stack-band="recorded"/g) ?? []).toHaveLength(2);
     expect(markup).toContain('Codex ·');
     // Only projected moments are tagged; a recorded reading needs no label.
-    expect(markup).toContain('30 points');
+    // A value and its unit never split across a wrapped readout line.
+    expect(markup).toContain('30\u00a0points');
     expect(markup).not.toContain('· Recorded');
     expect(markup).not.toContain('data-series="total"');
   });
@@ -739,8 +740,10 @@ describe('stacked chart geometry', () => {
     const markup = renderToStaticMarkup(
       createElement(PoolComparisonChart, { pools: [a, b], dashboard, mode: 'remaining' })
     );
-    expect(markup).toMatch(/Claude: 20 · Codex: 30 points/);
+    expect(markup).toMatch(/Claude: 20 · Codex: 30\u00a0points/);
     expect(markup).not.toContain('· Recorded');
+    // Each provider named in the readout gets its own marker at that moment.
+    expect(markup.match(/r="5" fill="var\(--pool-accent\)"/g)).toHaveLength(2);
   });
 });
 
@@ -861,7 +864,7 @@ describe('pool presentation', () => {
     expect(markup).toContain('Unavailable');
     expect(markup).toContain('Total and forecast unavailable');
     expect(markup).toContain('Claude account 1');
-    expect(markup).toContain('Max 20x · 2,000 pts');
+    expect(markup).toContain('Max 20x · 2,000 points');
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(
@@ -901,10 +904,15 @@ describe('pool presentation', () => {
         provider: 'all',
         mode: 'remaining',
         savedData: false,
+        onRefresh: () => {},
       })
     );
-    expect(markup).toContain('Total unavailable');
+    // The value slot says the total is missing; the label still names the metric.
+    expect(markup).toContain('<strong><span>Unavailable</span></strong>');
+    expect(markup).toContain('<p>Weekly quota remaining</p>');
     expect(markup).toContain('some eligible accounts have no current quota data');
+    // The notice offers the same next step as the provider cards.
+    expect(markup).toMatch(/quota data\.<\/span><button type="button">Refresh now<\/button><\/p>/);
   });
   test('a total that cannot be stacked shows provider lines and keeps its reason', async () => {
     await i18n.changeLanguage('en');
@@ -988,6 +996,86 @@ describe('pool presentation', () => {
     expect(markup).toContain('1 of 2 have a 5-hour limit');
     expect(markup).not.toContain('loaded ·');
   });
+  test('a partial pool names the accounts missing data and offers a refresh', async () => {
+    await i18n.changeLanguage('en');
+    const missing = {
+      ...pool.accounts[0],
+      id: 'opaque-9',
+      identifier: 'gra•••er@ex•••.test',
+      status: 'error' as const,
+      remainingPercent: null,
+    };
+    let refreshed = 0;
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, accounts: [pool.accounts[0], missing] },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+        onRefresh: () => {
+          refreshed += 1;
+        },
+      })
+    );
+    expect(markup).toContain('No current quota data from gra•••er@ex•••.test.');
+    expect(markup).toContain('>Refresh now</button>');
+    // The forecast is withheld: its dash-only stats are not shown, Next reset stays.
+    expect(markup).not.toContain('Pool empty');
+    expect(markup).toContain('Next reset');
+    expect(refreshed).toBe(0);
+  });
+  test('stale accounts are counted as stale, not as missing', async () => {
+    await i18n.changeLanguage('en');
+    const stale = { ...pool.accounts[0], id: 'opaque-8', status: 'stale' as const };
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: {
+          ...pool,
+          forecastState: 'stale',
+          accounts: [pool.accounts[0], stale],
+          accountCount: 2,
+          loadedCount: 1,
+          eligibleCount: 2,
+        },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).toContain('1 current · 1 stale');
+  });
+  test('a forecast beyond the range says when the range ends', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, forecastState: 'ready', poolEmptyAtMs: null },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).toMatch(/<dt>Pool empty<\/dt><dd>Not before [^<]+<\/dd>/);
+  });
+  test('rate views date the remaining-quota forecast like the Remaining view', async () => {
+    await i18n.changeLanguage('en');
+    // A ten-day range whose snapshot sits mid-range: rate charts end near the snapshot.
+    const wide = {
+      ...dashboard,
+      fromMs: dashboard.nowMs - 5 * 86_400_000,
+      toMs: dashboard.nowMs + 5 * 86_400_000,
+    };
+    const emptyFact = (mode: 'remaining' | 'drain') =>
+      renderToStaticMarkup(
+        createElement(PoolCard, {
+          pool: { ...pool, forecastState: 'ready', poolEmptyAtMs: null },
+          dashboard: wide,
+          mode,
+          reveal: false,
+        })
+      ).match(/<dt>Pool empty<\/dt><dd>([^<]+)<\/dd>/)?.[1];
+    expect(emptyFact('remaining')).toBeDefined();
+    expect(emptyFact('drain')).toBe(emptyFact('remaining'));
+  });
   test('long rosters show the first page and offer the rest', async () => {
     await i18n.changeLanguage('en');
     const accounts = Array.from({ length: 30 }, (_, index) => ({
@@ -1004,7 +1092,7 @@ describe('pool presentation', () => {
       })
     );
     expect(markup.match(/<details/g)).toHaveLength(25);
-    expect(markup).toContain('Show all 30 accounts');
+    expect(markup).toContain('Show 5 more');
     expect(markup).toContain('25 of 30 shown');
   });
   test('a limit an account does not have keeps its column and says why', async () => {
@@ -1038,7 +1126,7 @@ describe('pool presentation', () => {
         savedData: true,
       })
     );
-    expect(markup).toContain('Saved forecast');
+    expect(markup).toContain('Forecast: Saved');
     // The snapshot is marked on the chart; the card doesn't repeat its time.
     expect(markup).toContain('Saved snapshot');
     expect(markup).not.toContain('Saved snapshot:');
@@ -1046,7 +1134,8 @@ describe('pool presentation', () => {
     expect(markup).not.toContain('Saved observation');
     expect(markup).not.toContain('Forecast: Ready');
     expect(markup).not.toContain('>Current<');
-    expect(markup).toContain('Weekly quota remaining: <strong>73</strong>');
+    // Rate views keep the balance as the first pair of the remaining-quota forecast.
+    expect(markup).toContain('<dt>Weekly remaining</dt><dd>73 <small>of 200 points</small></dd>');
     expect(markup).toContain('of 200 points');
     expect(markup).toContain('3 points/h');
     expect(markup).not.toContain('· Recorded');
@@ -1093,7 +1182,9 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toContain('<strong>Total unavailable</strong>');
+    // The value slot says the total is unavailable; the label beside it names the metric.
+    expect(markup).toContain('<strong><span>Unavailable</span></strong>');
+    expect(markup).toContain('<p>Weekly quota remaining</p>');
     expect(markup).toContain('Collecting history');
     expect(markup).toContain('No observations in this range');
   });
