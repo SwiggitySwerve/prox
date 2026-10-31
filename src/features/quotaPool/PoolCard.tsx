@@ -506,6 +506,7 @@ export function PoolCard({
                         <li
                           key={limit.id}
                           data-low={isLowQuota(limit.remainingPercent)}
+                          data-counted={limit.id === countedLimitId || undefined}
                           style={
                             {
                               '--col':

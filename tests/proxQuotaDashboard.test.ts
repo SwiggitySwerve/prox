@@ -724,14 +724,14 @@ describe('stacked chart geometry', () => {
     const long = render(10);
     expect(long).toContain('type="search"');
     expect(long).toContain('aria-label="Search accounts"');
-    expect(long).toContain('Lowest first');
+    expect(long).toContain('Lowest limit first');
     expect(long).toContain('1 low');
     // The count is a toggle that filters the roster to accounts with a low limit.
     expect(long).toMatch(/<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?1 low/);
     expect(long).toContain('data-large="true"');
     const short = render(3);
     expect(short).not.toContain('type="search"');
-    expect(short).not.toContain('Lowest first');
+    expect(short).not.toContain('Lowest limit first');
   });
   test('a combined readout states every provider at the selected moment', async () => {
     await i18n.changeLanguage('en');

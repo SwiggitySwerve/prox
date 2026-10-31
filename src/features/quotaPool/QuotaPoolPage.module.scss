@@ -296,7 +296,7 @@ $pool-error: #ff5252;
   padding-bottom: 20px;
 }
 .dateNavigation {
-  margin-left: auto;
+  // Follows the selects, so it never floats alone at the far edge or wraps right-aligned.
   display: flex;
   align-items: center;
   gap: 4px;
@@ -429,7 +429,7 @@ $pool-error: #ff5252;
 // A missing total says so in the value slot; the notice below carries the warning colour.
 .unavailableValue {
   color: var(--text-secondary);
-  font-size: 28px;
+  font-size: 22px;
   letter-spacing: -0.02em;
 }
 .headlineContext {
@@ -485,11 +485,10 @@ $pool-error: #ff5252;
   }
 }
 .statsHeading {
-  margin-bottom: 8px !important;
+  margin-bottom: 10px !important;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
 }
 // "248.4 of 300 points" stays one value on one line.
 .stats dd small {
@@ -869,6 +868,16 @@ $pool-error: #ff5252;
 .account:not([open]) .limits small {
   display: none;
 }
+// Phone rows already show the counted limit as the row's value: a closed row doesn't repeat it,
+// and an open row keeps only its label and reset time.
+@media (max-width: 900px) {
+  .account:not([open]) .limits li[data-counted='true'] {
+    display: none;
+  }
+  .account[open] .limits li[data-counted='true'] :is(.limitBar, strong) {
+    display: none;
+  }
+}
 // The value slot already says the account has no such limit, so its status line doesn't.
 .account[data-status='no-limit'] .accountStatus {
   display: none;
@@ -1057,7 +1066,6 @@ $pool-error: #ff5252;
 }
 .loadingDate {
   width: 220px;
-  margin-left: auto;
 }
 @media (max-width: 640px) {
   .loadingSegment,
@@ -1264,6 +1272,13 @@ $pool-error: #ff5252;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px 16px;
   }
+  // The skeleton follows the loaded card's two-by-two facts at this width.
+  .loadingStats {
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+    > .loadingNumber {
+      grid-row: span 2;
+    }
+  }
 }
 @media (max-width: 900px) {
   .statsBlock,
@@ -1349,9 +1364,10 @@ $pool-error: #ff5252;
   .toolbar > .segment:first-child {
     flex-basis: 100%;
   }
+  // The two selects split the row, like the full-width toggles above them.
   .chartSettings {
     width: 100%;
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 6px;
   }
   .selectLabel {
@@ -1360,9 +1376,10 @@ $pool-error: #ff5252;
   .chartSettings {
     align-items: start;
   }
+  // One line under its select; the reason is short enough to run past the select's width.
   .selectHint {
     position: static;
-    white-space: normal;
+    white-space: nowrap;
   }
   .toolbar:has(.selectHint) {
     padding-bottom: 0;
@@ -1975,26 +1992,14 @@ $pool-error: #ff5252;
     margin-left: 0;
   }
 }
-// On a phone a long roster shows one line per account; limits open with the row.
+// On a phone a long roster shows one line per account, plus any low limit in the same bar row
+// the short rosters use; the other limits open with the row.
 @media (max-width: 640px) {
   .pool:not([data-minimized='true']) .accountGrid[data-large='true'] .account:not([open]) .limits {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    margin: 2px 0;
-    gap: 2px;
     &:not(:has([data-low='true'])) {
       display: none;
     }
     li:not([data-low='true']) {
-      display: none;
-    }
-    li {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
-    }
-    .limitBar {
       display: none;
     }
   }
