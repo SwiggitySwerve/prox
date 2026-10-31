@@ -2403,7 +2403,7 @@
     "not_reported": "Not reported",
     "account_search": "Search accounts",
     "account_sort": "Sort accounts",
-    "sort_default": "Default order",
+    "sort_name": "Name A–Z",
     "sort_lowest": "Lowest limit first",
     "accounts_shown": "{{shown}} of {{total}} shown",
     "accounts_low": "{{count}} low",

@@ -2429,7 +2429,7 @@
     "not_reported": "未回報",
     "account_search": "搜尋帳號",
     "account_sort": "帳號排序",
-    "sort_default": "預設順序",
+    "sort_name": "名稱 A–Z",
     "sort_lowest": "最低優先",
     "accounts_shown": "顯示 {{shown}} / {{total}}",
     "accounts_low": "{{count}}個偏低",

@@ -22,6 +22,7 @@ import { useAuthStore } from '../src/stores/useAuthStore';
 import { PoolCard } from '../src/features/quotaPool/PoolCard';
 import { CombinedPoolCard } from '../src/features/quotaPool/CombinedPoolCard';
 import { PoolChart, PoolComparisonChart } from '../src/features/quotaPool/PoolChart';
+import { sortAccounts } from '../src/features/quotaPool/model/accountOrder';
 
 const point = (atMs: number, remainingPoints: number | null): PoolPoint => ({
   atMs,
@@ -732,6 +733,51 @@ describe('stacked chart geometry', () => {
     const short = render(3);
     expect(short).not.toContain('type="search"');
     expect(short).not.toContain('Lowest limit first');
+  });
+  test('rosters default to name order; lowest-first puts accounts without data first', async () => {
+    await i18n.changeLanguage('en');
+    const account = pool.accounts[0];
+    const named = (id: string, label: string, percent: number | null) => ({
+      ...account,
+      id,
+      label,
+      remainingPercent: percent,
+      windows: account.windows.map((limit) => ({ ...limit, remainingPercent: percent })),
+    });
+    const accounts = [
+      named('c', 'Account 10', 50),
+      named('a', 'Account 2', 90),
+      named('d', 'Account 3', null),
+      named('b', 'Account 1', 5),
+    ];
+    const label = (a: (typeof accounts)[number]) => a.label;
+    expect(sortAccounts(accounts, 'name', label, 'en').map(label)).toEqual([
+      'Account 1',
+      'Account 2',
+      'Account 3',
+      'Account 10',
+    ]);
+    expect(sortAccounts(accounts, 'lowest', label, 'en').map(label)).toEqual([
+      'Account 3',
+      'Account 1',
+      'Account 10',
+      'Account 2',
+    ]);
+    const roster = Array.from({ length: 10 }, (_, index) =>
+      named(`id-${9 - index}`, `Roster ${String.fromCharCode(74 - index)}`, 80)
+    );
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, accounts: roster },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).toContain('Name A–Z');
+    expect(markup).not.toContain('Default order');
+    expect(markup.indexOf('Roster A')).toBeLessThan(markup.indexOf('Roster B'));
+    expect(markup.indexOf('Roster B')).toBeLessThan(markup.indexOf('Roster J'));
   });
   test('a combined readout states every provider at the selected moment', async () => {
     await i18n.changeLanguage('en');

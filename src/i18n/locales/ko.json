@@ -2403,7 +2403,7 @@
     "not_reported": "보고되지 않음",
     "account_search": "계정 검색",
     "account_sort": "계정 정렬",
-    "sort_default": "기본 순서",
+    "sort_name": "이름순",
     "sort_lowest": "낮은 순",
     "accounts_shown": "{{shown}} / {{total}} 표시",
     "accounts_low": "부족 {{count}}개",

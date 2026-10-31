@@ -2409,7 +2409,7 @@
     "not_reported": "Chưa báo cáo",
     "account_search": "Tìm tài khoản",
     "account_sort": "Sắp xếp tài khoản",
-    "sort_default": "Thứ tự mặc định",
+    "sort_name": "Tên A–Z",
     "sort_lowest": "Thấp nhất trước",
     "accounts_shown": "Hiển thị {{shown}} / {{total}}",
     "accounts_low": "{{count}} thấp",

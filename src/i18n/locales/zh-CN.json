@@ -2401,7 +2401,7 @@
     "not_reported": "未上报",
     "account_search": "搜索账号",
     "account_sort": "账号排序",
-    "sort_default": "默认顺序",
+    "sort_name": "名称 A–Z",
     "sort_lowest": "最低优先",
     "accounts_shown": "显示 {{shown}} / {{total}}",
     "accounts_low": "{{count}}个偏低",

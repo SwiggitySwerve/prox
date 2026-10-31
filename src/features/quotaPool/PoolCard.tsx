@@ -20,6 +20,7 @@ import { PoolGraph } from './PoolGraph';
 import { PoolGraphToggle } from './PoolGraphToggle';
 import { PoolProviderMark } from './PoolProviderMark';
 import { poolChip, type PoolChipIcon } from './model/poolChip';
+import { sortAccounts, type AccountSort } from './model/accountOrder';
 import { formatPoolDate, formatPoolNumber, formatPoolPercent, isLowQuota } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
@@ -56,7 +57,7 @@ export function PoolCard({
   const id = useId();
   const [minimized, setMinimized] = useState(false);
   const [rosterQuery, setRosterQuery] = useState('');
-  const [rosterSort, setRosterSort] = useState<'default' | 'lowest'>('default');
+  const [rosterSort, setRosterSort] = useState<AccountSort>('name');
   const [lowOnly, setLowOnly] = useState(false);
   const [showAll, setShowAll] = useState(false);
   // Opening a row reveals reset details; minimization only compacts closed rows.
@@ -116,13 +117,6 @@ export function PoolCard({
         ? t('quota_pool.stale_named', { names: nameList(staleAccounts) })
         : t(`quota_pool.state_note.${pool.forecastState}`, { window: windowLabel });
   const forecastWithheld = pool.forecastState !== 'ready' && pool.forecastState !== 'no-limit';
-  const lowestPercent = (account: (typeof pool.accounts)[number]) =>
-    Math.min(
-      ...account.windows.flatMap((limit) =>
-        limit.remainingPercent === null ? [] : [limit.remainingPercent]
-      ),
-      account.remainingPercent ?? Infinity
-    );
   // Claude names its weekly windows "7-day"; the page calls that window Weekly everywhere.
   const limitLabel = (limit: (typeof pool.accounts)[number]['windows'][number]) =>
     limit.id === 'seven-day'
@@ -138,11 +132,14 @@ export function PoolCard({
   const lowAccountCount = matchingAccounts.filter((account) =>
     account.windows.some((limit) => isLowQuota(limit.remainingPercent))
   ).length;
-  const visibleAccounts = matchingAccounts
-    .filter(
+  const visibleAccounts = sortAccounts(
+    matchingAccounts.filter(
       (account) => !lowOnly || account.windows.some((limit) => isLowQuota(limit.remainingPercent))
-    )
-    .sort((a, b) => (rosterSort === 'lowest' ? lowestPercent(a) - lowestPercent(b) : 0));
+    ),
+    rosterSort,
+    accountName,
+    i18n.language
+  );
   // One column per limit the roster reports, so every account's bars line up under one heading.
   const limitColumns = pool.accounts.reduce<
     Array<(typeof pool.accounts)[number]['windows'][number]>
@@ -402,10 +399,10 @@ export function PoolCard({
             />
             <select
               value={rosterSort}
-              onChange={(event) => setRosterSort(event.target.value as 'default' | 'lowest')}
+              onChange={(event) => setRosterSort(event.target.value as AccountSort)}
               aria-label={t('quota_pool.account_sort')}
             >
-              <option value="default">{t('quota_pool.sort_default')}</option>
+              <option value="name">{t('quota_pool.sort_name')}</option>
               <option value="lowest">{t('quota_pool.sort_lowest')}</option>
             </select>
             {(lowAccountCount > 0 || lowOnly) && (
