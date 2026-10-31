@@ -46,6 +46,23 @@ export function rangeQuery(
     limit: 25,
   };
 }
+/** A provider named in the address: short, non-empty text only. */
+export function addressProvider(value: string | null): string | undefined {
+  const text = value?.trim();
+  return text && text.length <= 200 ? text : undefined;
+}
+type Filters = Pick<AnalyticsQuery, 'provider' | 'model' | 'outcome' | 'search'>;
+/** A provider in the address starts a fresh view: remembered model, search and outcome would silently narrow its totals. */
+export function startingFilters(provider: string | undefined, saved: Partial<Filters>): Filters {
+  return provider
+    ? { provider, model: undefined, outcome: 'all', search: undefined }
+    : {
+        provider: saved.provider,
+        model: saved.model,
+        outcome: saved.outcome ?? 'all',
+        search: saved.search,
+      };
+}
 export function withoutCursor(query: AnalyticsQuery): AnalyticsQuery {
   const filters = { ...query };
   delete filters.before_id;

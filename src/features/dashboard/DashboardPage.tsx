@@ -79,8 +79,17 @@ function SourceDashboard() {
     (view) => view.source.instanceId === scope.source.instanceId
   )?.buildDate;
 
-  const { connectionStatus, connected, config, counts, traffic, providers, credentials, refresh } =
-    useDashboardOverview();
+  const {
+    connectionStatus,
+    connected,
+    config,
+    counts,
+    traffic,
+    trafficSource,
+    providers,
+    credentials,
+    refresh,
+  } = useDashboardOverview();
 
   useHeaderRefresh(refresh, connected);
 
@@ -387,6 +396,9 @@ function SourceDashboard() {
           <p className={styles.sectionDescription}>
             {t('dashboard.traffic_description', { window: windowLabel, bucket: bucketLabel })}
           </p>
+          {trafficSource === 'analytics' && (
+            <p className={styles.sectionDescription}>{t('dashboard.traffic_local_time')}</p>
+          )}
         </header>
         <div className={styles.panel}>
           <ThroughputChart traffic={traffic} />
@@ -398,7 +410,13 @@ function SourceDashboard() {
         <header className={styles.sectionHead}>
           <span className={styles.eyebrow}>{t('dashboard.fleet_eyebrow')}</span>
           <h2 className={styles.sectionTitle}>{t('dashboard.fleet_title')}</h2>
-          <p className={styles.sectionDescription}>{t('dashboard.fleet_description')}</p>
+          <p className={styles.sectionDescription}>
+            {t(
+              trafficSource === 'analytics'
+                ? 'dashboard.fleet_description'
+                : 'dashboard.fleet_description_counters'
+            )}
+          </p>
         </header>
         <div className={styles.panel}>
           {providers.length === 0 ? (
@@ -411,9 +429,21 @@ function SourceDashboard() {
                     {String(index + 1).padStart(2, '0')}
                   </span>
                   <div className={styles.fleetIdentity}>
-                    <span className={styles.fleetName}>
-                      {providerLabel(provider.id, unknownProviderLabel)}
-                    </span>
+                    {trafficSource === 'analytics' ? (
+                      <Link
+                        className={styles.fleetName}
+                        to={`/analytics?tab=overview&range=24h&bucket=hour&provider=${encodeURIComponent(provider.id)}`}
+                        aria-label={t('dashboard.fleet_open_analytics', {
+                          provider: providerLabel(provider.id, unknownProviderLabel),
+                        })}
+                      >
+                        {providerLabel(provider.id, unknownProviderLabel)}
+                      </Link>
+                    ) : (
+                      <span className={styles.fleetName}>
+                        {providerLabel(provider.id, unknownProviderLabel)}
+                      </span>
+                    )}
                     <span className={styles.fleetMeta}>
                       {t('dashboard.fleet_credentials', { value: provider.credentials })}
                     </span>

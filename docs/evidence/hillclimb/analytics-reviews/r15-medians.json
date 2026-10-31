@@ -1,0 +1,102 @@
+{
+  "overview": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 8,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 8,
+    "consistency": 8,
+    "responsive_accessible": 8
+  },
+  "tokens": {
+    "hierarchy": 9,
+    "layout": 8,
+    "type_numbers": 8,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 8,
+    "consistency": 8,
+    "responsive_accessible": 8
+  },
+  "cost": {
+    "hierarchy": 9,
+    "layout": 7,
+    "type_numbers": 8,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 8,
+    "consistency": 8,
+    "responsive_accessible": 8
+  },
+  "performance": {
+    "hierarchy": 8,
+    "layout": 8,
+    "type_numbers": 8,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 8,
+    "consistency": 8,
+    "responsive_accessible": 8
+  },
+  "requests": {
+    "hierarchy": 8,
+    "layout": 8,
+    "type_numbers": 8,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 8,
+    "consistency": 8,
+    "responsive_accessible": 9
+  },
+  "rates": {
+    "hierarchy": 8,
+    "layout": 8,
+    "type_numbers": 8,
+    "colour": 9,
+    "content": 7,
+    "controls_states": 7,
+    "consistency": 8,
+    "responsive_accessible": 9
+  },
+  "empty": {
+    "hierarchy": 8,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 8,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "unknown": {
+    "hierarchy": 8,
+    "layout": 8,
+    "type_numbers": 8,
+    "colour": 9,
+    "content": 7,
+    "controls_states": 8,
+    "consistency": 9,
+    "responsive_accessible": 9
+  },
+  "error": {
+    "hierarchy": 9,
+    "layout": 9,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 9,
+    "controls_states": 8,
+    "consistency": 8,
+    "responsive_accessible": 9
+  },
+  "loading": {
+    "hierarchy": 8,
+    "layout": 8,
+    "type_numbers": 9,
+    "colour": 9,
+    "content": 8,
+    "controls_states": 8,
+    "consistency": 8,
+    "responsive_accessible": 9
+  }
+}

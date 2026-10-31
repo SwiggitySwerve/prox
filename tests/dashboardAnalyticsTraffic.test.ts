@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import type { AnalyticsResponse } from '../src/domain/analytics/types';
+import { rangeQuery } from '../src/features/analytics/queryState';
 import {
   analyticsUsable,
   analyticsWindow,
+  dashboardAnalyticsQuery,
   trafficFromAnalytics,
 } from '../src/features/dashboard/analyticsTraffic';
 
@@ -32,19 +34,24 @@ const response = (
   }) as unknown as AnalyticsResponse;
 
 describe('dashboard analytics window', () => {
-  test('covers 23 whole hours and the current partial one', () => {
-    expect(window.to_ms).toBe(now);
-    expect(window.from_ms).toBe(Date.UTC(2026, 9, 29, 7));
+  test('is the Analytics page 24 h view, so a click-through shows the same totals', () => {
+    expect(window).toEqual({ from_ms: now - 24 * HOUR, to_ms: now });
+    expect(dashboardAnalyticsQuery(now, 'claude')).toEqual({
+      ...rangeQuery('24h', now, 'hour'),
+      provider: 'claude',
+      limit: 1,
+    });
   });
 });
 
 describe('traffic from analytics', () => {
-  const first = window.from_ms;
+  // The first hour is partial: its bucket starts before the window does.
+  const first = Date.UTC(2026, 9, 29, 6);
   const claude = response(
     [90, 10],
     [
       [first + 2 * HOUR, 40, 10],
-      [first + 23 * HOUR, 50, 0],
+      [first + 24 * HOUR, 50, 0],
     ]
   );
   const codex = response([30, 0], [[first + 2 * HOUR, 30, 0]]);
@@ -65,15 +72,21 @@ describe('traffic from analytics', () => {
   });
 
   test('hours without events are quiet zeros and providers add per hour', () => {
-    expect(traffic.buckets).toHaveLength(24);
+    expect(traffic.buckets).toHaveLength(25);
     expect(traffic.windowMinutes).toBe(24 * 60);
     expect(traffic.bucketMinutes).toBe(60);
     expect(traffic.buckets[0]).toMatchObject({ success: 0, failed: 0 });
     expect(traffic.buckets[2]).toMatchObject({ success: 70, failed: 10 });
-    expect(traffic.buckets[23]).toMatchObject({ success: 50, failed: 0 });
+    expect(traffic.buckets[24]).toMatchObject({ success: 50, failed: 0 });
     expect(traffic.peakIndex).toBe(2);
     expect(traffic.peakTotal).toBe(80);
     expect(traffic.buckets[2].time).toMatch(/^\d\d:\d\d-\d\d:\d\d$/);
+  });
+
+  test('a window that starts on the hour has exactly 24 buckets', () => {
+    const aligned = analyticsWindow(Date.UTC(2026, 9, 30, 6));
+    const whole = trafficFromAnalytics(aligned, new Map([['xai', response([0, 0], [])]]));
+    expect(whole.traffic.buckets).toHaveLength(24);
   });
 
   test('a provider with no events has no success rate rather than 0%', () => {

@@ -25,6 +25,8 @@ import {
   type AnalyticsBucket,
   type AnalyticsRange,
   type AnalyticsTab,
+  addressProvider,
+  startingFilters,
 } from './queryState';
 import { AnalyticsViews } from './AnalyticsViews';
 import { ModelRates } from './ModelRates';
@@ -83,17 +85,13 @@ export function AnalyticsPage() {
     ranges.find((value) => value === params.get('range')) ?? saved.range ?? '24h';
   const bucket: AnalyticsBucket =
     buckets.find((value) => value === params.get('bucket')) ?? saved.bucket ?? 'auto';
+  const urlProvider = addressProvider(params.get('provider'));
+  const start = startingFilters(urlProvider, saved);
   const [pages, setPages] = useState<AnalyticsQuery[]>(() => [
-    {
-      ...rangeQuery(range, Date.now(), bucket),
-      provider: saved.provider,
-      model: saved.model,
-      outcome: saved.outcome ?? 'all',
-      search: saved.search,
-    },
+    { ...rangeQuery(range, Date.now(), bucket), ...start },
   ]);
   const query = pages[pages.length - 1];
-  const [search, setSearch] = useState(saved.search ?? '');
+  const [search, setSearch] = useState(start.search ?? '');
   // Keep tab, range and bucket in the address, so a copied link opens this exact view.
   useEffect(() => {
     if (
@@ -171,6 +169,29 @@ export function AnalyticsPage() {
       },
     ]);
   }, []);
+  // The address owns the provider too: one that arrives in it (a link, an edited address) starts
+  // a fresh view, and otherwise the address follows the filter, so a copied link opens this view.
+  const appliedProvider = useRef(query.provider);
+  useEffect(() => {
+    if (urlProvider && urlProvider !== appliedProvider.current) {
+      appliedProvider.current = urlProvider;
+      setBucketSelected(false);
+      setSelected(null);
+      setSearch('');
+      setPages([{ ...rangeQuery(range, Date.now(), bucket), ...startingFilters(urlProvider, {}) }]);
+    } else if (urlProvider !== query.provider) {
+      appliedProvider.current = query.provider;
+      setParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          if (query.provider) next.set('provider', query.provider);
+          else next.delete('provider');
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [urlProvider, query.provider, range, bucket, setParams]);
   // Pills, followed links and edited addresses all change the view through the address.
   useEffect(() => {
     if (builtFor.current !== `${range}:${bucket}`) applyView(range, bucket);

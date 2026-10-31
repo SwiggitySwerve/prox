@@ -1,16 +1,18 @@
-import type { AnalyticsResponse } from '@/domain/analytics/types';
+import type { AnalyticsQuery, AnalyticsResponse } from '@/domain/analytics/types';
+import { rangeQuery } from '@/features/analytics/queryState';
 import type { RecentRequestBucket } from '@/utils/recentRequests';
 import type { TrafficWindow } from './types';
 
 const HOUR_MS = 3_600_000;
-const WINDOW_HOURS = 24;
 
-/** Whole hours (UTC, like the Analytics page): 23 complete ones plus the current, partial one. */
+/** Analytics' own 24 h hourly view, so a click-through lands on the same totals. */
+export function dashboardAnalyticsQuery(nowMs: number, provider: string): AnalyticsQuery {
+  return { ...rangeQuery('24h', nowMs, 'hour'), provider, limit: 1 };
+}
+
 export function analyticsWindow(nowMs: number) {
-  return {
-    from_ms: Math.floor(nowMs / HOUR_MS) * HOUR_MS - (WINDOW_HOURS - 1) * HOUR_MS,
-    to_ms: nowMs,
-  };
+  const { from_ms, to_ms } = rangeQuery('24h', nowMs, 'hour');
+  return { from_ms, to_ms };
 }
 
 /** An absent hour is only a quiet one when the retained ledger is complete, and every provider answered. */
@@ -41,16 +43,19 @@ const hourLabel = (startMs: number) => {
   return `${format.format(startMs)}-${format.format(startMs + HOUR_MS)}`;
 };
 
-const emptyHours = (window: { from_ms: number }): RecentRequestBucket[] =>
-  Array.from({ length: WINDOW_HOURS }, (_, index) => ({
-    time: hourLabel(window.from_ms + index * HOUR_MS),
+/** Hour buckets start on the hour, so the first one holds only part of the window. */
+const firstHour = (window: { from_ms: number }) => Math.floor(window.from_ms / HOUR_MS) * HOUR_MS;
+
+const emptyHours = (window: { from_ms: number; to_ms: number }): RecentRequestBucket[] =>
+  Array.from({ length: Math.ceil((window.to_ms - firstHour(window)) / HOUR_MS) }, (_, index) => ({
+    time: hourLabel(firstHour(window) + index * HOUR_MS),
     success: 0,
     failed: 0,
   }));
 
 /** Totals are analytics' own summaries; only the per-hour chart adds providers together. */
 export function trafficFromAnalytics(
-  window: { from_ms: number },
+  window: { from_ms: number; to_ms: number },
   responses: ReadonlyMap<string, AnalyticsResponse>
 ): { traffic: TrafficWindow; providers: Map<string, ProviderAnalytics> } {
   const buckets = emptyHours(window);
@@ -60,7 +65,7 @@ export function trafficFromAnalytics(
   for (const [id, response] of responses) {
     const timeline = new Map(response.timeline.map((point) => [point.bucket_ms, point]));
     const own = emptyHours(window).map((bucket, index) => {
-      const point = timeline.get(window.from_ms + index * HOUR_MS);
+      const point = timeline.get(firstHour(window) + index * HOUR_MS);
       return { ...bucket, success: point?.success_calls ?? 0, failed: point?.failure_calls ?? 0 };
     });
     own.forEach((bucket, index) => {
@@ -92,7 +97,7 @@ export function trafficFromAnalytics(
       successRate: total > 0 ? (totalSuccess / total) * 100 : null,
       peakTotal,
       peakIndex: peakTotal > 0 ? totals.indexOf(peakTotal) : -1,
-      windowMinutes: WINDOW_HOURS * 60,
+      windowMinutes: Math.round((window.to_ms - window.from_ms) / 60_000),
       bucketMinutes: 60,
     },
     providers,
