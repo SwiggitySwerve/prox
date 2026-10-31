@@ -678,14 +678,17 @@ export function MainLayout() {
     return 'vertical';
   }, []);
 
+  const [refreshingAll, setRefreshingAll] = useState(false);
   const handleRefreshAll = async () => {
+    if (refreshingAll) return;
+    setRefreshingAll(true);
     clearCache();
     const results = await Promise.allSettled([
       fetchConfig(true),
       loadPluginResources(),
       loadAuthFilesCount(),
       triggerHeaderRefresh(),
-    ]);
+    ]).finally(() => setRefreshingAll(false));
     const rejected = results.find((result) => result.status === 'rejected');
     if (rejected && rejected.status === 'rejected') {
       const reason = rejected.reason;
@@ -961,8 +964,10 @@ export function MainLayout() {
             size="sm"
             onClick={handleRefreshAll}
             title={t('header.refresh_all')}
+            aria-label={t('header.refresh_all')}
+            loading={refreshingAll}
           >
-            {headerIcons.refresh}
+            {refreshingAll ? null : headerIcons.refresh}
           </Button>
           <div className={`language-menu ${languageMenuOpen ? 'open' : ''}`} ref={languageMenuRef}>
             <Button

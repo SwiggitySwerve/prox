@@ -15,12 +15,18 @@ export interface ChartSample {
 export const chartFrame = { width: 1000, height: 300, left: 64, right: 976, top: 38, bottom: 254 };
 
 /** Keep labels in CSS pixels instead of shrinking a desktop SVG on phones. */
-export function fitChartFrame(width: number, compact = false, minimized = false) {
+export function fitChartFrame(
+  width: number,
+  compact = false,
+  minimized = false,
+  /** Characters in the widest axis label, so five-digit totals are not cut off. */
+  labelChars = 0
+) {
   const height = minimized ? 160 : compact ? 220 : width < 600 ? 240 : 280;
   return {
     width,
     height,
-    left: width < 600 ? 40 : 52,
+    left: Math.max(width < 600 ? 40 : 52, Math.ceil(labelChars * 8.4) + 16),
     right: width - 12,
     top: 38,
     bottom: height - 38,
@@ -120,6 +126,13 @@ export function bandSegments(
   });
 }
 
+/** The next value from 1, 2, 3, 4, 5, 6 or 8 times a power of ten, so the axis midpoint is round too. */
+function roundUp(value: number) {
+  if (value <= 0) return 0;
+  const scale = 10 ** Math.floor(Math.log10(value));
+  return ([1, 2, 3, 4, 5, 6, 8, 10].find((step) => step * scale >= value - 1e-9) ?? 10) * scale;
+}
+
 /** SVG coordinates only. Never infer quota or fill absent observations. */
 export function chartGeometry(
   samples: ChartSample[],
@@ -133,8 +146,10 @@ export function chartGeometry(
     const value = point[metricField[mode]];
     return value === null ? [] : [value];
   });
-  const min = Math.min(0, ...values);
-  const max = Math.max(mode === 'remaining' ? capacity : 0, ...values);
+  // Remaining is anchored to capacity; rates have no anchor, so round their ends for clean ticks.
+  const round = (value: number) => (mode === 'remaining' ? value : roundUp(value));
+  const min = 0 - round(-Math.min(0, ...values)); // 0 - 0 is +0, so the axis never reads "-0"
+  const max = round(Math.max(mode === 'remaining' ? capacity : 0, ...values));
   const span = max - min || 1;
   const x = (at: number) =>
     frame.left + ((at - from) / (to - from || 1)) * (frame.right - frame.left);

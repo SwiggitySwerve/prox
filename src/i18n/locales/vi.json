@@ -2330,7 +2330,7 @@
     "combined_total": "Tổng cộng",
     "total": "Tổng",
     "total_description": "Cộng các nhà cung cấp đã chọn theo điểm có trọng số gói, không phải token.",
-    "total_ambiguous": "Không có tổng: chưa xác minh tài khoản trùng lặp giữa các nguồn của cùng nhà cung cấp.",
+    "total_ambiguous": "Chưa xác minh tài khoản trùng lặp giữa các nguồn của cùng nhà cung cấp nên không cộng tổng.",
     "total_unavailable": "Không có tổng cho lựa chọn này.",
     "combined_usage": "Biểu đồ sử dụng tổng hợp",
     "combined_description": "Các nhóm nhà cung cấp dùng chung trục thời gian, mỗi đường giữ số dư hạn mức riêng. Nét liền: đã ghi nhận. Nét đứt: dự báo.",
@@ -2403,6 +2403,19 @@
     "accounts": "Tài khoản",
     "observed": "Ghi nhận gần nhất",
     "no_observation": "Không có dữ liệu",
+    "no_window_limit": "Không có giới hạn {{window}}",
+    "not_reported": "Chưa báo cáo",
+    "account_search": "Tìm tài khoản",
+    "account_sort": "Sắp xếp tài khoản",
+    "sort_default": "Thứ tự mặc định",
+    "sort_lowest": "Thấp nhất trước",
+    "accounts_shown": "Hiển thị {{shown}} / {{total}}",
+    "accounts_low": "{{count}} thấp",
+    "no_account_matches": "Không có tài khoản phù hợp.",
+    "about_numbers": "Về các con số này",
+    "error_status": "HTTP {{status}}",
+    "error_network": "Máy chủ không phản hồi",
+    "latest_reading": "Giá trị mới nhất",
     "recorded": "Đã ghi nhận",
     "projected": "Dự đoán",
     "inspect_hint": "Di chuột lên biểu đồ, hoặc chọn biểu đồ và dùng phím mũi tên để xem mẫu.",
@@ -2423,13 +2436,15 @@
       "collecting": "Đang thu thập",
       "partial": "Chưa đầy đủ",
       "stale": "Đã cũ",
-      "no-accounts": "Không có tài khoản"
+      "no-accounts": "Không có tài khoản",
+      "no-limit": "Không giới hạn"
     },
     "state_note": {
       "collecting": "Đang thu thập lịch sử. Dự đoán sẽ xuất hiện khi có đủ dữ liệu.",
       "partial": "Không có tổng và dự báo: một số tài khoản đủ điều kiện thiếu dữ liệu hạn mức hiện tại.",
       "stale": "Tổng và dự báo chưa khả dụng cho đến khi các quan sát cũ được làm mới.",
-      "no-accounts": "Nhà cung cấp này chưa có tài khoản. Thêm thông tin xác thực trong phần tài khoản."
+      "no-accounts": "Nhà cung cấp này chưa có tài khoản. Thêm thông tin xác thực trong phần tài khoản.",
+      "no-limit": "Các tài khoản này không có giới hạn {{window}}, nên không có gì để cộng gộp."
     },
     "account_status": {
       "ok": "Hiện tại",

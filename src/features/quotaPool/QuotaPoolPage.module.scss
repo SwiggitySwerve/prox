@@ -1,13 +1,20 @@
+// Red means a problem the user must act on: a failed load or a nearly exhausted limit. It sits
+// dE 40+ from the Claude coral, so it never reads as a provider. Amber stays for data caveats.
+$pool-error: #ff5252;
 .page {
   color-scheme: dark;
   color: var(--text-primary);
   background: var(--bg-secondary);
   min-width: 0;
-  padding: 12px 8px 24px;
+  padding: 12px 0 24px;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
   --pool-accent: var(--claude-color);
+  --hairline: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  --hairline-soft: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  --fill-soft: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --fill-hover: color-mix(in srgb, var(--text-primary) 9%, transparent);
 
   button,
   select,
@@ -19,10 +26,10 @@
     color: #ddd;
     background: var(--bg-tertiary);
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: 10px;
     min-height: 44px;
     min-width: 44px;
-    padding: 8px 12px;
+    padding: 8px 14px;
   }
   button {
     cursor: pointer;
@@ -38,8 +45,17 @@
   }
   button:disabled,
   select:disabled {
-    opacity: 0.5;
-    cursor: default;
+    background: transparent;
+    border-color: var(--border-primary);
+    color: var(--text-quaternary);
+    cursor: not-allowed;
+  }
+  button:disabled:hover,
+  select:disabled:hover {
+    background: transparent;
+  }
+  button[aria-pressed='true']:disabled {
+    background: var(--bg-tertiary);
   }
   :is(button, select, input, summary, a, svg):focus-visible {
     outline: 2px solid var(--focus-ring);
@@ -53,9 +69,9 @@
     margin: 0;
   }
   h1 {
-    font-size: clamp(24px, 2vw, 28px);
+    font-size: clamp(24px, 2vw, 30px);
     font-weight: 600;
-    letter-spacing: -0.7px;
+    letter-spacing: -0.03em;
   }
   h2 {
     font-size: 18px;
@@ -93,10 +109,6 @@
   align-items: center;
   gap: 16px;
   min-width: 0;
-  .accountLink {
-    border: 0;
-    padding-inline: 4px;
-  }
 }
 .privacy {
   position: relative;
@@ -106,19 +118,23 @@
   gap: 8px;
   min-height: 44px;
   padding: 8px 12px;
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
-  background: var(--bg-tertiary);
-  color: #ddd;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 13px;
+  &:hover {
+    background: var(--fill-soft);
+  }
   &:has(input:checked) {
-    background: var(--bg-pressed);
-    border-color: var(--text-quaternary);
+    background: var(--fill-hover);
+    color: var(--text-primary);
   }
   &:has(input:disabled) {
-    opacity: 0.5;
-    cursor: default;
+    background: transparent;
+    color: var(--text-quaternary);
+    cursor: not-allowed;
   }
   &:has(input:focus-visible) {
     outline: 2px solid var(--focus-ring);
@@ -137,13 +153,16 @@
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
+  padding: 8px 4px;
   color: var(--text-secondary);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  position: relative;
+  min-width: 13em;
+  &[data-refreshing='true'] {
+    color: var(--text-primary);
+  }
   &[data-refreshing='true'] svg {
     animation: countdownSpin 1s linear infinite;
   }
@@ -163,12 +182,22 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   button {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     background: transparent;
+    border-radius: 999px;
+    color: var(--text-secondary);
+  }
+  button:hover:not(:disabled) {
+    background: var(--fill-soft);
+  }
+  button[aria-pressed='true'] {
+    background: var(--fill-hover);
+    border-color: transparent;
+    color: var(--text-primary);
   }
 }
 .providerMark {
@@ -183,15 +212,16 @@
   font-variant-numeric: tabular-nums;
 }
 .accountLink {
+  background: transparent;
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
   font-size: 13px;
 }
 .toolbar {
@@ -208,13 +238,27 @@
 .segment {
   display: inline-flex;
   padding: 3px;
-  border-radius: 9px;
-  background: #111;
+  border-radius: 999px;
+  background: var(--fill-soft);
+  border: 1px solid var(--hairline-soft);
   button {
     background: transparent;
+    border-color: transparent;
+    border-radius: 999px;
+    color: var(--text-secondary);
     min-height: 38px;
-    padding: 7px 11px;
+    padding: 6px 16px;
     white-space: nowrap;
+  }
+  button:hover:not(:disabled) {
+    background: var(--fill-soft);
+    color: var(--text-primary);
+  }
+  button[aria-pressed='true'] {
+    background: var(--fill-hover);
+    border-color: transparent;
+    color: var(--text-primary);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }
 .chartSettings {
@@ -260,15 +304,21 @@
 .pools {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  gap: 20px;
 }
 .pool {
   position: relative;
   min-width: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--bg-primary);
-  padding: 14px 20px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      90% 70% at 0% 0%,
+      color-mix(in srgb, var(--pool-accent) 7%, transparent),
+      transparent 70%
+    ),
+    var(--bg-primary);
+  padding: 18px 24px 12px;
 }
 .poolHeader {
   display: flex;
@@ -285,7 +335,13 @@
   align-items: center;
   gap: 9px;
   flex-wrap: wrap;
-  > span:not(.providerMark) {
+}
+.poolMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  > span {
     font-size: 13px;
     color: #b5b5b5;
   }
@@ -336,12 +392,19 @@
   strong {
     font-size: 40px;
     font-weight: 600;
-    letter-spacing: -1.5px;
+    letter-spacing: -0.04em;
     line-height: 1.2;
     font-variant-numeric: tabular-nums;
   }
+  strong small {
+    margin-left: 2px;
+    color: #b5b5b5;
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
   &[data-unavailable='true'] strong {
-    font-size: 22px;
+    font-size: 18px;
     letter-spacing: -0.3px;
     color: var(--warning-text);
   }
@@ -375,6 +438,12 @@
 .statsBlock {
   flex: 2;
   min-width: 0;
+  @media (min-width: 901px) {
+    &:has(.statsHeading) {
+      padding-left: 20px;
+      border-left: 1px solid var(--border-primary);
+    }
+  }
 }
 .stats {
   display: grid;
@@ -382,18 +451,20 @@
   gap: 20px;
   dt {
     color: var(--text-tertiary);
-    font-size: 13px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
     margin-bottom: 4px;
   }
   dd {
-    font-size: 14px;
+    font-size: 15px;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
   }
   small {
     color: #b5b5b5;
     font-size: 13px;
-    margin-left: 6px;
-    display: inline;
+    margin-left: 0;
+    display: block;
   }
 }
 .statsHeading {
@@ -418,19 +489,44 @@
   }
 }
 .forecast {
-  margin-top: 0;
+  margin-top: 14px;
 }
 .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-secondary);
-  border: 1px solid var(--border-hover);
-  border-radius: 5px;
-  padding: 2px 7px;
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 2px 10px;
   font-size: 13px;
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-quaternary);
+  }
+  &[data-state='ready']::before {
+    background: var(--success-color);
+  }
+  &[data-state='saved']::before {
+    background: var(--warning-color);
+  }
   &[data-state='partial'],
   &[data-state='stale'] {
     color: var(--warning-text);
     border-color: var(--warning-border);
     background: var(--warning-bg);
+    &::before {
+      background: var(--warning-color);
+    }
+  }
+  &[data-state='stale']::before {
+    box-sizing: border-box;
+    border: 2px solid var(--warning-color);
+    background: transparent;
   }
 }
 .chart {
@@ -452,10 +548,6 @@
   gap: 4px 16px;
   margin-bottom: 4px;
 }
-.singleSample {
-  color: #b5b5b5;
-  font-size: 13px;
-}
 .chart svg {
   display: block;
   width: 100%;
@@ -463,12 +555,12 @@
 }
 .grid {
   line {
-    stroke: #272727;
-    stroke-width: 0.7;
+    stroke: var(--hairline-soft);
+    stroke-width: 1;
   }
   text {
-    fill: #b5b5b5;
-    font-size: 13px;
+    fill: var(--text-tertiary);
+    font-size: 12px;
   }
 }
 .nowLine {
@@ -489,6 +581,14 @@
   }
 }
 .emptyChart {
+  fill: #b5b5b5;
+  font-size: 13px;
+  paint-order: stroke;
+  stroke: var(--bg-primary);
+  stroke-width: 6px;
+  stroke-linejoin: round;
+}
+.axisUnit {
   fill: #b5b5b5;
   font-size: 13px;
 }
@@ -544,12 +644,6 @@
 .accounts > h3 span {
   color: var(--text-tertiary);
 }
-.accounts:lang(en) {
-  .limits li > span:first-child,
-  .expandAccounts {
-    text-transform: capitalize;
-  }
-}
 .page .expandAccounts {
   margin-right: auto;
   padding: 4px 10px;
@@ -560,20 +654,28 @@
 }
 .accountGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  gap: 8px 20px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
+// The roster is one bounded list: a single outline, rules between rows.
+.pool:not([data-minimized='true']) .accountGrid {
+  margin: 4px 0 8px;
+  border-block: 1px solid var(--hairline);
+  overflow: clip;
+}
+.accountHead {
+  display: none;
+}
 .account {
-  border-top: 1px solid var(--bg-hover);
   min-width: 0;
+  border-top: 1px solid var(--hairline-soft);
   > summary {
     display: grid;
     grid-template-columns: 20px minmax(0, 1fr) auto;
     align-items: center;
     gap: 2px 8px;
-    min-height: 48px;
-    padding: 6px 0;
+    min-height: 44px;
+    padding: 6px 10px;
     cursor: pointer;
     font-size: 14px;
     list-style: none;
@@ -581,7 +683,7 @@
       display: none;
     }
     &:hover {
-      background: #1b1b1b;
+      background: var(--fill-soft);
     }
   }
   strong {
@@ -610,16 +712,22 @@
   }
 }
 .accountName {
-  overflow-wrap: anywhere;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
   min-width: 0;
   grid-column: 2;
   grid-row: 1;
 }
 .accountPlan {
-  margin-left: 8px;
   color: var(--text-tertiary);
   font-size: 13px;
   white-space: nowrap;
+}
+.accountLabel {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .accountStatus {
   color: #b5b5b5;
@@ -627,24 +735,33 @@
   grid-column: 2 / -1;
   grid-row: 2;
 }
+.account[data-status='ok'] .accountStatus {
+  display: none;
+}
 // Every limit the provider reports for this account (5-hour, weekly, per-model weekly…).
 .limits {
   grid-column: 2 / -1;
   grid-row: 3;
   display: grid;
-  gap: 6px;
+  grid-template-columns: 6.5em minmax(40px, 1fr) 4.6em;
+  gap: 6px 10px;
   margin: 6px 0 2px;
   padding: 0;
   list-style: none;
   li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(56px, 96px) 48px;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
     align-items: center;
     gap: 2px 10px;
     font-size: 14px;
     color: var(--text-secondary);
   }
   strong {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
     text-align: right;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
@@ -657,54 +774,38 @@
   }
   li[data-low='true'] {
     strong {
-      color: var(--warning-color);
+      color: $pool-error;
     }
     .limitBar > span {
-      background: var(--warning-color);
+      background: $pool-error;
     }
   }
 }
-// Collapsed accounts: every limit as a label over its number, packed in a grid.
-.account:not([open]) .limits {
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 6px 14px;
-  li {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    line-height: 1.3;
-    > span:first-child {
-      // Reserve the same label space for short and wrapped names.
-      min-block-size: 2lh;
-    }
-  }
-  strong {
-    text-align: left;
-    font-size: 14px;
-  }
-  .limitBar,
-  small {
-    display: none;
-  }
+// Collapsed accounts keep the same rows; the reset line waits for the row to open.
+.account:not([open]) .limits small {
+  display: none;
+}
+.limits li[data-missing='true'] {
+  display: none;
+  color: var(--text-quaternary);
 }
 .limitBar {
   height: 6px;
   overflow: hidden;
   border-radius: 3px;
-  background: var(--bg-hover);
+  background: var(--fill-hover);
   > span {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: var(--text-secondary);
+    background: var(--pool-accent);
   }
 }
 .accountDetails {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  padding: 8px 0 14px 20px;
+  padding: 10px 10px 12px 38px;
   font-size: 14px;
   dt {
     color: var(--text-tertiary);
@@ -713,13 +814,14 @@
   dd {
     overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
   }
 }
 .notice {
   border: 1px solid #665533;
   background: var(--warning-bg);
   color: var(--warning-text);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 14px;
   margin: 8px 0;
   font-size: 14px;
@@ -737,12 +839,12 @@
   }
 }
 .pools > .notice {
+  max-width: 640px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
   gap: 8px;
-  min-height: 180px;
   padding: 24px;
   background: var(--bg-primary);
   color: #ddd;
@@ -755,39 +857,141 @@
   }
   .accountLink {
     margin-left: 0;
+    min-height: 44px;
+    padding-inline: 18px;
+    border-color: var(--text-primary);
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    font-weight: 500;
+    &:hover {
+      background: var(--text-secondary);
+      color: var(--bg-primary);
+    }
   }
 }
 .loading {
-  min-height: 140px;
   display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
   color: var(--text-secondary);
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
   padding: 24px;
 }
 .errorNotice {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: flex-start;
+  gap: 14px;
+  margin-block: 12px;
+  align-items: flex-start;
+  border-color: color-mix(in srgb, #{$pool-error} 55%, transparent);
+  background: color-mix(in srgb, #{$pool-error} 12%, var(--bg-primary));
+  color: var(--text-primary);
   h2 {
     font-size: 16px;
     margin-bottom: 4px;
   }
-  p {
+  p,
+  > p {
+    margin-top: 0;
+    color: var(--text-secondary);
     font-size: 14px;
+  }
+  > div {
+    flex: 1;
+    min-width: 0;
   }
   button {
     flex-shrink: 0;
+    align-self: center;
     margin-left: 0;
+    min-height: 44px;
+    padding-inline: 18px;
+    border-radius: 999px;
+    border-color: var(--text-primary);
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    font-weight: 500;
+    &:hover {
+      background: var(--text-secondary);
+    }
   }
+}
+.errorNotice .errorCause {
+  margin-top: 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.errorIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: $pool-error;
 }
 .page > .stateNote {
   margin-bottom: 10px;
+}
+.toolbar > .stateNote {
+  flex-basis: 100%;
+  margin: 0 !important;
+}
+.loadingControls {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+.loadingHero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.loadingStats {
+  display: grid;
+  grid-template-columns: 1.2fr repeat(4, minmax(0, 1fr));
+  gap: 20px;
+  // Phone cards list their facts one per line, so the placeholders do too.
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}
+.loading + .loading {
+  margin-top: 20px;
+}
+.loadingHead {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px 20px;
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+.loading h2 {
+  font-size: 16px;
+  color: var(--text-primary);
+}
+.loading .loadingTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 18px;
+}
+.loadingStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 .loadingDot {
   width: 18px;
@@ -795,18 +999,72 @@
   border: 2px solid #555;
   border-top-color: var(--text-primary);
   border-radius: 50%;
+  animation: countdownSpin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loadingDot {
+    animation: none;
+  }
 }
 .footer {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 22px;
+  gap: 6px;
   color: var(--text-tertiary);
   font-size: 13px;
   padding: 20px 2px;
 }
 .footer .method {
-  grid-column: 1 / -1;
   margin-bottom: 0 !important;
+}
+.about {
+  margin-top: 4px;
+  ul {
+    max-width: 60rem;
+    margin: 0 0 6px;
+    padding-left: 22px;
+    color: var(--text-tertiary);
+  }
+  li {
+    margin-bottom: 4px;
+  }
+  &[open] > summary svg {
+    transform: none;
+  }
+  summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    &:hover {
+      color: var(--text-primary);
+    }
+  }
+  summary svg {
+    transform: rotate(-90deg);
+  }
+  p {
+    max-width: 60rem;
+    margin: 0 0 6px;
+  }
+}
+.footerFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 28px;
+  margin: 6px 0 0;
+  > div {
+    display: flex;
+    gap: 8px;
+  }
+  dt {
+    color: var(--text-tertiary);
+  }
+  dd {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
 }
 .method {
   margin-bottom: 8px !important;
@@ -841,7 +1099,8 @@
   }
 }
 @media (max-width: 900px) {
-  .statsBlock {
+  .statsBlock,
+  .poolIdentity {
     width: 100%;
   }
   .poolHeader {
@@ -871,16 +1130,22 @@
   .titleRow {
     justify-content: space-between;
     gap: 8px;
-    .accountLink {
-      border: 1px solid var(--border-primary);
-      border-radius: 8px;
-      padding: 6px 8px;
-      font-size: 14px;
-      background: var(--bg-tertiary);
-    }
   }
   .page h1 {
     font-size: 22px;
+    white-space: nowrap;
+  }
+  .titleRow .accountLink {
+    flex-shrink: 0;
+    padding-inline: 12px;
+  }
+  // Every row puts its plan under the name, whatever its status line holds.
+  .accountPlan {
+    flex-basis: 100%;
+  }
+  // Search takes its own line; sort, the low filter and the count share the next.
+  .rosterSearch {
+    flex-basis: 100%;
   }
   .actions {
     display: grid;
@@ -966,6 +1231,19 @@
   }
   .poolTitle {
     gap: 7px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    > h2 {
+      min-width: 0;
+    }
+  }
+  .poolMeta {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .reorder {
+    grid-column: 3;
+    grid-row: 1;
   }
   .headline strong {
     font-size: 40px;
@@ -980,7 +1258,6 @@
   }
   .chartReadout,
   .accountStatus,
-  .accountDetails,
   .badge,
   .metricLabel,
   .balanceContext,
@@ -993,9 +1270,13 @@
     font-size: 14px;
   }
   .errorNotice {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px 12px;
+    button {
+      grid-column: 2;
+      justify-self: start;
+    }
   }
   .chartFooter {
     gap: 6px;
@@ -1004,8 +1285,21 @@
     gap: 4px 10px;
   }
   .accountDetails {
-    padding-left: 0;
-    gap: 14px 20px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    font-size: 13px;
+    > div {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+    dt {
+      margin: 0;
+    }
+    dd {
+      text-align: right;
+    }
   }
   .notice button {
     margin-left: 0;
@@ -1018,28 +1312,7 @@
   }
 }
 
-.pool:not([data-forecast-state='ready']) {
-  .stats {
-    gap: 6px 16px;
-    > div {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 2px 8px;
-    }
-    dt {
-      margin-bottom: 0;
-    }
-  }
-}
-
 @media (max-width: 640px) {
-  .pool:not([data-forecast-state='ready']) .stats {
-    gap: 4px;
-    > div {
-      display: grid;
-    }
-  }
   .statsHeading {
     margin-bottom: 4px !important;
   }
@@ -1053,7 +1326,7 @@
 
 .combined {
   --pool-accent: var(--text-secondary);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 .comparisonNote {
   margin: 0 0 8px;
@@ -1109,7 +1382,7 @@
   border-color: transparent;
 }
 .reorder button.graphToggle {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   background: transparent;
   border-color: transparent;
 }
@@ -1125,7 +1398,7 @@
   --compact-account-gap: 20px;
 
   .accountGrid {
-    gap: 4px var(--compact-account-gap);
+    gap: 0 var(--compact-account-gap);
   }
   .account:not([open]) {
     max-inline-size: var(--compact-account-width);
@@ -1136,9 +1409,6 @@
       min-height: 36px;
       padding: 4px 0;
     }
-  }
-  &[data-saved='false'] .account:not([open])[data-status='ok'] .accountStatus {
-    display: none;
   }
   @media (min-width: 901px) {
     .accounts > h3 {
@@ -1154,15 +1424,6 @@
       min-height: 44px;
     }
   }
-  @media (max-width: 640px) {
-    .account:not([open]) > summary {
-      background: var(--bg-subtle);
-      border-radius: $radius-sm;
-      &:hover {
-        background: var(--bg-tertiary);
-      }
-    }
-  }
   @media (min-width: 1200px) {
     .accountGrid:not(:has(.account[open])) {
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1171,10 +1432,15 @@
   }
 }
 
+// Coverage is a status, so it reads as a chip beside the heading, not as more heading text.
 .accountCoverage {
   display: inline-block;
-  margin-left: 8px;
-  font-size: inherit;
+  margin-left: 10px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
   font-weight: 400;
   white-space: nowrap;
 }
@@ -1183,6 +1449,13 @@
   font-weight: 400;
   white-space: nowrap;
 }
+// Wide tables name the balance in their own column header; phones have no header row.
+@media (min-width: 901px) {
+  .pool:not([data-minimized='true']) .accountBalanceLabel {
+    display: none;
+  }
+}
+
 .page .expandAccounts {
   white-space: nowrap;
   flex-shrink: 0;
@@ -1207,15 +1480,19 @@
   grid-row: 1;
   align-self: start;
 }
+.limits li > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
 .limitWarning {
-  font-style: normal;
-  color: var(--warning-color);
+  display: inline-flex;
+  flex-shrink: 0;
+  color: $pool-error;
 }
 .limits small {
   font-size: 14px;
-}
-.accountGrid {
-  align-items: stretch;
 }
 .account[open] {
   display: grid;
@@ -1225,10 +1502,12 @@
   }
 }
 .accountDetails {
-  border-top: 1px solid var(--bg-hover);
-  margin-top: 8px;
+  margin-top: 0;
 }
 .pool[data-minimized='true'] .account:not([open]) .limits {
+  .limitBar {
+    display: none;
+  }
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin: 2px 0;
@@ -1247,9 +1526,6 @@
     justify-content: space-between;
     align-items: baseline;
     gap: 8px;
-    > span:first-child {
-      min-block-size: 0;
-    }
   }
   strong {
     flex-shrink: 0;
@@ -1264,8 +1540,8 @@
   }
   .accountCoverage {
     display: block;
-    margin: 2px 0 0;
-    font-size: 13px;
+    width: fit-content;
+    margin: 4px 0 0;
   }
   .accountBalanceLabel {
     font-size: 13px;
@@ -1284,5 +1560,250 @@
 @media (max-width: 640px) {
   .accounts > h3 {
     padding: 4px 0;
+  }
+}
+
+.reorder button:disabled {
+  border-color: transparent;
+  opacity: 0.4;
+}
+
+// Wide screens: one heading row, then one line per account with a column per limit.
+@media (min-width: 901px) {
+  .pool:not([data-minimized='true']) {
+    .accountHead,
+    .account > summary {
+      display: grid;
+      grid-template-columns:
+        20px minmax(150px, 1.3fr) minmax(112px, 0.6fr)
+        repeat(var(--limit-cols), minmax(104px, 1fr)) 128px;
+      column-gap: 16px;
+      align-items: center;
+    }
+    .accountHead {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 8px 10px;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      background: transparent;
+      span {
+        grid-row: 1;
+      }
+      span:last-child {
+        text-align: right;
+        white-space: nowrap;
+      }
+    }
+    .account[open] > summary {
+      align-items: start;
+    }
+    .account > summary {
+      // Name and plan sit in their own columns, so every row keeps one line.
+      > .accountName {
+        display: contents;
+      }
+      .accountLabel {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .accountPlan {
+        grid-column: 3;
+        grid-row: 1;
+      }
+      > .accountStatus {
+        grid-column: 2 / 4;
+        grid-row: 2;
+      }
+      > strong {
+        grid-column: -2;
+        grid-row: 1 / 3;
+        font-weight: 600;
+      }
+    }
+    .account:not([open]) > summary > strong {
+      align-self: center;
+    }
+    .account > summary {
+      > .limits {
+        display: contents;
+        li {
+          grid-column: calc(var(--col) + 3);
+          grid-row: 1 / 3;
+          display: grid;
+          grid-template-columns: 3.6em minmax(24px, 1fr);
+          align-items: center;
+          gap: 0 10px;
+          strong {
+            grid-column: 1;
+            grid-row: 1;
+            justify-content: flex-end;
+          }
+          .limitBar {
+            grid-column: 2;
+            grid-row: 1;
+          }
+          small {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            font-size: 12px;
+            white-space: nowrap;
+          }
+          &[data-missing='true'] em {
+            grid-column: 1 / -1;
+            grid-row: 1;
+            color: var(--text-tertiary);
+            font-size: 13px;
+            font-style: normal;
+          }
+          > span:first-child {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+          }
+        }
+      }
+    }
+    .account[data-status='no-limit'] .accountStatus {
+      display: none;
+    }
+    // Detail values sit under the columns they belong to.
+    .accountDetails {
+      display: grid;
+      grid-template-columns:
+        20px minmax(150px, 1.3fr) minmax(112px, 0.6fr)
+        repeat(var(--limit-cols), minmax(104px, 1fr)) 128px;
+      column-gap: 16px;
+      padding: 10px;
+      > div:nth-child(1) {
+        grid-column: 2 / 4;
+      }
+      > div:nth-child(2) {
+        grid-column: 4;
+      }
+      > div:nth-child(3) {
+        grid-column: 5;
+      }
+      > div:nth-child(4) {
+        grid-column: 6;
+      }
+    }
+  }
+}
+
+// Long rosters: find one account, or put the lowest first.
+.rosterTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 4px 0 4px;
+}
+.rosterSearch::placeholder {
+  color: var(--text-tertiary);
+}
+.rosterSearch {
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: min(100%, 14rem);
+  padding: 8px 12px;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+}
+.rosterCount {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.page .rosterLow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid color-mix(in srgb, #{$pool-error} 45%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: $pool-error;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  &:hover {
+    background: color-mix(in srgb, #{$pool-error} 10%, transparent);
+  }
+  &[aria-pressed='true'] {
+    background: color-mix(in srgb, #{$pool-error} 18%, transparent);
+    border-color: $pool-error;
+    color: $pool-error;
+  }
+  @media (max-width: 640px) {
+    margin-left: 0;
+  }
+}
+// On a phone a long roster shows one line per account; limits open with the row.
+@media (max-width: 640px) {
+  .pool:not([data-minimized='true']) .accountGrid[data-large='true'] .account:not([open]) .limits {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 2px 0;
+    gap: 2px;
+    &:not(:has([data-low='true'])) {
+      display: none;
+    }
+    li:not([data-low='true']) {
+      display: none;
+    }
+    li {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .limitBar {
+      display: none;
+    }
+  }
+}
+
+.account[data-status='no-limit'] .accountStatus {
+  color: var(--text-tertiary);
+}
+.headline[data-no-limit='true'] strong {
+  color: var(--text-secondary);
+}
+
+// With a mouse the controls can be slimmer; touch and narrow layouts keep 44px targets.
+@media (min-width: 901px) and (pointer: fine) {
+  .page {
+    button,
+    select {
+      min-height: 36px;
+      min-width: 36px;
+      padding-block: 6px;
+    }
+    .segment button {
+      min-height: 32px;
+    }
+    .reorder button {
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0;
+    }
+  }
+  .privacy,
+  .accountLink,
+  .countdown,
+  .rosterSearch {
+    min-height: 36px;
+  }
+  .page .errorNotice button {
+    min-height: 40px;
+  }
+  .account > summary {
+    min-height: 40px;
   }
 }

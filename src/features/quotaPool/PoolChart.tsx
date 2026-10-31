@@ -65,7 +65,11 @@ function PoolChartView({
   const chartFrame = fitChartFrame(
     width,
     savedData || pools.some((pool) => pool.forecastState !== 'ready') || mode !== 'remaining',
-    minimized
+    minimized,
+    formatPoolNumber(
+      Math.max(0, stackedTotal?.capacityPoints ?? 0, ...pools.map((pool) => pool.capacityPoints)),
+      i18n.language
+    ).length
   );
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
@@ -163,8 +167,36 @@ function PoolChartView({
     });
   const hasValues = samples.some(({ point }) => point[field] !== null);
   const hasProjection = samples.some(({ point, projected }) => projected && point[field] !== null);
+  // On a combined chart, state every provider's value at the selected moment, not one of them.
+  const readingAt = sample
+    ? comparison
+      ? samples
+          .filter(
+            (other) =>
+              other.point.atMs === sample.point.atMs && other.projected === sample.projected
+          )
+          .filter(
+            (other, index, all) =>
+              all.findIndex((first) => poolLabel(first.pool) === poolLabel(other.pool)) === index
+          )
+      : [sample]
+    : [];
+  const readingValue = (other: (typeof samples)[number]) =>
+    other.point[field] === null ? t('quota_pool.no_observation') : number(other.point[field]);
+  // A moment with no value is not a recording: say so once, without a Recorded/Projected tag.
+  const unobserved = readingAt.every((other) => other.point[field] === null);
+  const readingText = !sample
+    ? ''
+    : unobserved
+      ? `${t('quota_pool.no_observation')} · ${date(sample.point.atMs)}`
+      : readingAt.length > 1
+        ? `${readingAt.map((other) => `${poolLabel(other.pool)}: ${readingValue(other)}`).join(' · ')}${readingAt.some((other) => other.point[field] !== null) ? ` ${unit}` : ''}`
+        : `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`}`;
+  const latestPrefix = selected === latestRecorded ? `${t('quota_pool.latest_reading')} · ` : '';
   const description = sample
-    ? `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
+    ? unobserved
+      ? readingText
+      : `${latestPrefix}${readingAt.length > 1 ? `${date(sample.point.atMs)} · ` : ''}${readingText} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
     : t('quota_pool.inspect_hint');
 
   const selectAtPointer = (event: PointerEvent<SVGSVGElement>) => {
@@ -249,6 +281,9 @@ function PoolChartView({
             />
           </clipPath>
         </defs>
+        <text className={styles.axisUnit} x={0} y={chartFrame.top - 14}>
+          {unit}
+        </text>
         {(min === max ? [min] : [min, (min + max) / 2, max]).map((value, index) => (
           <g key={index} className={styles.grid}>
             <line x1={chartFrame.left} x2={chartFrame.right} y1={y(value)} y2={y(value)} />
@@ -427,18 +462,23 @@ function PoolChartView({
             {t('quota_pool.no_history')}
           </text>
         )}
-        {hasValues && !hasProjection && visible(nowMs) && x(nowMs) < chartFrame.right - 130 && (
-          <text
-            x={(x(nowMs) + chartFrame.right) / 2}
-            y={(chartFrame.top + chartFrame.bottom) / 2}
-            textAnchor="middle"
-            className={styles.emptyChart}
-          >
-            {t(
-              `quota_pool.${mode !== 'remaining' ? 'rate_no_projection' : 'projection_unavailable'}`
-            )}
-          </text>
-        )}
+        {/* The card's status chip and strip already explain degraded forecasts, and the page note
+            explains rate views; only a ready pool with no projection needs saying here. */}
+        {hasValues &&
+          !hasProjection &&
+          mode === 'remaining' &&
+          pools.every((pool) => pool.forecastState === 'ready') &&
+          visible(nowMs) &&
+          x(nowMs) < chartFrame.right - 130 && (
+            <text
+              x={(x(nowMs) + chartFrame.right) / 2}
+              y={(chartFrame.top + chartFrame.bottom) / 2}
+              textAnchor="middle"
+              className={styles.emptyChart}
+            >
+              {t('quota_pool.projection_unavailable')}
+            </text>
+          )}
       </svg>
       <div className={styles.chartFooter}>
         <div className={styles.legend}>
@@ -451,7 +491,6 @@ function PoolChartView({
                   ` · ${t(`quota_pool.state.${pool.forecastState}`)}`}
               </span>
             ))}
-          <span>{unit}</span>
           <span>
             <i />
             {t('quota_pool.recorded')}
@@ -473,10 +512,8 @@ function PoolChartView({
       <div className={styles.inspectionRow}>
         <div className={styles.chartReadout} id={`${id}-readout`} aria-live="polite">
           {description}
+          {samples.length === 1 && ` · ${t('quota_pool.single_sample')}`}
         </div>
-        {samples.length === 1 ? (
-          <span className={styles.singleSample}>{t('quota_pool.single_sample')}</span>
-        ) : null}
       </div>
     </div>
   );

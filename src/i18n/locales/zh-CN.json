@@ -2322,7 +2322,7 @@
     "combined_total": "合计曲线",
     "total": "合计",
     "total_description": "所选提供商按套餐加权点数相加，并非令牌数。",
-    "total_ambiguous": "合计不可用：同一提供商的多个来源尚未确认是否存在账户重叠。",
+    "total_ambiguous": "同一提供商的多个来源尚未确认是否存在账户重叠，因此不予合计。",
     "total_unavailable": "此选择的合计不可用。",
     "combined_usage": "综合用量",
     "combined_description": "各提供商池共用此时间轴，每条线保留独立配额余额。实线：已记录；虚线：预测。",
@@ -2395,6 +2395,19 @@
     "accounts": "账号",
     "observed": "最近观测",
     "no_observation": "无观测值",
+    "no_window_limit": "无{{window}}限额",
+    "not_reported": "未上报",
+    "account_search": "搜索账号",
+    "account_sort": "账号排序",
+    "sort_default": "默认顺序",
+    "sort_lowest": "最低优先",
+    "accounts_shown": "显示 {{shown}} / {{total}}",
+    "accounts_low": "{{count}}个偏低",
+    "no_account_matches": "没有匹配的账号。",
+    "about_numbers": "关于这些数字",
+    "error_status": "HTTP {{status}}",
+    "error_network": "服务器无响应",
+    "latest_reading": "最新读数",
     "recorded": "已记录",
     "projected": "预测",
     "inspect_hint": "将指针悬停在图表上，或聚焦图表后使用方向键查看样本。",
@@ -2415,13 +2428,15 @@
       "collecting": "收集中",
       "partial": "不完整",
       "stale": "已过期",
-      "no-accounts": "无账号"
+      "no-accounts": "无账号",
+      "no-limit": "无限额"
     },
     "state_note": {
       "collecting": "正在收集历史。观测值充足后显示预测。",
       "partial": "总量和预测不可用：部分符合条件的账户没有当前配额数据。",
       "stale": "请刷新过期观测后查看总量和预测。",
-      "no-accounts": "此服务商没有可用账号。请在账号视图中添加凭据。"
+      "no-accounts": "此服务商没有可用账号。请在账号视图中添加凭据。",
+      "no-limit": "这些账号没有{{window}}限额，因此这里没有可汇总的额度。"
     },
     "account_status": {
       "ok": "最新",

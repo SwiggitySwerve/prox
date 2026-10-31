@@ -2350,7 +2350,7 @@
     "combined_total": "合計曲線",
     "total": "合計",
     "total_description": "所選供應商以方案加權點數相加，並非權杖數。",
-    "total_ambiguous": "合計無法使用：同一供應商的多個來源尚未確認是否有帳戶重疊。",
+    "total_ambiguous": "同一供應商的多個來源尚未確認是否有帳戶重疊，因此不予合計。",
     "total_unavailable": "此選擇的合計無法使用。",
     "combined_usage": "綜合用量",
     "combined_description": "各供應商集區共用此時間軸，每條線保留獨立配額餘額。實線：已記錄；虛線：預測。",
@@ -2423,6 +2423,19 @@
     "accounts": "帳號",
     "observed": "最近觀測",
     "no_observation": "無觀測值",
+    "no_window_limit": "無{{window}}限額",
+    "not_reported": "未回報",
+    "account_search": "搜尋帳號",
+    "account_sort": "帳號排序",
+    "sort_default": "預設順序",
+    "sort_lowest": "最低優先",
+    "accounts_shown": "顯示 {{shown}} / {{total}}",
+    "accounts_low": "{{count}}個偏低",
+    "no_account_matches": "沒有符合的帳號。",
+    "about_numbers": "關於這些數字",
+    "error_status": "HTTP {{status}}",
+    "error_network": "伺服器無回應",
+    "latest_reading": "最新讀數",
     "recorded": "已記錄",
     "projected": "預測",
     "inspect_hint": "將指標停在圖表上，或聚焦圖表後使用方向鍵查看樣本。",
@@ -2443,13 +2456,15 @@
       "collecting": "收集中",
       "partial": "不完整",
       "stale": "已過期",
-      "no-accounts": "無帳號"
+      "no-accounts": "無帳號",
+      "no-limit": "無限額"
     },
     "state_note": {
       "collecting": "正在收集歷史。觀測值充足後顯示預測。",
       "partial": "總量和預測無法使用：部分符合條件的帳戶沒有目前配額資料。",
       "stale": "請重新整理過期觀測後查看總量和預測。",
-      "no-accounts": "此供應商沒有可用帳號。請在帳號檢視中新增憑證。"
+      "no-accounts": "此供應商沒有可用帳號。請在帳號檢視中新增憑證。",
+      "no-limit": "這些帳號沒有{{window}}限額，因此這裡沒有可彙總的額度。"
     },
     "account_status": {
       "ok": "最新",

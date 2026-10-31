@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { IconEye, IconRefreshCw, IconChevronLeft, IconFilterAll } from '@/components/ui/icons';
+import {
+  IconAlertTriangle,
+  IconEye,
+  IconRefreshCw,
+  IconChevronDown,
+  IconChevronLeft,
+  IconFilterAll,
+} from '@/components/ui/icons';
 import type { PoolProviderId } from '@/domain/quotaPool/types';
 import type { PoolQuery } from '@/services/api/quotaPool';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
 import { PoolCard } from './PoolCard';
@@ -29,7 +37,6 @@ export function QuotaPoolPage() {
   const { data, refresh } = state;
   const refreshStatus = state.refreshStatus ?? data;
   const refreshing = state.refreshing || refreshStatus?.refreshing;
-  const initialLoading = state.loading && !data;
   const chartUnavailable = !data?.pools.length;
   const { order, setOrder } = usePoolOrder();
   const orderedPools = data ? orderPools(data.pools, order) : [];
@@ -54,141 +61,138 @@ export function QuotaPoolPage() {
           </Link>
         </div>
         <div className={styles.actions}>
-          <label className={styles.privacy}>
-            <input
-              type="checkbox"
-              checked={query.reveal}
-              disabled={chartUnavailable}
-              onChange={(event) => change('reveal', event.target.checked)}
-            />
-            <IconEye size={18} aria-hidden="true" />
-            {t('quota_pool.show_emails')}
-          </label>
+          {!chartUnavailable && (
+            <label className={styles.privacy}>
+              <input
+                type="checkbox"
+                checked={query.reveal}
+                onChange={(event) => change('reveal', event.target.checked)}
+              />
+              <IconEye size={18} aria-hidden="true" />
+              {t('quota_pool.show_emails')}
+            </label>
+          )}
           {/* Manual refresh is the header's refresh button; this shows when the next automatic one runs. */}
           {Boolean(data?.pools.length) && (
             <RefreshCountdown dueAtMs={state.nextCollectAtMs} refreshing={Boolean(refreshing)} />
           )}
         </div>
       </header>
-      <div className={styles.providerBar} role="group" aria-label={t('quota_pool.providers')}>
-        {(['all', 'claude', 'codex'] as const).map((item) => (
-          <button
-            type="button"
-            key={item}
-            aria-pressed={provider === item}
-            disabled={chartUnavailable}
-            onClick={() => setProvider(item)}
-            className={item === 'all' ? undefined : styles[item]}
-          >
-            {item !== 'all' && <PoolProviderMark provider={item} />}
-            {item === 'all' && <IconFilterAll size={18} aria-hidden="true" />}
-            {t(`quota_pool.${item}`)}
-            {item !== 'all' && data && (
-              <span className={styles.count}>
-                {data.pools.find((pool) => pool.provider === item)?.accountCount ?? 0}
-              </span>
+      {!chartUnavailable && (
+        <>
+          <div className={styles.providerBar} role="group" aria-label={t('quota_pool.providers')}>
+            {(['all', 'claude', 'codex'] as const).map((item) => (
+              <button
+                type="button"
+                key={item}
+                aria-pressed={provider === item}
+                onClick={() => setProvider(item)}
+                className={item === 'all' ? undefined : styles[item]}
+              >
+                {item !== 'all' && <PoolProviderMark provider={item} />}
+                {item === 'all' && <IconFilterAll size={18} aria-hidden="true" />}
+                {t(`quota_pool.${item}`)}
+                {item !== 'all' && data && (
+                  <span className={styles.count}>
+                    {data.pools.find((pool) => pool.provider === item)?.accountCount ?? 0}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <fieldset className={styles.toolbar} aria-label={t('quota_pool.chart_mode')}>
+            <div className={styles.segment} role="group" aria-label={t('quota_pool.window')}>
+              {(['weekly', 'five-hour'] as const).map((item) => (
+                <button
+                  type="button"
+                  key={item}
+                  aria-pressed={query.window === item}
+                  onClick={() => change('window', item)}
+                >
+                  {t(`quota_pool.${item === 'weekly' ? 'weekly' : 'five_hour'}`)}
+                </button>
+              ))}
+            </div>
+            <div className={styles.segment} role="group" aria-label={t('quota_pool.chart_mode')}>
+              {(['remaining', 'drain', 'burn'] as const).map((item) => (
+                <button
+                  type="button"
+                  key={item}
+                  aria-pressed={mode === item}
+                  onClick={() => setMode(item)}
+                >
+                  {t(`quota_pool.${item}`)}
+                </button>
+              ))}
+            </div>
+            <div className={styles.chartSettings}>
+              <label className={styles.selectLabel}>
+                {t('quota_pool.rate_interval')}
+                <select
+                  value={query.lookback}
+                  onChange={(event) =>
+                    change('lookback', Number(event.target.value) as PoolQuery['lookback'])
+                  }
+                >
+                  {([1, 3, 6] as const).map((hours) => (
+                    <option key={hours} value={hours}>
+                      {t('quota_pool.hours', { hours })}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.selectLabel}>
+                {t('quota_pool.future_usage')}
+                <select
+                  value={query.multiplier}
+                  disabled={mode !== 'remaining'}
+                  aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
+                  onChange={(event) =>
+                    change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
+                  }
+                >
+                  {([1, 0.5, 2, 0] as const).map((value) => (
+                    <option value={value} key={value}>
+                      {t(
+                        `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
+                      )}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className={styles.dateNavigation}>
+              <span>{data ? `${date(data.fromMs, true)} – ${date(data.toMs, true)}` : null}</span>
+              <button
+                type="button"
+                aria-label={t('quota_pool.previous')}
+                disabled={query.offsetDays <= -14}
+                onClick={() => change('offsetDays', query.offsetDays - 1)}
+              >
+                <IconChevronLeft size={18} aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => change('offsetDays', 0)}>
+                {t('quota_pool.today')}
+              </button>
+              <button
+                type="button"
+                aria-label={t('quota_pool.next')}
+                disabled={query.offsetDays >= 14}
+                onClick={() => change('offsetDays', query.offsetDays + 1)}
+              >
+                <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
+              </button>
+            </div>
+            {/* The reason Future usage is disabled sits with the controls it explains. */}
+            {mode !== 'remaining' && (
+              <p id="pool-recorded-only" className={styles.stateNote}>
+                {t('quota_pool.recorded_only')}
+              </p>
             )}
-          </button>
-        ))}
-      </div>
-      <fieldset
-        className={styles.toolbar}
-        disabled={chartUnavailable}
-        aria-label={t('quota_pool.chart_mode')}
-      >
-        <div className={styles.segment} role="group" aria-label={t('quota_pool.window')}>
-          {(['weekly', 'five-hour'] as const).map((item) => (
-            <button
-              type="button"
-              key={item}
-              aria-pressed={query.window === item}
-              onClick={() => change('window', item)}
-            >
-              {t(`quota_pool.${item === 'weekly' ? 'weekly' : 'five_hour'}`)}
-            </button>
-          ))}
-        </div>
-        <div className={styles.segment} role="group" aria-label={t('quota_pool.chart_mode')}>
-          {(['remaining', 'drain', 'burn'] as const).map((item) => (
-            <button
-              type="button"
-              key={item}
-              aria-pressed={mode === item}
-              onClick={() => setMode(item)}
-            >
-              {t(`quota_pool.${item}`)}
-            </button>
-          ))}
-        </div>
-        <div className={styles.chartSettings}>
-          <label className={styles.selectLabel}>
-            {t('quota_pool.rate_interval')}
-            <select
-              value={query.lookback}
-              onChange={(event) =>
-                change('lookback', Number(event.target.value) as PoolQuery['lookback'])
-              }
-            >
-              {([1, 3, 6] as const).map((hours) => (
-                <option key={hours} value={hours}>
-                  {t('quota_pool.hours', { hours })}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.selectLabel}>
-            {t('quota_pool.future_usage')}
-            <select
-              value={query.multiplier}
-              disabled={mode !== 'remaining'}
-              aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
-              onChange={(event) =>
-                change('multiplier', Number(event.target.value) as PoolQuery['multiplier'])
-              }
-            >
-              {([1, 0.5, 2, 0] as const).map((value) => (
-                <option value={value} key={value}>
-                  {t(
-                    `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
-                  )}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className={styles.dateNavigation}>
-          <span>
-            {data
-              ? `${date(data.fromMs, true)} – ${date(data.toMs, true)}`
-              : t(`quota_pool.${initialLoading ? 'awaiting_data' : 'forecast_unavailable'}`)}
-          </span>
-          <button
-            type="button"
-            aria-label={t('quota_pool.previous')}
-            disabled={query.offsetDays <= -14}
-            onClick={() => change('offsetDays', query.offsetDays - 1)}
-          >
-            <IconChevronLeft size={18} aria-hidden="true" />
-          </button>
-          <button type="button" onClick={() => change('offsetDays', 0)}>
-            {t('quota_pool.today')}
-          </button>
-          <button
-            type="button"
-            aria-label={t('quota_pool.next')}
-            disabled={query.offsetDays >= 14}
-            onClick={() => change('offsetDays', query.offsetDays + 1)}
-          >
-            <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
-          </button>
-        </div>
-      </fieldset>
-      {!chartUnavailable && <p className={styles.method}>{t('quota_pool.normalized_short')}</p>}
-      {mode !== 'remaining' && (
-        <p id="pool-recorded-only" className={styles.stateNote}>
-          {t('quota_pool.recorded_only')}
-        </p>
+          </fieldset>
+        </>
       )}
+      {!chartUnavailable && <p className={styles.method}>{t('quota_pool.normalized_short')}</p>}
       {!state.connected && (
         <div className={styles.notice} role="status">
           {t('quota_pool.disconnected')}
@@ -196,12 +200,20 @@ export function QuotaPoolPage() {
       )}
       {(state.error || state.refreshError) && (
         <div className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+          <IconAlertTriangle size={20} className={styles.errorIcon} aria-hidden="true" />
           <div>
             <h2>{t(`quota_pool.${data ? 'refresh_failed_title' : 'load_failed_title'}`)}</h2>
             <p>
               {t(
                 `quota_pool.${state.refreshError ? 'refresh_error' : data ? 'load_error' : 'load_error_initial'}`
               )}
+            </p>
+            <p className={styles.errorCause}>
+              {(state.refreshError ? state.refreshErrorStatus : state.errorStatus) === null
+                ? t('quota_pool.error_network')
+                : t('quota_pool.error_status', {
+                    status: state.refreshError ? state.refreshErrorStatus : state.errorStatus,
+                  })}
             </p>
           </div>
           <button
@@ -235,10 +247,52 @@ export function QuotaPoolPage() {
         </p>
       )}
       {!data && state.loading && state.connected && (
-        <div className={styles.loading} role="status">
-          <span className={styles.loadingDot} />
-          <h2>{t('quota_pool.loading')}</h2>
-        </div>
+        <>
+          {/* Placeholders where the provider filter and chart controls will render. */}
+          <div className={styles.loadingControls} aria-hidden="true">
+            {[
+              [112, 84, 84],
+              [168, 250, 84, 120],
+            ].map((row, line) => (
+              <div key={line}>
+                {row.map((width, index) => (
+                  <Skeleton key={index} width={width} height={40} rounded={999} />
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className={styles.loading} aria-busy="true">
+            <div className={styles.loadingHead}>
+              <h2>{t('quota_pool.combined_usage')}</h2>
+              <span className={styles.loadingStatus} role="status">
+                <span className={styles.loadingDot} />
+                {t('quota_pool.loading')}
+              </span>
+            </div>
+            {/* The combined card has a headline and a view select, not the provider facts. */}
+            <div className={styles.loadingHero}>
+              <Skeleton width={200} height={48} rounded={8} />
+              <Skeleton width={150} height={36} rounded={999} />
+            </div>
+            <Skeleton height={168} rounded={8} />
+          </div>
+          {/* One placeholder per provider card that will follow. */}
+          {(['claude', 'codex'] as const).map((item) => (
+            <div key={item} className={styles.loading} aria-hidden="true">
+              <h2 className={styles.loadingTitle}>
+                <PoolProviderMark provider={item} />
+                {t(`quota_pool.${item}`)}
+              </h2>
+              <div className={styles.loadingStats}>
+                <Skeleton height={56} rounded={6} />
+                {[0, 1, 2, 3].map((index) => (
+                  <Skeleton key={index} height={36} rounded={6} />
+                ))}
+              </div>
+              <Skeleton height={120} rounded={8} />
+            </div>
+          ))}
+        </>
       )}
       {data && shownPools.length > 0 && (
         <CombinedPoolCard
@@ -284,17 +338,29 @@ export function QuotaPoolPage() {
         )}
       </div>
       <footer className={styles.footer}>
-        <p className={styles.method}>{t('quota_pool.normalized')}</p>
-        <p className={styles.method}>{t('quota_pool.limit_note')}</p>
-        <span>{t('quota_pool.polling')}</span>
-        {data && (
+        {data && data.pools.length > 0 && (
           <>
-            <span>
-              {t('quota_pool.history_since')}: {date(data.historyStartedAtMs)}
-            </span>
-            <span>
-              {t('quota_pool.last_refresh')}: {date(refreshStatus?.lastRefreshAtMs ?? null)}
-            </span>
+            <dl className={styles.footerFacts}>
+              <div>
+                <dt>{t('quota_pool.history_since')}</dt>
+                <dd>{date(data.historyStartedAtMs)}</dd>
+              </div>
+              <div>
+                <dt>{t('quota_pool.last_refresh')}</dt>
+                <dd>{date(refreshStatus?.lastRefreshAtMs ?? null)}</dd>
+              </div>
+            </dl>
+            <details className={styles.about}>
+              <summary>
+                <IconChevronDown size={16} aria-hidden="true" />
+                {t('quota_pool.about_numbers')}
+              </summary>
+              <ul>
+                <li>{t('quota_pool.normalized')}</li>
+                <li>{t('quota_pool.limit_note')}</li>
+                <li>{t('quota_pool.polling')}</li>
+              </ul>
+            </details>
           </>
         )}
       </footer>
@@ -318,7 +384,7 @@ function RefreshCountdown({
   }, []);
   if (dueAtMs === null) return null;
   return (
-    <span className={styles.countdown} data-refreshing={refreshing}>
+    <span className={styles.countdown} data-refreshing={refreshing} role="status">
       <IconRefreshCw size={16} aria-hidden="true" />
       {refreshing
         ? t('quota_pool.refreshing')

@@ -1,4 +1,5 @@
 import { combinedPools } from './combined';
+import { maskIdentifier } from './mask';
 import { sumKnown } from './values';
 import type {
   AccountQuotaWindow,
@@ -241,8 +242,18 @@ function buildPool(
   const accounts = source
     .filter((a) => a.provider === provider && !a.retired)
     .sort((a, b) => a.id.localeCompare(b.id));
-  const active = accounts.filter((a) => !a.disabled);
   const { scale, histories } = accountHistories(accounts, samples);
+  // Ultra accounts answered without a five-hour window: Anthropic removed that limit for verified
+  // Ultra accounts on 2026-10-30. A successful answer is proof; a failed poll writes no sample.
+  const lacksFiveHourLimit = (account: StoredAccount) => {
+    const plan = planWeight(provider, account.plan);
+    return (
+      options.window === 'five-hour' &&
+      provider === 'claude' &&
+      plan.known &&
+      plan.multiplier === 20
+    );
+  };
   const forecastInputs: ForecastInput[] = [];
   const accountViews: PoolAccount[] = accounts.map((account, index) => {
     const history = histories.get(account.id)!;
@@ -259,13 +270,15 @@ function buildPool(
         : nowMs - account.lastSeenAtMs > STALE_MS ||
             (latest && nowMs - latest.observedAtMs > STALE_MS)
           ? 'stale'
-          : latest?.remainingPercent === null
-            ? 'missing-window'
-            : latest && !sample
-              ? 'stale'
-              : !sample
-                ? 'missing-window'
-                : 'ok';
+          : latest?.remainingPercent === null && lacksFiveHourLimit(account)
+            ? 'no-limit'
+            : latest?.remainingPercent === null
+              ? 'missing-window'
+              : latest && !sample
+                ? 'stale'
+                : !sample
+                  ? 'missing-window'
+                  : 'ok';
     const rates =
       status === 'ok' ? measuredRates(history, nowMs, lookbackHours) : { burn: null, drain: null };
     if (
@@ -296,6 +309,7 @@ function buildPool(
         capacityPoints: POINTS_PER_UNIT * plan.multiplier,
         known: plan.known,
       },
+      identifier: maskIdentifier(account.email || account.name),
       ...(options.reveal ? { email: account.email || account.name } : {}),
       disabled: account.disabled,
       status,
@@ -314,7 +328,10 @@ function buildPool(
       windows: [],
     };
   });
-  const eligible = accountViews.filter((a) => !a.disabled);
+  // An account with no limit here has nothing to add to this window's pool.
+  const unlimited = new Set(accountViews.filter((a) => a.status === 'no-limit').map((a) => a.id));
+  const active = accounts.filter((a) => !a.disabled && !unlimited.has(a.id));
+  const eligible = accountViews.filter((a) => !a.disabled && a.status !== 'no-limit');
   const loaded = eligible.filter((a) => a.status === 'ok');
   const complete = loaded.length === eligible.length && !inventoryFailed;
   const rates = active.map((a) => {
@@ -324,7 +341,9 @@ function buildPool(
   const forecastState: QuotaPool['forecastState'] = !eligible.length
     ? inventoryFailed
       ? 'partial'
-      : 'no-accounts'
+      : unlimited.size
+        ? 'no-limit'
+        : 'no-accounts'
     : !complete
       ? eligible.some((a) => a.status === 'stale')
         ? 'stale'
@@ -388,6 +407,7 @@ export function buildDashboard(
     }
   }
   const scoped = sources !== undefined || scopes.size > 0;
+  const accountPlans = new Map(accounts.map((account) => [account.id, account.plan]));
   const allPools = (scoped ? [...scopes.values()] : [undefined]).flatMap((source) =>
     QUOTA_PROVIDERS.map((provider) => ({
       ...buildPool(
@@ -417,6 +437,12 @@ export function buildDashboard(
       accounts: pool.accounts.map((account) => ({
         ...account,
         windows: [...(windows?.get(account.id) ?? [])],
+        ...(pool.provider === 'claude' &&
+        planWeight(pool.provider, accountPlans.get(account.id)).multiplier === 20 &&
+        (windows?.get(account.id)?.length ?? 0) > 0 &&
+        !windows?.get(account.id)?.some((limit) => limit.id === 'five-hour')
+          ? { noFiveHourLimit: true }
+          : {}),
       })),
     }))
     .filter(
@@ -429,10 +455,18 @@ export function buildDashboard(
         )
     );
   const history = (selected: QuotaPool[], times?: number[]) => {
+    const unlimited = new Set(
+      selected.flatMap((pool) =>
+        pool.accounts
+          .filter((account) => account.status === 'no-limit')
+          .map((account) => account.id)
+      )
+    );
     const active = accounts.filter(
       (account) =>
         !account.retired &&
         !account.disabled &&
+        !unlimited.has(account.id) &&
         selected.some(
           (pool) => pool.provider === account.provider && pool.instanceId === account.instanceId
         )

@@ -2324,7 +2324,7 @@
     "combined_total": "전체 합계",
     "total": "합계",
     "total_description": "선택한 공급자를 요금제 가중 포인트로 합산합니다. 토큰 수가 아닙니다.",
-    "total_ambiguous": "합계 사용 불가: 동일 공급자의 여러 소스 간 계정 중복이 확인되지 않았습니다.",
+    "total_ambiguous": "동일 공급자의 여러 소스 간 계정 중복이 확인되지 않아 합산하지 않습니다.",
     "total_unavailable": "선택한 항목의 합계를 사용할 수 없습니다.",
     "combined_usage": "통합 사용량",
     "combined_description": "공급자 풀은 시간축을 공유하며 각 선은 별도의 할당량 잔액을 유지합니다. 실선: 기록. 점선: 예측.",
@@ -2397,6 +2397,19 @@
     "accounts": "계정",
     "observed": "최근 관측",
     "no_observation": "관측값 없음",
+    "no_window_limit": "{{window}} 한도 없음",
+    "not_reported": "보고되지 않음",
+    "account_search": "계정 검색",
+    "account_sort": "계정 정렬",
+    "sort_default": "기본 순서",
+    "sort_lowest": "낮은 순",
+    "accounts_shown": "{{shown}} / {{total}} 표시",
+    "accounts_low": "부족 {{count}}개",
+    "no_account_matches": "일치하는 계정이 없습니다.",
+    "about_numbers": "이 수치에 대해",
+    "error_status": "HTTP {{status}}",
+    "error_network": "서버 응답 없음",
+    "latest_reading": "최신 값",
     "recorded": "기록",
     "projected": "예측",
     "inspect_hint": "차트에 포인터를 올리거나 차트를 선택한 뒤 방향키로 표본을 확인하세요.",
@@ -2417,13 +2430,15 @@
       "collecting": "수집 중",
       "partial": "부분 데이터",
       "stale": "오래됨",
-      "no-accounts": "계정 없음"
+      "no-accounts": "계정 없음",
+      "no-limit": "한도 없음"
     },
     "state_note": {
       "collecting": "기록을 수집 중입니다. 관측값이 충분해지면 예측이 표시됩니다.",
       "partial": "일부 적격 계정의 현재 할당량 데이터가 없어 합계와 예측을 표시할 수 없습니다.",
       "stale": "오래된 관측값을 새로고침할 때까지 합계와 예측을 표시할 수 없습니다.",
-      "no-accounts": "이 제공업체에 계정이 없습니다. 계정 보기에서 인증 정보를 추가하세요."
+      "no-accounts": "이 제공업체에 계정이 없습니다. 계정 보기에서 인증 정보를 추가하세요.",
+      "no-limit": "이 계정에는 {{window}} 한도가 없어 합산할 항목이 없습니다."
     },
     "account_status": {
       "ok": "최신",

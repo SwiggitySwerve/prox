@@ -17,13 +17,25 @@ NOW = 1793102400000
 DAY = 86_400_000
 
 
+NAMES = ["ada.lovelace", "grace.hopper", "alan.turing", "edsger.dijkstra", "katherine.johnson",
+         "margaret.hamilton", "dorothy.vaughan", "barbara.liskov", "donald.knuth", "linus.torvalds"]
+
+
+def mask(provider, i):
+    """Same shape as server/quota/mask.ts: first two characters, last one, domain initial."""
+    name = NAMES[(i + (0 if provider == "claude" else 5)) % len(NAMES)] + (str(i // len(NAMES) or "") if i >= len(NAMES) else "")
+    return f"{name[:3]}•••{name[-2:]}@ex•••.test"
+
+
 def fixture(state):
     """Synthetic, precomputed API contract examples, not production forecasts."""
     pools = []
-    for provider, count, remaining, burn in [
-        ("claude", 3, 248.4, 3.7),
-        ("codex", 2, 142.8, 2.7),
-    ]:
+    # "many" is 200 accounts, to show how long rosters read; every other state keeps the small pair.
+    sizes = (120, 80) if state.startswith("many") else (3, 2)
+    for provider, count, scale in [("claude", sizes[0], sizes[0] / 3), ("codex", sizes[1], sizes[1] / 2)]:
+        # A larger roster scales every amount, so its rates and projection agree with its balance.
+        remaining = (248.4 if provider == "claude" else 142.8) * scale
+        burn = (3.7 if provider == "claude" else 2.7) * scale
 
         def point(at, value):
             return dict(
@@ -34,21 +46,22 @@ def fixture(state):
             )
 
         recorded = [
-            point(NOW - DAY * (3 - i / 8), remaining + (24 - i) * 1.3)
+            point(NOW - DAY * (3 - i / 8), remaining + (24 - i) * 1.3 * scale)
             for i in range(25)
         ]
         projected = [
             point(NOW, remaining),
-            point(NOW + DAY, remaining - 75),
-            point(NOW + DAY, remaining + 25),
-            point(NOW + 4 * DAY, 30),
-            point(NOW + 4 * DAY, 130),
-            point(NOW + 7 * DAY, 10),
+            point(NOW + DAY, remaining - 75 * scale),
+            point(NOW + DAY, remaining + 25 * scale),
+            point(NOW + 4 * DAY, (30 if provider == "claude" else 18) * scale),
+            point(NOW + 4 * DAY, (130 if provider == "claude" else 118) * scale),
+            point(NOW + 7 * DAY, (10 if provider == "claude" else 4) * scale),
         ]
         accounts = [
             dict(
                 id=f"{provider}-{i}",
-                label=f"{provider.title()} account {i + 1}",
+                label=f"{provider.title()} {i + 1}",
+                identifier=mask(provider, i),
                 disabled=False,
                 status="ok",
                 observedAtMs=NOW,
@@ -85,12 +98,12 @@ def fixture(state):
             firstEmptyAtMs=NOW + 2 * DAY,
             poolEmptyAtMs=None,
             nextResetAtMs=NOW + DAY,
-            nextResetGainPoints=100,
+            nextResetGainPoints=100 * scale,
             recorded=recorded,
             projected=projected,
             resets=[
-                dict(atMs=NOW + DAY, gainPoints=100),
-                dict(atMs=NOW + 4 * DAY, gainPoints=100),
+                dict(atMs=NOW + DAY, gainPoints=100 * scale),
+                dict(atMs=NOW + 4 * DAY, gainPoints=100 * scale),
             ],
             accounts=accounts,
         )
@@ -107,12 +120,19 @@ def fixture(state):
             )
             if state != "collecting":
                 pool.update(remainingPoints=None, loadedCount=count - 1)
+                recorded[-1] = dict(recorded[-1], remainingPoints=None, burnPointsPerHour=None,
+                                    drainPointsPerHour=None)
                 accounts[-1].update(
                     status="stale" if state == "stale" else "error",
                     remainingPercent=accounts[-1]["remainingPercent"] if state == "stale" else None,
                     burnPointsPerHour=None,
                     emptyAtMs=None,
                 )
+                if state != "stale":
+                    accounts[-1]["windows"] = [
+                        dict(limit, remainingPercent=None, resetAtMs=None) if limit["id"] in ("seven-day", "weekly")
+                        else limit for limit in accounts[-1]["windows"]
+                    ]
                 if state == "stale":
                     accounts[-1]["observedAtMs"] = NOW - 3_600_000
             if state == "collecting":
@@ -123,28 +143,87 @@ def fixture(state):
             )
             accounts[1].update(status="missing-window", remainingPercent=None,
                                burnPointsPerHour=None, emptyAtMs=None)
+            # The missing window is the weekly one, so its limit has no value either.
+            accounts[1]["windows"] = [
+                dict(limit, remainingPercent=None, resetAtMs=None) if limit["id"] in ("seven-day", "weekly")
+                else limit for limit in accounts[1]["windows"]
+            ]
             # Match server/quota/domain.ts: a required missing window withholds
             # totals and projections. Keep the row and its missing-data meaning.
             pool.update(forecastState="partial", loadedCount=count - 1,
                         remainingPoints=None, burnPointsPerHour=None, drainPointsPerHour=None,
                         projected=[], resets=[], firstEmptyAtMs=None, poolEmptyAtMs=None,
                         nextResetGainPoints=None)
+            recorded[-1] = dict(recorded[-1], remainingPoints=None, burnPointsPerHour=None,
+                                drainPointsPerHour=None)
         pools.append(pool)
+    if state in ("ultra", "no-limit"):
+        # Anthropic removed the 5-hour limit for verified Ultra accounts (2026-10-30): the third
+        # Claude account is Ultra and reports no 5-hour window; the 5-hour pool leaves it out.
+        ultra = pools[0]["accounts"][2]
+        ultra["plan"] = dict(label="Ultra", capacityPoints=2000, known=True)
+        ultra["windows"] = [w for w in ultra["windows"] if w["id"] != "five-hour"]
+        ultra["noFiveHourLimit"] = True
+        if state == "ultra":
+            # Weekly: the Ultra account still counts, at its 2,000-point weight (82.8% of 2,200).
+            f = 1821.6 / 248.4
+            pools[0].update(capacityPoints=2200, remainingPoints=1821.6,
+                            nextResetGainPoints=pools[0]["nextResetGainPoints"] * f,
+                            resets=[dict(r, gainPoints=r["gainPoints"] * f) for r in pools[0]["resets"]])
+            for series in ("recorded", "projected"):
+                pools[0][series] = [dict(item, remainingPoints=item["remainingPoints"] * f)
+                                    for item in pools[0][series]]
+        if state == "no-limit":
+            ultra.update(status="no-limit", remainingPercent=None, resetAtMs=None,
+                         burnPointsPerHour=None, emptyAtMs=None)
+            pools[0].update(eligibleCount=2, loadedCount=2, capacityPoints=200)
+            # In the 5-hour view each account's own percentage is its 5-hour one (62% and 14%),
+            # so both pools hold 76 of 200 points.
+            for pool in pools:
+                for account, percent in zip(pool["accounts"], (62, 14)):
+                    account["remainingPercent"] = percent
+                for series in ("recorded", "projected"):
+                    for item in pool[series]:
+                        item["remainingPoints"] = item["remainingPoints"] * 76 / pool["remainingPoints"]
+                pool["remainingPoints"] = 76
+                # 5-hour windows reset within hours: the next one returns ada's used 38 points.
+                pool.update(nextResetAtMs=NOW + 3_600_000, nextResetGainPoints=38,
+                            resets=[dict(atMs=NOW + 3_600_000, gainPoints=38),
+                                    dict(atMs=NOW + 7_200_000, gainPoints=86)])
+                pool["projected"] = [
+                    dict(pool["projected"][0], atMs=at, remainingPoints=value)
+                    for at, value in [(NOW, 76), (NOW + 3_600_000, 75), (NOW + 3_600_000, 113),
+                                      (NOW + 7_200_000, 112), (NOW + 7_200_000, 198), (NOW + 7 * DAY, 150)]
+                ]
     # Precomputed synthetic total; domain arithmetic is exercised separately in Bun tests.
-    total = dict(capacityPoints=500, remainingPoints=391.2, burnPointsPerHour=6.4,
-                 drainPointsPerHour=6.4, forecastState="ready", poolEmptyAtMs=None,
-                 resets=[dict(atMs=NOW+DAY,gainPoints=200)],
-                 recorded=[dict(atMs=at, remainingPoints=value, burnPointsPerHour=6.4,
-                                drainPointsPerHour=6.4) for at,value in [(NOW-DAY,412),(NOW,391.2)]],
+    k = sum(sizes) / 5  # the five-account totals below, scaled to the roster
+    total = dict(capacityPoints=500 * k, remainingPoints=391.2 * k, burnPointsPerHour=6.4 * k,
+                 drainPointsPerHour=6.4 * k, forecastState="ready", poolEmptyAtMs=None,
+                 resets=[dict(atMs=NOW+DAY,gainPoints=200 * k)],
+                 recorded=[dict(atMs=at, remainingPoints=value, burnPointsPerHour=6.4 * k,
+                                drainPointsPerHour=6.4 * k) for at,value in [(NOW-DAY,412 * k),(NOW,391.2 * k)]],
                  projected=[dict(atMs=at, remainingPoints=value, burnPointsPerHour=None,
                                  drainPointsPerHour=None) for at,value in
-                            [(NOW,391.2),(NOW+DAY,241.2),(NOW+DAY,441.2),
-                             (NOW+4*DAY,60),(NOW+4*DAY,260),(NOW+7*DAY,20)]])
+                            [(NOW,391.2 * k),(NOW+DAY,241.2 * k),(NOW+DAY,441.2 * k),
+                             (NOW+4*DAY,60 * k),(NOW+4*DAY,260 * k),(NOW+7*DAY,20 * k)]])
+    if state == "ultra":
+        f = 1821.6 / 248.4
+        total.update(capacityPoints=2400, remainingPoints=1964.4)
+        total["recorded"] = [dict(item, remainingPoints=value) for item, value in
+                             zip(total["recorded"], (258.8 * f + 153.2, 1964.4))]
+        total["projected"] = [dict(item, remainingPoints=item["remainingPoints"] * 1964.4 / 391.2)
+                              for item in total["projected"]]
+    if state == "no-limit":
+        total.update(capacityPoints=400, remainingPoints=152)
+        total["recorded"] = [dict(item, remainingPoints=value) for item, value in zip(total["recorded"], (160, 152))]
+        total["projected"] = [dict(item, remainingPoints=item["remainingPoints"] * 152 / 391.2) for item in total["projected"]]
     if state in ("partial","stale","collecting","long"):
         total.update(forecastState="partial" if state=="long" else state, projected=[],resets=[])
         if state!="collecting": total.update(remainingPoints=None,burnPointsPerHour=None,drainPointsPerHour=None)
     layers=[]
-    for pool,previous in zip(pools,[258.8,153.2]):
+    previous_values=([80,80] if state=="no-limit" else [258.8 * 1821.6 / 248.4,153.2] if state=="ultra"
+                     else [258.8 * sizes[0] / 3,153.2 * sizes[1] / 2])
+    for pool,previous in zip(pools,previous_values):
         layer={key:pool[key] for key in total}
         layer["provider"]=pool["provider"]
         layer["recorded"]=[dict(atMs=at,remainingPoints=value,burnPointsPerHour=pool["burnPointsPerHour"],
@@ -163,7 +242,7 @@ def fixture(state):
         nowMs=NOW,
         fromMs=NOW - 3 * DAY,
         toMs=NOW + 7 * DAY,
-        window="weekly",
+        window="five-hour" if state == "no-limit" else "weekly",
         lookbackHours=3,
         multiplier=1,
         historyStartedAtMs=NOW - 3 * DAY,
@@ -191,7 +270,8 @@ GEOMETRY = r"""(providedRoot) => {
   const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
   while(walker.nextNode()) {
     const node=walker.currentNode,e=node.parentElement;
-    if(!e||!node.textContent.trim()||!visible(e))continue;
+    // Visually hidden text is never painted, so it has no contrast to measure.
+    if(!e||!node.textContent.trim()||!visible(e)||e.closest('[class*="__srOnly___"]')||getComputedStyle(e).clipPath.startsWith('inset(50%'))continue;
     const s=getComputedStyle(e),range=document.createRange();range.selectNodeContents(node);
     for(const b of range.getClientRects()) {
       if(b.width<=2||b.height<=2)continue;
@@ -208,7 +288,12 @@ GEOMETRY = r"""(providedRoot) => {
     return {provider:e.querySelector('h2')?.textContent?.toLowerCase(),...rect(svg),strokePoints};
   });
   const guides=[...root.querySelectorAll('ul[aria-label="Limits"]')].filter(e=>visible(e)&&parseFloat(getComputedStyle(e).borderInlineStartWidth)>0).map(rect);
-  return {pageWidth:providedRoot?root.clientWidth:document.documentElement.clientWidth,pageScrollWidth:providedRoot?root.scrollWidth:document.documentElement.scrollWidth,controls,clipped,text,charts,guides};
+  // Colours that carry meaning, sampled from pixels by measure(): error icon, Low chip, status dots, limit bars.
+  const kindOf=e=>/__errorIcon___/.test(e.getAttribute('class')||'')?'error':/__limitWarning___/.test(e.className)?'low':/__limitBar___/.test(e.parentElement.className)?'bar':'status';
+  const marks=[...root.querySelectorAll('[class*="__errorIcon___"],[class*="__limitWarning___"],[class*="__limitBar___"] > span')].filter(visible).map(e=>{
+    const article=e.closest('article');const provider=article&&/__claude___/.test(article.className)?'claude':article&&/__codex___/.test(article.className)?'codex':null;
+    return {kind:kindOf(e),provider,low:!!e.closest('[data-low="true"]'),...rect(e)};});
+  return {marks,pageWidth:providedRoot?root.clientWidth:document.documentElement.clientWidth,pageScrollWidth:providedRoot?root.scrollWidth:document.documentElement.scrollWidth,controls,clipped,text,charts,guides};
 }"""
 
 
@@ -299,6 +384,50 @@ def measure(path, geo, touch):
                     contrast=round(ratio(rgb, bg), 2),
                 )
             )
+    # Meaning-carrying colours, held for the whole run: the error ink and the "Low" ink must read as red
+    # (hue within 15 deg of 0) and sit at least dE 25 from the Claude coral; provider bars keep the
+    # provider hues; every ink reaches 3:1 against what it sits on; healthy bars stay dE 25 from "Low".
+    inks = []
+    for mk in geo.get("marks", []):
+        box = pixels(im, mk)
+        if not box:
+            continue
+        dominant = box.most_common(1)[0][0]
+        if mk["kind"] == "bar":
+            ink, ground = dominant, im.getpixel((max(0, round(mk["x"] + mk["w"] + 3)), round(mk["y"] + mk["h"] / 2))) if mk["x"] + mk["w"] + 3 < im.width else dominant
+            if ink == ground:  # bar fills its track; compare with the card behind it instead
+                ground = im.getpixel((max(0, round(mk["x"])), max(0, round(mk["y"] - 6))))
+        else:
+            ink = max((c for c, n in box.items() if n >= 2), key=lambda c: (ratio(c, dominant), box[c]), default=dominant)
+            ground = dominant
+        h, s_, v = colorsys.rgb_to_hsv(*(c / 255 for c in ink))
+        inks.append(dict(kind=mk["kind"], provider=mk["provider"], low=mk["low"], rgb=ink, hue=round(h * 360, 1),
+                         contrast=round(ratio(ink, ground), 2)))
+    ink_failures = []
+    def lab(rgb):
+        v = [c / 255 for c in rgb]
+        v = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in v]
+        x, y, z = (0.4124*v[0]+0.3576*v[1]+0.1805*v[2])/0.95047, 0.2126*v[0]+0.7152*v[1]+0.0722*v[2], (0.0193*v[0]+0.1192*v[1]+0.9505*v[2])/1.08883
+        f = lambda t: t ** (1/3) if t > 0.008856 else 7.787*t + 16/116
+        return (116*f(y)-16, 500*(f(x)-f(y)), 200*(f(y)-f(z)))
+    dE = lambda a_, b_: math.dist(lab(a_), lab(b_))
+    warn = next((i["rgb"] for i in inks if i["kind"] == "low"), None)
+    for i in inks:
+        if i["contrast"] < 3:
+            ink_failures.append(dict(why="ink contrast < 3", **i))
+        if i["kind"] in ("error", "low") and not (i["hue"] >= 345 or i["hue"] <= 15):
+            ink_failures.append(dict(why=f"{i['kind']} ink is not red", **i))
+        if i["kind"] == "bar" and not i["low"]:
+            lo, hi = (10, 35) if i["provider"] == "claude" else (205, 235)
+            if not lo <= i["hue"] <= hi:
+                ink_failures.append(dict(why="provider bar left its hue band", **i))
+            if warn and dE(i["rgb"], warn) < 25:
+                ink_failures.append(dict(why="healthy bar within dE 25 of the Low ink", **i))
+    err = next((i["rgb"] for i in inks if i["kind"] == "error"), None)
+    claude_ink = next((i["rgb"] for i in inks if i["kind"] == "bar" and i["provider"] == "claude" and not i["low"]), (0xED, 0x98, 0x77))
+    for name, ink in (("error", err), ("low", warn)):
+        if ink and dE(ink, claude_ink) < 25:
+            ink_failures.append(dict(why=f"{name} ink within dE 25 of the Claude coral"))
     target = 44 if touch else 24
     semantic_failures = []
     for color in semantic:
@@ -326,6 +455,8 @@ def measure(path, geo, touch):
         contrast=readings,
         semanticColors=semantic,
         semanticFailures=semantic_failures,
+        inks=inks,
+        inkFailures=ink_failures,
         hueSeparation=separation,
         targetMinimum=target,
         targetFailures=[
@@ -334,6 +465,8 @@ def measure(path, geo, touch):
             if not c["disabled"] and (c["w"] < target - 0.1 or c["h"] < target - 0.1)
         ],
         contrastFailures=[r for r in readings if r["contrast"] < r["required"]],
+        nestingFailures=[geo["grouping"]["nesting"]] if geo["grouping"]["nesting"]["fails"] else [],
+        hiddenReasonFailures=geo["grouping"]["hiddenReason"],
         pageOverflow=geo["pageScrollWidth"] > geo["pageWidth"],
     )
 
@@ -368,6 +501,21 @@ async def main():
         ("burn-narrow", "burn", 390, 844),
         ("refresh-error", "refresh-error", 1440, 1000),
         ("refresh-pending", "refresh-pending", 1440, 1000),
+        ("ultra", "ultra", 1440, 1000),
+        ("no-limit", "no-limit", 1440, 1000),
+        ("no-limit-narrow", "no-limit", 390, 844),
+        ("many", "many", 1440, 1000),
+        ("many-narrow", "many", 390, 844),
+        ("many-lowest", "many-lowest", 1440, 1000),
+        ("many-search-narrow", "many-search", 390, 844),
+        ("many-low", "many-low", 1440, 1000),
+        ("empty-narrow", "empty", 390, 844),
+        ("loading-narrow", "loading", 390, 844),
+        ("error-narrow", "error", 390, 844),
+        ("partial-narrow", "partial", 390, 844),
+        ("stale-narrow", "stale", 390, 844),
+        ("collecting-narrow", "collecting", 390, 844),
+        ("refresh-pending-narrow", "refresh-pending", 390, 844),
         ("stacked-wide", "stacked", 1920, 1280),
         ("stacked-narrow", "stacked", 390, 844),
         ("stacked-unavailable", "stacked-unavailable", 1440, 1000),
@@ -424,7 +572,7 @@ async def main():
                     if "/prox/refresh" in url:
                         collection_requests += 1
                         if state == "refresh-pending":
-                            pending_until = time.monotonic() + 2.5
+                            pending_until = time.monotonic() + 6
                             await route.fulfill(json={**fixture("ready"), "refreshing": True})
                             return
                         await route.fulfill(
@@ -464,14 +612,19 @@ async def main():
                     ).last.wait_for()
                 else:
                     await page.locator("article").first.wait_for()
+                grouping_src = (Path.home() / ".claude-cliproxy/skills/hillclimb-ui/grouping-checks.js").read_text()
+                loaded_checks = await page.evaluate(f"{grouping_src};groupingChecks({{ root: '.content' }})")
                 if state in ("stacked", "stacked-unavailable"):
-                    await page.get_by_role("combobox", name="Chart View", exact=True).select_option("stacked")
-                    combined = page.get_by_role("region",name="Combined Usage",exact=True)
+                    view = page.get_by_role("combobox", name="Chart view", exact=True)
+                    combined = page.get_by_role("region",name="Combined usage",exact=True)
                     if state == "stacked":
+                        await view.select_option("stacked")
                         assert await combined.locator('svg [data-stack-band="recorded"]').count() == 2
                         assert await combined.locator('svg [data-series="total"]').count() == 0
                     else:
-                        assert await combined.locator('svg[role="img"]').count() == 0
+                        # Nothing to stack: the option is off, provider lines are drawn, and the reason shows.
+                        assert await view.locator('option[value="stacked"]').evaluate("o => o.disabled"), await view.inner_html()
+                        assert await combined.locator('svg[role="img"]').count() == 1
                         assert "unverified account overlap" in await combined.inner_text()
                 if state in ("drain", "burn"):
                     await page.get_by_role(
@@ -479,19 +632,40 @@ async def main():
                         name="Drain rate" if state == "drain" else "Burn rate",
                         exact=True,
                     ).click()
+                if state == "no-limit":
+                    await page.get_by_role("button", name="5-hour", exact=True).click()
                 if state == "details":
                     await (
                         page.locator('details[class*="__account___"]')
                         .first.locator("summary")
                         .click()
                     )
+                if state == "many-lowest":
+                    await page.get_by_role("combobox", name="Sort accounts").first.select_option("lowest")
+                if state == "many-low":
+                    await page.get_by_role("button", name="40 low").first.click()
+                if state == "many-search":
+                    await page.get_by_role("searchbox", name="Search accounts").first.fill("gra")
                 if state == "expanded":
-                    await page.get_by_role("button", name="Expand all").first.click()
+                    # Each click renames its button to "Collapse all", so always take the first still closed.
+                    for _ in range(await page.get_by_role("button", name="Expand all").count()):
+                        await page.get_by_role("button", name="Expand all").first.click()
+                    # The footnote disclosure holds background; this capture shows every disclosure open.
+                    await page.locator('details[class*="__about___"]').evaluate_all("nodes => nodes.forEach(n => { n.open = true; })")
                 if state == "refresh-error":
                     await page.locator('.header-actions button').first.click()
                     await page.locator('[class*="QuotaPoolPage"] [role="alert"]').wait_for()
                     # Header refresh also raises a dismissible toast. Verify it, then
                     # capture the persistent page state without its temporary overlay.
+                    toast = page.locator('[class*="NotificationContainer"] button[aria-label="Close"]')
+                    await toast.click()
+                    await toast.wait_for(state="hidden")
+                refresh_started = None
+                if state == "refresh-pending":
+                    refresh_started = time.monotonic()
+                    await page.locator('.header-actions button').first.click()
+                    await page.locator('[class*="__countdown___"]').filter(has_text="Refreshing").wait_for()
+                    # The header refresh raises a transient success toast; capture the persistent page state.
                     toast = page.locator('[class*="NotificationContainer"] button[aria-label="Close"]')
                     await toast.click()
                     await toast.wait_for(state="hidden")
@@ -505,11 +679,30 @@ async def main():
                         await button.click()
                 await page.evaluate("document.fonts.ready")
                 await page.wait_for_timeout(350)
+                # The shell scrolls `.content` inside a 100vh frame, so a full-page shot stops at the
+                # fold. Save that first screen, then grow the viewport until the whole page is painted.
+                await page.mouse.move(0, 0)
+                (out / "fold").mkdir(exist_ok=True)
+                await page.screenshot(path=str(out / "fold" / f"{name}.png"), animations="disabled")
+                for _ in range(3):
+                    hidden = await page.evaluate(
+                        "() => { const c = document.querySelector('.content'); return c ? c.scrollHeight - c.clientHeight : 0; }"
+                    )
+                    if hidden <= 0:
+                        break
+                    await page.set_viewport_size(
+                        dict(width=width, height=min(15000, page.viewport_size["height"] + hidden))
+                    )
+                    await page.wait_for_timeout(250)
                 path = out / f"{name}.png"
                 await page.screenshot(
                     path=str(path), full_page=True, animations="disabled"
                 )
                 geo = await page.evaluate(GEOMETRY)
+                # Hidden reason: as loaded, except states reached by an interaction, which are read once open.
+                now_checks = await page.evaluate(f"{grouping_src};groupingChecks({{ root: '.content' }})")
+                hidden_reason = loaded_checks["hiddenReason"] if state in ("expanded", "details") else now_checks["hiddenReason"]
+                geo["grouping"] = dict(nesting=now_checks["nesting"], hiddenReason=hidden_reason)
                 results[name] = dict(
                     state=state,
                     viewport=[width, height],
@@ -573,30 +766,36 @@ async def main():
                 # Exercise chart keyboard inspection after capturing the fixed
                 # visual state, so screenshots stay comparable.
                 interaction = {}
-                alignment = await page.locator('article details:not([open]) ul[aria-label="Limits"]').evaluate_all('''lists => lists.flatMap(list => {
-                    const cells = [...list.children].map(li => {
-                        const cell = li.getBoundingClientRect();
-                        const label = li.querySelector(':scope > span').getBoundingClientRect();
-                        const value = li.querySelector(':scope > strong').getBoundingClientRect();
-                        return {row:cell.top, labelLeft:label.left, valueLeft:value.left, valueTop:value.top};
-                    });
-                    return cells.map(cell => ({leftOffset:Math.abs(cell.labelLeft-cell.valueLeft),
-                        rowSpread:Math.max(...cells.filter(other=>Math.abs(other.row-cell.row)<1).map(other=>other.valueTop))-
-                            Math.min(...cells.filter(other=>Math.abs(other.row-cell.row)<1).map(other=>other.valueTop))}));
-                })''')
-                assert all(cell['leftOffset'] < 1 and cell['rowSpread'] < 1 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
+                if width >= 901:
+                    # Table: every limit cell starts exactly under its column heading.
+                    alignment = await page.locator('article section[class*="__accounts___"]').evaluate_all('''sections => sections.flatMap(section => {
+                        const heads = [...section.querySelectorAll('[class*="__accountHead___"] > span')];
+                        return [...section.querySelectorAll('details:not([open]) ul[aria-label="Limits"] li')].map(li => {
+                            const col = Number(getComputedStyle(li).getPropertyValue('--col'));
+                            return {offset: Math.abs(li.getBoundingClientRect().left - heads[col + 2].getBoundingClientRect().left)};
+                        });
+                    })''')
+                    assert all(cell['offset'] < 1 for cell in alignment), f"Limits not under their headings: {alignment}"
+                else:
+                    # Stacked: label | bar | value rows; every value ends on the list's right edge.
+                    alignment = await page.locator('article details:not([open]) ul[aria-label="Limits"]').evaluate_all('''lists => lists.flatMap(list => {
+                        const edge = list.getBoundingClientRect().right;
+                        return [...list.children].filter(li => li.checkVisibility()).map(li => {
+                            const label = li.querySelector(':scope > span').getBoundingClientRect();
+                            const value = li.querySelector(':scope > strong').getBoundingClientRect();
+                            return {rightOffset:Math.abs(edge-value.right), lineOffset:Math.abs(label.top-value.top)};
+                        });
+                    })''')
+                    assert all(cell['rightOffset'] < 1 and cell['lineOffset'] < 12 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
                 interaction["collapsed_labels_and_values_align"] = "passed"
                 if state == "refresh-pending":
-                    started = time.monotonic()
-                    await page.locator('.header-actions button').first.click()
                     countdown = page.locator('[class*="__countdown___"]')
-                    await countdown.filter(has_text="Refreshing").wait_for()
-                    await countdown.filter(has_text="Auto-refresh in").wait_for(timeout=5000)
-                    elapsed = time.monotonic() - started
+                    await countdown.filter(has_text="Auto-refresh in").wait_for(timeout=9000)
+                    elapsed = time.monotonic() - refresh_started
                     assert collection_requests == 1, "Completion reads must not start another collection"
                     interaction["refresh_completion_seconds"] = round(elapsed, 2)
                 if state == "ready":
-                    combined = page.get_by_role("region", name="Combined Usage", exact=True)
+                    combined = page.get_by_role("region", name="Combined usage", exact=True)
                     assert await combined.locator("svg [data-series]").count() == 2
                     assert await combined.evaluate("e=>e.getBoundingClientRect().top < document.querySelector('article').getBoundingClientRect().top")
                     plots = page.locator('[class*="__forecast___"]')
@@ -620,7 +819,7 @@ async def main():
                     assert geometry[0]['text']==''
                     if width>900: assert all(c['w']<=28 and c['h']<=28 for c in geometry)
                     interaction["subtle_icons_aligned_beside_reorder"] = "passed"
-                    view = page.get_by_role('combobox',name='Chart View',exact=True)
+                    view = page.get_by_role('combobox',name='Chart view',exact=True)
                     await view.select_option('stacked')
                     assert await combined.locator('svg [data-stack-band="recorded"]').count()==2
                     assert await combined.locator('svg [data-stack-band="projected"]').count()==2
@@ -688,10 +887,8 @@ async def main():
                     assert await page.locator('article svg[tabindex="0"]').count() == 0
                     interaction["single_sample_is_not_focusable"] = "passed"
                 if state in ("empty", "loading", "error"):
-                    controls = page.locator('fieldset button, fieldset select')
-                    for index in range(await controls.count()):
-                        assert await controls.nth(index).is_disabled()
-                    interaction["unavailable_chart_controls_disabled"] = "passed"
+                    assert await page.locator('fieldset, [class*="__providerBar___"], [class*="__privacy___"]').count() == 0
+                    interaction["no_chart_controls_without_data"] = "passed"
                 if state == "empty":
                     assert await page.get_by_role("link", name="Add credentials", exact=True).get_attribute("href") == "#/oauth"
                     interaction["credential_action_targets_login"] = "passed"
@@ -716,7 +913,7 @@ async def main():
         summary[name] = dict(
             pageOverflow=any(r["pageOverflow"] for r in scopes),
             **{key:sum(len(r.get(key, [])) for r in scopes)
-               for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures"]},
+               for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures", "inkFailures", "nestingFailures", "hiddenReasonFailures"]},
             errors=result["errors"],
         )
     if args.compact_baseline:

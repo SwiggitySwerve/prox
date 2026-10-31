@@ -17,6 +17,7 @@ import { createPoolResource } from '../src/features/quotaPool/poolResource';
 import { createPoolSessionObserver } from '../src/features/quotaPool/poolSession';
 import { useAuthStore } from '../src/stores/useAuthStore';
 import { PoolCard } from '../src/features/quotaPool/PoolCard';
+import { CombinedPoolCard } from '../src/features/quotaPool/CombinedPoolCard';
 import { PoolChart, PoolComparisonChart } from '../src/features/quotaPool/PoolChart';
 
 const point = (atMs: number, remainingPoints: number | null): PoolPoint => ({
@@ -159,6 +160,28 @@ describe('pool request lifetime', () => {
     await flush();
     expect(signals[0].aborted).toBe(true);
     expect(resource.getSnapshot().data?.nowMs).toBe(600);
+  });
+
+  test('failed reads and refreshes keep the HTTP status, or null when nothing answered', async () => {
+    let failure: unknown = Object.assign(new Error('Service unavailable'), { status: 503 });
+    const resource = createPoolResource(
+      {
+        get: async () => {
+          throw failure;
+        },
+        refresh: async () => {
+          throw failure;
+        },
+      },
+      query,
+      () => true
+    );
+    disposers.push(resource.subscribe(() => {}));
+    await flush();
+    expect(resource.getSnapshot()).toMatchObject({ error: true, errorStatus: 503 });
+    failure = new Error('Network Error');
+    await resource.refresh();
+    expect(resource.getSnapshot()).toMatchObject({ refreshError: true, refreshErrorStatus: null });
   });
 
   test('session revision changes reject reads and refreshes; stale sessions cannot start work', async () => {
@@ -489,6 +512,21 @@ describe('honest chart geometry', () => {
       if (mode === 'drain') expect(geometry.min).toBe(-2);
     }
   });
+  test('rate axes end on round values so their ticks read cleanly', () => {
+    const rates = [point(0, 3.7), point(500, -1.3)].map((item) => ({
+      point: {
+        ...item,
+        burnPointsPerHour: item.remainingPoints,
+        drainPointsPerHour: item.remainingPoints,
+      },
+      projected: false,
+    }));
+    const geometry = chartGeometry(rates, 'drain', 200, 0, 1000);
+    expect([geometry.min, geometry.max]).toEqual([-2, 4]);
+    // A rate that never goes negative keeps a plain zero, not "-0", on its axis.
+    const burn = chartGeometry(rates.slice(0, 1), 'burn', 200, 0, 1000);
+    expect(Object.is(burn.min, 0)).toBe(true);
+  });
   test('empty series produces no invented line', () => {
     const geometry = chartGeometry(
       chartSamples([point(500, null)], [], 'remaining'),
@@ -602,6 +640,51 @@ describe('stacked chart geometry', () => {
     expect(markup).toContain('Codex ·');
     expect(markup).toContain('30 points · Recorded');
     expect(markup).not.toContain('data-series="total"');
+  });
+  test('long rosters get search, sort and a low count; short ones stay plain', async () => {
+    await i18n.changeLanguage('en');
+    const account = pool.accounts[0];
+    const roster = (count: number) => ({
+      ...pool,
+      accounts: Array.from({ length: count }, (_, index) => ({
+        ...account,
+        id: `opaque-${index}`,
+        label: `Roster account ${index + 1}`,
+        windows: account.windows.map((limit) => ({
+          ...limit,
+          remainingPercent: index === 0 ? 12 : 80,
+        })),
+      })),
+    });
+    const render = (count: number) =>
+      renderToStaticMarkup(
+        createElement(PoolCard, {
+          pool: roster(count),
+          dashboard,
+          mode: 'remaining',
+          reveal: false,
+        })
+      );
+    const long = render(10);
+    expect(long).toContain('type="search"');
+    expect(long).toContain('aria-label="Search accounts"');
+    expect(long).toContain('Lowest first');
+    expect(long).toContain('1 low');
+    // The count is a toggle that filters the roster to accounts with a low limit.
+    expect(long).toMatch(/<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?1 low/);
+    expect(long).toContain('data-large="true"');
+    const short = render(3);
+    expect(short).not.toContain('type="search"');
+    expect(short).not.toContain('Lowest first');
+  });
+  test('a combined readout states every provider at the selected moment', async () => {
+    await i18n.changeLanguage('en');
+    const a = { ...pool, provider: 'claude' as const, recorded: [point(500, 20)], projected: [] };
+    const b = { ...pool, provider: 'codex' as const, recorded: [point(500, 30)], projected: [] };
+    const markup = renderToStaticMarkup(
+      createElement(PoolComparisonChart, { pools: [a, b], dashboard, mode: 'remaining' })
+    );
+    expect(markup).toMatch(/Claude: 20 · Codex: 30 points · Recorded/);
   });
 });
 
@@ -725,9 +808,9 @@ describe('pool presentation', () => {
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(
-      /<li data-low="true"><span>5-hour limit<em[\s\S]*?Low<\/em><\/span>[\s\S]*?12%/
+      /<li data-low="true"[^>]*><span>5-hour limit<\/span>[\s\S]*?<strong><span title="Low">[\s\S]*?<span>Low<\/span>[\s\S]*?12%/
     );
-    expect(markup).toMatch(/<li data-low="false"><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64%/);
+    expect(markup).toMatch(/<li data-low="false"[^>]*><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64%/);
     // Accounts start collapsed (numbers only); one control expands the whole section.
     expect(markup).toMatch(
       /<button type="button"[^>]*aria-expanded="false"[^>]*>Expand all<\/button>/
@@ -746,7 +829,47 @@ describe('pool presentation', () => {
     );
     expect(revealed).toContain('private@example.test');
   });
-  test('saved data qualifies forecasts and account freshness while retaining rate balances', async () => {
+  test('a total that cannot be stacked shows provider lines and keeps its reason', async () => {
+    await i18n.changeLanguage('en');
+    const markup = renderToStaticMarkup(
+      createElement(CombinedPoolCard, {
+        pools: [pool],
+        dashboard: {
+          ...dashboard,
+          combined: { all: { series: null, unavailableReason: 'ambiguous-sources' } },
+        },
+        provider: 'all',
+        mode: 'remaining',
+        savedData: false,
+      })
+    );
+    expect(markup).toContain('role="img"');
+    expect(markup).toContain('unverified account overlap');
+    expect(markup).toMatch(/<option value="stacked" disabled="">/);
+    // The reason is its own paragraph; the view select is not nested inside it.
+    expect(markup).toMatch(/unverified account overlap[^<]*<\/p>/);
+  });
+  test('a limit an account does not have keeps its column and says why', async () => {
+    await i18n.changeLanguage('en');
+    const ultra = {
+      ...pool.accounts[0],
+      id: 'opaque-2',
+      noFiveHourLimit: true,
+      windows: pool.accounts[0].windows.filter((limit) => limit.id !== 'five-hour'),
+    };
+    const markup = renderToStaticMarkup(
+      createElement(PoolCard, {
+        pool: { ...pool, accounts: [pool.accounts[0], ultra] },
+        dashboard,
+        mode: 'remaining',
+        reveal: false,
+      })
+    );
+    expect(markup).toMatch(
+      /<li data-missing="true"[^>]*><span>5-hour limit<\/span><em>No 5-hour limit<\/em><\/li>/
+    );
+  });
+  test('saved data qualifies forecasts once per card while retaining rate balances', async () => {
     await i18n.changeLanguage('en');
     const markup = renderToStaticMarkup(
       createElement(PoolCard, {
@@ -759,7 +882,8 @@ describe('pool presentation', () => {
     );
     expect(markup).toContain('Saved forecast');
     expect(markup).toContain('Saved snapshot');
-    expect(markup).toContain('Saved observation');
+    // The card's snapshot line dates every row, so rows don't repeat it.
+    expect(markup).not.toContain('Saved observation');
     expect(markup).not.toContain('Forecast: Ready');
     expect(markup).not.toContain('>Current<');
     expect(markup).toContain('Weekly quota remaining: <strong>73</strong>');

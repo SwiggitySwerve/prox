@@ -172,8 +172,9 @@
     display: none;
   }
 
+  // Line the controls up with the content column below them.
   .header-actions {
-    right: var(--shell-gutter);
+    right: clamp(20px, 3vw, 48px);
   }
 
   .mobile-sidebar-actions .btn,
