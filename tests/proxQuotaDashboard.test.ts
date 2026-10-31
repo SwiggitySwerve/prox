@@ -760,7 +760,8 @@ describe('pool presentation', () => {
     expect(markup).not.toContain('>Ready<');
     const accounts = markup.slice(markup.search(/<section[^>]*aria-labelledby="[^"]+-accounts"/));
     expect(accounts).toContain('Claude account 1');
-    expect(accounts).toContain('73%');
+    // Every limit percentage carries one decimal, so a column of them lines up.
+    expect(accounts).toContain('73.0%');
     expect(markup.indexOf('<svg')).toBeLessThan(markup.indexOf('Claude account 1'));
     expect(markup).not.toMatch(/<details[^>]*forecast/);
     expect(markup).not.toMatch(/<details[^>]*\bopen[\s=>]/);
@@ -864,9 +865,9 @@ describe('pool presentation', () => {
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(
-      /<li data-low="true"[^>]*><span>5-hour limit<\/span>[\s\S]*?<strong><span title="Low">[\s\S]*?<span>Low<\/span>[\s\S]*?12%/
+      /<li data-low="true"[^>]*><span>5-hour limit<\/span>[\s\S]*?<strong><span title="Low">[\s\S]*?<span>Low<\/span>[\s\S]*?12.0%/
     );
-    expect(markup).toMatch(/<li data-low="false"[^>]*><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64%/);
+    expect(markup).toMatch(/<li data-low="false"[^>]*><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64.0%/);
     // Accounts start collapsed (numbers only); one control expands the whole section.
     expect(markup).toMatch(
       /<button type="button"[^>]*aria-expanded="false"[^>]*>Expand all<\/button>/
@@ -884,6 +885,26 @@ describe('pool presentation', () => {
       createElement(PoolCard, { pool, dashboard, mode: 'remaining', reveal: true })
     );
     expect(revealed).toContain('private@example.test');
+  });
+  test('a combined total withheld for partial data says why, as the provider cards do', async () => {
+    await i18n.changeLanguage('en');
+    const series = { ...pool, forecastState: 'partial' as const, remainingPoints: null };
+    const markup = renderToStaticMarkup(
+      createElement(CombinedPoolCard, {
+        pools: [pool],
+        dashboard: {
+          ...dashboard,
+          combined: {
+            all: { series, layers: [{ ...series, provider: 'claude' }], unavailableReason: null },
+          },
+        },
+        provider: 'all',
+        mode: 'remaining',
+        savedData: false,
+      })
+    );
+    expect(markup).toContain('Total unavailable');
+    expect(markup).toContain('some eligible accounts have no current quota data');
   });
   test('a total that cannot be stacked shows provider lines and keeps its reason', async () => {
     await i18n.changeLanguage('en');
@@ -940,7 +961,7 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toMatch(/<strong data-low="true">.*?12%<\/strong>/);
+    expect(markup).toMatch(/<strong data-low="true">.*?12.0%<\/strong>/);
   });
   test('accounts without a 5-hour limit are counted as such, not as missing', async () => {
     await i18n.changeLanguage('en');

@@ -1,3 +1,7 @@
+/** Limit percentages always carry one decimal, so a column of them lines up. */
+export const formatPoolPercent = (value: number, locale: string) =>
+  `${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}%`;
+
 export const formatPoolNumber = (value: number | null, locale: string) =>
   value === null ? '—' : new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
 

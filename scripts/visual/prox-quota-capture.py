@@ -209,33 +209,30 @@ def fixture(state):
     if state == "ultra":
         f = 1821.6 / 248.4
         total.update(capacityPoints=2400, remainingPoints=1964.4)
-        total["recorded"] = [dict(item, remainingPoints=value) for item, value in
-                             zip(total["recorded"], (258.8 * f + 153.2, 1964.4))]
         total["projected"] = [dict(item, remainingPoints=item["remainingPoints"] * 1964.4 / 391.2)
                               for item in total["projected"]]
     if state == "no-limit":
         total.update(capacityPoints=400, remainingPoints=152)
-        total["recorded"] = [dict(item, remainingPoints=value) for item, value in zip(total["recorded"], (160, 152))]
         # The total is the sum of the provider layers at the same moments, so the bands stack.
         total["projected"] = [dict(a, remainingPoints=a["remainingPoints"] + b["remainingPoints"])
                               for a, b in zip(pools[0]["projected"], pools[1]["projected"])]
     if state in ("partial","stale","collecting","long"):
         total.update(forecastState="partial" if state=="long" else state, projected=[],resets=[])
         if state!="collecting": total.update(remainingPoints=None,burnPointsPerHour=None,drainPointsPerHour=None)
+    # Each layer is its pool's own history and the total is their sum at the same moments, so the
+    # combined chart covers the same span as the provider charts (a missing value stays missing).
     layers=[]
-    previous_values=([80,80] if state=="no-limit" else [258.8 * 1821.6 / 248.4,153.2] if state=="ultra"
-                     else [258.8 * sizes[0] / 3,153.2 * sizes[1] / 2])
-    for pool,previous in zip(pools,previous_values):
+    for pool in pools:
         layer={key:pool[key] for key in total}
         layer["provider"]=pool["provider"]
-        layer["recorded"]=[dict(atMs=at,remainingPoints=value,burnPointsPerHour=pool["burnPointsPerHour"],
-                                drainPointsPerHour=pool["drainPointsPerHour"])
-                           for at,value in [(NOW-DAY,previous),(NOW,pool["remainingPoints"])]]
-        if state=="collecting":layer["recorded"]=layer["recorded"][-1:]
+        layer["recorded"]=[dict(item) for item in pool["recorded"]]
         layers.append(layer)
-    if state=="collecting":total["recorded"]=total["recorded"][-1:]
-    if state in ("partial","stale","long"):
-        total["recorded"][-1].update(remainingPoints=None,burnPointsPerHour=None,drainPointsPerHour=None)
+    if len(layers) == 2:
+        fields = ("remainingPoints", "burnPointsPerHour", "drainPointsPerHour")
+        total["recorded"] = [
+            dict(atMs=a["atMs"], **{key: None if a[key] is None or b[key] is None else a[key] + b[key] for key in fields})
+            for a, b in zip(layers[0]["recorded"], layers[1]["recorded"])
+        ]
     combined = {"all":dict(series=total,layers=layers,unavailableReason=None)}
     combined.update({layer["provider"]:dict(series={key:layer[key] for key in total},layers=[layer],unavailableReason=None) for layer in layers})
     if state == "stacked-unavailable": combined["all"] = dict(series=None,unavailableReason="ambiguous-sources")

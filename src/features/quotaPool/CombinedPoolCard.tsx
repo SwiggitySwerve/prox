@@ -83,6 +83,12 @@ export function CombinedPoolCard({
           )}
         </div>
       </div>
+      {/* Partial or stale data withholds the total; say why, as the provider cards do. */}
+      {headline === null && total?.series && total.series.forecastState !== 'ready' && (
+        <p className={styles.stateNote} role="status" data-state={total.series.forecastState}>
+          {t(`quota_pool.state_note.${total.series.forecastState}`, { window: windowLabel })}
+        </p>
+      )}
       {/* Why there is no total to stack, beside the headline it explains. */}
       {!stackable && (
         <p className={styles.stateNote} role="status">

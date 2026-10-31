@@ -7,7 +7,7 @@ import { PoolChart } from './PoolChart';
 import { PoolGraph } from './PoolGraph';
 import { PoolGraphToggle } from './PoolGraphToggle';
 import { PoolProviderMark } from './PoolProviderMark';
-import { formatPoolDate, formatPoolNumber, isLowQuota } from './presentation';
+import { formatPoolDate, formatPoolNumber, formatPoolPercent, isLowQuota } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
 /** Rosters longer than this get a search box and a sort, so one account can be found. */
@@ -50,6 +50,7 @@ export function PoolCard({
       return next;
     });
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
+  const percent = (value: number) => formatPoolPercent(value, i18n.language);
   const date = (value: number | null) => formatPoolDate(value, i18n.language);
   const forecastDate = (value: number | null, available = pool.forecastState === 'ready') =>
     value === null ? (
@@ -435,9 +436,7 @@ export function PoolCard({
                         <span className={styles.srOnly}>{t('quota_pool.limit_low')}</span>
                       </>
                     )}
-                    {account.remainingPercent === null
-                      ? '—'
-                      : `${number(account.remainingPercent)}%`}
+                    {account.remainingPercent === null ? '—' : percent(account.remainingPercent)}
                   </strong>
                   {account.windows.length > 0 && (
                     <ul className={styles.limits} aria-label={t('quota_pool.limits')}>
@@ -470,7 +469,7 @@ export function PoolCard({
                             )}
                             {limit.remainingPercent === null
                               ? '—'
-                              : `${number(limit.remainingPercent)}%`}
+                              : percent(limit.remainingPercent)}
                           </strong>
                           {limit.resetAtMs !== null && (
                             <small>

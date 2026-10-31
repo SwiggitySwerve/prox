@@ -24,29 +24,30 @@ Rounds 0–10 showed reviewers the previous round's medians; from round 11 they 
 | 13 | 4 | 0/90 | 87 | 8.34 | 7.8 | 35 | 0 |
 | 14 | 4 | 0/90 | 88 | 8.34 | 7.9 | 35 | 0 |
 | 15 | 4 | 0/90 | 89 | 8.34 | 7.8 | 35 | 0 |
+| 16 | 4 | 1/90 | 89 | 8.45 | 7.9 | 35 | 0 |
+| 17 | 4 | 0/90 | 88 | 8.32 | 7.8 | 35 | 0 |
+| 18 | 4 | 0/90 | 89 | 8.42 | 7.9 | 35 | 0 |
 
-Rounds 14–15 added the header refresh busy state, roster paging (25 rows, then "Show all"), and a marked "counts toward total" limit column in place of the duplicate remaining column. Final capture after round 15 (three small fixes, not re-scored): 35 captures, 0 failed checks.
+Rounds 14–15 added the header refresh busy state, roster paging (25 rows, then "Show all"), and a marked "counts toward total" limit column in place of the duplicate remaining column. Rounds 16–18 fitted the 5-hour and rate charts to their data, named Claude's 7-day window Weekly, and moved the disabled control's reason under it. Round 16 had the run's only passing cell (empty state, colour, 9.0). From round 16 on, a lens's mean moved up to ±0.3 between rounds on screens that did not change, so a 9.0 median is within reviewer noise of most cells.
 
 Measured checks every round: text contrast 4.5:1 (3:1 large), targets 24px (44px touch), no page overflow or clipped text, meaning-colour thresholds, nesting depth below 4 surfaces, and no hidden reason for a disabled control.
 
-## Round 15 medians
+## Round 18 medians
 
 | Screen | Hierarchy | Layout | Type and numbers | Colour | Content | Controls and states | Consistency | Responsive and accessible | Grouping |
 |---|---|---|---|---|---|---|---|---|---|
-| 1-ready | 8.6 | 8.3 | 8.4 | 8.8 | 8.2 | 8.2 | 8.4 | 8.4 | 8.2 |
-| 2-empty | 8.8 | 8.2 | 8.8 | 8.9 | 8.6 | 8.7 | 8.7 | 8.8 | 8.7 |
-| 3-loading | 8.3 | 8.1 | 8.6 | 8.7 | 8.4 | 8.3 | 8.1 | 8.2 | 8.3 |
-| 4-error | 8.7 | 8.5 | 8.6 | 8.8 | 8.4 | 8.6 | 8.5 | 8.6 | 8.4 |
-| 5-degraded-data | 8.1 | 8.1 | 8.2 | 8.4 | 7.8 | 8.2 | 8.1 | 8.2 | 8.1 |
-| 6-accounts-expanded | 8.3 | 8.1 | 8.1 | 8.7 | 8.2 | 8.3 | 8.2 | 8.2 | 8.2 |
-| 7-forecast-views | 8.3 | 8.1 | 8.1 | 8.6 | 8.0 | 8.2 | 8.1 | 8.1 | 8.1 |
-| 8-refreshing | 8.5 | 8.3 | 8.4 | 8.8 | 8.3 | 8.2 | 8.3 | 8.4 | 8.2 |
-| 9-200-accounts | 8.4 | 8.3 | 8.4 | 8.4 | 8.1 | 8.1 | 8.1 | 8.1 | 8.2 |
-| 10-no-5-hour-limit | 8.4 | 8.2 | 8.2 | 8.6 | 8.1 | 8.2 | 8.2 | 8.1 | 8.2 |
+| 1-ready | 8.6 | 8.4 | 8.6 | 8.6 | 8.4 | 8.4 | 8.6 | 8.3 | 8.4 |
+| 2-empty | 8.8 | 8.4 | 8.8 | 8.9 | 8.6 | 8.6 | 8.6 | 8.6 | 8.8 |
+| 3-loading | 8.4 | 8.2 | 8.6 | 8.6 | 8.6 | 8.4 | 8.3 | 8.3 | 8.4 |
+| 4-error | 8.8 | 8.6 | 8.6 | 8.6 | 8.7 | 8.6 | 8.6 | 8.6 | 8.6 |
+| 5-degraded-data | 8.3 | 8.1 | 8.2 | 8.3 | 7.9 | 8.2 | 8.2 | 8.1 | 8.1 |
+| 6-accounts-expanded | 8.4 | 8.2 | 8.2 | 8.6 | 8.4 | 8.4 | 8.3 | 8.2 | 8.2 |
+| 7-forecast-views | 8.4 | 8.2 | 8.4 | 8.3 | 8.1 | 8.6 | 8.1 | 8.1 | 8.1 |
+| 8-refreshing | 8.6 | 8.4 | 8.6 | 8.6 | 8.4 | 8.2 | 8.4 | 8.4 | 8.4 |
+| 9-200-accounts | 8.5 | 8.4 | 8.6 | 8.4 | 8.3 | 8.2 | 8.3 | 8.3 | 8.4 |
+| 10-no-5-hour-limit | 8.5 | 8.4 | 8.4 | 8.6 | 8.5 | 8.4 | 8.4 | 8.2 | 8.4 |
 
 ## What kept cells below 9.0
 
-- The 5-hour view keeps the 10-day chart range.
-- Rate views keep the full date range, so recorded rates fill a sliver of the plot.
 - Reviewers still asked for a quieter toolbar, one name for the weekly window across providers ("7-day limit" vs "Weekly limit"), and fewer repeated timestamps in the refresh-error state.
 - Reviewers asked for further wording and grouping changes on degraded states (stale counted as loaded, reasons with an action).
