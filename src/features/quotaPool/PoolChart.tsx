@@ -9,10 +9,13 @@ import {
   stackSamples,
   bandSegments,
   dayTicks,
+  hourTicks,
+  inRange,
+  viewRange,
   metricField,
   type ChartMode,
 } from './chartGeometry';
-import { formatPoolDate, formatPoolNumber } from './presentation';
+import { formatPoolDate, formatPoolNumber, formatPoolTick } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
 type ChartPool = PoolTrace & {
@@ -22,7 +25,7 @@ type ChartPool = PoolTrace & {
 };
 
 interface ChartProps {
-  dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs'>;
+  dashboard: Pick<PoolDashboard, 'fromMs' | 'toMs' | 'nowMs' | 'window'>;
   mode: ChartMode;
   savedData?: boolean;
   minimized?: boolean;
@@ -65,17 +68,22 @@ function PoolChartView({
   const chartFrame = fitChartFrame(
     width,
     savedData || pools.some((pool) => pool.forecastState !== 'ready') || mode !== 'remaining',
-    minimized
+    minimized,
+    formatPoolNumber(
+      Math.max(0, stackedTotal?.capacityPoints ?? 0, ...pools.map((pool) => pool.capacityPoints)),
+      i18n.language
+    ).length
   );
   const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
   const [inspected, setInspected] = useState<number | null>(null);
-  const { fromMs, toMs, nowMs } = dashboard;
+  const { fromMs, toMs } = viewRange(dashboard, mode);
+  const { nowMs } = dashboard;
+  // Two days or less: one tick per few hours instead of one per day.
+  const hourly = toMs - fromMs <= 2.5 * 86_400_000;
   const field = metricField[mode];
   const rawSeries = pools.map((pool) => {
-    const samples = chartSamples(pool.recorded, pool.projected, mode).filter(
-      ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
-    );
+    const samples = inRange(chartSamples(pool.recorded, pool.projected, mode), fromMs, toMs);
     return {
       pool,
       samples,
@@ -83,9 +91,7 @@ function PoolChartView({
     };
   });
   const totalSamples = stackedTotal
-    ? chartSamples(stackedTotal.recorded, stackedTotal.projected, mode).filter(
-        ({ point }) => point.atMs >= fromMs && point.atMs <= toMs
-      )
+    ? inRange(chartSamples(stackedTotal.recorded, stackedTotal.projected, mode), fromMs, toMs)
     : [];
   const stacked = stackedTotal
     ? stackSamples(
@@ -163,8 +169,37 @@ function PoolChartView({
     });
   const hasValues = samples.some(({ point }) => point[field] !== null);
   const hasProjection = samples.some(({ point, projected }) => projected && point[field] !== null);
+  // On a combined chart, state every provider's value at the selected moment, not one of them.
+  const readingAt = sample
+    ? comparison
+      ? samples
+          .filter(
+            (other) =>
+              other.point.atMs === sample.point.atMs && other.projected === sample.projected
+          )
+          .filter(
+            (other, index, all) =>
+              all.findIndex((first) => poolLabel(first.pool) === poolLabel(other.pool)) === index
+          )
+      : [sample]
+    : [];
+  // Values keep their unit on the same line (\u00a0) when the readout wraps.
+  const readingValue = (other: (typeof samples)[number]) =>
+    other.point[field] === null ? t('quota_pool.no_observation') : number(other.point[field]);
+  // A moment with no value is not a recording: say so once, without a Recorded/Projected tag.
+  const unobserved = readingAt.every((other) => other.point[field] === null);
+  const readingText = !sample
+    ? ''
+    : unobserved
+      ? t('quota_pool.no_reading_at', { date: date(sample.point.atMs) })
+      : readingAt.length > 1
+        ? `${readingAt.map((other) => `${poolLabel(other.pool)}: ${readingValue(other)}`).join(' · ')}${readingAt.some((other) => other.point[field] !== null) ? `\u00a0${unit}` : ''}`
+        : `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])}\u00a0${unit}`}`;
+  const latestPrefix = selected === latestRecorded ? `${t('quota_pool.latest_reading')} · ` : '';
   const description = sample
-    ? `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])} ${unit}`} · ${t(`quota_pool.${sample.projected ? 'projected' : 'recorded'}`)}`
+    ? unobserved
+      ? readingText
+      : `${latestPrefix}${readingAt.length > 1 ? `${date(sample.point.atMs)} · ` : ''}${readingText}${sample.projected ? ` · ${t('quota_pool.projected')}` : ''}`
     : t('quota_pool.inspect_hint');
 
   const selectAtPointer = (event: PointerEvent<SVGSVGElement>) => {
@@ -249,6 +284,9 @@ function PoolChartView({
             />
           </clipPath>
         </defs>
+        <text className={styles.axisUnit} x={0} y={chartFrame.top - 14}>
+          {unit}
+        </text>
         {(min === max ? [min] : [min, (min + max) / 2, max]).map((value, index) => (
           <g key={index} className={styles.grid}>
             <line x1={chartFrame.left} x2={chartFrame.right} y1={y(value)} y2={y(value)} />
@@ -257,7 +295,7 @@ function PoolChartView({
             </text>
           </g>
         ))}
-        {dayTicks(fromMs, toMs, tickCount).map((at) => {
+        {(hourly ? hourTicks : dayTicks)(fromMs, toMs, tickCount).map((at) => {
           const edge = 40;
           return (
             <g key={at} className={styles.grid}>
@@ -273,7 +311,7 @@ function PoolChartView({
                       : 'middle'
                 }
               >
-                {formatPoolDate(at, i18n.language, true)}
+                {formatPoolTick(at, i18n.language, hourly)}
               </text>
             </g>
           );
@@ -357,17 +395,26 @@ function PoolChartView({
                 x2={x(sample.point.atMs)}
                 y1={chartFrame.top}
                 y2={chartFrame.bottom}
-                stroke="var(--pool-accent)"
+                // On a combined chart the rule marks a moment, not a provider: keep it neutral.
+                stroke={comparison ? 'var(--text-tertiary)' : 'var(--pool-accent)'}
                 opacity=".5"
               />
-              <circle
-                cx={x(sample.point.atMs)}
-                cy={y(sample.position)}
-                r="5"
-                fill="var(--pool-accent)"
-                stroke="#111"
-                strokeWidth="2"
-              />
+              {/* A dot on every series the readout names, not only the one nearest the pointer. */}
+              {readingAt.map(
+                (other, index) =>
+                  other.position !== null && (
+                    <circle
+                      key={index}
+                      className={styles[other.pool.provider]}
+                      cx={x(other.point.atMs)}
+                      cy={y(other.position)}
+                      r="5"
+                      fill="var(--pool-accent)"
+                      stroke="#111"
+                      strokeWidth="2"
+                    />
+                  )
+              )}
             </g>
           )}
           {mode === 'remaining' &&
@@ -395,7 +442,14 @@ function PoolChartView({
             className={styles.nowLabel}
             x={x(nowMs)}
             y={chartFrame.top - 12}
-            textAnchor="middle"
+            // Near an edge (rate views end at the snapshot) the label turns inward to stay inside.
+            textAnchor={
+              chartFrame.right - x(nowMs) < 60
+                ? 'end'
+                : x(nowMs) - chartFrame.left < 60
+                  ? 'start'
+                  : 'middle'
+            }
           >
             {t(`quota_pool.${savedData ? 'saved_snapshot' : 'snapshot'}`)}
           </text>
@@ -427,18 +481,23 @@ function PoolChartView({
             {t('quota_pool.no_history')}
           </text>
         )}
-        {hasValues && !hasProjection && visible(nowMs) && x(nowMs) < chartFrame.right - 130 && (
-          <text
-            x={(x(nowMs) + chartFrame.right) / 2}
-            y={(chartFrame.top + chartFrame.bottom) / 2}
-            textAnchor="middle"
-            className={styles.emptyChart}
-          >
-            {t(
-              `quota_pool.${mode !== 'remaining' ? 'rate_no_projection' : 'projection_unavailable'}`
-            )}
-          </text>
-        )}
+        {/* The card's status chip and strip already explain degraded forecasts, and the page note
+            explains rate views; only a ready pool with no projection needs saying here. */}
+        {hasValues &&
+          !hasProjection &&
+          mode === 'remaining' &&
+          pools.every((pool) => pool.forecastState === 'ready') &&
+          visible(nowMs) &&
+          x(nowMs) < chartFrame.right - 130 && (
+            <text
+              x={(x(nowMs) + chartFrame.right) / 2}
+              y={(chartFrame.top + chartFrame.bottom) / 2}
+              textAnchor="middle"
+              className={styles.emptyChart}
+            >
+              {t('quota_pool.projection_unavailable')}
+            </text>
+          )}
       </svg>
       <div className={styles.chartFooter}>
         <div className={styles.legend}>
@@ -451,13 +510,13 @@ function PoolChartView({
                   ` · ${t(`quota_pool.state.${pool.forecastState}`)}`}
               </span>
             ))}
-          <span>{unit}</span>
-          <span>
+          {/* Line styles are a separate key from provider colours, so they read as styles. */}
+          <span data-style-key data-divider={comparison || undefined}>
             <i />
             {t('quota_pool.recorded')}
           </span>
           {hasProjection && (
-            <span>
+            <span data-style-key>
               <i className={styles.dashed} />
               {t('quota_pool.projected')}
             </span>
@@ -473,10 +532,8 @@ function PoolChartView({
       <div className={styles.inspectionRow}>
         <div className={styles.chartReadout} id={`${id}-readout`} aria-live="polite">
           {description}
+          {samples.length === 1 && ` · ${t('quota_pool.single_sample')}`}
         </div>
-        {samples.length === 1 ? (
-          <span className={styles.singleSample}>{t('quota_pool.single_sample')}</span>
-        ) : null}
       </div>
     </div>
   );

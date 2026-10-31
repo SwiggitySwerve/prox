@@ -44,12 +44,18 @@ describe('plan weights', () => {
   test('use each provider base plan as one unit', () => {
     expect(planWeight('claude', 'default_claude_max_20x')).toEqual({
       multiplier: 20,
-      label: 'Max 20x',
+      label: 'Ultra',
       known: true,
     });
     expect(planWeight('claude', 'default_claude_max_5x')).toEqual({
       multiplier: 5,
-      label: 'Max 5x',
+      label: 'Max',
+      known: true,
+    });
+    // Anthropic renamed Max 20x to Ultra on 2026-10-30; the profile may report either tier name.
+    expect(planWeight('claude', 'default_claude_ultra')).toEqual({
+      multiplier: 20,
+      label: 'Ultra',
       known: true,
     });
     expect(planWeight('claude', 'claude_pro')).toEqual({

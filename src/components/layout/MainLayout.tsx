@@ -46,7 +46,7 @@ import {
 } from '@/features/plugins/pluginResources';
 import { APIKEY_FUN_DISPLAY_NAME, hasApiKeyFunConfig } from '@/features/providers/sponsor';
 import { BrandMark } from '@/components/brand/BrandMark';
-import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { triggerHeaderRefresh, useHeaderRefreshBusy } from '@/hooks/useHeaderRefresh';
 import { LANGUAGE_LABEL_KEYS, LANGUAGE_ORDER } from '@/utils/constants';
 import { isSupportedLanguage } from '@/utils/language';
 import { getSidebarShortcutLabel, isSidebarToggleShortcut } from '@/utils/sidebarShortcut';
@@ -678,14 +678,19 @@ export function MainLayout() {
     return 'vertical';
   }, []);
 
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  // A page's own work (a collection still running, a first load) also counts as refreshing.
+  const pageBusy = useHeaderRefreshBusy();
   const handleRefreshAll = async () => {
+    if (refreshingAll) return;
+    setRefreshingAll(true);
     clearCache();
     const results = await Promise.allSettled([
       fetchConfig(true),
       loadPluginResources(),
       loadAuthFilesCount(),
       triggerHeaderRefresh(),
-    ]);
+    ]).finally(() => setRefreshingAll(false));
     const rejected = results.find((result) => result.status === 'rejected');
     if (rejected && rejected.status === 'rejected') {
       const reason = rejected.reason;
@@ -961,8 +966,10 @@ export function MainLayout() {
             size="sm"
             onClick={handleRefreshAll}
             title={t('header.refresh_all')}
+            aria-label={t('header.refresh_all')}
+            loading={refreshingAll || pageBusy}
           >
-            {headerIcons.refresh}
+            {refreshingAll || pageBusy ? null : headerIcons.refresh}
           </Button>
           <div className={`language-menu ${languageMenuOpen ? 'open' : ''}`} ref={languageMenuRef}>
             <Button

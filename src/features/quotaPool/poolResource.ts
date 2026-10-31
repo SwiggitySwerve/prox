@@ -7,6 +7,9 @@ interface PoolSnapshot {
   refreshing: boolean;
   error: boolean;
   refreshError: boolean;
+  /** HTTP status of the last failed read or refresh; null when the server never answered. */
+  errorStatus: number | null;
+  refreshErrorStatus: number | null;
   refreshStatus: PoolRefresh | null;
   /** When the next once-a-minute collection fires, for the on-page countdown. */
   nextCollectAtMs: number | null;
@@ -18,8 +21,15 @@ const EMPTY: PoolSnapshot = {
   refreshing: false,
   error: false,
   refreshError: false,
+  errorStatus: null,
+  refreshErrorStatus: null,
   refreshStatus: null,
   nextCollectAtMs: null,
+};
+
+const statusOf = (error: unknown) => {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === 'number' ? status : null;
 };
 
 /** Owns transport lifetime only; quota values and refresh policy belong to the server. */
@@ -54,14 +64,14 @@ export function createPoolResource(
     try {
       const data = await api.get(query, controller.signal);
       if (valid()) {
-        publish({ data, error: false, loading: false, refreshStatus: null });
+        publish({ data, error: false, errorStatus: null, loading: false, refreshStatus: null });
         // Collection is asynchronous. Observe its completion promptly instead of leaving
         // a finished job looking busy until the ordinary 15-second dashboard poll.
         // These reads never request another collection and never overlap a pending read.
         if (data.refreshing) completionPoll = setTimeout(() => void reload(), 1_000);
       }
-    } catch {
-      if (valid()) publish({ error: true, loading: false });
+    } catch (error) {
+      if (valid()) publish({ error: true, errorStatus: statusOf(error), loading: false });
     }
   };
   const refresh = async () => {
@@ -69,15 +79,17 @@ export function createPoolResource(
     if (mutation) return true;
     const controller = new AbortController();
     mutation = controller;
-    publish({ refreshing: true, refreshError: false });
+    publish({ refreshing: true, refreshError: false, refreshErrorStatus: null });
     try {
       const refreshStatus = await api.refresh(controller.signal);
       if (!active || !isCurrent() || controller.signal.aborted) return false;
       publish({ refreshStatus });
       await reload();
       return !snapshot.error;
-    } catch {
-      if (active && isCurrent() && !controller.signal.aborted) publish({ refreshError: true });
+    } catch (error) {
+      if (active && isCurrent() && !controller.signal.aborted) {
+        publish({ refreshError: true, refreshErrorStatus: statusOf(error) });
+      }
       return false;
     } finally {
       if (mutation === controller) mutation = undefined;

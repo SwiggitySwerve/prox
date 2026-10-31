@@ -1,7 +1,14 @@
 /** Public contract for the server-owned quota history and forecast domain. */
 export type PoolProviderId = 'claude' | 'codex';
 export type PoolWindow = 'weekly' | 'five-hour';
-export type PoolForecastState = 'ready' | 'collecting' | 'partial' | 'stale' | 'no-accounts';
+export type PoolForecastState =
+  | 'ready'
+  | 'collecting'
+  | 'partial'
+  | 'stale'
+  | 'no-accounts'
+  /** Every eligible account answered and has no limit in this window, so there is nothing to total. */
+  | 'no-limit';
 export interface PoolPoint {
   atMs: number;
   remainingPoints: number | null;
@@ -15,9 +22,14 @@ export interface PoolReset {
 export interface PoolAccount {
   id: string;
   label: string;
+  /** Masked address or name, always present, so accounts can be told apart. */
+  identifier?: string;
+  /** Claude Ultra answered with other limits but no five-hour one: that limit does not exist for it. */
+  noFiveHourLimit?: boolean;
   email?: string;
   disabled: boolean;
-  status: 'ok' | 'stale' | 'error' | 'disabled' | 'missing-window';
+  /** `no-limit`: the provider answered and the account has no limit in this window (Ultra, 5-hour). */
+  status: 'ok' | 'stale' | 'error' | 'disabled' | 'missing-window' | 'no-limit';
   observedAtMs: number | null;
   remainingPercent: number | null;
   resetAtMs: number | null;

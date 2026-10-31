@@ -1,13 +1,20 @@
+// Red means a problem the user must act on: a failed load or a nearly exhausted limit. It sits
+// dE 40+ from the Claude coral, so it never reads as a provider. Amber stays for data caveats.
+$pool-error: #ff5252;
 .page {
   color-scheme: dark;
   color: var(--text-primary);
   background: var(--bg-secondary);
   min-width: 0;
-  padding: 12px 8px 24px;
+  padding: 12px 0 24px;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
   --pool-accent: var(--claude-color);
+  --hairline: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  --hairline-soft: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  --fill-soft: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --fill-hover: color-mix(in srgb, var(--text-primary) 9%, transparent);
 
   button,
   select,
@@ -19,10 +26,10 @@
     color: #ddd;
     background: var(--bg-tertiary);
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: 10px;
     min-height: 44px;
     min-width: 44px;
-    padding: 8px 12px;
+    padding: 8px 14px;
   }
   button {
     cursor: pointer;
@@ -38,11 +45,21 @@
   }
   button:disabled,
   select:disabled {
-    opacity: 0.5;
-    cursor: default;
+    background: transparent;
+    border-color: var(--border-primary);
+    color: var(--text-quaternary);
+    cursor: not-allowed;
   }
+  button:disabled:hover,
+  select:disabled:hover {
+    background: transparent;
+  }
+  button[aria-pressed='true']:disabled {
+    background: var(--bg-tertiary);
+  }
+  // Neutral, so focus never reads as a provider colour.
   :is(button, select, input, summary, a, svg):focus-visible {
-    outline: 2px solid var(--focus-ring);
+    outline: 2px solid var(--text-primary);
     outline-offset: 3px;
   }
   h1,
@@ -53,9 +70,9 @@
     margin: 0;
   }
   h1 {
-    font-size: clamp(24px, 2vw, 28px);
+    font-size: clamp(24px, 2vw, 30px);
     font-weight: 600;
-    letter-spacing: -0.7px;
+    letter-spacing: -0.03em;
   }
   h2 {
     font-size: 18px;
@@ -93,10 +110,6 @@
   align-items: center;
   gap: 16px;
   min-width: 0;
-  .accountLink {
-    border: 0;
-    padding-inline: 4px;
-  }
 }
 .privacy {
   position: relative;
@@ -106,19 +119,23 @@
   gap: 8px;
   min-height: 44px;
   padding: 8px 12px;
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
-  background: var(--bg-tertiary);
-  color: #ddd;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 13px;
+  &:hover {
+    background: var(--fill-soft);
+  }
   &:has(input:checked) {
-    background: var(--bg-pressed);
-    border-color: var(--text-quaternary);
+    background: var(--fill-hover);
+    color: var(--text-primary);
   }
   &:has(input:disabled) {
-    opacity: 0.5;
-    cursor: default;
+    background: transparent;
+    color: var(--text-quaternary);
+    cursor: not-allowed;
   }
   &:has(input:focus-visible) {
     outline: 2px solid var(--focus-ring);
@@ -137,13 +154,13 @@
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
+  padding: 8px 4px;
   color: var(--text-secondary);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  position: relative;
+  min-width: 13em;
   &[data-refreshing='true'] svg {
     animation: countdownSpin 1s linear infinite;
   }
@@ -163,12 +180,22 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   button {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     background: transparent;
+    border-radius: 999px;
+    color: var(--text-secondary);
+  }
+  button:hover:not(:disabled) {
+    background: var(--fill-soft);
+  }
+  button[aria-pressed='true'] {
+    background: var(--fill-hover);
+    border-color: transparent;
+    color: var(--text-primary);
   }
 }
 .providerMark {
@@ -183,15 +210,16 @@
   font-variant-numeric: tabular-nums;
 }
 .accountLink {
+  background: transparent;
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
   font-size: 13px;
 }
 .toolbar {
@@ -201,40 +229,95 @@
   margin: 0 0 8px;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 16px;
+  align-items: center;
+  gap: 8px 12px;
   font-size: 13px;
 }
 .segment {
   display: inline-flex;
   padding: 3px;
-  border-radius: 9px;
-  background: #111;
+  border-radius: 999px;
+  background: var(--fill-soft);
+  border: 1px solid var(--hairline-soft);
   button {
     background: transparent;
+    border-color: transparent;
+    border-radius: 999px;
+    color: var(--text-secondary);
     min-height: 38px;
-    padding: 7px 11px;
+    padding: 6px 14px;
     white-space: nowrap;
+  }
+  button:hover:not(:disabled) {
+    background: var(--fill-soft);
+    color: var(--text-primary);
+  }
+  button[aria-pressed='true'] {
+    background: var(--fill-hover);
+    border-color: transparent;
+    color: var(--text-primary);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }
 .chartSettings {
-  display: grid;
-  grid-template-columns: auto auto auto;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 .selectLabel {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 3px;
-  color: #b5b5b5;
+  // Settings, not views: an outlined box holding the setting's name and its value.
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding-left: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  &:focus-within {
+    border-color: var(--text-tertiary);
+  }
   select {
     max-width: 180px;
+    min-height: 44px;
+    padding-left: 6px;
+    background-color: transparent;
+    border: 0;
+    border-radius: 999px;
+    color: var(--text-primary);
+  }
+  select:focus-visible {
+    outline-offset: -2px;
+  }
+}
+.selectPrefix {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.selectHint {
+  padding: 0 16px 0 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+// The disabled select stays in the box for its name and setting; the reason takes its place.
+.selectLabel[data-disabled] select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.selectLabel[data-disabled] {
+  position: relative;
+  border-color: var(--hairline-soft);
+  .selectHint {
+    color: var(--text-tertiary);
   }
 }
 .dateNavigation {
-  margin-left: auto;
+  // Follows the selects, so it never floats alone at the far edge or wraps right-aligned.
   display: flex;
   align-items: center;
   gap: 4px;
@@ -260,21 +343,27 @@
 .pools {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  gap: 20px;
 }
 .pool {
   position: relative;
   min-width: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--bg-primary);
-  padding: 14px 20px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      90% 70% at 0% 0%,
+      color-mix(in srgb, var(--pool-accent) 7%, transparent),
+      transparent 70%
+    ),
+    var(--bg-primary);
+  padding: 18px 24px 12px;
 }
 .poolHeader {
   display: flex;
   gap: 20px;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 .poolIdentity {
   min-width: 0;
@@ -285,7 +374,13 @@
   align-items: center;
   gap: 9px;
   flex-wrap: wrap;
-  > span:not(.providerMark) {
+}
+.poolMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  > span {
     font-size: 13px;
     color: #b5b5b5;
   }
@@ -336,15 +431,31 @@
   strong {
     font-size: 40px;
     font-weight: 600;
-    letter-spacing: -1.5px;
+    letter-spacing: -0.04em;
     line-height: 1.2;
     font-variant-numeric: tabular-nums;
   }
-  &[data-unavailable='true'] strong {
-    font-size: 22px;
-    letter-spacing: -0.3px;
-    color: var(--warning-text);
+  strong small {
+    margin-left: 2px;
+    color: #b5b5b5;
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: 0;
   }
+  // A one-line rate caption sits on the number's baseline, beside its unit.
+  &[data-rate='true'] {
+    align-items: baseline;
+  }
+}
+// An unavailable total is a word, not a number: its caption sits on the word's baseline.
+.headline[data-unavailable='true'] {
+  align-items: baseline;
+}
+// A missing total says so in the value slot; the notice below carries the warning colour.
+.unavailableValue {
+  color: var(--text-secondary);
+  font-size: 22px;
+  letter-spacing: -0.02em;
 }
 .headlineContext {
   color: #b5b5b5;
@@ -382,23 +493,44 @@
   gap: 20px;
   dt {
     color: var(--text-tertiary);
-    font-size: 13px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
     margin-bottom: 4px;
   }
   dd {
-    font-size: 14px;
+    font-size: 15px;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
   }
   small {
     color: #b5b5b5;
     font-size: 13px;
-    margin-left: 6px;
-    display: inline;
+    margin-left: 0;
+    display: block;
   }
 }
 .statsHeading {
-  margin-bottom: 8px !important;
-  color: #b5b5b5;
+  margin-bottom: 10px !important;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+// "248.4 of 300 points" stays one value on one line.
+.stats dd small {
+  display: inline;
+}
+// One notice layout: the message, then its action on a line of its own.
+.stateNote .noteAction {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  margin: 8px 0 0;
+  min-height: 32px;
+  padding: 4px 14px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
   font-size: 13px;
 }
 .stateNote {
@@ -417,19 +549,29 @@
     color: var(--warning-text);
   }
 }
+.pool > .stateNote {
+  margin: 14px 0 4px !important;
+  padding: 8px 12px;
+}
 .forecast {
-  margin-top: 0;
+  margin-top: 14px;
 }
 .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-secondary);
-  border: 1px solid var(--border-hover);
-  border-radius: 5px;
-  padding: 2px 7px;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  padding: 2px 10px;
   font-size: 13px;
-  &[data-state='partial'],
-  &[data-state='stale'] {
+  // One shape for every state: only the icon, word and text colour change.
+  svg {
+    flex: none;
+  }
+  // Degraded states share their banner's amber, so a chip and its notice read as one state.
+  &[data-tone='warning'] {
     color: var(--warning-text);
-    border-color: var(--warning-border);
     background: var(--warning-bg);
   }
 }
@@ -452,10 +594,6 @@
   gap: 4px 16px;
   margin-bottom: 4px;
 }
-.singleSample {
-  color: #b5b5b5;
-  font-size: 13px;
-}
 .chart svg {
   display: block;
   width: 100%;
@@ -463,12 +601,12 @@
 }
 .grid {
   line {
-    stroke: #272727;
-    stroke-width: 0.7;
+    stroke: var(--hairline-soft);
+    stroke-width: 1;
   }
   text {
-    fill: #b5b5b5;
-    font-size: 13px;
+    fill: var(--text-tertiary);
+    font-size: 12px;
   }
 }
 .nowLine {
@@ -489,6 +627,14 @@
   }
 }
 .emptyChart {
+  fill: #b5b5b5;
+  font-size: 13px;
+  paint-order: stroke;
+  stroke: var(--bg-primary);
+  stroke-width: 6px;
+  stroke-linejoin: round;
+}
+.axisUnit {
   fill: #b5b5b5;
   font-size: 13px;
 }
@@ -525,6 +671,29 @@
     border-top: 0;
     border-left: 2px solid var(--pool-accent);
   }
+  // Line-style keys sit apart from the provider colours, in neutral grey.
+  [data-divider] {
+    padding-left: 16px;
+    border-left: 1px solid var(--hairline);
+  }
+}
+.combined .legend [data-style-key] i {
+  border-top-color: var(--text-tertiary);
+}
+// Phones: provider keys on one row, line-style keys on the next, so no key is left alone.
+@media (max-width: 640px) {
+  .combined .legend::after {
+    content: '';
+    flex-basis: 100%;
+    order: 1;
+  }
+  .combined .legend [data-style-key] {
+    order: 2;
+  }
+  .legend [data-divider] {
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 .accounts {
   margin-top: 4px;
@@ -544,36 +713,39 @@
 .accounts > h3 span {
   color: var(--text-tertiary);
 }
-.accounts:lang(en) {
-  .limits li > span:first-child,
-  .expandAccounts {
-    text-transform: capitalize;
-  }
-}
 .page .expandAccounts {
   margin-right: auto;
-  padding: 4px 10px;
+  padding: 4px 12px;
   background: transparent;
-  border-color: var(--border-primary);
+  border-color: var(--hairline);
+  border-radius: 999px;
   color: var(--text-secondary);
   font-size: 13px;
 }
 .accountGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  gap: 8px 20px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
+// The roster is one bounded list: a single outline, rules between rows.
+.pool:not([data-minimized='true']) .accountGrid {
+  margin: 4px 0 8px;
+  border-block: 1px solid var(--hairline);
+  overflow: clip;
+}
+.accountHead {
+  display: none;
+}
 .account {
-  border-top: 1px solid var(--bg-hover);
   min-width: 0;
+  border-top: 1px solid var(--hairline-soft);
   > summary {
     display: grid;
     grid-template-columns: 20px minmax(0, 1fr) auto;
     align-items: center;
     gap: 2px 8px;
-    min-height: 48px;
-    padding: 6px 0;
+    min-height: 44px;
+    padding: 6px 10px;
     cursor: pointer;
     font-size: 14px;
     list-style: none;
@@ -581,7 +753,7 @@
       display: none;
     }
     &:hover {
-      background: #1b1b1b;
+      background: var(--fill-soft);
     }
   }
   strong {
@@ -608,18 +780,36 @@
   &[data-status='stale'] strong small {
     color: var(--warning-text);
   }
+  // A stale reading is still shown, in muted text, so it doesn't pass for a current one.
+  // Low values stay red, and bars keep full strength: meaningful graphics need 3:1.
+  &[data-status='stale'] > summary > strong:not([data-low]),
+  &[data-status='stale'] .limits li:not([data-low='true']) strong {
+    color: var(--text-quaternary); // #888 on the card is 5.2:1
+  }
+  // Wide tables tint an open row; phones keep dividers only, so no box sits in the card.
+  @media (min-width: 901px) {
+    &[open] {
+      background: var(--fill-soft);
+    }
+  }
 }
 .accountName {
-  overflow-wrap: anywhere;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
   min-width: 0;
   grid-column: 2;
   grid-row: 1;
 }
 .accountPlan {
-  margin-left: 8px;
   color: var(--text-tertiary);
   font-size: 13px;
   white-space: nowrap;
+}
+.accountLabel {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .accountStatus {
   color: #b5b5b5;
@@ -627,24 +817,40 @@
   grid-column: 2 / -1;
   grid-row: 2;
 }
+.account > summary > strong[data-low='true'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: $pool-error;
+}
+.account[data-status='ok'] .accountStatus {
+  display: none;
+}
 // Every limit the provider reports for this account (5-hour, weekly, per-model weekly…).
 .limits {
   grid-column: 2 / -1;
   grid-row: 3;
   display: grid;
-  gap: 6px;
+  grid-template-columns: 6.5em minmax(40px, 1fr) 4.6em;
+  gap: 6px 10px;
   margin: 6px 0 2px;
   padding: 0;
   list-style: none;
   li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(56px, 96px) 48px;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
     align-items: center;
     gap: 2px 10px;
     font-size: 14px;
     color: var(--text-secondary);
   }
   strong {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
     text-align: right;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
@@ -657,54 +863,58 @@
   }
   li[data-low='true'] {
     strong {
-      color: var(--warning-color);
+      color: $pool-error;
     }
     .limitBar > span {
-      background: var(--warning-color);
+      background: $pool-error;
     }
   }
 }
-// Collapsed accounts: every limit as a label over its number, packed in a grid.
-.account:not([open]) .limits {
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 6px 14px;
-  li {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    line-height: 1.3;
-    > span:first-child {
-      // Reserve the same label space for short and wrapped names.
-      min-block-size: 2lh;
-    }
-  }
-  strong {
-    text-align: left;
-    font-size: 14px;
-  }
-  .limitBar,
-  small {
+// Collapsed accounts keep the same rows; the reset line waits for the row to open.
+.account:not([open]) .limits small {
+  display: none;
+}
+// Phone rows already show the counted limit as the row's value, so a closed row doesn't repeat
+// it; an open row lists every limit the same way, with its bar, value and reset.
+@media (max-width: 900px) {
+  .account:not([open]) .limits li[data-counted='true'] {
     display: none;
   }
+}
+// The value slot already says the account has no such limit, so its status line doesn't.
+.account[data-status='no-limit'] .accountStatus {
+  display: none;
+}
+.noLimitValue {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+}
+.limits li[data-missing='true'] {
+  display: none;
+  color: var(--text-quaternary);
+}
+// A low limit's track is tinted red, so "low" doesn't rest on red next to Claude coral alone.
+.limits li[data-low='true'] .limitBar {
+  background: color-mix(in srgb, #{$pool-error} 22%, transparent);
 }
 .limitBar {
   height: 6px;
   overflow: hidden;
   border-radius: 3px;
-  background: var(--bg-hover);
+  background: var(--fill-hover);
   > span {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: var(--text-secondary);
+    background: var(--pool-accent);
   }
 }
 .accountDetails {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  padding: 8px 0 14px 20px;
+  padding: 10px 10px 12px 38px;
   font-size: 14px;
   dt {
     color: var(--text-tertiary);
@@ -713,13 +923,14 @@
   dd {
     overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
   }
 }
 .notice {
   border: 1px solid #665533;
   background: var(--warning-bg);
   color: var(--warning-text);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 14px;
   margin: 8px 0;
   font-size: 14px;
@@ -736,13 +947,15 @@
     font-size: 13px;
   }
 }
+.pools > .emptyNotice {
+  max-width: 640px;
+}
 .pools > .notice {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
   gap: 8px;
-  min-height: 180px;
   padding: 24px;
   background: var(--bg-primary);
   color: #ddd;
@@ -755,39 +968,190 @@
   }
   .accountLink {
     margin-left: 0;
+    min-height: 44px;
+    padding-inline: 18px;
+    border-color: var(--text-primary);
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    font-weight: 500;
+    &:hover {
+      background: var(--text-secondary);
+      color: var(--bg-primary);
+    }
   }
 }
 .loading {
-  min-height: 140px;
   display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
   color: var(--text-secondary);
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
   padding: 24px;
 }
 .errorNotice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px 14px;
+  margin-block: 12px;
+  align-items: flex-start;
+  border-color: color-mix(in srgb, #{$pool-error} 55%, transparent);
+  background: color-mix(in srgb, #{$pool-error} 12%, var(--bg-primary));
+  color: var(--text-primary);
   h2 {
     font-size: 16px;
     margin-bottom: 4px;
   }
-  p {
+  p,
+  > p {
+    margin-top: 0;
+    color: var(--text-secondary);
     font-size: 14px;
   }
-  button {
-    flex-shrink: 0;
-    margin-left: 0;
+  > div {
+    flex: 1;
+    min-width: 0;
   }
+  button {
+    grid-column: 2;
+    justify-self: start;
+    margin-left: 0;
+    min-height: 44px;
+    padding-inline: 18px;
+    border-radius: 999px;
+    border-color: var(--text-primary);
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    font-weight: 500;
+    &:hover {
+      background: var(--text-secondary);
+    }
+  }
+}
+.errorNotice .errorCause {
+  margin-top: 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.errorIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: $pool-error;
 }
 .page > .stateNote {
   margin-bottom: 10px;
+}
+.toolbar > .stateNote {
+  flex-basis: 100%;
+  margin: 0 !important;
+}
+.loadingControls {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.loadingRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+// Sizes follow the loaded toolbar; phones give each toggle its own full-width row.
+.loadingSegment {
+  width: 200px;
+}
+.loadingSegmentWide {
+  width: 330px;
+}
+.loadingSelects {
+  display: inline-flex;
+  gap: 8px;
+}
+.loadingDate {
+  width: 220px;
+}
+@media (max-width: 640px) {
+  .loadingSegment,
+  .loadingSegmentWide,
+  .loadingDate,
+  .loadingSelects {
+    width: 100%;
+  }
+  .loadingSelects > * {
+    flex: 1;
+  }
+}
+.loadingHero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+// A headline number with its two-line label beside it, as in the loaded cards.
+.loadingNumber {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  > span {
+    display: grid;
+    gap: 6px;
+  }
+}
+.loadingStats {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: 20px;
+  // Phones list the facts as label/value rows under the headline, like the loaded card.
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+.loadingFact {
+  display: grid;
+  gap: 6px;
+  @media (max-width: 640px) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+.loadingRows {
+  display: grid;
+  gap: 8px;
+}
+.loading + .loading {
+  margin-top: 20px;
+}
+.loadingHead {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px 20px;
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+.loading h2 {
+  font-size: 16px;
+  color: var(--text-primary);
+}
+.loading .loadingTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 18px;
+}
+.loadingStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 .loadingDot {
   width: 18px;
@@ -795,18 +1159,97 @@
   border: 2px solid #555;
   border-top-color: var(--text-primary);
   border-radius: 50%;
+  animation: countdownSpin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loadingDot {
+    animation: none;
+  }
+}
+.footerLabel {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
 }
 .footer {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 22px;
+  gap: 6px;
   color: var(--text-tertiary);
   font-size: 13px;
   padding: 20px 2px;
 }
 .footer .method {
-  grid-column: 1 / -1;
   margin-bottom: 0 !important;
+}
+.about {
+  margin-top: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--hairline-soft);
+  ul {
+    max-width: 70ch;
+    margin: 0 0 6px;
+    padding-left: 22px;
+    color: var(--text-tertiary);
+    font-size: 14px;
+  }
+  li {
+    margin-bottom: 10px;
+  }
+  &[open] > summary svg {
+    transform: none;
+  }
+  summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    &:hover {
+      color: var(--text-primary);
+    }
+  }
+  summary svg {
+    transform: rotate(-90deg);
+  }
+  p {
+    max-width: 60rem;
+    margin: 0 0 6px;
+  }
+}
+.planWeights {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 2px 24px;
+  margin: 8px 0 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--hairline);
+  > div {
+    display: contents;
+  }
+  dd {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+  }
+}
+// Label/value pairs in two aligned columns, like the pool facts.
+.footerFacts {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 4px 16px;
+  margin: 6px 0 0;
+  > div {
+    display: contents;
+  }
+  dt {
+    color: var(--text-tertiary);
+  }
+  dd {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
 }
 .method {
   margin-bottom: 8px !important;
@@ -839,9 +1282,17 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px 16px;
   }
+  // The skeleton follows the loaded card's two-by-two facts at this width.
+  .loadingStats {
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+    > .loadingNumber {
+      grid-row: span 2;
+    }
+  }
 }
 @media (max-width: 900px) {
-  .statsBlock {
+  .statsBlock,
+  .poolIdentity {
     width: 100%;
   }
   .poolHeader {
@@ -871,16 +1322,26 @@
   .titleRow {
     justify-content: space-between;
     gap: 8px;
-    .accountLink {
-      border: 1px solid var(--border-primary);
-      border-radius: 8px;
-      padding: 6px 8px;
-      font-size: 14px;
-      background: var(--bg-tertiary);
-    }
   }
   .page h1 {
     font-size: 22px;
+    white-space: nowrap;
+  }
+  .titleRow .accountLink {
+    flex-shrink: 0;
+    padding-inline: 12px;
+  }
+  // Touch target size on phones.
+  .stateNote .noteAction {
+    min-height: 44px;
+  }
+  // Every row puts its plan under the name, whatever its status line holds.
+  .accountPlan {
+    flex-basis: 100%;
+  }
+  // Search takes its own line; sort, the low filter and the count share the next.
+  .rosterSearch {
+    flex-basis: 100%;
   }
   .actions {
     display: grid;
@@ -913,18 +1374,24 @@
   .toolbar > .segment:first-child {
     flex-basis: 100%;
   }
+  // Each setting takes a full-width row, so its whole value or reason stays readable.
   .chartSettings {
+    display: grid;
     width: 100%;
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
   }
   .selectLabel {
     min-width: 0;
+    padding-left: 12px;
   }
   .selectLabel select {
+    flex: 1;
+    min-width: 0;
     width: 100%;
     max-width: 100%;
-    padding-inline: 8px;
+    padding-inline: 4px 8px;
+    text-overflow: ellipsis;
   }
   .dateNavigation {
     width: 100%;
@@ -943,9 +1410,10 @@
   .stats {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
+    // Equal halves keep 'First account empty' and a full date on one line each.
     > div {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       align-items: baseline;
       gap: 2px 8px;
     }
@@ -962,10 +1430,23 @@
     }
   }
   .stats dd {
-    font-size: 13px;
+    font-size: 14px;
   }
   .poolTitle {
     gap: 7px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    > h2 {
+      min-width: 0;
+    }
+  }
+  .poolMeta {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .reorder {
+    grid-column: 3;
+    grid-row: 1;
   }
   .headline strong {
     font-size: 40px;
@@ -980,7 +1461,6 @@
   }
   .chartReadout,
   .accountStatus,
-  .accountDetails,
   .badge,
   .metricLabel,
   .balanceContext,
@@ -993,9 +1473,13 @@
     font-size: 14px;
   }
   .errorNotice {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px 12px;
+    button {
+      grid-column: 2;
+      justify-self: start;
+    }
   }
   .chartFooter {
     gap: 6px;
@@ -1004,8 +1488,21 @@
     gap: 4px 10px;
   }
   .accountDetails {
-    padding-left: 0;
-    gap: 14px 20px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    font-size: 13px;
+    > div {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+    dt {
+      margin: 0;
+    }
+    dd {
+      text-align: right;
+    }
   }
   .notice button {
     margin-left: 0;
@@ -1018,28 +1515,7 @@
   }
 }
 
-.pool:not([data-forecast-state='ready']) {
-  .stats {
-    gap: 6px 16px;
-    > div {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 2px 8px;
-    }
-    dt {
-      margin-bottom: 0;
-    }
-  }
-}
-
 @media (max-width: 640px) {
-  .pool:not([data-forecast-state='ready']) .stats {
-    gap: 4px;
-    > div {
-      display: grid;
-    }
-  }
   .statsHeading {
     margin-bottom: 4px !important;
   }
@@ -1053,7 +1529,7 @@
 
 .combined {
   --pool-accent: var(--text-secondary);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 .comparisonNote {
   margin: 0 0 8px;
@@ -1062,6 +1538,7 @@
 }
 .graphHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1077,7 +1554,17 @@
   align-items: center;
   gap: 8px 16px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  // In the title row: pushed right, clear of the chart toggle in the corner.
+  margin: 0 40px 0 auto;
+  @media (max-width: 900px) {
+    margin-right: 0;
+  }
+  // Phones: the title and toggle keep their row; the select takes the next one.
+  @media (max-width: 640px) {
+    order: 3;
+    flex-basis: 100%;
+    margin: 4px 0 0;
+  }
   select {
     font-size: 13px;
   }
@@ -1109,7 +1596,7 @@
   border-color: transparent;
 }
 .reorder button.graphToggle {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   background: transparent;
   border-color: transparent;
 }
@@ -1125,7 +1612,7 @@
   --compact-account-gap: 20px;
 
   .accountGrid {
-    gap: 4px var(--compact-account-gap);
+    gap: 0 var(--compact-account-gap);
   }
   .account:not([open]) {
     max-inline-size: var(--compact-account-width);
@@ -1136,9 +1623,6 @@
       min-height: 36px;
       padding: 4px 0;
     }
-  }
-  &[data-saved='false'] .account:not([open])[data-status='ok'] .accountStatus {
-    display: none;
   }
   @media (min-width: 901px) {
     .accounts > h3 {
@@ -1154,15 +1638,6 @@
       min-height: 44px;
     }
   }
-  @media (max-width: 640px) {
-    .account:not([open]) > summary {
-      background: var(--bg-subtle);
-      border-radius: $radius-sm;
-      &:hover {
-        background: var(--bg-tertiary);
-      }
-    }
-  }
   @media (min-width: 1200px) {
     .accountGrid:not(:has(.account[open])) {
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1171,10 +1646,12 @@
   }
 }
 
+// Coverage is a status beside the heading: quieter than the heading, and not a control.
 .accountCoverage {
   display: inline-block;
-  margin-left: 8px;
-  font-size: inherit;
+  margin-left: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
   font-weight: 400;
   white-space: nowrap;
 }
@@ -1183,6 +1660,13 @@
   font-weight: 400;
   white-space: nowrap;
 }
+// Wide tables name the balance in their own column header; phones have no header row.
+@media (min-width: 901px) {
+  .pool:not([data-minimized='true']) .accountBalanceLabel {
+    display: none;
+  }
+}
+
 .page .expandAccounts {
   white-space: nowrap;
   flex-shrink: 0;
@@ -1199,6 +1683,10 @@
 .account[open] .accountDisclosure {
   transform: none;
 }
+// A closed row centres its text on the first line; the chevron follows it.
+.account:not([open]) .accountDisclosure {
+  align-self: center;
+}
 .accounts > h3 .accountHeadingLabel {
   color: var(--text-primary);
   font-weight: 600;
@@ -1207,15 +1695,19 @@
   grid-row: 1;
   align-self: start;
 }
+.limits li > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
 .limitWarning {
-  font-style: normal;
-  color: var(--warning-color);
+  display: inline-flex;
+  flex-shrink: 0;
+  color: $pool-error;
 }
 .limits small {
   font-size: 14px;
-}
-.accountGrid {
-  align-items: stretch;
 }
 .account[open] {
   display: grid;
@@ -1225,10 +1717,12 @@
   }
 }
 .accountDetails {
-  border-top: 1px solid var(--bg-hover);
-  margin-top: 8px;
+  margin-top: 0;
 }
 .pool[data-minimized='true'] .account:not([open]) .limits {
+  .limitBar {
+    display: none;
+  }
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin: 2px 0;
@@ -1247,9 +1741,6 @@
     justify-content: space-between;
     align-items: baseline;
     gap: 8px;
-    > span:first-child {
-      min-block-size: 0;
-    }
   }
   strong {
     flex-shrink: 0;
@@ -1264,8 +1755,8 @@
   }
   .accountCoverage {
     display: block;
-    margin: 2px 0 0;
-    font-size: 13px;
+    width: fit-content;
+    margin: 4px 0 0;
   }
   .accountBalanceLabel {
     font-size: 13px;
@@ -1284,5 +1775,286 @@
 @media (max-width: 640px) {
   .accounts > h3 {
     padding: 4px 0;
+  }
+}
+
+// A move that can't happen (first card up, last card down) stays in its slot, dimmed, so every card's controls line up.
+.reorder button:disabled {
+  border-color: transparent;
+  color: var(--text-secondary);
+  opacity: 0.4;
+}
+
+// Wide screens: one heading row, then one line per account with a column per limit.
+@media (min-width: 901px) {
+  .pool:not([data-minimized='true']) {
+    // Sized from the viewport, not the table, so every provider's limit columns start at the
+    // same x whatever its number of limits.
+    --name-track: clamp(140px, 16vw, 260px);
+    --plan-track: clamp(110px, 10vw, 140px);
+    .accountHead,
+    .account > summary {
+      display: grid;
+      grid-template-columns:
+        20px var(--name-track) var(--plan-track)
+        repeat(var(--limit-cols), minmax(104px, 1fr)) 128px;
+      column-gap: 16px;
+      align-items: center;
+    }
+    .accountHead {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      // Header labels share a top line even when one carries a second caption line.
+      align-items: start;
+      padding: 8px 10px;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      background: transparent;
+      span {
+        grid-row: 1;
+      }
+      span:last-child {
+        text-align: right;
+        white-space: nowrap;
+      }
+    }
+    .account[open] > summary {
+      align-items: start;
+    }
+    .account > summary {
+      // Name and plan sit in their own columns, so every row keeps one line.
+      > .accountName {
+        display: contents;
+      }
+      .accountLabel {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .accountPlan {
+        grid-column: 3;
+        grid-row: 1;
+      }
+      > .accountStatus {
+        grid-column: 2 / 4;
+        grid-row: 2;
+      }
+      // Values sit on the name's line; a status line below the name never shifts them.
+      > strong {
+        grid-column: -2;
+        grid-row: 1;
+        font-weight: 600;
+      }
+    }
+    .account:not([open]) > summary > strong {
+      align-self: center;
+    }
+    .account > summary {
+      > .limits {
+        display: contents;
+        li {
+          grid-column: calc(var(--col) + 3);
+          grid-row: 1;
+          display: grid;
+          grid-template-columns: 3.6em minmax(24px, 1fr);
+          align-items: center;
+          gap: 0 10px;
+          strong {
+            grid-column: 1;
+            grid-row: 1;
+            justify-content: flex-end;
+          }
+          .limitBar {
+            grid-column: 2;
+            grid-row: 1;
+          }
+          small {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            font-size: 12px;
+            white-space: nowrap;
+          }
+          &[data-missing='true'] em {
+            grid-column: 1 / -1;
+            grid-row: 1;
+            color: var(--text-tertiary);
+            font-size: 13px;
+            font-style: normal;
+          }
+          > span:first-child {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+          }
+        }
+      }
+    }
+    .account[data-status='no-limit'] .accountStatus {
+      display: none;
+    }
+    // Details describe the whole account, so they form one strip under its name rather
+    // than sitting under limit columns they don't belong to.
+    .accountDetails {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 48px;
+      padding: 4px 10px 16px 46px;
+    }
+    // The limit that feeds the pool is marked in its header; its value isn't repeated.
+    .accountHead span[data-counted='true'] {
+      color: var(--text-secondary);
+      font-weight: 600;
+      small {
+        display: block;
+        color: var(--text-tertiary);
+        font-size: 12px;
+        font-weight: 400;
+      }
+    }
+    [data-balance-column='false'] {
+      .accountHead,
+      .account > summary {
+        grid-template-columns:
+          20px var(--name-track) var(--plan-track)
+          repeat(var(--limit-cols), minmax(104px, 1fr));
+      }
+      .accountHead span:last-child {
+        text-align: left;
+      }
+      .account > summary > strong {
+        display: none;
+      }
+    }
+  }
+}
+.page .showAll {
+  margin: 10px 0 4px 10px;
+  padding: 4px 12px;
+  background: transparent;
+  border-color: var(--hairline);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+// Long rosters: find one account, or put the lowest first.
+.rosterTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 4px 0 4px;
+}
+.rosterSearch::placeholder {
+  color: var(--text-tertiary);
+}
+.rosterSearch,
+.rosterTools select {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.rosterSearch {
+  min-width: min(100%, 14rem);
+}
+@media (min-width: 901px) and (pointer: fine) {
+  .rosterSearch {
+    min-height: 36px;
+    padding-block: 6px;
+  }
+}
+.rosterCount {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.page .rosterLow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  // Off: a neutral filter with the warning icon. On: filled, with a check.
+  svg {
+    color: $pool-error;
+  }
+  &:hover {
+    color: var(--text-primary);
+  }
+  // On: the page's pressed style and a check; red stays for the low values themselves.
+  &[aria-pressed='true'] {
+    background: var(--bg-pressed);
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+  }
+  &[aria-pressed='true'] svg {
+    color: var(--text-primary);
+  }
+  @media (max-width: 640px) {
+    margin-left: 0;
+  }
+}
+// On a phone a long roster shows one line per account, plus any low limit in the same bar row
+// the short rosters use; the other limits open with the row.
+@media (max-width: 640px) {
+  .pool:not([data-minimized='true']) .accountGrid[data-large='true'] .account:not([open]) .limits {
+    &:not(:has([data-low='true'])) {
+      display: none;
+    }
+    li:not([data-low='true']) {
+      display: none;
+    }
+  }
+}
+
+.account[data-status='no-limit'] .accountStatus {
+  color: var(--text-tertiary);
+}
+.headline[data-no-limit='true'] strong {
+  color: var(--text-secondary);
+}
+
+// With a mouse the controls can be slimmer; touch and narrow layouts keep 44px targets.
+@media (min-width: 901px) and (pointer: fine) {
+  .page {
+    button,
+    select {
+      min-height: 36px;
+      min-width: 36px;
+      padding-block: 6px;
+    }
+    .segment button {
+      min-height: 32px;
+    }
+    .reorder button {
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0;
+    }
+  }
+  .privacy,
+  .accountLink,
+  .countdown,
+  .rosterSearch {
+    min-height: 36px;
+  }
+  .page .errorNotice button {
+    min-height: 40px;
+  }
+  .account > summary {
+    min-height: 40px;
   }
 }

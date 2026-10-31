@@ -322,3 +322,124 @@ describe('dashboard evidence and privacy', () => {
     expect(doubled.firstEmptyAtMs! - now).toBe((normal.firstEmptyAtMs! - now) / 2);
   });
 });
+
+describe('accounts without a five-hour limit', () => {
+  const fiveHour = (accountId: string, remaining: number | null, at = now) =>
+    sample(at, remaining ?? 0, {
+      accountId,
+      window: 'five-hour',
+      remainingPercent: remaining,
+      resetAtMs: remaining === null ? null : now + HOUR_MS,
+      periodHours: remaining === null ? null : 5,
+    });
+  const ultra = account('u', { plan: 'default_claude_max_20x' });
+  const pro = account('p', { plan: 'claude_pro' });
+  const steady = [fiveHour('p', 60, now - 600_000), fiveHour('p', 50)];
+
+  test('an Ultra account answering without a five-hour window is left out of that pool, not unknown', () => {
+    const view = dashboard([ultra, pro], [fiveHour('u', null), ...steady], { window: 'five-hour' });
+    const pool = view.pools[0];
+    expect(pool.accounts.find((a) => a.id === 'u')?.status).toBe('no-limit');
+    expect(pool.accountCount).toBe(2);
+    expect(pool.eligibleCount).toBe(1);
+    expect(pool.capacityPoints).toBe(100);
+    expect(pool.forecastState).not.toBe('partial');
+    expect(pool.remainingPoints).toBe(50);
+    expect(view.combined?.claude.series?.remainingPoints).not.toBeNull();
+  });
+  test('the weekly pool still counts that account', () => {
+    const weekly = (id: string) => sample(now, 80, { accountId: id });
+    const pool = dashboard([ultra, pro], [weekly('u'), weekly('p')]).pools[0];
+    expect(pool.accounts.find((a) => a.id === 'u')?.status).toBe('ok');
+    expect(pool.eligibleCount).toBe(2);
+  });
+  test('only Ultra is exempt; a missing five-hour window on any other plan stays unknown', () => {
+    const pool = dashboard([pro], [fiveHour('p', null)], { window: 'five-hour' }).pools[0];
+    expect(pool.accounts[0].status).toBe('missing-window');
+    expect(pool.forecastState).toBe('partial');
+  });
+  test('a pool of only such accounts says so instead of claiming no accounts', () => {
+    const pool = dashboard([ultra], [fiveHour('u', null)], { window: 'five-hour' }).pools[0];
+    expect(pool.forecastState).toBe('no-limit');
+    expect(pool.eligibleCount).toBe(0);
+  });
+  test('a stale answer does not count as proof the limit is gone', () => {
+    const old = now - STALE_MS - 1;
+    const pool = dashboard(
+      [account('u', { plan: 'default_claude_max_20x', lastSeenAtMs: old })],
+      [fiveHour('u', null, old)],
+      {
+        window: 'five-hour',
+      }
+    ).pools[0];
+    expect(pool.accounts[0].status).toBe('stale');
+  });
+});
+
+describe('accounts known to have no five-hour limit', () => {
+  const fiveHourWindow = {
+    id: 'five-hour',
+    labelKey: 'claude_quota.five_hour',
+    remainingPercent: 50,
+    resetAtMs: null,
+  };
+  const weeklyWindow = {
+    id: 'seven-day',
+    labelKey: 'claude_quota.seven_day',
+    remainingPercent: 80,
+    resetAtMs: null,
+  };
+  const withWindows = (
+    accounts: StoredAccount[],
+    windows: Record<string, (typeof weeklyWindow)[]>
+  ) =>
+    buildDashboard(accounts, [sample(now, 80)], options, {
+      ...collection,
+      windows: new Map(Object.entries(windows)),
+    }).pools[0].accounts;
+  const ultra = account('u', { plan: 'default_claude_max_20x' });
+  const pro = account('p', { plan: 'claude_pro' });
+  test('is flagged for Ultra when its latest reading has other windows but no five-hour one', () => {
+    const [u] = withWindows([ultra], { u: [weeklyWindow] });
+    expect(u.noFiveHourLimit).toBe(true);
+  });
+  test('is not flagged while the five-hour window is still reported, or before any reading', () => {
+    expect(
+      withWindows([ultra], { u: [weeklyWindow, fiveHourWindow] })[0].noFiveHourLimit
+    ).toBeFalsy();
+    expect(withWindows([ultra], {})[0].noFiveHourLimit).toBeFalsy();
+  });
+  test('is never inferred for other plans', () => {
+    expect(withWindows([pro], { p: [weeklyWindow] })[0].noFiveHourLimit).toBeFalsy();
+  });
+});
+
+describe('account identifiers', () => {
+  test('a masked identifier is always sent; the full email only when revealed', () => {
+    const hidden = dashboard(
+      [account('a', { email: 'ada.lovelace@example.test' })],
+      [sample(now, 80)]
+    );
+    const view = hidden.pools[0].accounts[0];
+    expect(view.identifier).toBe('ada•••ce@ex•••.test');
+    expect(view.email).toBeUndefined();
+    expect(JSON.stringify(hidden)).not.toContain('ada.lovelace');
+    const shown = dashboard(
+      [account('a', { email: 'ada.lovelace@example.test' })],
+      [sample(now, 80)],
+      {
+        reveal: true,
+      }
+    );
+    expect(shown.pools[0].accounts[0].email).toBe('ada.lovelace@example.test');
+  });
+  test('names that are not emails are masked too', () => {
+    const view = dashboard(
+      [account('a', { email: null, name: 'secret-credential-file.json' })],
+      [sample(now, 80)]
+    );
+    const identifier = view.pools[0].accounts[0].identifier;
+    expect(identifier).toBe('sec•••on');
+    expect(JSON.stringify(view)).not.toContain('credential-file');
+  });
+});

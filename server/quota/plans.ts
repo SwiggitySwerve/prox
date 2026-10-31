@@ -13,8 +13,12 @@ const PLANS: Record<PoolProviderId, Record<string, { multiplier: number; label: 
   claude: {
     claude_pro: { multiplier: 1, label: 'Pro' },
     default_claude_pro: { multiplier: 1, label: 'Pro' },
-    default_claude_max_5x: { multiplier: 5, label: 'Max 5x' },
-    default_claude_max_20x: { multiplier: 20, label: 'Max 20x' },
+    // Anthropic renamed Max 5x to Max and Max 20x to Ultra on 2026-10-30. Profiles may report
+    // either generation of tier name, so both are listed.
+    default_claude_max_5x: { multiplier: 5, label: 'Max' },
+    default_claude_max: { multiplier: 5, label: 'Max' },
+    default_claude_max_20x: { multiplier: 20, label: 'Ultra' },
+    default_claude_ultra: { multiplier: 20, label: 'Ultra' },
   },
   codex: {
     plus: { multiplier: 1, label: 'Plus' },
