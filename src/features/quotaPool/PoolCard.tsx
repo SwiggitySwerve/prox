@@ -556,21 +556,27 @@ export function PoolCard({
                           : t(`quota_pool.account_status.${account.status}`)}
                   </span>
                   <strong data-low={isLowQuota(account.remainingPercent) || undefined}>
-                    {isLowQuota(account.remainingPercent) && (
-                      <>
-                        <IconAlertTriangle size={14} aria-hidden="true" />
-                        <span className={styles.srOnly}>{t('quota_pool.limit_low')}</span>
-                      </>
-                    )}
-                    {/* An account without this limit says so in the value slot, once. */}
-                    {account.status === 'no-limit' ? (
-                      <span className={styles.noLimitValue}>
-                        {t('quota_pool.no_window_limit', { window: windowLabel })}
-                      </span>
-                    ) : account.remainingPercent === null ? (
-                      '—'
-                    ) : (
-                      percent(account.remainingPercent)
+                    <span className={styles.valueAmount}>
+                      {isLowQuota(account.remainingPercent) && (
+                        <>
+                          <IconAlertTriangle size={14} aria-hidden="true" />
+                          <span className={styles.srOnly}>{t('quota_pool.limit_low')}</span>
+                        </>
+                      )}
+                      {/* An account without this limit says so in the value slot, once. */}
+                      {account.status === 'no-limit' ? (
+                        <span className={styles.noLimitValue}>
+                          {t('quota_pool.no_window_limit', { window: windowLabel })}
+                        </span>
+                      ) : account.remainingPercent === null ? (
+                        '—'
+                      ) : (
+                        percent(account.remainingPercent)
+                      )}
+                    </span>
+                    {/* Phones have no column heading over this value, so it names its limit. */}
+                    {account.status !== 'no-limit' && (
+                      <span className={styles.valueCaption}>{windowLabel}</span>
                     )}
                   </strong>
                   {account.windows.length > 0 && (

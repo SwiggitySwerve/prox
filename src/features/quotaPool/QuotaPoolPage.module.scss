@@ -818,10 +818,6 @@ $pool-error: #ff5252;
   grid-row: 2;
 }
 .account > summary > strong[data-low='true'] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
   color: $pool-error;
 }
 .account[data-status='ok'] .accountStatus {
@@ -878,6 +874,35 @@ $pool-error: #ff5252;
 // it; an open row lists every limit the same way, with its bar, value and reset.
 @media (max-width: 900px) {
   .account:not([open]) .limits li[data-counted='true'] {
+    display: none;
+  }
+  // The row's value is the limit the page is set to, so it leads: a step larger, named on the
+  // line under it, and set apart from the per-limit bars, whose values drop to regular weight.
+  .account > summary > strong {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .account > summary > .limits {
+    margin-top: 10px;
+    strong {
+      font-weight: 400;
+    }
+  }
+}
+.valueAmount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.valueCaption {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  @media (min-width: 901px) {
     display: none;
   }
 }
