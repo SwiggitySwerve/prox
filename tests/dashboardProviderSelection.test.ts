@@ -9,6 +9,8 @@ import {
   providerColor,
   type DashboardSource,
 } from '../src/features/dashboard/providerSelection';
+import { analyticsWindow, trafficFromAnalytics } from '../src/features/dashboard/analyticsTraffic';
+import type { AnalyticsResponse } from '../src/domain/analytics/types';
 import type { TrafficWindow } from '../src/features/dashboard/types';
 
 const session = {} as SourceSession;
@@ -230,6 +232,49 @@ describe('buildDashboardView', () => {
     expect(result.traffic.buckets).toEqual([]);
     expect(result.traffic.total).toBe(38 + 32);
     expect(result.trafficSource).toBe('mixed');
+  });
+
+  test('hourly windows refreshed either side of an hour boundary keep each hour in one column', () => {
+    const HOUR = 3_600_000;
+    const tenOClock = Date.UTC(2026, 10, 3, 10);
+    const hourly = (nowMs: number, calls: number) =>
+      trafficFromAnalytics(
+        analyticsWindow(nowMs),
+        new Map([
+          [
+            'p',
+            {
+              coverage: { raw_complete: true },
+              summary: { calls, success_calls: calls, failure_calls: 0 },
+              timeline: [{ bucket_ms: tenOClock, success_calls: calls, failure_calls: 0, calls }],
+            } as unknown as AnalyticsResponse,
+          ],
+        ])
+      ).traffic;
+    // One source refreshed at 10:59:59, the other at 11:00:01: both counted calls at 10:00.
+    const before = source('codex-primary', 'codex', hourly(tenOClock + HOUR - 1_000, 20), {
+      trafficSource: 'analytics',
+    });
+    const after = source('claude-primary', 'claude', hourly(tenOClock + HOUR + 1_000, 10), {
+      trafficSource: 'analytics',
+    });
+    const result = buildDashboardView([before, after]);
+    // The 10:00 hour is one column holding both sources' calls, not 20 and 10 side by side.
+    const busy = result.traffic.buckets.filter((b) => b.success + b.failed > 0);
+    expect(busy).toEqual([
+      expect.objectContaining({
+        time: before.traffic.buckets.at(-1)?.time,
+        success: 30,
+        failed: 0,
+      }),
+    ]);
+    expect(result.traffic.peakTotal).toBe(30);
+    // The union spans 10:00 yesterday to 11:00 today, in order.
+    expect(result.traffic.buckets).toHaveLength(26);
+    expect(result.traffic.buckets.map((b) => b.startMs)).toEqual(
+      Array.from({ length: 26 }, (_, index) => tenOClock - 24 * HOUR + index * HOUR)
+    );
+    expect(result.series?.map((entry) => entry.buckets.length)).toEqual([26, 26]);
   });
 
   test('nothing reported yet is an empty dashboard, not a crash', () => {

@@ -3,9 +3,14 @@ import type { RecentRequestBucket } from '@/utils/recentRequests';
 /** 每个统计桶覆盖的分钟数（后端固定为 10 分钟 × 20 桶） */
 export const TRAFFIC_BUCKET_MINUTES = 10;
 
+/** A chart bucket; analytics hours also carry their start time, recent counters do not */
+export interface TrafficBucket extends RecentRequestBucket {
+  startMs?: number;
+}
+
 /** 聚合后的整体流量窗口 */
 export interface TrafficWindow {
-  buckets: RecentRequestBucket[];
+  buckets: TrafficBucket[];
   totalSuccess: number;
   totalFailure: number;
   total: number;

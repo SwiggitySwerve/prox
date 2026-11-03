@@ -1,7 +1,13 @@
 import type { SourceView } from '@/services/providerSources/registry';
 import type { Config } from '@/types';
 import type { RecentRequestBucket } from '@/utils/recentRequests';
-import type { CredentialHealth, DashboardCounts, ProviderTraffic, TrafficWindow } from './types';
+import type {
+  CredentialHealth,
+  DashboardCounts,
+  ProviderTraffic,
+  TrafficBucket,
+  TrafficWindow,
+} from './types';
 import { providerLabel } from './utils';
 
 /** The provider hues the app already uses (Quota, Analytics); others stay neutral. */
@@ -81,7 +87,7 @@ export interface TrafficSeries {
   name: string;
   brand: string | null;
   /** Aligned to the combined buckets: same length, latest bucket last */
-  buckets: RecentRequestBucket[];
+  buckets: TrafficBucket[];
   total: number;
 }
 
@@ -125,11 +131,23 @@ const sumKnown = (values: Array<number | null>): number | null =>
     ? values.reduce<number>((sum, value) => sum + (value ?? 0), 0)
     : null;
 
-/** Latest bucket last in every source, so the windows line up from the right. */
+/**
+ * Recent counters carry no timestamps; their latest bucket is last in every source, so the
+ * windows line up from the right (as mergeRecentRequestBucketGroups does).
+ */
 const alignRight = (buckets: RecentRequestBucket[], length: number): RecentRequestBucket[] => [
   ...Array.from({ length: length - buckets.length }, () => ({ success: 0, failed: 0 })),
   ...buckets.slice(-length),
 ];
+
+/**
+ * Analytics hours know when they start. Two sources whose windows were taken either side of an
+ * hour boundary hold the same hour at different positions, so they line up by start time.
+ */
+const alignByStart = (buckets: TrafficBucket[], starts: number[]): TrafficBucket[] => {
+  const byStart = new Map(buckets.map((bucket) => [bucket.startMs, bucket]));
+  return starts.map((startMs) => byStart.get(startMs) ?? { startMs, success: 0, failed: 0 });
+};
 
 function combineTraffic(sources: DashboardSource[]) {
   const totalSuccess = sources.reduce((sum, source) => sum + source.traffic.totalSuccess, 0);
@@ -137,20 +155,42 @@ function combineTraffic(sources: DashboardSource[]) {
   const total = totalSuccess + totalFailure;
   const withBuckets = sources.filter((source) => source.traffic.buckets.length > 0);
   const mixedWindows = new Set(withBuckets.map((source) => source.traffic.bucketMinutes)).size > 1;
+  const timed =
+    !mixedWindows &&
+    withBuckets.length > 0 &&
+    withBuckets.every((source) =>
+      source.traffic.buckets.every((bucket) => bucket.startMs !== undefined)
+    );
+  const starts = timed
+    ? [
+        ...new Set(
+          withBuckets.flatMap((source) => source.traffic.buckets.map((bucket) => bucket.startMs!))
+        ),
+      ].sort((a, b) => a - b)
+    : [];
   const length = mixedWindows
     ? 0
-    : Math.max(0, ...withBuckets.map((source) => source.traffic.buckets.length));
-  // Time labels come from the longest window, which covers every other one.
-  const labels = withBuckets.find((source) => source.traffic.buckets.length === length);
+    : timed
+      ? starts.length
+      : Math.max(0, ...withBuckets.map((source) => source.traffic.buckets.length));
+  // Untimed labels come from the longest window, which covers every other one.
+  const labels = timed
+    ? withBuckets[0]
+    : withBuckets.find((source) => source.traffic.buckets.length === length);
   const series: TrafficSeries[] = sources.map((source) => ({
     id: source.id,
     name: source.name,
     brand: source.brand,
-    buckets: alignRight(source.traffic.buckets, length),
+    buckets: timed
+      ? alignByStart(source.traffic.buckets, starts)
+      : alignRight(source.traffic.buckets, length),
     total: source.traffic.total,
   }));
-  const buckets = Array.from({ length }, (_, index) => ({
-    time: labels?.traffic.buckets[index]?.time,
+  const buckets: TrafficBucket[] = Array.from({ length }, (_, index) => ({
+    time: timed
+      ? series.find((entry) => entry.buckets[index].time)?.buckets[index].time
+      : labels?.traffic.buckets[index]?.time,
+    ...(timed ? { startMs: starts[index] } : {}),
     success: series.reduce((sum, entry) => sum + entry.buckets[index].success, 0),
     failed: series.reduce((sum, entry) => sum + entry.buckets[index].failed, 0),
   }));

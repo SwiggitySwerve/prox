@@ -1,7 +1,7 @@
 import type { AnalyticsQuery, AnalyticsResponse } from '@/domain/analytics/types';
 import { rangeQuery } from '@/features/analytics/queryState';
 import type { RecentRequestBucket } from '@/utils/recentRequests';
-import type { TrafficWindow } from './types';
+import type { TrafficBucket, TrafficWindow } from './types';
 
 const HOUR_MS = 3_600_000;
 
@@ -46,12 +46,11 @@ const hourLabel = (startMs: number) => {
 /** Hour buckets start on the hour, so the first one holds only part of the window. */
 const firstHour = (window: { from_ms: number }) => Math.floor(window.from_ms / HOUR_MS) * HOUR_MS;
 
-const emptyHours = (window: { from_ms: number; to_ms: number }): RecentRequestBucket[] =>
-  Array.from({ length: Math.ceil((window.to_ms - firstHour(window)) / HOUR_MS) }, (_, index) => ({
-    time: hourLabel(firstHour(window) + index * HOUR_MS),
-    success: 0,
-    failed: 0,
-  }));
+const emptyHours = (window: { from_ms: number; to_ms: number }): TrafficBucket[] =>
+  Array.from({ length: Math.ceil((window.to_ms - firstHour(window)) / HOUR_MS) }, (_, index) => {
+    const startMs = firstHour(window) + index * HOUR_MS;
+    return { time: hourLabel(startMs), startMs, success: 0, failed: 0 };
+  });
 
 /** Totals are analytics' own summaries; only the per-hour chart adds providers together. */
 export function trafficFromAnalytics(
