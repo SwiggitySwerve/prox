@@ -175,8 +175,9 @@ describe('prox auth janitor deployment files', () => {
     const service = read('deploy/prox-auth-janitor.service');
     expect(service).toContain('Type=oneshot');
     expect(service).toContain(`ExecStart=%h/${installPath}`);
-    expect(service).toMatch(/^StartLimitIntervalSec=\d+$/m);
-    expect(service).toMatch(/^StartLimitBurst=\d+$/m);
+    // A start limit would let a bulk delete fail the path unit, which then stops watching.
+    expect(service).toMatch(/^StartLimitIntervalSec=0$/m);
+    expect(service).not.toContain('StartLimitBurst');
     expect(deploy).toContain(`deploy/prox-auth-janitor.sh "$HOME/${installPath}"`);
     expect(deploy).toContain(`install -D -m 755 deploy/prox-auth-janitor.sh`);
   });

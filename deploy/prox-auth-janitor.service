@@ -1,8 +1,8 @@
 [Unit]
 Description=Remove orphaned CLI-Proxy auth lock files
-# A burst of directory changes must not hammer the janitor. Each run is cheap and idempotent.
-StartLimitIntervalSec=60
-StartLimitBurst=10
+# No start limit: a bulk delete changes the directory many times, and a tripped limit would put
+# the path unit into a failed state and stop it watching. Each run is cheap and idempotent.
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
