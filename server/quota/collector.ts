@@ -6,6 +6,7 @@ import { LEGACY_SOURCE_MAPPING, legacyAccountId } from './identity';
 import type { TFunction } from 'i18next';
 import type {
   AccountQuotaWindow,
+  AccountResets,
   PoolDashboard,
   PoolProviderId,
   PoolWindow,
@@ -14,7 +15,6 @@ import { buildClaudeQuotaWindows } from '../../src/domain/quotaWindows/claude';
 import { buildCodexQuotaWindows } from '../../src/domain/quotaWindows/codex';
 import {
   CLAUDE_PROFILE_URL,
-  CLAUDE_USAGE_URL,
   CLAUDE_USAGE_WINDOW_KEYS,
   CLAUDE_REQUEST_HEADERS,
   CODEX_USAGE_URL,
@@ -24,6 +24,11 @@ import { parseClaudeUsagePayload, parseCodexUsagePayload } from '../../src/utils
 import { isRecord } from '../../src/utils/helpers';
 import { planFromClaudeProfile, planFromCodexUsage } from './plans';
 import { QuotaStore } from './store';
+import { readAccountResets } from './resets';
+import {
+  ANTHROPIC_API_ORIGIN,
+  ANTHROPIC_RESET_GRANT_STATUS_PATH,
+} from '../../src/services/api/claudeResetGrants';
 import {
   MANUAL_REFRESH_INTERVAL_MS,
   REFRESH_INTERVAL_MS,
@@ -253,6 +258,7 @@ export class QuotaCollector {
   private currentIssues: PoolDashboard['issues'] = [];
   private readonly profileAttempts = new Map<string, number>();
   private readonly latestWindows = new Map<string, AccountQuotaWindow[]>();
+  private readonly latestResets = new Map<string, AccountResets>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private controller: AbortController | null = null;
@@ -313,6 +319,10 @@ export class QuotaCollector {
   /** In memory only: refilled by the next collection after a restart. */
   get windows(): ReadonlyMap<string, readonly AccountQuotaWindow[]> {
     return this.latestWindows;
+  }
+  /** In memory only: refilled by the next successful reset reading. */
+  get resets(): ReadonlyMap<string, AccountResets> {
+    return this.latestResets;
   }
   get sources(): QuotaSourceView[] | undefined {
     if (this.revision === undefined) return undefined;
@@ -549,7 +559,9 @@ export class QuotaCollector {
           const response = await this.request(source, 'requests/api-call', key, signal, {
             authIndex,
             method: 'GET',
-            url: claude ? CLAUDE_USAGE_URL : CODEX_USAGE_URL,
+            url: claude
+              ? ANTHROPIC_API_ORIGIN + ANTHROPIC_RESET_GRANT_STATUS_PATH
+              : CODEX_USAGE_URL,
             header: claude ? CLAUDE_REQUEST_HEADERS : CODEX_REQUEST_HEADERS,
           });
           upstream = response;
@@ -581,6 +593,8 @@ export class QuotaCollector {
           try {
             this.store.recordSamples(samples);
             this.latestWindows.set(account.id, windows);
+            const resets = readAccountResets(account.provider, usageBody, this.now());
+            if (resets) this.latestResets.set(account.id, resets);
           } catch {
             this.addIssue(source, account.provider, 'quota-unavailable');
             throw new Error('Quota sample persistence failed');

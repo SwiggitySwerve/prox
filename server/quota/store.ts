@@ -77,13 +77,14 @@ export class QuotaStore {
       .query<
         AccountRow & {
           instanceId: string | null;
+          sourceAccountId: string | null;
           plan: string | null;
           planObservedAtMs: number | null;
         },
         []
       >(
         `
-        SELECT a.*, s.instanceId, p.plan, p.observedAtMs AS planObservedAtMs
+        SELECT a.*, s.instanceId, s.sourceAccountId, p.plan, p.observedAtMs AS planObservedAtMs
         FROM quota_accounts a
         LEFT JOIN quota_account_sources s ON s.accountId = a.id
         LEFT JOIN quota_account_plans p ON p.accountId = a.id
@@ -91,9 +92,10 @@ export class QuotaStore {
       `
       )
       .all()
-      .map(({ instanceId, plan, planObservedAtMs, ...row }) => ({
+      .map(({ instanceId, sourceAccountId, plan, planObservedAtMs, ...row }) => ({
         ...row,
         ...(instanceId === null ? {} : { instanceId }),
+        ...(sourceAccountId === null ? {} : { sourceAccountId }),
         ...(plan === null || planObservedAtMs === null ? {} : { plan, planObservedAtMs }),
         disabled: row.disabled === 1,
         retired: row.retired === 1,

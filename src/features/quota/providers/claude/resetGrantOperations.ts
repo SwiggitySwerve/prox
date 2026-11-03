@@ -1,10 +1,9 @@
-import { apiClient } from '@/services/api/client';
 import {
   AnthropicResetGrantError,
   anthropicResetGrantBlocker,
-  claimClaudeResetGrant,
-  readClaudeOrganization,
-  readClaudeResetGrants,
+  type claimClaudeResetGrant,
+  type readClaudeOrganization,
+  type readClaudeResetGrants,
   type AnthropicResetSettledCode,
 } from '@/services/api/claudeResetGrants';
 
@@ -46,14 +45,15 @@ type Operation = {
   createdAt: number;
   code?: AnthropicResetSettledCode;
 };
-const defaultDependencies = {
-  revision: () => apiClient.getConnectionRevision(),
-  readStatus: readClaudeResetGrants,
-  readOrganization: readClaudeOrganization,
-  claim: claimClaudeResetGrant,
-  now: () => Date.now(),
-  requestId: () => crypto.randomUUID() as string,
-};
+/** Every caller binds these to one source session (resetGrantScope.ts). */
+export interface ResetGrantDependencies {
+  revision: () => number;
+  readStatus: typeof readClaudeResetGrants;
+  readOrganization: typeof readClaudeOrganization;
+  claim: typeof claimClaudeResetGrant;
+  now: () => number;
+  requestId: () => string;
+}
 
 /** Tab-memory journal: survives dialog/card unmounts, never crosses connections.
  * No automatic retry. Expired ambiguous operations stay blocked until session end.
@@ -66,7 +66,7 @@ export const createResetGrantJournal = (): ResetGrantJournal => ({
 });
 
 export function createResetGrantOperations(
-  deps = defaultDependencies,
+  deps: ResetGrantDependencies,
   { operations, busy } = createResetGrantJournal()
 ) {
   let revision = deps.revision();
@@ -148,5 +148,3 @@ export function createResetGrantOperations(
     },
   };
 }
-
-export const resetGrantOperations = createResetGrantOperations();

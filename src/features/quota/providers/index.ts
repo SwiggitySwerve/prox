@@ -41,7 +41,8 @@ export interface QuotaCardState {
 
 export interface QuotaAdapter {
   type: QuotaProviderType;
-  resetGrants?: ResetGrantScope;
+  /** The source session's reset-grant reads and claim journal; the only reset path. */
+  resetGrants: ResetGrantScope;
   i18nPrefix: string;
   filterFn: (file: AuthFileItem) => boolean;
   fetchQuota: (file: AuthFileItem, t: TFunction) => Promise<unknown>;
@@ -76,17 +77,17 @@ export function createQuotaAdapters(
   store?: BoundQuotaStore
 ): Record<QuotaProviderType, QuotaAdapter> {
   const configs = createQuotaConfigs(session, store);
-  const adapters = Object.fromEntries(
+  const resetGrants = createSourceResetGrants(session);
+  return Object.fromEntries(
     Object.entries(configs).map(([type, config]) => [
       type,
       {
         ...config,
         Body: QUOTA_ADAPTERS[type as QuotaProviderType].Body,
+        resetGrants,
       },
     ])
   ) as Record<QuotaProviderType, QuotaAdapter>;
-  adapters.claude.resetGrants = createSourceResetGrants(session);
-  return adapters;
 }
 
 export type QuotaMapUpdater = (

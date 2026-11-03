@@ -16,7 +16,7 @@ import {
 } from './resetGrantOperations';
 import { selectResetGrant } from './selectResetGrant';
 import { scheduleResetGrantRead } from './resetGrantReads';
-import { legacyResetGrantScope, type ResetGrantScope } from './resetGrantScope';
+import type { ResetGrantScope } from './resetGrantScope';
 
 /** Card-owned reads; the session-scoped journal owns spending and ambiguous retries. */
 export function useClaudeResetGrants(
@@ -25,7 +25,7 @@ export function useClaudeResetGrants(
   disabled: boolean,
   refreshToken: unknown,
   onRefresh: () => void,
-  scope: ResetGrantScope = legacyResetGrantScope
+  scope: ResetGrantScope
 ) {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);

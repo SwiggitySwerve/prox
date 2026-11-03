@@ -21,6 +21,8 @@ export interface PoolReset {
 }
 export interface PoolAccount {
   id: string;
+  /** Source-qualified credential identity (`${instanceId}:${provider}:${digest}`); null when unattributed. */
+  sourceAccountId: string | null;
   label: string;
   /** Masked address or name, always present, so accounts can be told apart. */
   identifier?: string;
@@ -39,6 +41,22 @@ export interface PoolAccount {
   plan: { label: string | null; capacityPoints: number; known: boolean };
   /** Latest reading of every limit the provider reports (5-hour, weekly, per-model weekly…). */
   windows: AccountQuotaWindow[];
+  /** Latest reset (Claude grant / Codex credit) reading; null when none has been read yet. */
+  resets: AccountResets | null;
+}
+/** Why resets this account holds can't be spent now. `ineligible:<reason>` keeps Claude's reason. */
+export type AccountResetBlocker =
+  'not_limited' | 'cooldown' | 'paused' | 'not_applicable' | `ineligible:${string}`;
+export interface AccountResets {
+  /** Resets the account holds. */
+  available: number;
+  /** Resets that could be spent right now (0..available). */
+  usable: number;
+  /** Set when usable is 0 and the provider says why; null when nothing blocks or nothing is held. */
+  blocker: AccountResetBlocker | null;
+  /** Earliest expiry among held resets, if the provider gives one. */
+  nextExpiryAtMs: number | null;
+  observedAtMs: number;
 }
 export interface AccountQuotaWindow {
   id: string;

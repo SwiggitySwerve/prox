@@ -2083,3 +2083,60 @@ $pool-error: #ff5252;
     min-height: 40px;
   }
 }
+
+.resetSummary,
+.resetAction {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.resetSummary {
+  margin: 0 0 8px;
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--text-primary);
+    text-decoration: underline;
+  }
+}
+.resetMarker {
+  white-space: nowrap;
+  color: var(--text-secondary);
+  // The wide plan column is sized for the plan alone, so the count takes its own line there.
+  @media (min-width: 901px) {
+    display: block;
+    .resetSeparator {
+      display: none;
+    }
+  }
+}
+.accountDetails > .accountResets {
+  align-items: start;
+  dd {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+}
+.resetAction {
+  button {
+    flex-shrink: 0;
+  }
+  [role='status'] {
+    max-width: 36ch;
+  }
+}
+@media (max-width: 640px) {
+  .accountDetails > .accountResets {
+    flex-direction: column;
+    gap: 6px;
+    dd {
+      text-align: left;
+    }
+  }
+}
