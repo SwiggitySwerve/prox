@@ -1,7 +1,8 @@
-import { formatClaudeMoney, claudeExtraUsageNotes } from './presentation';
 /**
  * Claude plan windows, extra usage, and separate read-only dollar balances.
  */
+
+import { formatClaudeMoney, claudeExtraUsageNotes } from './presentation';
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,7 @@ export function ClaudeQuotaBody({
   classes,
   planItems,
   afterPlan,
+  factsInPanel = false,
 }: QuotaBodyProps<ClaudeQuotaState>) {
   const { t, i18n } = useTranslation();
   const now = useNow();
@@ -41,7 +43,7 @@ export function ClaudeQuotaBody({
           })}
         </div>
       )}
-      {(planType || planItems) && (
+      {(planType || (!factsInPanel && planItems)) && (
         <div className={classes.codexPlan}>
           {planType && (
             <span className={classes.codexPlanItem}>
@@ -49,13 +51,13 @@ export function ClaudeQuotaBody({
               <span className={classes.codexPlanValue}>{t(`claude_quota.${planType}`)}</span>
             </span>
           )}
-          {planItems}
+          {!factsInPanel && planItems}
         </div>
       )}
-      {afterPlan}
+      {!factsInPanel && afterPlan}
       {/* Extra usage and dollar balances share the window-row anatomy:
           label + mono telemetry header, then one mono detail line. */}
-      {extraUsage && (
+      {!factsInPanel && extraUsage && (
         <div className={classes.quotaRow}>
           <div className={classes.quotaRowHeader}>
             <span className={classes.quotaModel}>{t('claude_quota.extra_usage_label')}</span>
@@ -107,46 +109,47 @@ export function ClaudeQuotaBody({
           )}
         </div>
       )}
-      {(quota.dollarWindows ?? []).map((balance) => {
-        const resetDisplay = buildResetDisplay(
-          formatQuotaResetTime(balance.resetsAt ?? undefined),
-          resolveResetMs([balance.resetsAt]),
-          now,
-          language
-        );
-        return (
-          <div key={balance.key} className={classes.quotaRow}>
-            <div className={classes.quotaRowHeader}>
-              <span className={classes.quotaModel} title={balance.key}>
-                {balance.key}
-              </span>
-              <div className={classes.quotaMeta}>
-                <span className={classes.quotaPercent}>
-                  {t('claude_quota.dollar_balance_remaining', {
-                    amount: formatClaudeMoney(language, balance.remainingDollars),
-                  })}
+      {!factsInPanel &&
+        (quota.dollarWindows ?? []).map((balance) => {
+          const resetDisplay = buildResetDisplay(
+            formatQuotaResetTime(balance.resetsAt ?? undefined),
+            resolveResetMs([balance.resetsAt]),
+            now,
+            language
+          );
+          return (
+            <div key={balance.key} className={classes.quotaRow}>
+              <div className={classes.quotaRowHeader}>
+                <span className={classes.quotaModel} title={balance.key}>
+                  {balance.key}
                 </span>
+                <div className={classes.quotaMeta}>
+                  <span className={classes.quotaPercent}>
+                    {t('claude_quota.dollar_balance_remaining', {
+                      amount: formatClaudeMoney(language, balance.remainingDollars),
+                    })}
+                  </span>
+                </div>
+              </div>
+              <div className={classes.quotaAmount}>
+                {t('claude_quota.usage_spent_limit', {
+                  spent: formatClaudeMoney(language, balance.usedDollars),
+                  limit: formatClaudeMoney(language, balance.limitDollars),
+                })}
+              </div>
+              <div className={classes.quotaMeta}>
+                <span className={classes.quotaReset}>{t('claude_quota.balance_reset')}</span>
+                {resetDisplay ? (
+                  <QuotaResetLabel display={resetDisplay} classes={classes} />
+                ) : (
+                  <span className={classes.quotaReset}>
+                    {t('claude_quota.balance_reset_unknown')}
+                  </span>
+                )}
               </div>
             </div>
-            <div className={classes.quotaAmount}>
-              {t('claude_quota.usage_spent_limit', {
-                spent: formatClaudeMoney(language, balance.usedDollars),
-                limit: formatClaudeMoney(language, balance.limitDollars),
-              })}
-            </div>
-            <div className={classes.quotaMeta}>
-              <span className={classes.quotaReset}>{t('claude_quota.balance_reset')}</span>
-              {resetDisplay ? (
-                <QuotaResetLabel display={resetDisplay} classes={classes} />
-              ) : (
-                <span className={classes.quotaReset}>
-                  {t('claude_quota.balance_reset_unknown')}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
       {windows.length === 0 && !extraUsage && !quota.dollarWindows?.length ? (
         <div className={classes.quotaMessage}>{t('claude_quota.empty_windows')}</div>
       ) : (

@@ -2551,7 +2551,9 @@
     "usage_not_reported_reason": "尚未采集到读数。",
     "reset_time_not_reported_reason": "提供商尚未报告重置时间。",
     "forecast_not_reported_reason": "需要最新读数和足够的用量历史。",
-    "reset_held_label": "持有数量"
+    "reset_held_label": "持有数量",
+    "billing_active_until_basis": "订阅接口 active_until；续订尚未确认。",
+    "billing_id_token_basis": "凭证 id_token 订阅到期时间；续订尚未确认。"
   },
   "provider_sources": {
     "discovery_error": "无法获取代理实例列表。请重新加载以重试。",
@@ -2790,5 +2792,16 @@
       "first_content_ms": "首次内容偏移 · 毫秒",
       "recorded_ms": "记录偏移 · 毫秒"
     }
+  },
+  "account_details": {
+    "title": "账户详情",
+    "balances": "余额",
+    "spending": "支出",
+    "status": "状态",
+    "expiry": "到期时间",
+    "not_reported_reason": "提供商未报告此项详情。",
+    "reset_disabled": "使用手动重置前，刷新必须完成且账户必须启用。",
+    "spent": "已支出",
+    "limit": "限额"
   }
 }

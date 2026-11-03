@@ -2546,7 +2546,9 @@
     "usage_not_reported_reason": "Данные ещё не собраны.",
     "reset_time_not_reported_reason": "Провайдер ещё не сообщил время сброса.",
     "forecast_not_reported_reason": "Нужны актуальные данные и достаточная история использования.",
-    "reset_held_label": "В наличии"
+    "reset_held_label": "В наличии",
+    "billing_active_until_basis": "Поле active_until из подписки; продление не подтверждено.",
+    "billing_id_token_basis": "Срок подписки из id_token учётных данных; продление не подтверждено."
   },
   "provider_sources": {
     "discovery_error": "Список источников недоступен. Перезагрузите страницу.",
@@ -2788,5 +2790,16 @@
       "first_content_ms": "Смещение первого контента · мс",
       "recorded_ms": "Смещение записи · мс"
     }
+  },
+  "account_details": {
+    "title": "Сведения об аккаунте",
+    "balances": "Балансы",
+    "spending": "Расходы",
+    "status": "Статус",
+    "expiry": "Срок действия",
+    "not_reported_reason": "Провайдер не сообщил эти сведения.",
+    "reset_disabled": "Перед сбросом дождитесь обновления и включите аккаунт.",
+    "spent": "Потрачено",
+    "limit": "Лимит"
   }
 }

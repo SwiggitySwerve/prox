@@ -1,6 +1,6 @@
-import { formatMetric } from './presentation';
 import { useTranslation } from 'react-i18next';
 import type { PluginQuotaState } from '@/types';
+import { formatMetric } from './presentation';
 import { QuotaMeter } from '../../components/QuotaMeter';
 import type { QuotaBodyProps } from '../../types';
 
@@ -10,14 +10,18 @@ const formatReset = (value: string | undefined): string => {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
 
-export function PluginQuotaBody({ quota, classes }: QuotaBodyProps<PluginQuotaState>) {
+export function PluginQuotaBody({
+  quota,
+  classes,
+  factsInPanel = false,
+}: QuotaBodyProps<PluginQuotaState>) {
   const { t } = useTranslation();
   const plan =
     quota.subscription?.tierName || quota.subscription?.plan || quota.subscription?.tierId;
 
   return (
     <>
-      {(plan || quota.summary.length > 0) && (
+      {(plan || (!factsInPanel && quota.summary.length > 0)) && (
         <div className={classes.codexPlan}>
           {plan && (
             <span className={classes.codexPlanItem}>
@@ -25,12 +29,13 @@ export function PluginQuotaBody({ quota, classes }: QuotaBodyProps<PluginQuotaSt
               <span className={classes.codexPlanValue}>{plan}</span>
             </span>
           )}
-          {quota.summary.map((metric) => (
-            <span key={metric.key} className={classes.codexPlanItem}>
-              <span className={classes.codexPlanLabel}>{metric.label}</span>
-              <span className={classes.codexPlanValue}>{formatMetric(metric)}</span>
-            </span>
-          ))}
+          {!factsInPanel &&
+            quota.summary.map((metric) => (
+              <span key={metric.key} className={classes.codexPlanItem}>
+                <span className={classes.codexPlanLabel}>{metric.label}</span>
+                <span className={classes.codexPlanValue}>{formatMetric(metric)}</span>
+              </span>
+            ))}
         </div>
       )}
       {!plan && quota.summary.length === 0 && quota.groups.length === 0 ? (

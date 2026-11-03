@@ -2553,7 +2553,9 @@
     "usage_not_reported_reason": "No reading has been collected.",
     "reset_time_not_reported_reason": "The provider has not reported a reset time.",
     "forecast_not_reported_reason": "Needs current readings and enough usage history.",
-    "reset_held_label": "Held"
+    "reset_held_label": "Held",
+    "billing_active_until_basis": "Subscriptions active_until; renewal is not confirmed.",
+    "billing_id_token_basis": "Credential id_token subscription expiry; renewal is not confirmed."
   },
   "provider_sources": {
     "discovery_error": "Source discovery is unavailable. Reload to retry.",
@@ -2792,5 +2794,16 @@
       "first_content_ms": "First content offset · ms",
       "recorded_ms": "Recorded offset · ms"
     }
+  },
+  "account_details": {
+    "title": "Account details",
+    "balances": "Balances",
+    "spending": "Spending",
+    "status": "Status",
+    "expiry": "Expiry",
+    "not_reported_reason": "The provider has not reported this detail.",
+    "reset_disabled": "Refresh must finish and the account must be enabled before using a reset.",
+    "spent": "Spent",
+    "limit": "Limit"
   }
 }

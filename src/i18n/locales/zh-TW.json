@@ -2579,7 +2579,9 @@
     "usage_not_reported_reason": "尚未收集到讀數。",
     "reset_time_not_reported_reason": "供應商尚未回報重設時間。",
     "forecast_not_reported_reason": "需要最新讀數及足夠的用量歷史。",
-    "reset_held_label": "持有數量"
+    "reset_held_label": "持有數量",
+    "billing_active_until_basis": "訂閱介面 active_until；續訂尚未確認。",
+    "billing_id_token_basis": "憑證 id_token 訂閱到期時間；續訂尚未確認。"
   },
   "provider_sources": {
     "discovery_error": "無法取得代理執行個體清單。請重新載入以重試。",
@@ -2818,5 +2820,16 @@
       "first_content_ms": "首次內容偏移 · 毫秒",
       "recorded_ms": "記錄偏移 · 毫秒"
     }
+  },
+  "account_details": {
+    "title": "帳戶詳情",
+    "balances": "餘額",
+    "spending": "支出",
+    "status": "狀態",
+    "expiry": "到期時間",
+    "not_reported_reason": "供應商未回報此項詳情。",
+    "reset_disabled": "使用手動重設前，重新整理必須完成且帳戶必須啟用。",
+    "spent": "已支出",
+    "limit": "限額"
   }
 }

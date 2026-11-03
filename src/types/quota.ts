@@ -1,3 +1,4 @@
+import type { AccountBilling, BillingExpiryFallback } from '@/domain/accountBilling';
 /**
  * Quota management types.
  */
@@ -211,6 +212,7 @@ export interface ClaudeQuotaWindow {
 }
 
 export interface ClaudeQuotaState {
+  billing?: AccountBilling | null;
   status: 'idle' | 'loading' | 'success' | 'error';
   windows: ClaudeQuotaWindow[];
   extraUsage?: ClaudeExtraUsage | null;
@@ -294,10 +296,12 @@ export interface CodexQuotaWindow {
 }
 
 export interface CodexQuotaState {
+  billing?: AccountBilling | null;
   status: 'idle' | 'loading' | 'success' | 'error';
   windows: CodexQuotaWindow[];
   planType?: string | null;
   subscriptionActiveUntil?: string | number | null;
+  subscriptionActiveUntilSource?: BillingExpiryFallback['source'];
   creditBalance?: string | null;
   creditsUnlimited?: boolean;
   rateLimitResetCreditsAvailableCount?: number | null;

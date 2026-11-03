@@ -1,5 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { billingFacts, type AccountBilling } from '@/domain/accountBilling';
+import {
+  billingFacts,
+  type BillingExpiryFallback,
+  type AccountBilling,
+} from '@/domain/accountBilling';
 import { Fact } from './FactPanel';
 
 /** Shared presentation of the domain billing copy model. */
@@ -7,13 +11,15 @@ export function BillingFacts({
   billing,
   nowMs,
   formatDate,
+  fallback,
 }: {
   billing: AccountBilling | null;
+  fallback?: BillingExpiryFallback;
   nowMs: number;
   formatDate: (value: number) => string;
 }) {
   const { t } = useTranslation();
-  return billingFacts(billing, nowMs).map((fact) => {
+  return billingFacts(billing, nowMs, fallback).map((fact) => {
     const label = t(`quota_pool.${fact.labelKey}`);
     if (fact.state === 'notReported' || fact.state === 'notApplicable')
       return (

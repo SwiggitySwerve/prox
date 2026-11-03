@@ -100,6 +100,8 @@ export function bindQuotaClasses(module: Record<string, string>, source: string)
 
 export interface QuotaBodyProps<TState> {
   quota: TState;
+  /** Render account facts in the host panel instead of inline chips and lists. */
+  factsInPanel?: boolean;
   classes: QuotaClassMap;
   /** Host-owned chips appended to the provider's plan row (`codexPlanItem` spans). */
   planItems?: ReactNode;

@@ -1,3 +1,4 @@
+import { billingFromClaudeProfile, type AccountBilling } from '@/domain/accountBilling';
 import { buildClaudeQuotaWindows } from '@/domain/quotaWindows/claude';
 export { buildClaudeQuotaWindows } from '@/domain/quotaWindows/claude';
 /**
@@ -30,6 +31,7 @@ import { isClaudeQuotaFile } from '../filters';
 import type { QuotaDependencies } from '../dependencies';
 
 export type ClaudeQuotaData = {
+  billing?: AccountBilling | null;
   windows: ClaudeQuotaWindow[];
   extraUsage?: ClaudeExtraUsage | null;
   planType?: string | null;
@@ -152,7 +154,14 @@ export function createClaudeQuotaConfig(deps: QuotaDependencies) {
           )
         : null;
 
+    const billing =
+      profileResult.status === 'fulfilled' &&
+      profileResult.value.statusCode >= 200 &&
+      profileResult.value.statusCode < 300
+        ? billingFromClaudeProfile(profileResult.value.body ?? profileResult.value.bodyText)
+        : null;
     return {
+      billing,
       windows,
       extraUsage: snapshot.extraUsage,
       dollarWindows,
@@ -174,6 +183,7 @@ export function createClaudeQuotaConfig(deps: QuotaDependencies) {
       windows: data.windows,
       extraUsage: data.extraUsage,
       planType: data.planType,
+      billing: data.billing,
       dollarWindows: data.dollarWindows,
       observedAt: data.observedAt,
       stale: false,

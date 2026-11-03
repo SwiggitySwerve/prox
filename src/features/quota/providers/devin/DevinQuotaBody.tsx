@@ -7,7 +7,11 @@ import { QuotaResetLabel } from '../../components/QuotaResetLabel';
 import { collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
 import type { QuotaBodyProps } from '../../types';
 
-export function DevinQuotaBody({ quota, classes }: QuotaBodyProps<DevinQuotaState>) {
+export function DevinQuotaBody({
+  quota,
+  classes,
+  factsInPanel = false,
+}: QuotaBodyProps<DevinQuotaState>) {
   const { t, i18n } = useTranslation();
   const now = useNow();
   const locale = i18n.resolvedLanguage;
@@ -16,7 +20,7 @@ export function DevinQuotaBody({ quota, classes }: QuotaBodyProps<DevinQuotaStat
 
   return (
     <>
-      {(quota.plan || planEnd) && (
+      {(quota.plan || (!factsInPanel && planEnd)) && (
         <div className={classes.codexPlan}>
           {quota.plan && (
             <span className={classes.codexPlanItem}>
@@ -24,7 +28,7 @@ export function DevinQuotaBody({ quota, classes }: QuotaBodyProps<DevinQuotaStat
               <span className={classes.codexPlanValue}>{quota.plan}</span>
             </span>
           )}
-          {planEnd && (
+          {!factsInPanel && planEnd && (
             <span className={classes.codexPlanItem}>
               <span className={classes.codexPlanLabel}>{t('devin_quota.plan_end')}</span>
               <QuotaResetLabel display={planEnd} classes={classes} />

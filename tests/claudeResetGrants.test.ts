@@ -425,12 +425,14 @@ test('card selection prefers usable recommendation and has deterministic fallbac
   }
 });
 
-test('Claude card uses Codex count and action styles and shared confirmation, not a grant dialog', async () => {
+test('Claude card uses the account facts panel and shared confirmation, not a grant dialog', async () => {
   const card = await Bun.file('src/features/quota/components/QuotaCard.tsx').text();
   const hook = await Bun.file('src/features/quota/providers/claude/ClaudeResetGrants.tsx').text();
-  expect(card).toContain('quotaClasses.codexPlanValue}>{claudeReset.count');
-  expect(card).toContain('disabled={claudeReset.blocked}');
-  expect(card).toContain('onClick={claudeReset.confirm}');
+  expect(card).toContain('<AccountDetails');
+  expect(card).toContain("claudeReset={entry.type === 'claude' ? claudeReset : undefined}");
+  const panel = await Bun.file('src/features/quota/components/AccountDetails.tsx').text();
+  expect(panel).toContain('disabled: claudeReset.blocked');
+  expect(panel).toContain('onClick: claudeReset.confirm');
   expect(hook).toContain('showConfirmation({');
   expect(hook).toContain("pending ? 'claude_reset.retry_confirm'");
   expect(hook).not.toContain('<Modal');

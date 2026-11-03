@@ -2559,7 +2559,9 @@
     "usage_not_reported_reason": "Chưa thu thập được dữ liệu.",
     "reset_time_not_reported_reason": "Nhà cung cấp chưa báo cáo thời gian đặt lại.",
     "forecast_not_reported_reason": "Cần dữ liệu hiện tại và đủ lịch sử sử dụng.",
-    "reset_held_label": "Đang có"
+    "reset_held_label": "Đang có",
+    "billing_active_until_basis": "Giá trị active_until từ đăng ký; chưa xác nhận gia hạn.",
+    "billing_id_token_basis": "Ngày hết hạn đăng ký từ id_token của thông tin xác thực; chưa xác nhận gia hạn."
   },
   "provider_sources": {
     "discovery_error": "Không thể tải danh sách nguồn. Hãy tải lại trang để thử lại.",
@@ -2798,5 +2800,16 @@
       "first_content_ms": "Độ lệch nội dung đầu · ms",
       "recorded_ms": "Độ lệch ghi nhận · ms"
     }
+  },
+  "account_details": {
+    "title": "Chi tiết tài khoản",
+    "balances": "Số dư",
+    "spending": "Chi tiêu",
+    "status": "Trạng thái",
+    "expiry": "Hết hạn",
+    "not_reported_reason": "Nhà cung cấp chưa báo cáo thông tin này.",
+    "reset_disabled": "Cần hoàn tất làm mới và bật tài khoản trước khi sử dụng lượt đặt lại.",
+    "spent": "Đã chi",
+    "limit": "Hạn mức"
   }
 }
