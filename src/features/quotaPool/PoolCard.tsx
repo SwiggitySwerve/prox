@@ -15,6 +15,7 @@ import {
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
 import { DAY_MS } from '@/utils/time/durations';
+import { wasSpent } from './resetAccounts';
 import { PoolAccountResets } from './PoolAccountResets';
 import { PoolChart } from './PoolChart';
 import { PoolGraph } from './PoolGraph';
@@ -191,10 +192,13 @@ export function PoolCard({
       ? pool.accounts.filter((account) => account.noFiveHourLimit).length
       : 0;
   const resetTotals = pool.accounts.reduce(
-    (sum, account) => ({
-      available: sum.available + (account.resets?.available ?? 0),
-      usable: sum.usable + (account.resets?.usable ?? 0),
-    }),
+    (sum, account) =>
+      account.resets && wasSpent(account.id, account.resets.observedAtMs)
+        ? sum
+        : {
+            available: sum.available + (account.resets?.available ?? 0),
+            usable: sum.usable + (account.resets?.usable ?? 0),
+          },
     { available: 0, usable: 0 }
   );
   const chip = poolChip(pool.forecastState, savedData);
@@ -302,17 +306,6 @@ export function PoolCard({
           </div>
         </div>
         <div className={styles.statsBlock}>
-          {resetTotals.available > 0 && (
-            <p className={styles.resetSummary}>
-              <span>
-                {t('quota_pool.reset_summary', {
-                  count: resetTotals.available,
-                  usable: resetTotals.usable,
-                })}
-              </span>
-              <a href="#/quota/accounts">{t('quota_pool.reset_view_accounts')}</a>
-            </p>
-          )}
           {mode !== 'remaining' && (
             <p className={styles.statsHeading}>{t('quota_pool.remaining_forecast')}</p>
           )}
@@ -392,6 +385,13 @@ export function PoolCard({
             <span className={styles.accountBalanceLabel}>
               · {t('quota_pool.account_remaining', { window: windowLabel })}
             </span>
+            {resetTotals.available > 0 && (
+              <small className={styles.accountCoverage}>
+                {t('quota_pool.reset_count', { count: resetTotals.available })}
+                {resetTotals.usable > 0 &&
+                  ` · ${t('quota_pool.reset_usable_count', { usable: resetTotals.usable })}`}
+              </small>
+            )}
             {/* The card header already counts the accounts; say coverage only when some are missing. */}
             {(pool.loadedCount !== pool.accountCount ||
               pool.eligibleCount !== pool.accountCount) && (
@@ -565,12 +565,14 @@ export function PoolCard({
                         : t('quota_pool.account_plan_unknown', {
                             points: number(account.plan.capacityPoints),
                           })}
-                      {account.resets && account.resets.available > 0 && (
-                        <span className={styles.resetMarker}>
-                          <span className={styles.resetSeparator}> · </span>
-                          {t('quota_pool.reset_count', { count: account.resets.available })}
-                        </span>
-                      )}
+                      {account.resets &&
+                        account.resets.available > 0 &&
+                        !wasSpent(account.id, account.resets.observedAtMs) && (
+                          <span className={styles.accountResetMarker}>
+                            <span className={styles.resetSeparator}> · </span>
+                            {t('quota_pool.reset_count', { count: account.resets.available })}
+                          </span>
+                        )}
                     </small>
                   </span>
                   <span className={styles.accountStatus}>
@@ -682,14 +684,6 @@ export function PoolCard({
                   )}
                 </summary>
                 <dl className={styles.accountDetails}>
-                  {openAccounts.has(account.id) && account.resets && (
-                    <PoolAccountResets
-                      account={account}
-                      provider={pool.provider}
-                      instanceId={pool.instanceId}
-                      onRefresh={onRefresh}
-                    />
-                  )}
                   <div>
                     <dt>{t('quota_pool.observed')}</dt>
                     <dd>{date(account.observedAtMs)}</dd>
@@ -717,6 +711,15 @@ export function PoolCard({
                       {account.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
                     </dd>
                   </div>
+                  {openAccounts.has(account.id) && account.resets && (
+                    <PoolAccountResets
+                      account={account}
+                      name={accountName(account)}
+                      provider={pool.provider}
+                      instanceId={pool.instanceId}
+                      onRefresh={onRefresh}
+                    />
+                  )}
                 </dl>
               </details>
             ))

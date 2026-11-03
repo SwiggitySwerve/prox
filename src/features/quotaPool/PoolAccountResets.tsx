@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolAccount, PoolProviderId } from '@/domain/quotaPool/types';
 import type { AuthFileItem } from '@/types';
@@ -11,98 +11,124 @@ import { useQuotaActions } from '@/features/quota/hooks/useQuotaActions';
 import { createQuotaAdapters } from '@/features/quota/providers';
 import { useClaudeResetGrants } from '@/features/quota/providers/claude/ClaudeResetGrants';
 import { createSourceResetGrants } from '@/features/quota/providers/claude/resetGrantScope';
-import { findPoolResetFile, poolResetReasonKey } from './resetAccounts';
+import { findPoolResetFile, poolResetStatus, markSpent, wasSpent } from './resetAccounts';
 import { formatPoolDate } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
 type Props = {
   account: PoolAccount;
+  name: string;
   instanceId?: string;
   provider: PoolProviderId;
   onRefresh: () => void;
 };
 
-/** Spend attempts this tab made, by account: the server's counts lag until its next collection. */
-const spentAt = new Map<string, number>();
-const markSpent = (accountId: string) => spentAt.set(accountId, Date.now());
+type FactProps = Props & {
+  spent: boolean;
+  reason?: string;
+  /** A live provider answer that supersedes the server's status (Claude found none usable). */
+  live?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+};
 
-/** Pool readings stay server-owned; credentials and provider reads are loaded only on disclosure. */
-export function PoolAccountResets(props: Props) {
+function ResetFact({
+  account,
+  provider,
+  spent,
+  reason,
+  live = false,
+  disabled = true,
+  onClick,
+}: FactProps) {
   const { t, i18n } = useTranslation();
-  const registry = useProviderSources();
-  const resets = props.account.resets;
-  if (!resets) return null;
-  const source = registry.sources.find((view) => view.source.instanceId === props.instanceId);
-  const spent = (spentAt.get(props.account.id) ?? 0) > resets.observedAtMs;
+  const asideId = useId();
+  const resets = account.resets;
+  const status = poolResetStatus(resets, provider, spent);
+  if (!resets || !status) return null;
+  const aside = [
+    !live && status.statusKey && t(status.statusKey, { usable: resets.usable }),
+    !spent && reason,
+    !spent &&
+      resets.available > 0 &&
+      resets.nextExpiryAtMs !== null &&
+      t('quota_pool.reset_expiry', { date: formatPoolDate(resets.nextExpiryAtMs, i18n.language) }),
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <div className={styles.accountResets}>
       <dt>{t('quota_pool.resets')}</dt>
       <dd>
-        <span>
-          {t('quota_pool.reset_summary', { count: resets.available, usable: resets.usable })}
-        </span>
-        {resets.nextExpiryAtMs !== null && (
-          <span>
-            {t('quota_pool.reset_expiry', {
-              date: formatPoolDate(resets.nextExpiryAtMs, i18n.language),
-            })}
+        <span>{t(status.valueKey, { count: resets.available })}</span>
+        {aside && (
+          <span id={asideId} role="status" className={styles.resetAside}>
+            {aside}
           </span>
         )}
-        {/* Nothing held: the count already says so, and there is nothing to spend. */}
-        {/* A running or just-finished spend keeps its action mounted so its result still shows. */}
-        {resets.available === 0 ? null : (resets.usable > 0 || spent) &&
-          source?.session &&
-          source.status === 'ready' ? (
-          <SourceResetAction
-            key={sourceOwnerKey(source.session.owner)}
-            {...props}
-            owner={source.session}
-            spent={spent}
-          />
-        ) : (
-          <ResetButton
-            disabled
-            reason={t(
-              spent
-                ? 'quota_pool.reset_spent'
-                : resets.usable === 0
-                  ? poolResetReasonKey(resets.blocker)
-                  : 'quota_pool.reset_source_unavailable'
-            )}
-          />
+        {(resets.available > 0 || spent) && (
+          <button
+            className={styles.resetAction}
+            type="button"
+            disabled={disabled}
+            aria-describedby={asideId}
+            onClick={onClick}
+          >
+            {t('quota_pool.use_reset')}
+          </button>
         )}
       </dd>
     </div>
   );
 }
 
-function ResetButton({
-  disabled,
-  reason,
-  onClick,
-}: {
-  disabled: boolean;
-  reason?: string;
-  onClick?: () => void;
-}) {
+/** Pool readings stay server-owned; credentials load only on disclosure. */
+export function PoolAccountResets(props: Props) {
   const { t } = useTranslation();
+  const registry = useProviderSources();
+  const resets = props.account.resets;
+  if (!resets) return null;
+  const source = registry.sources.find((view) => view.source.instanceId === props.instanceId);
+  const spent = wasSpent(props.account.id, resets.observedAtMs);
+  const status = poolResetStatus(resets, props.provider, spent)!;
+  if (
+    resets.available > 0 &&
+    (resets.usable > 0 || spent || status.early) &&
+    source?.session &&
+    source.status === 'ready'
+  ) {
+    return (
+      <SourceResetAction
+        key={sourceOwnerKey(source.session.owner)}
+        {...props}
+        owner={source.session}
+        spent={spent}
+        early={status.early}
+      />
+    );
+  }
   return (
-    <span className={styles.resetAction}>
-      <button type="button" disabled={disabled} onClick={onClick}>
-        {t('quota_pool.use_reset')}
-      </button>
-      {reason && <span role="status">{reason}</span>}
-    </span>
+    <ResetFact
+      {...props}
+      spent={spent}
+      reason={
+        resets.available > 0 && !spent && (resets.usable > 0 || status.early)
+          ? t('quota_pool.reset_source_unavailable')
+          : undefined
+      }
+    />
   );
 }
 
 function SourceResetAction({
   owner,
+  name,
   account,
   provider,
   onRefresh,
   spent,
-}: Props & { owner: SourceSession; spent: boolean }) {
+  early,
+}: Props & { owner: SourceSession; spent: boolean; early: boolean }) {
   const { session } = useSourceLease(owner);
   const { t } = useTranslation();
   const [file, setFile] = useState<AuthFileItem | null>(null);
@@ -132,23 +158,28 @@ function SourceResetAction({
       active = false;
     };
   }, [session, provider, account.sourceAccountId]);
+  const fact = { account, name, provider, onRefresh, spent };
   if (!file)
     return (
-      <ResetButton
-        disabled
-        reason={t(
-          `quota_pool.${spent ? 'reset_spent' : error ? 'reset_lookup_failed' : 'reset_loading'}`
-        )}
+      <ResetFact
+        {...fact}
+        reason={t(error ? 'quota_pool.reset_lookup_failed' : 'quota_pool.reset_loading')}
       />
     );
   return provider === 'claude' ? (
-    <ClaudeResetAction {...{ file, session, onRefresh, spent }} accountId={account.id} />
+    <ClaudeResetAction {...fact} file={file} session={session} accountId={account.id} />
   ) : (
-    <CodexResetAction {...{ file, session, onRefresh, spent }} accountId={account.id} />
+    <CodexResetAction
+      {...fact}
+      file={file}
+      session={session}
+      accountId={account.id}
+      early={early}
+    />
   );
 }
 
-type ActionProps = {
+type ActionProps = Props & {
   file: AuthFileItem;
   session: SourceSession;
   onRefresh: () => void;
@@ -156,7 +187,7 @@ type ActionProps = {
   /** A spend from this tab is newer than the server's reading. */
   spent: boolean;
 };
-function ClaudeResetAction({ file, session, onRefresh, accountId, spent }: ActionProps) {
+function ClaudeResetAction({ file, session, onRefresh, accountId, spent, ...fact }: ActionProps) {
   const { t } = useTranslation();
   const scope = useMemo(() => {
     const shared = createSourceResetGrants(session);
@@ -175,25 +206,40 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent }: Actio
   }, [session, accountId]);
   const reset = useClaudeResetGrants(file, true, false, null, onRefresh, scope);
   return (
-    <ResetButton
+    <ResetFact
+      {...fact}
+      onRefresh={onRefresh}
+      spent={spent}
       disabled={reset.blocked || spent}
       onClick={reset.confirm}
+      live={!spent && !reset.message && reset.blocked && !reset.busy && reset.count !== null}
       reason={
         spent && !reset.busy
-          ? t('quota_pool.reset_spent')
+          ? undefined
           : reset.message
             ? t(`claude_reset.${reset.message}`)
             : reset.blocked && !reset.busy
-              ? // A finished read with nothing usable is not still loading.
+              ? // A finished read with nothing usable is not still loading; a running claim is neither.
                 t(
-                  reset.count === null ? 'quota_pool.reset_loading' : 'quota_pool.reset_unavailable'
+                  reset.count === null
+                    ? 'quota_pool.reset_loading'
+                    : 'quota_pool.reset_claude_unavailable'
                 )
               : undefined
       }
     />
   );
 }
-function CodexResetAction({ file, session, onRefresh, accountId, spent }: ActionProps) {
+function CodexResetAction({
+  file,
+  session,
+  onRefresh,
+  accountId,
+  spent,
+  early,
+  name,
+  ...fact
+}: ActionProps & { early: boolean }) {
   const { t } = useTranslation();
   const [store] = useState(createQuotaStore);
   const adapter = useMemo(() => {
@@ -215,11 +261,43 @@ function CodexResetAction({ file, session, onRefresh, accountId, spent }: Action
   }, [session, store, onRefresh, accountId]);
   const actions = useQuotaActions(false, store, session);
   return (
-    <ResetButton
+    <ResetFact
+      {...fact}
+      name={name}
+      onRefresh={onRefresh}
+      spent={spent}
       disabled={actions.resettingQuotaName !== null || spent}
-      onClick={() => actions.resetQuota(file, adapter)}
-      reason={
-        spent && actions.resettingQuotaName === null ? t('quota_pool.reset_spent') : undefined
+      onClick={() =>
+        actions.resetQuota(file, adapter, {
+          name,
+          title: t(early ? 'quota_pool.reset_early_title' : 'quota_pool.reset_confirm_title'),
+          confirmText: t('quota_pool.use_reset'),
+          variant: early ? 'danger' : 'primary',
+          message: early ? (
+            <div className={styles.resetDialog}>
+              <p>{t('quota_pool.reset_early_intro', { name })}</p>
+              <section>
+                <h4>{t('quota_pool.reset_usage_left')}</h4>
+                <dl>
+                  {fact.account.windows
+                    .filter((limit) => limit.remainingPercent !== null)
+                    .map((limit) => (
+                      <div key={limit.id}>
+                        <dt>{t(limit.labelKey, limit.labelParams)}</dt>
+                        <dd>{limit.remainingPercent!.toFixed(1)}%</dd>
+                      </div>
+                    ))}
+                </dl>
+                {fact.account.windows.every((limit) => limit.remainingPercent === null) && (
+                  <p>{t('quota_pool.reset_left_unknown')}</p>
+                )}
+              </section>
+              <p>{t('quota_pool.reset_early_outcome')}</p>
+            </div>
+          ) : (
+            t('quota_pool.reset_confirm_body', { name })
+          ),
+        })
       }
     />
   );

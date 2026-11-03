@@ -4,7 +4,7 @@
  * generation-guarded commit、成功/失败通知），仅把 config 换成 adapter。
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   captureQuotaCacheGeneration,
@@ -82,7 +82,18 @@ export function useQuotaActions(
   );
 
   const resetQuota = useCallback(
-    (file: AuthFileItem, adapter: QuotaAdapter) => {
+    (
+      file: AuthFileItem,
+      adapter: QuotaAdapter,
+      /** Replaces the standard wording, e.g. to warn that usage is still left. */
+      prompt?: {
+        message: ReactNode;
+        confirmText: string;
+        variant: 'danger' | 'primary';
+        title?: string;
+        name?: string;
+      }
+    ) => {
       const resetQuotaFn = adapter.resetQuota;
       if (!resetQuotaFn) return;
       if (disableControls || file.disabled || !isQuotaSourceCurrent(session)) return;
@@ -92,10 +103,10 @@ export function useQuotaActions(
 
       const cacheGeneration = captureQuotaCacheGeneration(file.name, store);
       showConfirmation({
-        title: t('codex_quota.reset_confirm_title'),
-        message: t('codex_quota.reset_confirm_message', { name: file.name }),
-        confirmText: t('codex_quota.reset_confirm_button'),
-        variant: 'primary',
+        title: prompt?.title ?? t('codex_quota.reset_confirm_title'),
+        message: prompt?.message ?? t('codex_quota.reset_confirm_message', { name: file.name }),
+        confirmText: prompt?.confirmText ?? t('codex_quota.reset_confirm_button'),
+        variant: prompt?.variant ?? 'primary',
         onConfirm: async () => {
           if (
             !isQuotaSourceCurrent(session) ||
@@ -112,14 +123,17 @@ export function useQuotaActions(
                 ...prev,
                 [cacheKey]: adapter.buildSuccessState(data),
               }));
-              showNotification(t('codex_quota.reset_success', { name: file.name }), 'success');
+              showNotification(
+                t('codex_quota.reset_success', { name: prompt?.name ?? file.name }),
+                'success'
+              );
             });
           } catch (err: unknown) {
             if (!isQuotaSourceCurrent(session)) return;
             const message = err instanceof Error ? err.message : t('common.unknown_error');
             commitIfQuotaCacheCurrent(cacheGeneration, () => {
               showNotification(
-                t('codex_quota.reset_failed', { name: file.name, message }),
+                t('codex_quota.reset_failed', { name: prompt?.name ?? file.name, message }),
                 'error'
               );
             });
