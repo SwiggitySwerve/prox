@@ -1,5 +1,5 @@
 import { Fact, FactPanel, FactSection } from '@/components/ui/FactPanel';
-import { billingFacts } from '@/domain/accountBilling';
+import { BillingFacts } from '@/components/ui/FactPanel/BillingFacts';
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -730,46 +730,11 @@ export function PoolCard({
                     />
                   </FactSection>
                   <FactSection title={t('quota_pool.facts_billing')}>
-                    {billingFacts(account.billing ?? null, dashboard.nowMs).map((fact) => {
-                      const label = t(`quota_pool.${fact.labelKey}`);
-                      if (fact.state === 'notReported' || fact.state === 'notApplicable')
-                        return (
-                          <Fact
-                            key={fact.labelKey}
-                            label={label}
-                            state={fact.state}
-                            reason={t(`quota_pool.${fact.reasonKey}`)}
-                          />
-                        );
-                      if (fact.state === 'estimated')
-                        return (
-                          <Fact
-                            key={fact.labelKey}
-                            label={label}
-                            state="estimated"
-                            value={date(fact.value)}
-                            basis={t(`quota_pool.${fact.basisKey}`)}
-                          />
-                        );
-                      return (
-                        <Fact
-                          key={fact.labelKey}
-                          label={label}
-                          state="known"
-                          tone={fact.tone}
-                          value={
-                            fact.kind === 'date'
-                              ? date(fact.value as number)
-                              : fact.kind === 'key'
-                                ? t(`quota_pool.${fact.value}`)
-                                : fact.value
-                          }
-                          aside={
-                            fact.asideDateMs !== undefined ? date(fact.asideDateMs) : undefined
-                          }
-                        />
-                      );
-                    })}
+                    <BillingFacts
+                      billing={account.billing ?? null}
+                      nowMs={dashboard.nowMs}
+                      formatDate={date}
+                    />
                   </FactSection>
                   {openAccounts.has(account.id) && (
                     <PoolAccountResets
