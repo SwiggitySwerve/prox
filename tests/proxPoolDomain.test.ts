@@ -231,6 +231,22 @@ describe('dashboard evidence and privacy', () => {
     expect(result.pools[0].remainingPoints).toBeNull();
     expect(result.pools[0].forecastState).toBe('partial');
   });
+  test('accounts carry the latest reset reading without leaking the collection map', () => {
+    const resets = {
+      available: 2,
+      usable: 1,
+      blocker: null,
+      nextExpiryAtMs: now + HOUR_MS,
+      observedAtMs: now,
+    };
+    const result = buildDashboard([account()], [sample(now, 50)], options, {
+      ...collection,
+      resets: new Map([[account().id, resets]]),
+    });
+    expect(result.pools[0].accounts[0].resets).toEqual(resets);
+    expect('resets' in result).toBe(false);
+    expect(dashboard([account()], []).pools[0].accounts[0].resets).toBeNull();
+  });
   test('accounts carry their latest reported windows and nothing extra leaks', () => {
     const fiveHour = {
       id: 'five-hour',

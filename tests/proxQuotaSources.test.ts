@@ -151,7 +151,9 @@ function fixture(ids = ['source-a', 'source-b', 'source-c']) {
         });
       return Response.json({
         status_code: 200,
-        body: usage(call.body.url === CLAUDE_USAGE_URL ? 'claude' : 'codex'),
+        body: usage(
+          call.body.url === `${CLAUDE_USAGE_URL}?cedar_ember=1&skip_spend=1` ? 'claude' : 'codex'
+        ),
       });
     },
     { preconnect: () => {} }
@@ -216,7 +218,11 @@ describe('enumerated quota sources', () => {
       if (call.body) {
         expect(call.url.pathname).toBe('/v8/management/requests/api-call');
         expect(call.body.method).toBe('GET');
-        expect([CLAUDE_USAGE_URL, CLAUDE_PROFILE_URL, CODEX_USAGE_URL]).toContain(call.body.url);
+        expect([
+          `${CLAUDE_USAGE_URL}?cedar_ember=1&skip_spend=1`,
+          CLAUDE_PROFILE_URL,
+          CODEX_USAGE_URL,
+        ]).toContain(call.body.url);
         expect(call.body.authIndex).toBe('same-index');
         expect(Object.keys(call.body).sort()).toEqual(['authIndex', 'header', 'method', 'url']);
       } else expect(call.url.pathname).toBe('/v8/management/credentials');

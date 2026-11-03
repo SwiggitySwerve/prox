@@ -3,6 +3,7 @@ import { maskIdentifier } from './mask';
 import { sumKnown } from './values';
 import type {
   AccountQuotaWindow,
+  AccountResets,
   PoolAccount,
   PoolDashboard,
   PoolPoint,
@@ -35,6 +36,7 @@ export interface CollectionState {
   refreshing: boolean;
   issues: PoolDashboard['issues'];
   sources?: readonly QuotaSourceView[];
+  resets?: ReadonlyMap<string, AccountResets>;
   windows?: ReadonlyMap<string, readonly AccountQuotaWindow[]>;
 }
 type Rates = { burn: number | null; drain: number | null };
@@ -403,7 +405,7 @@ export function buildDashboard(
   const fromMs = Math.floor(options.nowMs / DAY_MS) * DAY_MS + (options.offsetDays - 3) * DAY_MS;
   const toMs = fromMs + 14 * DAY_MS;
   const filtered = samples.filter((s) => s.window === options.window);
-  const { sources, windows, ...state } = collection;
+  const { sources, windows, resets, ...state } = collection;
   const scopes = new Map<string, QuotaSourceView>();
   for (const source of sources ?? []) scopes.set(source.instanceId, source);
   for (const entry of [...accounts, ...collection.issues]) {
@@ -445,6 +447,7 @@ export function buildDashboard(
       accounts: pool.accounts.map((account) => ({
         ...account,
         windows: [...(windows?.get(account.id) ?? [])],
+        resets: resets?.get(account.id) ?? null,
         ...(pool.provider === 'claude' &&
         planWeight(pool.provider, accountPlans.get(account.id)).multiplier === 20 &&
         (windows?.get(account.id)?.length ?? 0) > 0 &&

@@ -8,6 +8,7 @@ import { MANUAL_REFRESH_INTERVAL_MS, REFRESH_INTERVAL_MS } from '../server/quota
 import type { PoolProviderId } from '../src/domain/quotaPool/types';
 import {
   CLAUDE_PROFILE_URL,
+  CLAUDE_REQUEST_HEADERS,
   CLAUDE_USAGE_URL,
   CODEX_USAGE_URL,
 } from '../src/utils/quota/constants';
@@ -100,6 +101,88 @@ afterEach(() => {
 });
 
 describe('QuotaCollector', () => {
+  test('collects reset readings and preserves them when Claude blocks are missing or malformed', async () => {
+    const grant = {
+      id: 'fixture',
+      resets_total: 3,
+      resets_left: 2,
+      usable_now: true,
+      use_requires_limit: true,
+      ends_at: new Date(RESET).toISOString(),
+    };
+    let block: unknown = { eligible: true, at_limit: true, grants: [grant] };
+    let codexCredits = { available_count: 2, applicable_available_count: 2 };
+    const { collector, store, calls, advance } = harness((request) => {
+      if (request.url.pathname.endsWith('/credentials')) return respond(request);
+      if (request.body?.url === CLAUDE_PROFILE_URL)
+        return Response.json({ status_code: 200, body: {} });
+      return Response.json({
+        status_code: 200,
+        body:
+          request.provider === 'claude'
+            ? JSON.stringify({ ...claudeBody, cedar_ember: block })
+            : { ...codexBody, rate_limit_reset_credits: codexCredits },
+      });
+    });
+    expect(collector.resets.size).toBe(0);
+    await collector.refresh();
+    const claude = store.listAccounts().find((account) => account.provider === 'claude')!;
+    const codex = store.listAccounts().find((account) => account.provider === 'codex')!;
+    expect(collector.resets.get(claude.id)).toEqual({
+      available: 2,
+      usable: 2,
+      blocker: null,
+      nextExpiryAtMs: RESET,
+      observedAtMs: NOW,
+    });
+    expect(collector.resets.get(codex.id)).toEqual({
+      available: 2,
+      usable: 2,
+      blocker: null,
+      nextExpiryAtMs: null,
+      observedAtMs: NOW,
+    });
+    const usage = calls.find((call) => String(call.body?.url).includes('cedar_ember'))!;
+    const url = new URL(String(usage.body?.url));
+    expect(url.searchParams.get('cedar_ember')).toBe('1');
+    expect(url.searchParams.get('skip_spend')).toBe('1');
+    expect(usage.body?.header).toEqual(CLAUDE_REQUEST_HEADERS);
+
+    block = { eligible: true, at_limit: false, grants: [grant] };
+    codexCredits = { available_count: 1, applicable_available_count: 0 };
+    advance(MANUAL_REFRESH_INTERVAL_MS);
+    await collector.refresh();
+    expect(collector.resets.get(claude.id)?.blocker).toBe('not_limited');
+    expect(collector.resets.get(claude.id)?.usable).toBe(0);
+    expect(collector.resets.get(codex.id)).toMatchObject({
+      available: 1,
+      usable: 0,
+      blocker: 'not_applicable',
+    });
+
+    block = { eligible: false, ineligible_reason: 'no_grant', grants: [] };
+    advance(MANUAL_REFRESH_INTERVAL_MS);
+    await collector.refresh();
+    expect(collector.resets.get(claude.id)).toMatchObject({
+      available: 0,
+      usable: 0,
+      blocker: 'ineligible:no_grant',
+    });
+    const prior = collector.resets.get(claude.id);
+    for (const malformed of [
+      undefined,
+      {},
+      { eligible: true, grants: [{ ...grant, resets_left: -1 }] },
+    ]) {
+      block = malformed;
+      advance(MANUAL_REFRESH_INTERVAL_MS);
+      await collector.refresh();
+      expect(collector.resets.get(claude.id)).toEqual(prior);
+    }
+    // Exactly one usage request per account per poll; no reset-specific Codex request.
+    expect(calls.filter((call) => call.body?.url === CODEX_USAGE_URL)).toHaveLength(6);
+  });
+
   test('polls every five minutes and stop cancels the scheduled poll', async () => {
     const originalTimeout = globalThis.setTimeout;
     const scheduled: { fire: () => void; timer: ReturnType<typeof setTimeout> }[] = [];
@@ -222,7 +305,7 @@ describe('QuotaCollector', () => {
               ? CODEX_USAGE_URL
               : call.body.url === CLAUDE_PROFILE_URL
                 ? CLAUDE_PROFILE_URL
-                : CLAUDE_USAGE_URL,
+                : `${CLAUDE_USAGE_URL}?cedar_ember=1&skip_spend=1`,
           header: expect.objectContaining({ Authorization: 'Bearer $TOKEN$' }),
         });
       } else {
