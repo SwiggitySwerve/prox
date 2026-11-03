@@ -74,7 +74,8 @@ function PoolChartView({
       i18n.language
     ).length
   );
-  const tickCount = width < 480 ? 3 : width < 850 ? 5 : 8;
+  // Phones still get a start, middle and end date plus one between, so a range reads at a glance.
+  const tickCount = width < 480 ? 4 : width < 850 ? 5 : 8;
   // null = not yet inspected: show the newest recorded sample, i.e. the current reading.
   const [inspected, setInspected] = useState<number | null>(null);
   const { fromMs, toMs } = viewRange(dashboard, mode);
@@ -348,7 +349,10 @@ function PoolChartView({
                         data-stack-band={projected ? 'projected' : 'recorded'}
                         d={path}
                         fill="var(--pool-accent)"
-                        fillOpacity={projected ? 0.14 : 0.3}
+                        // Rates don't accumulate, so their bands stay light and the lines lead.
+                        fillOpacity={
+                          mode === 'remaining' ? (projected ? 0.14 : 0.3) : projected ? 0.1 : 0.22
+                        }
                       />
                     ))
                   )}

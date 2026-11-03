@@ -89,7 +89,14 @@ export function CombinedPoolCard({
         <strong>
           {/* Same as the provider cards: the value slot says the total is missing. */}
           {headline === null ? (
-            <span className={styles.unavailableValue}>{t('quota_pool.value_unavailable')}</span>
+            // Sources that may share accounts aren't summed; missing data withholds the total.
+            <span className={styles.unavailableValue}>
+              {t(
+                total?.unavailableReason === 'ambiguous-sources'
+                  ? 'quota_pool.value_not_summed'
+                  : 'quota_pool.value_withheld'
+              )}
+            </span>
           ) : (
             formatPoolNumber(headline, i18n.language)
           )}

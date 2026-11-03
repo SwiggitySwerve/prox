@@ -145,6 +145,8 @@ export function PoolCard({
     accountsRef.current?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
   }, [affectedFocus]);
   const forecastWithheld = pool.forecastState !== 'ready' && pool.forecastState !== 'no-limit';
+  // A withheld forecast with no burn rate has nothing measured to add beside the headline.
+  const showNow = mode !== 'remaining' || !(forecastWithheld && pool.burnPointsPerHour === null);
   // Claude names its weekly windows "7-day"; the page calls that window Weekly everywhere.
   const limitLabel = (limit: (typeof pool.accounts)[number]['windows'][number]) =>
     limit.id === 'seven-day'
@@ -281,8 +283,8 @@ export function PoolCard({
               {pool.forecastState === 'no-limit' ? (
                 t('quota_pool.no_window_limit', { window: windowLabel })
               ) : pool[metricField[mode]] === null ? (
-                // The value slot says the total is missing; the label still names the metric.
-                <span className={styles.unavailableValue}>{t('quota_pool.value_unavailable')}</span>
+                // A muted word in the number slot, so a withheld total never passes for a value.
+                <span className={styles.unavailableValue}>{t('quota_pool.value_withheld')}</span>
               ) : (
                 number(pool[metricField[mode]])
               )}
@@ -307,22 +309,32 @@ export function PoolCard({
             </div>
           </div>
         </div>
-        {/* Every view names its fact groups. Rate views lead with the rate, so the balance it
-            replaced sits in its own "Now" group beside the forecast rather than inside it. */}
-        <div className={styles.statsBlock} data-split={mode !== 'remaining' || undefined}>
-          {mode !== 'remaining' && (
+        {/* Every view has the same two groups: "Now" holds the one measured fact the headline
+            doesn't show (the burn rate, or in rate views the balance), "Forecast" the projections. */}
+        <div className={styles.statsBlock} data-split={showNow || undefined}>
+          {showNow && (
             <div className={styles.statsGroup}>
               <p className={styles.statsHeading}>{t('quota_pool.now_group')}</p>
               <dl className={styles.stats}>
-                <div>
-                  <dt>{t('quota_pool.account_remaining', { window: windowLabel })}</dt>
-                  <dd>
-                    {number(pool.remainingPoints)}{' '}
-                    <small>
-                      {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
-                    </small>
-                  </dd>
-                </div>
+                {mode === 'remaining' ? (
+                  <div>
+                    <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
+                    <dd>
+                      {number(pool.burnPointsPerHour)}
+                      {pool.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
+                    </dd>
+                  </div>
+                ) : (
+                  <div>
+                    <dt>{t('quota_pool.account_remaining', { window: windowLabel })}</dt>
+                    <dd>
+                      {number(pool.remainingPoints)}{' '}
+                      <small>
+                        {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
+                      </small>
+                    </dd>
+                  </div>
+                )}
               </dl>
             </div>
           )}
@@ -351,16 +363,6 @@ export function PoolCard({
                   </small>
                 )}
               </div>
-              {/* Rate views lead with the rate itself; this group is the remaining-quota forecast. */}
-              {mode === 'remaining' && !(forecastWithheld && pool.burnPointsPerHour === null) && (
-                <div>
-                  <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
-                  <dd>
-                    {number(pool.burnPointsPerHour)}
-                    {pool.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
-                  </dd>
-                </div>
-              )}
             </dl>
           </div>
         </div>
@@ -506,14 +508,11 @@ export function PoolCard({
               </button>
             )}
             <span className={styles.rosterCount} role="status">
-              {query || lowOnly || affectedOnly || pageAccounts.length < visibleAccounts.length
+              {/* Filtering counts here, against the whole roster; paging counts by "Show more". */}
+              {query || lowOnly || affectedOnly
                 ? t('quota_pool.accounts_shown', {
-                    shown: pageAccounts.length,
-                    // Paging counts against the filtered list; filtering counts against the whole roster.
-                    total:
-                      pageAccounts.length < visibleAccounts.length
-                        ? visibleAccounts.length
-                        : pool.accounts.length,
+                    shown: visibleAccounts.length,
+                    total: pool.accounts.length,
                   })
                 : null}
             </span>
@@ -593,13 +592,18 @@ export function PoolCard({
                     </small>
                   </span>
                   <span className={styles.accountStatus}>
-                    {account.status === 'stale'
-                      ? `${t('quota_pool.account_status.stale')} · ${t('quota_pool.observed')} ${date(account.observedAtMs)}`
-                      : account.status === 'no-limit'
-                        ? t('quota_pool.no_window_limit', { window: windowLabel })
-                        : account.status === 'missing-window' || account.status === 'error'
-                          ? t('quota_pool.window_unavailable', { window: windowLabel })
-                          : t(`quota_pool.account_status.${account.status}`)}
+                    {account.status === 'stale' ? (
+                      <>
+                        {t('quota_pool.account_status.stale')} · {t('quota_pool.observed')}{' '}
+                        <span className={styles.nowrap}>{date(account.observedAtMs)}</span>
+                      </>
+                    ) : account.status === 'no-limit' ? (
+                      t('quota_pool.no_window_limit', { window: windowLabel })
+                    ) : account.status === 'missing-window' || account.status === 'error' ? (
+                      t('quota_pool.window_unavailable', { window: windowLabel })
+                    ) : (
+                      t(`quota_pool.account_status.${account.status}`)
+                    )}
                   </span>
                   <strong data-low={isLowQuota(account.remainingPercent) || undefined}>
                     <span className={styles.valueAmount}>
@@ -771,15 +775,23 @@ export function PoolCard({
           )}
         </div>
         {pageAccounts.length < visibleAccounts.length && (
-          <button
-            type="button"
-            className={`${styles.expandAccounts} ${styles.showAll}`}
-            onClick={() => setShowAll(true)}
-          >
-            {t('quota_pool.show_more_accounts', {
-              count: visibleAccounts.length - pageAccounts.length,
-            })}
-          </button>
+          <div className={styles.rosterFooter}>
+            <button
+              type="button"
+              className={`${styles.expandAccounts} ${styles.showAll}`}
+              onClick={() => setShowAll(true)}
+            >
+              {t('quota_pool.show_more_accounts', {
+                count: visibleAccounts.length - pageAccounts.length,
+              })}
+            </button>
+            <span className={styles.rosterCount}>
+              {t('quota_pool.accounts_shown', {
+                shown: pageAccounts.length,
+                total: visibleAccounts.length,
+              })}
+            </span>
+          </div>
         )}
       </section>
     </article>

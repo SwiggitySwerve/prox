@@ -91,12 +91,15 @@ export function QuotaPoolPage() {
       <header className={styles.pageHeader}>
         <div className={styles.titleRow}>
           <h1>{t('quota_pool.title')}</h1>
-          <Link to="/quota/accounts" className={styles.accountLink}>
-            {/* Phones keep the short name so the link fits beside the title. */}
-            <span className={styles.linkLong}>{t('quota_pool.accounts_link')}</span>
-            <span className={styles.linkShort}>{t('quota_pool.accounts')}</span>{' '}
-            <span aria-hidden="true">→</span>
-          </Link>
+          {/* Only once accounts exist: an empty or failed page has one action, in its card. */}
+          {data && data.pools.length > 0 && (
+            <Link to="/quota/accounts" className={styles.accountLink}>
+              {/* Phones keep the short name so the link fits beside the title. */}
+              <span className={styles.linkLong}>{t('quota_pool.accounts_link')}</span>
+              <span className={styles.linkShort}>{t('quota_pool.accounts')}</span>{' '}
+              <span aria-hidden="true">→</span>
+            </Link>
+          )}
         </div>
         <div className={styles.actions}>
           {!chartUnavailable && (
@@ -187,38 +190,29 @@ export function QuotaPoolPage() {
                   ))}
                 </select>
               </label>
-              {/* Outside the Remaining view the scenario changes nothing, so the box shows why
-                  in place of the value; the disabled select keeps the name and the setting. */}
-              <label
-                className={styles.selectLabel}
-                data-disabled={mode !== 'remaining' || undefined}
-              >
-                <span className={styles.srOnly}>{t('quota_pool.future_usage')}</span>
-                <span className={styles.selectPrefix} aria-hidden="true">
-                  {t('quota_pool.future_prefix')}
-                </span>
-                <select
-                  value={query.multiplier}
-                  disabled={mode !== 'remaining'}
-                  aria-describedby={mode !== 'remaining' ? 'pool-recorded-only' : undefined}
-                  onChange={(event) =>
-                    setView({ future: Number(event.target.value) as QuotaViewState['future'] })
-                  }
-                >
-                  {([1, 0.5, 2, 0] as const).map((value) => (
-                    <option value={value} key={value}>
-                      {t(
-                        `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
-                      )}
-                    </option>
-                  ))}
-                </select>
-                {mode !== 'remaining' && (
-                  <small id="pool-recorded-only" className={styles.selectHint}>
-                    {t('quota_pool.recorded_only_short')}
-                  </small>
-                )}
-              </label>
+              {/* The scenario only shapes the Remaining forecast, so rate views don't offer it. */}
+              {mode === 'remaining' && (
+                <label className={styles.selectLabel}>
+                  <span className={styles.srOnly}>{t('quota_pool.future_usage')}</span>
+                  <span className={styles.selectPrefix} aria-hidden="true">
+                    {t('quota_pool.future_prefix')}
+                  </span>
+                  <select
+                    value={query.multiplier}
+                    onChange={(event) =>
+                      setView({ future: Number(event.target.value) as QuotaViewState['future'] })
+                    }
+                  >
+                    {([1, 0.5, 2, 0] as const).map((value) => (
+                      <option value={value} key={value}>
+                        {t(
+                          `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
             <div className={styles.dateNavigation}>
               <span>
@@ -232,7 +226,12 @@ export function QuotaPoolPage() {
               >
                 <IconChevronLeft size={18} aria-hidden="true" />
               </button>
-              <button type="button" onClick={() => change('offsetDays', 0)}>
+              {/* Off when the range already ends today, so its state shows at a glance. */}
+              <button
+                type="button"
+                disabled={query.offsetDays === 0}
+                onClick={() => change('offsetDays', 0)}
+              >
                 {t('quota_pool.today')}
               </button>
               <button
@@ -258,7 +257,12 @@ export function QuotaPoolPage() {
           role="alert"
           data-alone={!data || undefined}
         >
-          <IconAlertTriangle size={20} className={styles.errorIcon} aria-hidden="true" />
+          {/* Red only when nothing loaded; over saved data the failure is a warning. */}
+          <IconAlertTriangle
+            size={20}
+            className={data ? styles.warningIcon : styles.errorIcon}
+            aria-hidden="true"
+          />
           <div>
             <h2>{t(`quota_pool.${data ? 'refresh_failed_title' : 'load_failed_title'}`)}</h2>
             <p>

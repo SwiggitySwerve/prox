@@ -587,7 +587,10 @@ async def main():
                                 status=503, json={"error": "Fixture unavailable"}
                             )
                             return
-                        data = fixture(state)
+                        query = parse_qs(urlparse(url).query)
+                        # A 5-hour request gets the 5-hour fixture, so its numbers match the view.
+                        five_hour = query.get("window", [""])[0] == "five-hour"
+                        data = fixture("no-limit" if state == "deep-link" and five_hour else state)
                         # Echo the requested view, as the server does, so a deep link's controls and content agree.
                         query = parse_qs(urlparse(url).query)
                         if "window" in query:

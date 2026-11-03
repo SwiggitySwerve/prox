@@ -57,7 +57,8 @@ export function ConfirmationModal() {
         <div style={{ margin: '1rem 0' }}>{message}</div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-        <Button variant="ghost" onClick={handleCancel} disabled={isLoading}>
+        {/* Outlined, so Cancel reads as a button and not as loose text beside the action. */}
+        <Button variant="secondary" onClick={handleCancel} disabled={isLoading}>
           {cancelText || t('common.cancel')}
         </Button>
         <Button variant={variant} onClick={handleConfirm} loading={isLoading}>

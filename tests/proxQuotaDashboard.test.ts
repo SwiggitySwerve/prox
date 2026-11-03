@@ -1022,8 +1022,8 @@ describe('pool presentation', () => {
         onRefresh: () => {},
       })
     );
-    // The value slot says the total is missing; the label still names the metric.
-    expect(markup).toContain('<strong><span>Unavailable</span></strong>');
+    // The value slot says the total is withheld, so it never passes for a value.
+    expect(markup).toContain('<strong><span>Withheld</span></strong>');
     expect(markup).toContain('<p>Weekly quota remaining</p>');
     expect(markup).toContain('some eligible accounts have no current quota data');
     // The notice offers the same next step as the provider cards.
@@ -1275,7 +1275,7 @@ describe('pool presentation', () => {
     expect(chip('stale')).toEqual({ icon: 'stale', tone: 'warning' });
     expect(chip('collecting')).toEqual({ icon: 'collecting', tone: 'neutral' });
     expect(chip('no-limit')).toEqual({ icon: 'info', tone: 'neutral' });
-    expect(chip('ready', true)).toEqual({ icon: 'saved', tone: 'warning' });
+    expect(chip('ready', true)).toEqual({ icon: 'saved', tone: 'neutral' });
   });
   test('saved data qualifies forecasts once per card while retaining rate balances', async () => {
     await i18n.changeLanguage('en');
@@ -1344,8 +1344,8 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    // The value slot says the total is unavailable; the label beside it names the metric.
-    expect(markup).toContain('<strong><span>Unavailable</span></strong>');
+    // The value slot says the total is withheld, so it never passes for a value.
+    expect(markup).toContain('<strong><span>Withheld</span></strong>');
     expect(markup).toContain('<p>Weekly quota remaining</p>');
     expect(markup).toContain('Collecting history');
     expect(markup).toContain('No observations in this range');

@@ -118,6 +118,10 @@
     font-weight: 400;
     text-wrap: pretty;
   }
+  // A short aside (a plan's start date) stays under its value; a long basis reads full width.
+  dd.aside {
+    text-align: right;
+  }
   &[data-tone='overdue'] dd:not(.detail) {
     color: var(--critical-color);
   }
@@ -167,7 +171,8 @@
   }
   .fact {
     display: block;
-    dd {
+    dd,
+    dd.aside {
       text-align: left;
       margin-top: 4px;
     }

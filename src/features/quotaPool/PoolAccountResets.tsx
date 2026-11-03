@@ -59,10 +59,6 @@ function ResetFact({
   const aside = [
     !live && status.statusKey && t(status.statusKey, { usable: resets.usable }),
     !spent && reason,
-    !spent &&
-      resets.available > 0 &&
-      resets.nextExpiryAtMs !== null &&
-      t('quota_pool.reset_expiry', { date: formatPoolDate(resets.nextExpiryAtMs, i18n.language) }),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -87,6 +83,14 @@ function ResetFact({
         state="known"
         value={t(status.valueKey, { count: resets.available })}
       />
+      {/* Its own fact, so the date reads as a value instead of wrapping inside the status. */}
+      {!spent && resets.available > 0 && resets.nextExpiryAtMs !== null && (
+        <Fact
+          label={t('quota_pool.reset_expiry_label')}
+          state="known"
+          value={formatPoolDate(resets.nextExpiryAtMs, i18n.language)}
+        />
+      )}
     </FactSection>
   );
 }
