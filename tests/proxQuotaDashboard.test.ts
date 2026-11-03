@@ -836,6 +836,19 @@ describe('stacked chart geometry', () => {
     expect(markup.indexOf('Roster A')).toBeLessThan(markup.indexOf('Roster B'));
     expect(markup.indexOf('Roster B')).toBeLessThan(markup.indexOf('Roster J'));
   });
+  test('every view groups the one measured fact as Now beside the Forecast', async () => {
+    await i18n.changeLanguage('en');
+    const card = (shown: QuotaPool, mode: 'remaining' | 'burn') =>
+      renderToStaticMarkup(
+        createElement(PoolCard, { pool: shown, dashboard, mode, reveal: false })
+      );
+    // Remaining: the burn rate is the measured fact; the headline is the balance.
+    expect(card(pool, 'remaining')).toMatch(/<p>Now<\/p><dl><div><dt>Burn rate \(3h\)<\/dt>/);
+    // Rate views: the balance moves to Now, because the headline is the rate.
+    expect(card(pool, 'burn')).toMatch(/<p>Now<\/p><dl><div><dt>Weekly remaining<\/dt>/);
+    // A withheld forecast with no burn rate has nothing measured to add, so Now is left out.
+    expect(card({ ...pool, burnPointsPerHour: null }, 'remaining')).not.toContain('<p>Now</p>');
+  });
   test('the latest reading names its value unless the card already shows it', async () => {
     await i18n.changeLanguage('en');
     const readout = (shown: QuotaPool) =>
@@ -1045,6 +1058,8 @@ describe('pool presentation', () => {
     );
     expect(markup).toContain('role="img"');
     expect(markup).toContain('may share accounts');
+    // Overlapping sources aren't missing data, so the total says it isn't summed.
+    expect(markup).toContain('<strong><span>Not summed</span></strong>');
     expect(markup).toMatch(/<option value="stacked" disabled="">/);
     // The reason is its own paragraph; the view select is not nested inside it.
     expect(markup).toMatch(/may share accounts[^<]*<\/p>/);

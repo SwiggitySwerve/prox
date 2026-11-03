@@ -335,10 +335,12 @@ $pool-error: #ff5252;
   }
   // Already showing today: Today keeps its outline and readable text, a step dimmer, so the
   // range's state shows without the control disappearing.
-  button:disabled {
-    opacity: 1;
+  button[aria-disabled='true'],
+  button[aria-disabled='true']:hover {
+    background: transparent;
     color: var(--text-tertiary);
     border-color: var(--hairline-soft);
+    cursor: default;
   }
 }
 .nextIcon {
@@ -1567,9 +1569,6 @@ $pool-error: #ff5252;
   }
   .balanceContext {
     margin-top: 2px !important;
-  }
-  .headline[data-unavailable='true'] {
-    gap: 2px 10px;
   }
 }
 

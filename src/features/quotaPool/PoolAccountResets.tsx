@@ -74,7 +74,7 @@ function ResetFact({
               disabled,
               onClick: onClick ?? (() => {}),
             },
-            note: aside || t('quota_pool.reset_not_usable'),
+            note: aside || t('quota_pool.reset_unavailable'),
           }
         : { action: undefined })}
     >

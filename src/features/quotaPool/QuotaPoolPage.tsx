@@ -226,11 +226,12 @@ export function QuotaPoolPage() {
               >
                 <IconChevronLeft size={18} aria-hidden="true" />
               </button>
-              {/* Off when the range already ends today, so its state shows at a glance. */}
+              {/* Off when the range already ends today, so its state shows at a glance. It stays
+                  focusable (aria-disabled, not disabled), so pressing it never drops keyboard focus. */}
               <button
                 type="button"
-                disabled={query.offsetDays === 0}
-                onClick={() => change('offsetDays', 0)}
+                aria-disabled={query.offsetDays === 0 || undefined}
+                onClick={() => query.offsetDays !== 0 && change('offsetDays', 0)}
               >
                 {t('quota_pool.today')}
               </button>
