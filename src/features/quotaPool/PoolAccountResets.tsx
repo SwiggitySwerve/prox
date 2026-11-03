@@ -26,18 +26,28 @@ type Props = {
 type FactProps = Props & {
   spent: boolean;
   reason?: string;
+  /** A live provider answer that supersedes the server's status (Claude found none usable). */
+  live?: boolean;
   disabled?: boolean;
   onClick?: () => void;
 };
 
-function ResetFact({ account, provider, spent, reason, disabled = true, onClick }: FactProps) {
+function ResetFact({
+  account,
+  provider,
+  spent,
+  reason,
+  live = false,
+  disabled = true,
+  onClick,
+}: FactProps) {
   const { t, i18n } = useTranslation();
   const asideId = useId();
   const resets = account.resets;
   const status = poolResetStatus(resets, provider, spent);
   if (!resets || !status) return null;
   const aside = [
-    status.statusKey && t(status.statusKey, { usable: resets.usable }),
+    !live && status.statusKey && t(status.statusKey, { usable: resets.usable }),
     !spent && reason,
     !spent &&
       resets.available > 0 &&
@@ -202,6 +212,7 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent, ...fact
       spent={spent}
       disabled={reset.blocked || spent}
       onClick={reset.confirm}
+      live={!spent && !reset.message && reset.blocked && !reset.busy && reset.count !== null}
       reason={
         spent && !reset.busy
           ? undefined

@@ -2098,6 +2098,9 @@ $pool-error: #ff5252;
   display: none;
 }
 .accountDetails > .accountResets {
+  // Its own line under the other facts at every width, so a longer status never moves it.
+  grid-column: 1 / -1;
+  flex: 1 0 100%;
   align-items: start;
   dt {
     flex-shrink: 0;
@@ -2105,8 +2108,9 @@ $pool-error: #ff5252;
   }
   dd {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px 12px;
+    grid-template-columns: minmax(0, max-content) auto;
+    justify-content: start;
+    gap: 6px 16px;
     min-width: 0;
   }
 }
