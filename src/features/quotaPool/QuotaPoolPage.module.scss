@@ -111,6 +111,17 @@ $pool-error: #ff5252;
   gap: 16px;
   min-width: 0;
 }
+.linkShort {
+  display: none;
+}
+@media (max-width: 640px) {
+  .linkLong {
+    display: none;
+  }
+  .linkShort {
+    display: inline;
+  }
+}
 .privacy {
   position: relative;
   display: inline-flex;
@@ -336,6 +347,10 @@ $pool-error: #ff5252;
     background: transparent;
     padding-inline: 8px;
   }
+  // Pills, like every other toolbar control.
+  button {
+    border-radius: 999px;
+  }
 }
 .nextIcon {
   transform: rotate(180deg);
@@ -443,10 +458,6 @@ $pool-error: #ff5252;
     font-weight: 400;
     letter-spacing: 0;
   }
-  // A one-line rate caption sits on the number's baseline, beside its unit.
-  &[data-rate='true'] {
-    align-items: baseline;
-  }
 }
 // An unavailable total is a word, not a number: its caption sits on the word's baseline.
 .headline[data-unavailable='true'] {
@@ -487,6 +498,18 @@ $pool-error: #ff5252;
 .statsBlock {
   flex: 2;
   min-width: 0;
+}
+// Rate views: a one-fact "Now" group beside the forecast, on the same four-column rhythm.
+.statsBlock[data-split] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: 8px 20px;
+  .statsGroup:first-child .stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .statsGroup:last-child .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .stats {
   display: grid;
@@ -715,7 +738,7 @@ $pool-error: #ff5252;
   color: var(--text-tertiary);
 }
 .page .expandAccounts {
-  margin-right: auto;
+  margin-left: auto;
   padding: 4px 12px;
   background: transparent;
   border-color: var(--hairline);
@@ -957,7 +980,9 @@ $pool-error: #ff5252;
     font-size: 13px;
   }
 }
-.pools > .emptyNotice {
+// A page with nothing but its notice keeps it one readable width, whether empty or failed.
+.pools > .emptyNotice,
+.errorNotice[data-alone] {
   max-width: 640px;
 }
 .pools > .notice {
@@ -1276,14 +1301,28 @@ $pool-error: #ff5252;
   white-space: nowrap;
 }
 
+// Laptops: slightly tighter controls keep the date range on the toolbar's row instead of alone below.
 @media (min-width: 901px) and (max-width: 1300px) {
   .toolbar {
-    column-gap: 12px;
+    column-gap: 8px;
+  }
+  .segment button {
+    padding-inline: 10px;
+  }
+  .selectLabel {
+    padding-left: 12px;
   }
 }
 @media (min-width: 901px) and (max-width: 1450px) {
   .statsBlock {
     flex: 1.3;
+  }
+  // The balance takes only its width, so the forecast's dates keep one line each.
+  .statsBlock[data-split] {
+    grid-template-columns: auto minmax(0, 1fr);
+    .statsGroup:last-child .stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
   .statsHeading {
     margin-bottom: 4px !important;
@@ -1384,12 +1423,19 @@ $pool-error: #ff5252;
   .toolbar > .segment:first-child {
     flex-basis: 100%;
   }
-  // Each setting takes a full-width row, so its whole value or reason stays readable.
+  // Settings share a row when both fit whole, and wrap to their own rows when they don't, so a
+  // value or reason is never cut short.
   .chartSettings {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
     width: 100%;
-    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
+    > * {
+      flex: 1 1 auto;
+    }
+    > [data-disabled] {
+      flex-basis: 100%;
+    }
   }
   .selectLabel {
     min-width: 0;
@@ -1441,6 +1487,14 @@ $pool-error: #ff5252;
   }
   .stats dd {
     font-size: 14px;
+  }
+  // Now and Forecast stack as full-width label/value rows; side by side they can't fit.
+  .statsBlock[data-split] {
+    grid-template-columns: minmax(0, 1fr);
+    .statsGroup:first-child .stats,
+    .statsGroup:last-child .stats {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   .poolTitle {
     gap: 7px;
@@ -1542,6 +1596,10 @@ $pool-error: #ff5252;
     padding-right: 36px;
   }
 }
+.combinedOptions select {
+  border-radius: 999px;
+  padding-inline: 12px 8px;
+}
 .combinedOptions {
   display: flex;
   align-items: center;
@@ -1585,13 +1643,16 @@ $pool-error: #ff5252;
     padding: 4px 8px;
   }
 }
+// Card controls show their round target at rest, so they read as buttons, not bare glyphs.
 .reorder button {
-  border-color: transparent;
+  border-color: var(--hairline-soft);
+  border-radius: 999px;
+  background: transparent;
 }
 .reorder button.graphToggle {
   color: var(--text-secondary);
   background: transparent;
-  border-color: transparent;
+  border-color: var(--hairline-soft);
 }
 .reorder .graphToggle:hover {
   color: var(--text-primary);
@@ -1648,14 +1709,28 @@ $pool-error: #ff5252;
   font-weight: 400;
   white-space: nowrap;
 }
+@media (min-width: 641px) {
+  .accountCoverage + .accountCoverage {
+    margin-left: 4px;
+    &::before {
+      content: '· ';
+    }
+  }
+}
 .accountBalanceLabel {
   margin-left: 6px;
   font-weight: 400;
   white-space: nowrap;
 }
-// Wide tables name the balance in their own column header; phones have no header row.
+// Wide tables name the balance in their own column header; phones name it under each row's
+// value, so neither repeats it in the heading. A minimized wide card has neither, so keeps it.
 @media (min-width: 901px) {
   .pool:not([data-minimized='true']) .accountBalanceLabel {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .accountBalanceLabel {
     display: none;
   }
 }
@@ -1785,9 +1860,19 @@ $pool-error: #ff5252;
     .accountHead,
     .account > summary {
       display: grid;
+      // Each limit track is a third of what's left, so a card with fewer limits keeps the same
+      // column edges as one with three and leaves the rest of the row empty.
       grid-template-columns:
         20px var(--name-track) var(--plan-track)
-        repeat(var(--limit-cols), minmax(104px, 1fr)) 128px;
+        repeat(
+          var(--limit-cols),
+          minmax(
+            104px,
+            calc((100% - 20px - var(--name-track) - var(--plan-track) - 128px - 96px) / 3)
+          )
+        )
+        128px;
+      justify-content: start;
       column-gap: 16px;
       align-items: center;
     }
@@ -1899,9 +1984,13 @@ $pool-error: #ff5252;
     [data-balance-column='false'] {
       .accountHead,
       .account > summary {
+        // As above: a third of the rest per limit, so every card's columns share their edges.
         grid-template-columns:
           20px var(--name-track) var(--plan-track)
-          repeat(var(--limit-cols), minmax(104px, 1fr));
+          repeat(
+            var(--limit-cols),
+            minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 80px) / 3))
+          );
       }
       .accountHead span:last-child {
         text-align: left;
@@ -2041,14 +2130,13 @@ $pool-error: #ff5252;
   }
 }
 
+// Its own line under the plan at every width, so on phones it never runs into the row's value.
 .accountResetMarker {
+  display: block;
   white-space: nowrap;
   color: var(--text-secondary);
-  @media (min-width: 901px) {
-    display: block;
-    .resetSeparator {
-      display: none;
-    }
+  .resetSeparator {
+    display: none;
   }
 }
 .account[open] .accountResetMarker {

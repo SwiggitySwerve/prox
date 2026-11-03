@@ -37,11 +37,29 @@
     line-height: 18px;
     white-space: nowrap;
     cursor: pointer;
-    &:hover:not(:disabled) {
-      background: var(--bg-hover);
+    // Enabled: filled with the section's accent, so a usable action stands out from a blocked one.
+    &:not(:disabled) {
+      border-color: color-mix(in srgb, var(--fact-accent, var(--text-secondary)) 60%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--fact-accent, var(--text-secondary)) 24%,
+        var(--bg-tertiary)
+      );
     }
+    &:hover:not(:disabled) {
+      background: color-mix(
+        in srgb,
+        var(--fact-accent, var(--text-secondary)) 34%,
+        var(--bg-tertiary)
+      );
+    }
+    // Disabled: an outline with readable text, plainly off; its reason is the note beneath.
     &:disabled {
-      opacity: 0.4;
+      border-color: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+      background: transparent;
+      color: var(--text-secondary);
+      // Overrides the app's dimmed disabled button, which made this text unreadable on the fill.
+      opacity: 1;
       cursor: not-allowed;
     }
     &:focus-visible {
@@ -73,7 +91,8 @@
   display: grid;
   // Labels are short; size them to their text so values (dates) keep one line on phones.
   grid-template-columns: minmax(auto, max-content) minmax(min-content, 1fr);
-  gap: 4px 12px;
+  // 8px keeps "Predicted empty" and a full date on one line at phone width.
+  gap: 4px 8px;
   font-size: 14px;
   line-height: 20px;
   dt {
@@ -90,19 +109,21 @@
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
   }
-  small {
-    display: block;
+  dd.detail {
+    grid-column: 1 / -1;
+    text-align: left;
     color: var(--text-secondary);
     font-size: 13px;
     line-height: 18px;
     font-weight: 400;
-    margin-top: 4px;
+    text-wrap: pretty;
   }
-  &[data-tone='overdue'] dd {
+  &[data-tone='overdue'] dd:not(.detail) {
     color: var(--critical-color);
   }
 }
-.note {
+// Section-qualified so a host's paragraph reset can't remove the gap before the facts.
+.section .note {
   margin: 12px 0 0;
   font-size: 13px;
   line-height: 18px;
@@ -158,6 +179,25 @@
   }
   .section[data-tone='accent'] {
     grid-column: span 2;
+  }
+}
+// Wide drawers: the facts keep three shared columns, and the accent section takes a fourth on
+// the right beside them, so no column is left empty and every fact row stays on one line.
+@container (min-width: 1100px) {
+  .panel:has(> .section[data-tone='accent']) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr);
+    align-items: start;
+    > .section {
+      grid-column: 1 / 4;
+    }
+    > .section[data-tone='accent'] {
+      grid-column: 4;
+      grid-row: 1 / span 2;
+      display: block;
+      dl {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
   }
 }
 @media (pointer: coarse) {

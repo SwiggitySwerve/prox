@@ -31,14 +31,15 @@ export function Fact(props: FactState & { label: ReactNode; tone?: 'overdue'; va
               ? t('quota_pool.not_reported')
               : props.reason}
         </span>
-        {props.state === 'estimated' && (
-          <small>
-            {t('quota_pool.billing_estimated')} · {props.basis}
-          </small>
-        )}
-        {props.state === 'notReported' && <small>{props.reason}</small>}
-        {props.state === 'known' && props.aside && <small>{props.aside}</small>}
       </dd>
+      {/* The basis or reason is its own line under the value, so on phones it reads full width. */}
+      {props.state === 'estimated' && (
+        <dd className={styles.detail}>
+          {t('quota_pool.billing_estimated')} · {props.basis}
+        </dd>
+      )}
+      {props.state === 'notReported' && <dd className={styles.detail}>{props.reason}</dd>}
+      {props.state === 'known' && props.aside && <dd className={styles.detail}>{props.aside}</dd>}
     </div>
   );
 }

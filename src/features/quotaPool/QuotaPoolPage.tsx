@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   IconAlertTriangle,
   IconEye,
+  IconClock,
   IconRefreshCw,
   IconChevronDown,
   IconChevronLeft,
@@ -91,7 +92,10 @@ export function QuotaPoolPage() {
         <div className={styles.titleRow}>
           <h1>{t('quota_pool.title')}</h1>
           <Link to="/quota/accounts" className={styles.accountLink}>
-            {t('quota_pool.accounts')} <span aria-hidden="true">→</span>
+            {/* Phones keep the short name so the link fits beside the title. */}
+            <span className={styles.linkLong}>{t('quota_pool.accounts_link')}</span>
+            <span className={styles.linkShort}>{t('quota_pool.accounts')}</span>{' '}
+            <span aria-hidden="true">→</span>
           </Link>
         </div>
         <div className={styles.actions}>
@@ -249,7 +253,11 @@ export function QuotaPoolPage() {
         </div>
       )}
       {(state.error || state.refreshError) && (
-        <div className={`${styles.notice} ${styles.errorNotice}`} role="alert">
+        <div
+          className={`${styles.notice} ${styles.errorNotice}`}
+          role="alert"
+          data-alone={!data || undefined}
+        >
           <IconAlertTriangle size={20} className={styles.errorIcon} aria-hidden="true" />
           <div>
             <h2>{t(`quota_pool.${data ? 'refresh_failed_title' : 'load_failed_title'}`)}</h2>
@@ -485,7 +493,12 @@ function RefreshCountdown({
   if (dueAtMs === null) return null;
   return (
     <span className={styles.countdown} data-refreshing={refreshing} role="status">
-      <IconRefreshCw size={16} aria-hidden="true" />
+      {/* A clock for the countdown, so the status doesn't pass for a refresh button. */}
+      {refreshing ? (
+        <IconRefreshCw size={16} aria-hidden="true" />
+      ) : (
+        <IconClock size={16} aria-hidden="true" />
+      )}
       {refreshing
         ? t('quota_pool.refreshing')
         : t(`quota_pool.${retrying ? 'auto_retry_in' : 'auto_refresh_in'}`, {

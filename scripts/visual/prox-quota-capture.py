@@ -9,6 +9,7 @@ import math
 import time
 from collections import Counter
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from PIL import Image
 from playwright.async_api import async_playwright
@@ -587,6 +588,12 @@ async def main():
                             )
                             return
                         data = fixture(state)
+                        # Echo the requested view, as the server does, so a deep link's controls and content agree.
+                        query = parse_qs(urlparse(url).query)
+                        if "window" in query:
+                            data["window"] = query["window"][0]
+                        if "lookback" in query:
+                            data["lookbackHours"] = int(query["lookback"][0])
                         if state == "refresh-pending":
                             data["refreshing"] = time.monotonic() < pending_until
                         await route.fulfill(json=data)
@@ -673,7 +680,7 @@ async def main():
                         # Nothing to stack: the option is off, provider lines are drawn, and the reason shows.
                         assert await view.locator('option[value="stacked"]').evaluate("o => o.disabled"), await view.inner_html()
                         assert await combined.locator('svg[role="img"]').count() == 1
-                        assert "unverified account overlap" in await combined.inner_text()
+                        assert "may share accounts" in await combined.inner_text()
                 if state in ("drain", "burn"):
                     await page.get_by_role(
                         "button",
@@ -691,7 +698,7 @@ async def main():
                 if state == "many-lowest":
                     await page.get_by_role("combobox", name="Sort accounts").first.select_option("lowest")
                 if state == "many-low":
-                    await page.get_by_role("button", name="40 low").first.click()
+                    await page.get_by_role("button", name="40 under 20%").first.click()
                 if state == "deep-link":
                     # The address holds the view: a link opens it, and changing the view rewrites
                     # the address with only the non-default keys.
@@ -707,7 +714,7 @@ async def main():
                         errors.append(f"deep-link: pressed={pressed} interval={interval} address={address}")
                 if name == "partial-affected-narrow":
                     # The notice's action filters its card's list to the affected rows and focuses the first.
-                    show = page.get_by_role("button", name="Show in list").first
+                    show = page.get_by_role("button", name="Show affected accounts").first
                     card = show.locator("xpath=ancestor::article")
                     await show.click()
                     rows = await card.locator('details[class*="__account___"]').count()
