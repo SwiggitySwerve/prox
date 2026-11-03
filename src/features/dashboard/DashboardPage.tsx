@@ -24,6 +24,7 @@ import { Meter } from './components/Meter';
 import { Sparkline } from './components/Sparkline';
 import { ThroughputChart } from './components/ThroughputChart';
 import { ProviderPills } from './components/ProviderPills';
+import { RuntimeComparison, type RuntimeRow } from './components/RuntimeComparison';
 import {
   ALL_PROVIDERS,
   buildDashboardView,
@@ -294,9 +295,7 @@ function UnifiedDashboard({
     },
   ];
 
-  const runtimeRows = (
-    source: DashboardSource
-  ): Array<{ label: string; value: string; mono?: boolean }> => [
+  const runtimeRows = (source: DashboardSource): RuntimeRow[] => [
     { label: t('dashboard.runtime_routing'), value: routingStrategy(source) },
     { label: t('dashboard.runtime_retry'), value: String(source.config?.requestRetry ?? 0) },
     {
@@ -697,56 +696,7 @@ function UnifiedDashboard({
               )}
             </>
           ) : sources.length > 1 ? (
-            // Settings belong to each source, so several sources compare side by side.
-            <table className={styles.runtimeTable}>
-              <thead>
-                <tr>
-                  <th scope="col">{t('dashboard.runtime_setting')}</th>
-                  {sources.map((source) => (
-                    <th key={source.id} scope="col" title={source.label}>
-                      <span className={styles.runtimeSource}>
-                        <ProviderMark id={source.brand ?? ''} />
-                        {source.name}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {runtimeRows(sources[0]).map((row, index) => (
-                  <tr key={row.label}>
-                    <th scope="row">{row.label}</th>
-                    {sources.map((source) => (
-                      <td key={source.id} className={row.mono ? styles.specMono : undefined}>
-                        {runtimeRows(source)[index].value}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                {sources.some((source) => source.config) &&
-                  runtimeToggles(sources.find((source) => source.config)!).map((toggle, index) => (
-                    <tr key={toggle.label}>
-                      <th scope="row">{toggle.label}</th>
-                      {sources.map((source) => {
-                        const own = runtimeToggles(source)[index];
-                        return (
-                          <td key={source.id}>
-                            {own ? (
-                              <span
-                                className={`${styles.togglePill} ${own.on ? styles.toggleOn : styles.toggleOff}`}
-                              >
-                                <b>{own.on ? t('common.yes') : t('common.no')}</b>
-                              </span>
-                            ) : (
-                              DASH
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+            <RuntimeComparison sources={sources} rows={runtimeRows} toggles={runtimeToggles} />
           ) : null}
           <Link to="/config" className={styles.panelLink}>
             {t('dashboard.runtime_link')}{' '}
