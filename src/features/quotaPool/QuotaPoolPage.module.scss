@@ -1861,7 +1861,8 @@ $pool-error: #ff5252;
     .account > summary {
       display: grid;
       // Each limit track is a third of what's left, so a card with fewer limits keeps the same
-      // column edges as one with three and leaves the rest of the row empty.
+      // column edges as one with three and leaves the rest of the row empty. Providers report at
+      // most three limits; a fourth would need this divisor raised.
       grid-template-columns:
         20px var(--name-track) var(--plan-track)
         repeat(
@@ -2135,9 +2136,6 @@ $pool-error: #ff5252;
   display: block;
   white-space: nowrap;
   color: var(--text-secondary);
-  .resetSeparator {
-    display: none;
-  }
 }
 .account[open] .accountResetMarker {
   display: none;

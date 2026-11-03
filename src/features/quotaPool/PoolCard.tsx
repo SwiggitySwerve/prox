@@ -579,7 +579,6 @@ export function PoolCard({
                         account.resets.available > 0 &&
                         !wasSpent(account.id, account.resets.observedAtMs) && (
                           <span className={styles.accountResetMarker}>
-                            <span className={styles.resetSeparator}> · </span>
                             {t('quota_pool.reset_count', { count: account.resets.available })}
                           </span>
                         )}

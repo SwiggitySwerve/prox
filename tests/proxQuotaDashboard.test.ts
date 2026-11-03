@@ -836,6 +836,18 @@ describe('stacked chart geometry', () => {
     expect(markup.indexOf('Roster A')).toBeLessThan(markup.indexOf('Roster B'));
     expect(markup.indexOf('Roster B')).toBeLessThan(markup.indexOf('Roster J'));
   });
+  test('the latest reading names its value unless the card already shows it', async () => {
+    await i18n.changeLanguage('en');
+    const readout = (shown: QuotaPool) =>
+      renderToStaticMarkup(
+        createElement(PoolChart, { pool: shown, dashboard, mode: 'remaining' })
+      ).match(/id="[^"]*-readout"[^>]*>([^<]*)</)?.[1] ?? '';
+    // The card's big number is the latest value, so the readout gives only its moment.
+    expect(readout(pool)).toMatch(/^Latest reading · /);
+    expect(readout(pool)).not.toContain('73');
+    // A withheld total leaves the card without a number, so the readout keeps the value.
+    expect(readout({ ...pool, remainingPoints: null })).toContain('73');
+  });
   test('a combined readout states every provider at the selected moment', async () => {
     await i18n.changeLanguage('en');
     const a = { ...pool, provider: 'claude' as const, recorded: [point(500, 20)], projected: [] };
