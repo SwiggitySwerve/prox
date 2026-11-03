@@ -2514,7 +2514,8 @@
     "reset_unavailable": "No reset is usable now",
     "reset_source_unavailable": "Connect to this source to use a reset",
     "reset_lookup_failed": "Could not identify an active account credential",
-    "reset_loading": "Checking reset availability…"
+    "reset_loading": "Checking reset availability…",
+    "reset_spent": "Reset used · counts update at the next collection"
   },
   "provider_sources": {
     "discovery_error": "Source discovery is unavailable. Reload to retry.",

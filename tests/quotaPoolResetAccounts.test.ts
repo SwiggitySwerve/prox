@@ -20,6 +20,26 @@ describe('pool reset credential matching', () => {
       ).toBeUndefined();
     }
   });
+  test('matches accounts the server kept under their pre-source legacy id', () => {
+    // QuotaStore.accountIdFor keeps migrated accounts as `${provider}:${digest}`.
+    const legacy = (provider: string, index: string) =>
+      `${provider}:${createHash('sha256').update(`${provider}\0${index}`).digest('hex')}`;
+    const credential = file('7', 'claude');
+    expect(findPoolResetFile([credential], 'claude-primary', 'claude', legacy('claude', '7'))).toBe(
+      credential
+    );
+    expect(
+      findPoolResetFile([credential], 'claude-primary', 'claude', legacy('claude', '8'))
+    ).toBeUndefined();
+    expect(
+      findPoolResetFile(
+        [credential, file('7', 'claude')],
+        'claude-primary',
+        'claude',
+        legacy('claude', '7')
+      )
+    ).toBeUndefined();
+  });
   test('normalizes numeric and camelCase indices without matching names', () => {
     const credential = { name: 'different.json', provider: 'codex', authIndex: 42 } as AuthFileItem;
     expect(findPoolResetFile([credential], 's', 'codex', id('s', 'codex', '42'))).toBe(credential);

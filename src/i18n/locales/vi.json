@@ -2520,7 +2520,8 @@
     "reset_unavailable": "Hiện không có lượt đặt lại dùng được",
     "reset_source_unavailable": "Kết nối nguồn này để dùng lượt đặt lại",
     "reset_lookup_failed": "Không tìm thấy thông tin xác thực tài khoản đang hoạt động",
-    "reset_loading": "Đang kiểm tra lượt đặt lại…"
+    "reset_loading": "Đang kiểm tra lượt đặt lại…",
+    "reset_spent": "Đã dùng lượt đặt lại · số liệu cập nhật ở lần thu thập tiếp theo"
   },
   "provider_sources": {
     "discovery_error": "Không thể tải danh sách nguồn. Hãy tải lại trang để thử lại.",

@@ -2512,7 +2512,8 @@
     "reset_unavailable": "当前无可用重置",
     "reset_source_unavailable": "连接到此来源以使用重置",
     "reset_lookup_failed": "无法识别有效的账户凭证",
-    "reset_loading": "正在检查重置可用性…"
+    "reset_loading": "正在检查重置可用性…",
+    "reset_spent": "已使用重置 · 计数将在下次采集时更新"
   },
   "provider_sources": {
     "discovery_error": "无法获取代理实例列表。请重新加载以重试。",

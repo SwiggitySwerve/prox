@@ -20,7 +20,11 @@ export function findPoolResetFile(
     )
       return false;
     const digest = bytesToHex(sha256(new TextEncoder().encode(`${provider}\0${authIndex}`)));
-    return accountId === `${instanceId}:${provider}:${digest}`;
+    // Accounts recorded before sources existed keep their legacy id (QuotaStore.accountIdFor).
+    // The caller lists only the pool's own source, so the legacy form stays source-bound.
+    return (
+      accountId === `${instanceId}:${provider}:${digest}` || accountId === `${provider}:${digest}`
+    );
   });
   // An ambiguous inventory must never choose a credential arbitrarily.
   return matches.length === 1 ? matches[0] : undefined;

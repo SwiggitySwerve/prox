@@ -22,6 +22,10 @@ type Props = {
   onRefresh: () => void;
 };
 
+/** Spends this tab made, by account: the server's counts lag until its next collection. */
+const spentAt = new Map<string, number>();
+const markSpent = (accountId: string) => spentAt.set(accountId, Date.now());
+
 /** Pool readings stay server-owned; credentials and provider reads are loaded only on disclosure. */
 export function PoolAccountResets(props: Props) {
   const { t, i18n } = useTranslation();
@@ -44,7 +48,10 @@ export function PoolAccountResets(props: Props) {
           </span>
         )}
         {/* Nothing held: the count already says so, and there is nothing to spend. */}
-        {resets.available === 0 ? null : resets.usable === 0 ? (
+        {resets.available === 0 ? null : (spentAt.get(props.account.id) ?? 0) >
+          resets.observedAtMs ? (
+          <ResetButton disabled reason={t('quota_pool.reset_spent')} />
+        ) : resets.usable === 0 ? (
           <ResetButton disabled reason={t(poolResetReasonKey(resets.blocker))} />
         ) : source?.session && source.status === 'ready' ? (
           <SourceResetAction
@@ -123,16 +130,35 @@ function SourceResetAction({
       />
     );
   return provider === 'claude' ? (
-    <ClaudeResetAction file={file} session={session} onRefresh={onRefresh} />
+    <ClaudeResetAction file={file} session={session} onRefresh={onRefresh} accountId={account.id} />
   ) : (
-    <CodexResetAction file={file} session={session} onRefresh={onRefresh} />
+    <CodexResetAction file={file} session={session} onRefresh={onRefresh} accountId={account.id} />
   );
 }
 
-type ActionProps = { file: AuthFileItem; session: SourceSession; onRefresh: () => void };
-function ClaudeResetAction({ file, session, onRefresh }: ActionProps) {
+type ActionProps = {
+  file: AuthFileItem;
+  session: SourceSession;
+  onRefresh: () => void;
+  accountId: string;
+};
+function ClaudeResetAction({ file, session, onRefresh, accountId }: ActionProps) {
   const { t } = useTranslation();
-  const scope = useMemo(() => createSourceResetGrants(session), [session]);
+  const scope = useMemo(() => {
+    const shared = createSourceResetGrants(session);
+    const run = shared.operations.run;
+    return {
+      ...shared,
+      operations: {
+        ...shared.operations,
+        run: async (...args: Parameters<typeof run>) => {
+          const answer = await run(...args);
+          if (answer.code === 'reset' && !answer.unresolved) markSpent(accountId);
+          return answer;
+        },
+      },
+    };
+  }, [session, accountId]);
   const reset = useClaudeResetGrants(file, true, false, null, onRefresh, scope);
   return (
     <ResetButton
@@ -141,14 +167,15 @@ function ClaudeResetAction({ file, session, onRefresh }: ActionProps) {
       reason={
         reset.message
           ? t(`claude_reset.${reset.message}`)
-          : reset.blocked
-            ? t('quota_pool.reset_loading')
+          : reset.blocked && !reset.busy
+            ? // A finished read with nothing usable is not still loading.
+              t(reset.count === null ? 'quota_pool.reset_loading' : 'quota_pool.reset_unavailable')
             : undefined
       }
     />
   );
 }
-function CodexResetAction({ file, session, onRefresh }: ActionProps) {
+function CodexResetAction({ file, session, onRefresh, accountId }: ActionProps) {
   const [store] = useState(createQuotaStore);
   const adapter = useMemo(() => {
     const codex = createQuotaAdapters(session, store).codex;
@@ -157,13 +184,15 @@ function CodexResetAction({ file, session, onRefresh }: ActionProps) {
       ...codex,
       resetQuota: async (...args: Parameters<typeof reset>) => {
         try {
-          return await reset(...args);
+          const result = await reset(...args);
+          markSpent(accountId);
+          return result;
         } finally {
           if (!session.signal.aborted) onRefresh();
         }
       },
     };
-  }, [session, store, onRefresh]);
+  }, [session, store, onRefresh, accountId]);
   const actions = useQuotaActions(false, store, session);
   return (
     <ResetButton
