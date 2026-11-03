@@ -51,8 +51,12 @@ credential UI. The store owns persistence; the collector uses only public APIs.
   Recorded charts hold the last balance flat across a stretch with no reports at
   all (the point 1 ms before the next report; rates stay unknown). An account
   missing while others report is still unknown, never held.
-  Collections are at least 4 minutes apart: Anthropic's usage endpoint returns 429
-  to bursts. Each failed poll logs status, retry-after seconds and header names.
+  Full collections are at least 4 minutes apart: Anthropic's usage endpoint returns 429
+  to bursts. After a confirmed reset attempt, a targeted refresh may read only the
+  affected account, at most once per 20 seconds with per-account single flight.
+  It uses the same validated source inventory without recording membership or
+  retiring accounts, and serializes with full collection. Each failed poll logs
+  status, retry-after seconds and header names.
   Disabled/retired accounts are excluded. A failed inventory cannot look like
   an empty healthy provider. History describes the current eligible membership;
   an account joins it at its first stored sample, so adding an account never

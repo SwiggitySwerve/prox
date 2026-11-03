@@ -20,7 +20,7 @@ type Props = {
   name: string;
   instanceId?: string;
   provider: PoolProviderId;
-  onRefresh: () => void;
+  onRefresh: (accountId?: string) => void;
 };
 
 type FactProps = Props & {
@@ -182,7 +182,7 @@ function SourceResetAction({
 type ActionProps = Props & {
   file: AuthFileItem;
   session: SourceSession;
-  onRefresh: () => void;
+  onRefresh: (accountId?: string) => void;
   accountId: string;
   /** A spend from this tab is newer than the server's reading. */
   spent: boolean;
@@ -199,11 +199,12 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent, ...fact
         run: async (...args: Parameters<typeof run>) => {
           const answer = await run(...args);
           if (answer.code === 'reset' && !answer.unresolved) markSpent(accountId);
+          if (!answer.unresolved && !session.signal.aborted) onRefresh(accountId);
           return answer;
         },
       },
     };
-  }, [session, accountId]);
+  }, [session, accountId, onRefresh]);
   const reset = useClaudeResetGrants(file, true, false, null, onRefresh, scope);
   return (
     <ResetFact
@@ -254,7 +255,7 @@ function CodexResetAction({
           // A confirmed attempt may have consumed the credit even if its cooldown clear or
           // follow-up read failed, so the row waits for the next reading either way.
           markSpent(accountId);
-          if (!session.signal.aborted) onRefresh();
+          if (!session.signal.aborted) onRefresh(accountId);
         }
       },
     };

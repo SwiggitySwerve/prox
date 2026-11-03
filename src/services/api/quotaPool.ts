@@ -16,6 +16,9 @@ export function createQuotaPoolApi() {
   return {
     get: (params: PoolQuery, signal: AbortSignal) =>
       client.get<PoolDashboard>('/prox/pools', { params, signal }),
-    refresh: (signal: AbortSignal) => client.post<PoolRefresh>('/prox/refresh', {}, { signal }),
+    refreshAccount: (accountId: string, signal: AbortSignal) =>
+      client.post<{ refreshed: boolean }>('/prox/refresh', { accountId }, { signal }),
+    refresh: (signal: AbortSignal) =>
+      client.post<PoolRefresh>('/prox/refresh', undefined, { signal }),
   };
 }

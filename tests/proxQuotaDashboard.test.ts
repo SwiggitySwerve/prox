@@ -117,6 +117,63 @@ afterEach(() => {
 });
 
 describe('pool request lifetime', () => {
+  test('targeted refresh awaits its reading before reload and silently falls back when unavailable', async () => {
+    const reading = deferred<{ refreshed: boolean }>();
+    let reads = 0;
+    let full = 0;
+    const ids: string[] = [];
+    const resource = createPoolResource(
+      {
+        get: async () => {
+          reads++;
+          return dashboard;
+        },
+        refresh: async () => {
+          full++;
+          throw new Error('offline');
+        },
+        refreshAccount: (id) => {
+          ids.push(id);
+          return reading.promise;
+        },
+      },
+      query,
+      () => true
+    );
+    disposers.push(resource.subscribe(() => {}));
+    await flush();
+    const refresh = resource.refresh('account');
+    expect(reads).toBe(1);
+    reading.resolve({ refreshed: true });
+    await refresh;
+    expect(ids).toEqual(['account']);
+    expect(reads).toBe(2);
+    expect(full).toBe(0);
+    const fallback = createPoolResource(
+      {
+        get: async () => {
+          reads++;
+          return dashboard;
+        },
+        refresh: async () => {
+          full++;
+          throw new Error('offline');
+        },
+        refreshAccount: async () => {
+          throw new Error('offline');
+        },
+      },
+      query,
+      () => true
+    );
+    disposers.push(fallback.subscribe(() => {}));
+    await flush();
+    await fallback.refresh('account');
+    expect(full).toBe(1);
+    expect(reads).toBe(4);
+    expect(fallback.getSnapshot().refreshError).toBe(false);
+  });
+
   test('same-credential reconnects invalidate the session even when React batches transitions', () => {
     const previous = useAuthStore.getState();
     const storage = useAuthStore.persist.getOptions().storage;

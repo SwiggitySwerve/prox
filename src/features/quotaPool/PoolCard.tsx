@@ -48,7 +48,7 @@ export function PoolCard({
   move,
   onRefresh = () => {},
 }: {
-  onRefresh?: () => void;
+  onRefresh?: (accountId?: string) => void;
   pool: QuotaPool;
   dashboard: PoolDashboard;
   mode: ChartMode;

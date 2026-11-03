@@ -1,3 +1,5 @@
+import { readJson } from './http/readJson';
+import { isRecord } from '../src/utils/helpers';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { buildDashboard } from './quota/domain';
@@ -7,6 +9,7 @@ import { DAY_MS, HOUR_MS } from './quota/types';
 
 interface CollectorState extends Omit<CollectionState, 'historyStartedAtMs'> {
   refresh(): Promise<void>;
+  refreshAccount(accountId: string): Promise<boolean>;
 }
 export interface AppDependencies {
   store: QuotaStore;
@@ -54,7 +57,7 @@ export function authorized(request: Request, keyFile: string): boolean {
 }
 
 export function createHandler({ store, collector, keyFile, now = Date.now }: AppDependencies) {
-  return (request: Request): Response => {
+  return (request: Request): Response | Promise<Response> => {
     const url = new URL(request.url);
     if (url.pathname === '/healthz' && request.method === 'GET') return new Response('ok\n');
     try {
@@ -63,6 +66,29 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
       return json({ error: 'Management authentication unavailable' }, 503);
     }
     if (url.pathname === '/v1/refresh' && request.method === 'POST') {
+      if (request.body)
+        return (async () => {
+          let accountId: string;
+          try {
+            const body = await readJson(request.body!, 4096);
+            if (
+              !isRecord(body) ||
+              typeof body.accountId !== 'string' ||
+              !body.accountId.trim() ||
+              body.accountId.length > 512
+            ) {
+              return json({ error: 'Invalid accountId' }, 400);
+            }
+            accountId = body.accountId;
+          } catch {
+            return json({ error: 'Invalid refresh body' }, 400);
+          }
+          try {
+            return json({ refreshed: await collector.refreshAccount(accountId) });
+          } catch {
+            return json({ refreshed: false });
+          }
+        })();
       // Collection owns single-flight behavior, rate limits and sanitized failures.
       void collector.refresh().catch(() => console.error('Quota collection failed'));
       return json(

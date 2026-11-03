@@ -65,6 +65,7 @@ export function QuotaPoolPage() {
   };
   const state = usePoolDashboard(query);
   const { data, refresh } = state;
+  const refreshPool = useCallback((accountId?: string) => void refresh(accountId), [refresh]);
   const refreshStatus = state.refreshStatus ?? data;
   const refreshing = state.refreshing || refreshStatus?.refreshing;
   const chartUnavailable = !data?.pools.length;
@@ -388,7 +389,7 @@ export function QuotaPoolPage() {
           shownPools.map((pool, index, shown) => (
             <PoolCard
               key={poolKey(pool)}
-              onRefresh={() => void refresh()}
+              onRefresh={refreshPool}
               pool={pool}
               dashboard={data}
               mode={mode}
