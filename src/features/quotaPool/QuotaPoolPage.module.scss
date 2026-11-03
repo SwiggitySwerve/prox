@@ -304,29 +304,6 @@ $pool-error: #ff5252;
   color: var(--text-tertiary);
   white-space: nowrap;
 }
-.selectHint {
-  padding: 0 16px 0 6px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  white-space: nowrap;
-}
-// The disabled select stays in the box for its name and setting; the reason takes its place.
-.selectLabel[data-disabled] select {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  min-height: 0;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-.selectLabel[data-disabled] {
-  position: relative;
-  border-color: var(--hairline-soft);
-  .selectHint {
-    color: var(--text-tertiary);
-  }
-}
 .dateNavigation {
   // Follows the selects, so it never floats alone at the far edge or wraps right-aligned.
   display: flex;
@@ -347,9 +324,23 @@ $pool-error: #ff5252;
     background: transparent;
     padding-inline: 8px;
   }
-  // Pills, like every other toolbar control.
+  // Pills, like every other toolbar control. Today is an action, so it is outlined, not filled
+  // like a selected segment.
   button {
     border-radius: 999px;
+  }
+  button:not(:first-of-type):not(:last-of-type) {
+    background: transparent;
+    border: 1px solid var(--hairline);
+  }
+  // Already showing today: Today keeps its outline and readable text, a step dimmer, so the
+  // range's state shows without the control disappearing.
+  button[aria-disabled='true'],
+  button[aria-disabled='true']:hover {
+    background: transparent;
+    color: var(--text-tertiary);
+    border-color: var(--hairline-soft);
+    cursor: default;
   }
 }
 .nextIcon {
@@ -459,14 +450,10 @@ $pool-error: #ff5252;
     letter-spacing: 0;
   }
 }
-// An unavailable total is a word, not a number: its caption sits on the word's baseline.
-.headline[data-unavailable='true'] {
-  align-items: baseline;
-}
-// A missing total says so in the value slot; the notice below carries the warning colour.
+// A withheld total is a muted word a step below the number size, so it reads as a status.
 .unavailableValue {
   color: var(--text-secondary);
-  font-size: 22px;
+  font-size: 28px;
   letter-spacing: -0.02em;
 }
 .headlineContext {
@@ -943,10 +930,8 @@ $pool-error: #ff5252;
   display: none;
   color: var(--text-quaternary);
 }
-// A low limit's track is tinted red, so "low" doesn't rest on red next to Claude coral alone.
-.limits li[data-low='true'] .limitBar {
-  background: color-mix(in srgb, #{$pool-error} 22%, transparent);
-}
+// Low limits keep the neutral track: the red fill, red value and warning icon carry "low", so the
+// empty part of the bar doesn't read as a second red bar (docs/design/quota-ui/12-delivery-and-evaluation.md).
 .limitBar {
   height: 6px;
   overflow: hidden;
@@ -1076,6 +1061,16 @@ $pool-error: #ff5252;
   margin-top: 1px;
   color: $pool-error;
 }
+.warningIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--warning-text);
+}
+// A failed refresh over saved data is a warning: the page still works, so it isn't red.
+.errorNotice:not([data-alone]) {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
 .page > .stateNote {
   margin-bottom: 10px;
 }
@@ -1201,6 +1196,9 @@ $pool-error: #ff5252;
     animation: none;
   }
 }
+.footer .footerLabel {
+  font-size: 14px;
+}
 .footerLabel {
   margin: 0;
   color: var(--text-primary);
@@ -1312,16 +1310,22 @@ $pool-error: #ff5252;
   .selectLabel {
     padding-left: 12px;
   }
+  // The headline needs less room than three forecast dates; give the facts the larger share.
+  .statsBlock[data-split] {
+    flex: 1.8;
+  }
 }
 @media (min-width: 901px) and (max-width: 1450px) {
   .statsBlock {
     flex: 1.3;
   }
-  // The balance takes only its width, so the forecast's dates keep one line each.
+  // Too narrow for Now beside a full Forecast row: Now sits above it, and Forecast keeps its
+  // three facts on one row instead of leaving one alone on a second.
   .statsBlock[data-split] {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     .statsGroup:last-child .stats {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      column-gap: 12px;
     }
   }
   .statsHeading {
@@ -1432,9 +1436,6 @@ $pool-error: #ff5252;
     gap: 6px;
     > * {
       flex: 1 1 auto;
-    }
-    > [data-disabled] {
-      flex-basis: 100%;
     }
   }
   .selectLabel {
@@ -1568,9 +1569,6 @@ $pool-error: #ff5252;
   }
   .balanceContext {
     margin-top: 2px !important;
-  }
-  .headline[data-unavailable='true'] {
-    gap: 2px 10px;
   }
 }
 
@@ -1844,10 +1842,9 @@ $pool-error: #ff5252;
 }
 
 // A move that can't happen (first card up, last card down) stays in its slot, dimmed, so every card's controls line up.
+// A move that can't happen keeps its slot, so the corner controls still line up, but isn't drawn.
 .reorder button:disabled {
-  border-color: transparent;
-  color: var(--text-secondary);
-  opacity: 0.4;
+  visibility: hidden;
 }
 
 // Wide screens: one heading row, then one line per account with a column per limit.
@@ -2031,11 +2028,13 @@ $pool-error: #ff5252;
   color: var(--text-primary);
   background: transparent;
   border: 1px solid var(--hairline);
-  border-radius: 10px;
+  // Pills, like the filter chips and buttons beside them.
+  border-radius: 999px;
   font-size: 13px;
 }
 .rosterSearch {
   min-width: min(100%, 14rem);
+  padding-inline: 16px;
 }
 @media (min-width: 901px) and (pointer: fine) {
   .rosterSearch {
@@ -2178,4 +2177,19 @@ $pool-error: #ff5252;
 // The drawer's facts start under the account name, past the disclosure chevron.
 .accountFacts {
   padding: 12px 10px 16px 38px;
+}
+
+// A date never breaks inside itself.
+.nowrap {
+  white-space: nowrap;
+}
+
+// The page's count sits beside the control that changes it.
+.rosterFooter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  .showAll {
+    margin-right: 0;
+  }
 }

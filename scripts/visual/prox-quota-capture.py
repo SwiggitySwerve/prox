@@ -587,9 +587,11 @@ async def main():
                                 status=503, json={"error": "Fixture unavailable"}
                             )
                             return
-                        data = fixture(state)
-                        # Echo the requested view, as the server does, so a deep link's controls and content agree.
                         query = parse_qs(urlparse(url).query)
+                        # A 5-hour request gets the 5-hour fixture, so its numbers match the view.
+                        five_hour = query.get("window", [""])[0] == "five-hour"
+                        data = fixture("no-limit" if state == "deep-link" and five_hour else state)
+                        # Echo the requested view, as the server does, so a deep link's controls and content agree.
                         if "window" in query:
                             data["window"] = query["window"][0]
                         if "lookback" in query:
@@ -928,6 +930,11 @@ async def main():
                     }''')
                     assert not overlaps, "Header controls must not cover countdown"
                     interaction["visible_countdown_ticks_without_duplicate_refresh"] = "passed"
+                    today = page.get_by_role("button", name="Today", exact=True)
+                    assert await today.get_attribute("aria-disabled") == "true"
+                    await today.focus(); await today.press("Enter")
+                    assert await today.evaluate("b => document.activeElement === b"), "Today must keep focus"
+                    interaction["today_keeps_focus_when_current"] = "passed"
                 chart = page.locator('article svg[tabindex="0"]').first
                 if await chart.count():
                     readout = page.locator(f'[id="{await chart.get_attribute("aria-describedby")}"]')

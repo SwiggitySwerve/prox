@@ -7,7 +7,8 @@ export function poolChip(
   forecastState: PoolForecastState,
   savedData: boolean
 ): { state: PoolForecastState | 'saved'; icon: PoolChipIcon; tone: 'neutral' | 'warning' } {
-  if (savedData) return { state: 'saved', icon: 'saved', tone: 'warning' };
+  // Saved data shown during a retry is expected, so its chip stays neutral; the banner explains it.
+  if (savedData) return { state: 'saved', icon: 'saved', tone: 'neutral' };
   switch (forecastState) {
     case 'ready':
       return { state: forecastState, icon: 'check', tone: 'neutral' };

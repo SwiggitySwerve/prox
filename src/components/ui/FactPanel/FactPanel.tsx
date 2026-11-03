@@ -39,7 +39,9 @@ export function Fact(props: FactState & { label: ReactNode; tone?: 'overdue'; va
         </dd>
       )}
       {props.state === 'notReported' && <dd className={styles.detail}>{props.reason}</dd>}
-      {props.state === 'known' && props.aside && <dd className={styles.detail}>{props.aside}</dd>}
+      {props.state === 'known' && props.aside && (
+        <dd className={`${styles.detail} ${styles.aside}`}>{props.aside}</dd>
+      )}
     </div>
   );
 }
