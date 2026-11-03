@@ -2098,9 +2098,17 @@ $pool-error: #ff5252;
   display: none;
 }
 .accountDetails > .accountResets {
-  // Its own line under the other facts at every width, so a longer status never moves it.
+  // Its own line under the other facts at every width, so a longer status never moves it, in
+  // a bubble tinted with the provider's accent so a spendable reset is easy to find.
   grid-column: 1 / -1;
-  flex: 1 0 100%;
+  justify-self: start;
+  order: 2;
+  width: fit-content;
+  max-width: 100%;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--pool-accent) 35%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--pool-accent) 8%, transparent);
   align-items: start;
   dt {
     flex-shrink: 0;
@@ -2129,15 +2137,32 @@ $pool-error: #ff5252;
   white-space: nowrap;
   font-size: 13px;
 }
+// The wide details strip wraps facts in a row; this break puts the bubble on the next line.
+@media (min-width: 901px) {
+  .accountDetails:has(> .accountResets)::after {
+    content: '';
+    order: 1;
+    flex-basis: 100%;
+  }
+}
 @media (max-width: 640px) {
+  // Inside its bubble the status needs the full width, so the label sits above the value.
+  .accountDetails > .accountResets {
+    justify-self: stretch;
+    width: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    dd {
+      grid-template-columns: minmax(0, 1fr);
+      text-align: left;
+    }
+  }
   .accountResets .resetAction {
     grid-column: 1 / -1;
     grid-row: 3;
     justify-self: end;
     min-height: 44px;
-  }
-  .accountResets dd {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 .resetDialog {

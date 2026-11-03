@@ -218,8 +218,8 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent, ...fact
           ? undefined
           : reset.message
             ? t(`claude_reset.${reset.message}`)
-            : reset.blocked
-              ? // A finished read with nothing usable is not still loading.
+            : reset.blocked && !reset.busy
+              ? // A finished read with nothing usable is not still loading; a running claim is neither.
                 t(
                   reset.count === null
                     ? 'quota_pool.reset_loading'
