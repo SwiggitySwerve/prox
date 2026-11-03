@@ -2548,7 +2548,7 @@
     "reset_spent": "下次收集將顯示是否已使用",
     "reset_left_unknown": "尚未測量",
     "reset_none": "無",
-    "reset_held": "持有 {{count}} 次",
+    "reset_held": "{{count}}",
     "reset_requested": "已請求",
     "reset_usable": "現在可用",
     "reset_usable_count": "現在可用 {{usable}} 次",

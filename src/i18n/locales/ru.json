@@ -2515,7 +2515,7 @@
     "reset_spent": "При следующем сборе станет видно, был ли он использован",
     "reset_left_unknown": "Ещё не измерено",
     "reset_none": "Нет",
-    "reset_held": "В наличии {{count}}",
+    "reset_held": "{{count}}",
     "reset_requested": "Запрошено",
     "reset_usable": "Можно использовать сейчас",
     "reset_usable_count": "Доступно сейчас {{usable}}",

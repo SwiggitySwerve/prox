@@ -2522,7 +2522,7 @@
     "reset_spent": "다음 수집 시 사용 여부가 표시됩니다",
     "reset_left_unknown": "아직 측정되지 않음",
     "reset_none": "없음",
-    "reset_held": "{{count}}개 보유",
+    "reset_held": "{{count}}",
     "reset_requested": "요청됨",
     "reset_usable": "지금 사용 가능",
     "reset_usable_count": "지금 {{usable}}개 사용 가능",

@@ -2528,7 +2528,7 @@
     "reset_spent": "Lần thu thập tiếp theo sẽ cho biết lượt này đã được dùng hay chưa",
     "reset_left_unknown": "Chưa đo",
     "reset_none": "Không có",
-    "reset_held": "Đang có {{count}} lượt",
+    "reset_held": "{{count}}",
     "reset_requested": "Đã yêu cầu",
     "reset_usable": "Dùng được ngay",
     "reset_usable_count": "{{usable}} lượt dùng được ngay",

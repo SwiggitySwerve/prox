@@ -27,7 +27,7 @@ describe('account billing', () => {
         labelKey: 'billing_next_plan',
         state: 'known',
         kind: 'text',
-        value: 'prolite',
+        value: 'Pro Lite',
         asideDateMs: at('2026-11-13T12:00:00Z'),
       },
     ]);

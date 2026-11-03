@@ -2522,7 +2522,7 @@
     "reset_spent": "The next collection shows whether it was used",
     "reset_left_unknown": "Not measured yet",
     "reset_none": "None",
-    "reset_held": "{{count}} held",
+    "reset_held": "{{count}}",
     "reset_requested": "Requested",
     "reset_usable": "Usable now",
     "reset_usable_count": "{{usable}} usable now",

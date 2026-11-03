@@ -2520,7 +2520,7 @@
     "reset_spent": "下次采集将显示是否已使用",
     "reset_left_unknown": "尚未测量",
     "reset_none": "无",
-    "reset_held": "持有 {{count}} 次",
+    "reset_held": "{{count}}",
     "reset_requested": "已请求",
     "reset_usable": "现在可用",
     "reset_usable_count": "现在可用 {{usable}} 次",

@@ -1,6 +1,6 @@
 import { Children, isValidElement, useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconAlertTriangle } from '../icons';
+import { IconDollarSign } from '../icons';
 import styles from './FactPanel.module.scss';
 
 export type FactState =
@@ -14,8 +14,17 @@ export function Fact(props: FactState & { label: ReactNode; tone?: 'overdue'; va
     <div className={styles.fact} data-tone={props.tone}>
       <dt>{props.label}</dt>
       <dd>
-        {props.tone === 'overdue' && <IconAlertTriangle size={14} aria-hidden="true" />}
-        <span className={props.variant === 'code' ? styles.code : undefined}>
+        {props.tone === 'overdue' && <IconDollarSign size={14} aria-hidden="true" />}
+        <span
+          className={
+            [
+              props.variant === 'code' ? styles.code : '',
+              props.state === 'known' || props.state === 'estimated' ? styles.value : '',
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined
+          }
+        >
           {props.state === 'known' || props.state === 'estimated'
             ? props.value
             : props.state === 'notReported'

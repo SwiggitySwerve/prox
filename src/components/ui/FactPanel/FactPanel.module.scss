@@ -48,7 +48,8 @@
 .fact {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  // Labels are short; size them to their text so values (dates) keep one line on phones.
+  grid-template-columns: minmax(auto, max-content) minmax(min-content, 1fr);
   gap: 4px 12px;
   font-size: 14px;
   line-height: 20px;
@@ -85,6 +86,10 @@
   color: var(--text-secondary);
   overflow-wrap: anywhere;
   text-wrap: pretty;
+}
+.value {
+  // Dates, counts and plan names stay on one line; a long label wraps instead.
+  white-space: nowrap;
 }
 .code {
   font-family: monospace;

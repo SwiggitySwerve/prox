@@ -110,6 +110,20 @@ function nextAnniversary(startMs: number, nowMs: number): number {
   const current = at(now.getUTCMonth());
   return current > nowMs ? current : at(now.getUTCMonth() + 1);
 }
+/** ChatGPT plan codes as the page names them elsewhere (server/quota/plans.ts labels). */
+const CODEX_PLAN_NAMES: Record<string, string> = {
+  free: 'Free',
+  plus: 'Plus',
+  pro: 'Pro',
+  prolite: 'Pro Lite',
+  promax: 'Pro 500',
+  team: 'Team',
+  business: 'Business',
+  enterprise: 'Enterprise',
+};
+export const codexPlanName = (code: string) =>
+  CODEX_PLAN_NAMES[code.toLowerCase()] ?? code.charAt(0).toUpperCase() + code.slice(1);
+
 export function billingFacts(billing: AccountBilling | null, nowMs: number): BillingFact[] {
   const missing = (labelKey = 'billing_status'): BillingFact => ({
     labelKey,
@@ -155,7 +169,7 @@ export function billingFacts(billing: AccountBilling | null, nowMs: number): Bil
       labelKey: 'billing_next_plan',
       state: 'known',
       kind: 'text',
-      value: billing.nextPlan.plan,
+      value: codexPlanName(billing.nextPlan.plan),
       asideDateMs: billing.nextPlan.atMs,
     });
   if (billing.overdue) {
