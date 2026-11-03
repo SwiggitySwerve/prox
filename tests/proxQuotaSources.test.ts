@@ -567,7 +567,16 @@ describe('additive legacy quota attribution', () => {
       )!;
       expect(instanceId).toBe(`${oldPool.provider}-primary`);
       expect(sourceLabel).toBe(instanceId);
-      expect(pool).toEqual(oldPool);
+      // Attribution gives each migrated account its current identity; its stored id is unchanged.
+      pool.accounts.forEach((account, index) => {
+        expect(account.id).toBe(oldPool.accounts[index].id);
+        expect(oldPool.accounts[index].sourceAccountId).toBeNull();
+        expect(account.sourceAccountId).toBe(`${instanceId}:${account.id}`);
+      });
+      expect({
+        ...pool,
+        accounts: pool.accounts.map((account) => ({ ...account, sourceAccountId: null })),
+      }).toEqual(oldPool);
       expect(pool.forecastState).toBe('ready');
     }
     store.close();

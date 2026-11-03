@@ -21,6 +21,8 @@ export interface PoolReset {
 }
 export interface PoolAccount {
   id: string;
+  /** Source-qualified credential identity (`${instanceId}:${provider}:${digest}`); null when unattributed. */
+  sourceAccountId: string | null;
   label: string;
   /** Masked address or name, always present, so accounts can be told apart. */
   identifier?: string;

@@ -311,6 +311,7 @@ function buildPool(
     const plan = planWeight(provider, account.plan);
     return {
       id: account.id,
+      sourceAccountId: account.sourceAccountId ?? null,
       label: `${provider === 'claude' ? 'Claude' : 'Codex'} ${index + 1}`,
       plan: {
         label: plan.label,

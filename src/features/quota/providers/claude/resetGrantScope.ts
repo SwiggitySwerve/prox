@@ -1,5 +1,4 @@
 import { createApiCallApi } from '@/services/api/apiCall';
-import { apiClient } from '@/services/api/client';
 import {
   claimClaudeResetGrant,
   readClaudeOrganization,
@@ -9,23 +8,16 @@ import type { SourceOwner, SourceSession } from '@/services/api/sourceSession';
 import {
   createResetGrantJournal,
   createResetGrantOperations,
-  resetGrantOperations,
   type ResetGrantJournal,
 } from './resetGrantOperations';
-import { createResetGrantReader, readResetGrantsForCard } from './resetGrantReads';
+import { createResetGrantReader } from './resetGrantReads';
 
 export interface ResetGrantScope {
   current: () => boolean;
   revision: () => number;
-  read: typeof readResetGrantsForCard;
-  operations: typeof resetGrantOperations;
+  read: ReturnType<typeof createResetGrantReader>;
+  operations: ReturnType<typeof createResetGrantOperations>;
 }
-export const legacyResetGrantScope: ResetGrantScope = {
-  current: () => true,
-  revision: () => apiClient.getConnectionRevision(),
-  read: readResetGrantsForCard,
-  operations: resetGrantOperations,
-};
 
 const journals = new WeakMap<SourceOwner, ResetGrantJournal>();
 const scopes = new WeakMap<SourceSession, ResetGrantScope>();

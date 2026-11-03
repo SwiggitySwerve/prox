@@ -22,7 +22,7 @@ type Props = {
   onRefresh: () => void;
 };
 
-/** Spends this tab made, by account: the server's counts lag until its next collection. */
+/** Spend attempts this tab made, by account: the server's counts lag until its next collection. */
 const spentAt = new Map<string, number>();
 const markSpent = (accountId: string) => spentAt.set(accountId, Date.now());
 
@@ -33,6 +33,7 @@ export function PoolAccountResets(props: Props) {
   const resets = props.account.resets;
   if (!resets) return null;
   const source = registry.sources.find((view) => view.source.instanceId === props.instanceId);
+  const spent = (spentAt.get(props.account.id) ?? 0) > resets.observedAtMs;
   return (
     <div className={styles.accountResets}>
       <dt>{t('quota_pool.resets')}</dt>
@@ -48,19 +49,27 @@ export function PoolAccountResets(props: Props) {
           </span>
         )}
         {/* Nothing held: the count already says so, and there is nothing to spend. */}
-        {resets.available === 0 ? null : (spentAt.get(props.account.id) ?? 0) >
-          resets.observedAtMs ? (
-          <ResetButton disabled reason={t('quota_pool.reset_spent')} />
-        ) : resets.usable === 0 ? (
-          <ResetButton disabled reason={t(poolResetReasonKey(resets.blocker))} />
-        ) : source?.session && source.status === 'ready' ? (
+        {/* A running or just-finished spend keeps its action mounted so its result still shows. */}
+        {resets.available === 0 ? null : (resets.usable > 0 || spent) &&
+          source?.session &&
+          source.status === 'ready' ? (
           <SourceResetAction
             key={sourceOwnerKey(source.session.owner)}
             {...props}
             owner={source.session}
+            spent={spent}
           />
         ) : (
-          <ResetButton disabled reason={t('quota_pool.reset_source_unavailable')} />
+          <ResetButton
+            disabled
+            reason={t(
+              spent
+                ? 'quota_pool.reset_spent'
+                : resets.usable === 0
+                  ? poolResetReasonKey(resets.blocker)
+                  : 'quota_pool.reset_source_unavailable'
+            )}
+          />
         )}
       </dd>
     </div>
@@ -92,7 +101,8 @@ function SourceResetAction({
   account,
   provider,
   onRefresh,
-}: Props & { owner: SourceSession }) {
+  spent,
+}: Props & { owner: SourceSession; spent: boolean }) {
   const { session } = useSourceLease(owner);
   const { t } = useTranslation();
   const [file, setFile] = useState<AuthFileItem | null>(null);
@@ -110,7 +120,7 @@ function SourceResetAction({
           result.files,
           session.owner.instanceId,
           provider,
-          account.id
+          account.sourceAccountId
         );
         if (!match || match.disabled) setError(true);
         else setFile(match);
@@ -121,18 +131,20 @@ function SourceResetAction({
     return () => {
       active = false;
     };
-  }, [session, provider, account.id]);
+  }, [session, provider, account.sourceAccountId]);
   if (!file)
     return (
       <ResetButton
         disabled
-        reason={t(`quota_pool.${error ? 'reset_lookup_failed' : 'reset_loading'}`)}
+        reason={t(
+          `quota_pool.${spent ? 'reset_spent' : error ? 'reset_lookup_failed' : 'reset_loading'}`
+        )}
       />
     );
   return provider === 'claude' ? (
-    <ClaudeResetAction file={file} session={session} onRefresh={onRefresh} accountId={account.id} />
+    <ClaudeResetAction {...{ file, session, onRefresh, spent }} accountId={account.id} />
   ) : (
-    <CodexResetAction file={file} session={session} onRefresh={onRefresh} accountId={account.id} />
+    <CodexResetAction {...{ file, session, onRefresh, spent }} accountId={account.id} />
   );
 }
 
@@ -141,8 +153,10 @@ type ActionProps = {
   session: SourceSession;
   onRefresh: () => void;
   accountId: string;
+  /** A spend from this tab is newer than the server's reading. */
+  spent: boolean;
 };
-function ClaudeResetAction({ file, session, onRefresh, accountId }: ActionProps) {
+function ClaudeResetAction({ file, session, onRefresh, accountId, spent }: ActionProps) {
   const { t } = useTranslation();
   const scope = useMemo(() => {
     const shared = createSourceResetGrants(session);
@@ -162,20 +176,25 @@ function ClaudeResetAction({ file, session, onRefresh, accountId }: ActionProps)
   const reset = useClaudeResetGrants(file, true, false, null, onRefresh, scope);
   return (
     <ResetButton
-      disabled={reset.blocked}
+      disabled={reset.blocked || spent}
       onClick={reset.confirm}
       reason={
-        reset.message
-          ? t(`claude_reset.${reset.message}`)
-          : reset.blocked && !reset.busy
-            ? // A finished read with nothing usable is not still loading.
-              t(reset.count === null ? 'quota_pool.reset_loading' : 'quota_pool.reset_unavailable')
-            : undefined
+        spent && !reset.busy
+          ? t('quota_pool.reset_spent')
+          : reset.message
+            ? t(`claude_reset.${reset.message}`)
+            : reset.blocked && !reset.busy
+              ? // A finished read with nothing usable is not still loading.
+                t(
+                  reset.count === null ? 'quota_pool.reset_loading' : 'quota_pool.reset_unavailable'
+                )
+              : undefined
       }
     />
   );
 }
-function CodexResetAction({ file, session, onRefresh, accountId }: ActionProps) {
+function CodexResetAction({ file, session, onRefresh, accountId, spent }: ActionProps) {
+  const { t } = useTranslation();
   const [store] = useState(createQuotaStore);
   const adapter = useMemo(() => {
     const codex = createQuotaAdapters(session, store).codex;
@@ -184,10 +203,11 @@ function CodexResetAction({ file, session, onRefresh, accountId }: ActionProps) 
       ...codex,
       resetQuota: async (...args: Parameters<typeof reset>) => {
         try {
-          const result = await reset(...args);
-          markSpent(accountId);
-          return result;
+          return await reset(...args);
         } finally {
+          // A confirmed attempt may have consumed the credit even if its cooldown clear or
+          // follow-up read failed, so the row waits for the next reading either way.
+          markSpent(accountId);
           if (!session.signal.aborted) onRefresh();
         }
       },
@@ -196,8 +216,11 @@ function CodexResetAction({ file, session, onRefresh, accountId }: ActionProps) 
   const actions = useQuotaActions(false, store, session);
   return (
     <ResetButton
-      disabled={actions.resettingQuotaName !== null}
+      disabled={actions.resettingQuotaName !== null || spent}
       onClick={() => actions.resetQuota(file, adapter)}
+      reason={
+        spent && actions.resettingQuotaName === null ? t('quota_pool.reset_spent') : undefined
+      }
     />
   );
 }

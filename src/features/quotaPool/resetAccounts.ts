@@ -9,8 +9,10 @@ export function findPoolResetFile(
   files: readonly AuthFileItem[],
   instanceId: string,
   provider: PoolProviderId,
-  accountId: string
+  /** The server's source-qualified identity, never the pool row id (which may be legacy). */
+  sourceAccountId: string | null
 ): AuthFileItem | undefined {
+  if (!sourceAccountId) return undefined;
   const matches = files.filter((file) => {
     const authIndex = normalizeAuthIndex(file.auth_index ?? file.authIndex);
     if (
@@ -20,11 +22,7 @@ export function findPoolResetFile(
     )
       return false;
     const digest = bytesToHex(sha256(new TextEncoder().encode(`${provider}\0${authIndex}`)));
-    // Accounts recorded before sources existed keep their legacy id (QuotaStore.accountIdFor).
-    // The caller lists only the pool's own source, so the legacy form stays source-bound.
-    return (
-      accountId === `${instanceId}:${provider}:${digest}` || accountId === `${provider}:${digest}`
-    );
+    return sourceAccountId === `${instanceId}:${provider}:${digest}`;
   });
   // An ambiguous inventory must never choose a credential arbitrarily.
   return matches.length === 1 ? matches[0] : undefined;

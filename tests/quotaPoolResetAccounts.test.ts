@@ -20,25 +20,16 @@ describe('pool reset credential matching', () => {
       ).toBeUndefined();
     }
   });
-  test('matches accounts the server kept under their pre-source legacy id', () => {
-    // QuotaStore.accountIdFor keeps migrated accounts as `${provider}:${digest}`.
-    const legacy = (provider: string, index: string) =>
-      `${provider}:${createHash('sha256').update(`${provider}\0${index}`).digest('hex')}`;
+  test('matches only the source-qualified identity, never a legacy row id', () => {
+    // A migrated row keeps `${provider}:${digest}` as its id; the server sends its current
+    // identity separately, and that is the only form the page accepts.
+    const legacy = `claude:${createHash('sha256').update('claude\u00007').digest('hex')}`;
     const credential = file('7', 'claude');
-    expect(findPoolResetFile([credential], 'claude-primary', 'claude', legacy('claude', '7'))).toBe(
-      credential
-    );
+    expect(findPoolResetFile([credential], 'claude-primary', 'claude', legacy)).toBeUndefined();
     expect(
-      findPoolResetFile([credential], 'claude-primary', 'claude', legacy('claude', '8'))
-    ).toBeUndefined();
-    expect(
-      findPoolResetFile(
-        [credential, file('7', 'claude')],
-        'claude-primary',
-        'claude',
-        legacy('claude', '7')
-      )
-    ).toBeUndefined();
+      findPoolResetFile([credential], 'claude-primary', 'claude', `claude-primary:${legacy}`)
+    ).toBe(credential);
+    expect(findPoolResetFile([credential], 'claude-primary', 'claude', null)).toBeUndefined();
   });
   test('normalizes numeric and camelCase indices without matching names', () => {
     const credential = { name: 'different.json', provider: 'codex', authIndex: 42 } as AuthFileItem;

@@ -61,6 +61,7 @@ def fixture(state):
         accounts = [
             dict(
                 id=f"external:{provider}:" + hashlib.sha256(f"{provider}\0fixture-{provider}-{i}".encode()).hexdigest(),
+                sourceAccountId=f"external:{provider}:" + hashlib.sha256(f"{provider}\0fixture-{provider}-{i}".encode()).hexdigest(),
                 resets=(dict(available=2 if provider == "codex" else 1, usable=2 if provider == "codex" else 0, blocker=None if provider == "codex" else "not_limited", nextExpiryAtMs=NOW + 7 * DAY, observedAtMs=NOW) if i == 0 else None),
                 label=f"{provider.title()} {i + 1}",
                 identifier=mask(provider, i),

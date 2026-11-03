@@ -3,6 +3,8 @@ import type { PoolProviderId, PoolWindow } from '../../src/domain/quotaPool/type
 export interface StoredAccount {
   id: string;
   instanceId?: string;
+  /** Current `${instanceId}:${provider}:${digest}` identity, even when `id` is a migrated legacy one. */
+  sourceAccountId?: string;
   provider: PoolProviderId;
   name: string;
   email: string | null;

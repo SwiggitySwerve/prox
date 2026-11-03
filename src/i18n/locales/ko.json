@@ -2515,7 +2515,7 @@
     "reset_source_unavailable": "초기화를 사용하려면 이 소스에 연결하세요",
     "reset_lookup_failed": "활성 계정 인증 정보를 찾을 수 없음",
     "reset_loading": "초기화 사용 가능 여부 확인 중…",
-    "reset_spent": "초기화 사용됨 · 다음 수집 때 횟수가 갱신됩니다"
+    "reset_spent": "초기화 요청됨 · 다음 수집 때 횟수가 갱신됩니다"
   },
   "provider_sources": {
     "discovery_error": "소스 목록을 불러올 수 없습니다. 새로고침하여 다시 시도하세요.",
