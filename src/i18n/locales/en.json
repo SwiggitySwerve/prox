@@ -2499,7 +2499,22 @@
     "limit_low": "Low",
     "limit_resets": "Resets {{date}}",
     "expand_accounts": "Expand all",
-    "collapse_accounts": "Collapse all"
+    "collapse_accounts": "Collapse all",
+    "resets": "Resets",
+    "reset_count": "Resets: {{count}}",
+    "reset_summary": "Resets: {{count}} · Usable now: {{usable}}",
+    "reset_expiry": "Next expiry: {{date}}",
+    "reset_view_accounts": "View in Accounts",
+    "use_reset": "Use reset",
+    "reset_not_limited": "Available once this account reaches its limit",
+    "reset_cooldown": "Reset cooldown is active",
+    "reset_paused": "Resets are paused",
+    "reset_not_applicable": "Not applicable to the current limits",
+    "reset_ineligible": "Not eligible",
+    "reset_unavailable": "No reset is usable now",
+    "reset_source_unavailable": "Connect to this source to use a reset",
+    "reset_lookup_failed": "Could not identify an active account credential",
+    "reset_loading": "Checking reset availability…"
   },
   "provider_sources": {
     "discovery_error": "Source discovery is unavailable. Reload to retry.",

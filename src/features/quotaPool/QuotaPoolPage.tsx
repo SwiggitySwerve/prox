@@ -388,6 +388,7 @@ export function QuotaPoolPage() {
           shownPools.map((pool, index, shown) => (
             <PoolCard
               key={poolKey(pool)}
+              onRefresh={() => void refresh()}
               pool={pool}
               dashboard={data}
               mode={mode}

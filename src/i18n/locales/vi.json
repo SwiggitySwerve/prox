@@ -2505,7 +2505,22 @@
     "limit_low": "Thấp",
     "limit_resets": "Đặt lại {{date}}",
     "expand_accounts": "Mở rộng tất cả",
-    "collapse_accounts": "Thu gọn tất cả"
+    "collapse_accounts": "Thu gọn tất cả",
+    "resets": "Lượt đặt lại",
+    "reset_count": "Lượt đặt lại: {{count}}",
+    "reset_summary": "Lượt đặt lại: {{count}} · Dùng được ngay: {{usable}}",
+    "reset_expiry": "Hết hạn tiếp theo: {{date}}",
+    "reset_view_accounts": "Xem trong Tài khoản",
+    "use_reset": "Dùng lượt đặt lại",
+    "reset_not_limited": "Khả dụng khi tài khoản đạt giới hạn",
+    "reset_cooldown": "Đang trong thời gian chờ đặt lại",
+    "reset_paused": "Đặt lại đã tạm dừng",
+    "reset_not_applicable": "Không áp dụng cho giới hạn hiện tại",
+    "reset_ineligible": "Không đủ điều kiện",
+    "reset_unavailable": "Hiện không có lượt đặt lại dùng được",
+    "reset_source_unavailable": "Kết nối nguồn này để dùng lượt đặt lại",
+    "reset_lookup_failed": "Không tìm thấy thông tin xác thực tài khoản đang hoạt động",
+    "reset_loading": "Đang kiểm tra lượt đặt lại…"
   },
   "provider_sources": {
     "discovery_error": "Không thể tải danh sách nguồn. Hãy tải lại trang để thử lại.",

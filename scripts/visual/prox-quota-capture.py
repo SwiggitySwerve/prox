@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import colorsys
 import json
+import hashlib
 import math
 import time
 from collections import Counter
@@ -59,7 +60,8 @@ def fixture(state):
         ]
         accounts = [
             dict(
-                id=f"{provider}-{i}",
+                id=f"external:{provider}:" + hashlib.sha256(f"{provider}\0fixture-{provider}-{i}".encode()).hexdigest(),
+                resets=(dict(available=2 if provider == "codex" else 1, usable=2 if provider == "codex" else 0, blocker=None if provider == "codex" else "not_limited", nextExpiryAtMs=NOW + 7 * DAY, observedAtMs=NOW) if i == 0 else None),
                 label=f"{provider.title()} {i + 1}",
                 identifier=mask(provider, i),
                 disabled=False,
@@ -87,6 +89,7 @@ def fixture(state):
         ]
         pool = dict(
             provider=provider,
+            instanceId="external",
             accountCount=count,
             eligibleCount=count,
             loadedCount=count,
@@ -225,6 +228,7 @@ def fixture(state):
     for pool in pools:
         layer={key:pool[key] for key in total}
         layer["provider"]=pool["provider"]
+        layer["instanceId"]=pool["instanceId"]
         layer["recorded"]=[dict(item) for item in pool["recorded"]]
         layers.append(layer)
     if len(layers) == 2:
@@ -486,6 +490,7 @@ async def main():
         ("wide", "ready", 1920, 1280),
         ("laptop", "ready", 1280, 900),
         ("narrow", "ready", 390, 844),
+        ("reset-confirm", "ready", 390, 844),
         ("empty", "empty", 1440, 900),
         ("loading", "loading", 1440, 900),
         ("error", "error", 1440, 900),
@@ -551,10 +556,22 @@ async def main():
 
                 pending_until = 0
                 collection_requests = 0
+                reset_spends = []
+                credential_reads = []
 
                 async def route_api(route):
                     nonlocal pending_until, collection_requests
                     url = route.request.url
+                    if "/requests/api-call" in url:
+                        body = route.request.post_data_json
+                        if body.get("method") == "POST" and any(part in body.get("url", "") for part in ("consume", "claim", "reset_rate_limits")):
+                            reset_spends.append(body)
+                        await route.fulfill(status=400, json={"error": "Unexpected provider call in cancel-only fixture"})
+                        return
+                    if "/credentials" in url:
+                        credential_reads.append(url)
+                        await route.fulfill(json={"files": [dict(name=f"fixture-{provider}.json", type=provider, auth_index=f"fixture-{provider}-0", disabled=False) for provider in ("claude", "codex")]})
+                        return
                     if "/prox/pools" in url:
                         if state == "loading":
                             await asyncio.sleep(20)
@@ -586,6 +603,13 @@ async def main():
                         return
                     await route.fulfill(json={})
 
+                async def local_only(route):
+                    if route.request.url.startswith(args.url + "/"):
+                        await route.continue_()
+                    else:
+                        await route.abort()
+                await context.route("**/*", local_only)
+                await page.route("**/prox/sources.json", lambda route: route.fulfill(status=404))
                 await page.route("**/v8/management/**", route_api)
                 await page.goto(args.url, wait_until="networkidle")
                 await page.evaluate("""async () => {
@@ -613,6 +637,25 @@ async def main():
                     ).last.wait_for()
                 else:
                     await page.locator("article").first.wait_for()
+                if name == "reset-confirm":
+                    credentials_before_disclosure = len(credential_reads)
+                    codex = page.locator('article[class*="__codex___"]')
+                    row = codex.locator('details[class*="__account___"]').filter(has_text="Resets: 2").first
+                    await row.locator("summary").click()
+                    use_reset = row.get_by_role("button", name="Use reset", exact=True)
+                    await use_reset.wait_for()
+                    await use_reset.click()
+                    dialog = page.get_by_role("dialog")
+                    await dialog.wait_for()
+                    await page.screenshot(path=str(out / "reset-confirm-dialog.png"), full_page=True, animations="disabled")
+                    await dialog.get_by_role("button", name="Cancel", exact=True).click()
+                    await dialog.wait_for(state="hidden")
+                    assert len(credential_reads) > credentials_before_disclosure, "Expanded row must resolve its source credential"
+                    assert not reset_spends, "Cancel must never consume a credit or claim a grant"
+                    claude_row = page.locator('article[class*="__claude___"] details[class*="__account___"]').first
+                    await claude_row.locator("summary").click()
+                    assert await claude_row.get_by_role("button", name="Use reset", exact=True).is_disabled()
+                    assert await claude_row.get_by_text("Available once this account reaches its limit", exact=True).is_visible()
                 grouping_src = (Path.home() / ".claude-cliproxy/skills/hillclimb-ui/grouping-checks.js").read_text()
                 loaded_checks = await page.evaluate(f"{grouping_src};groupingChecks({{ root: '.content' }})")
                 if state in ("stacked", "stacked-unavailable"):
@@ -923,6 +966,8 @@ async def main():
                         await interval.select_option("6")
                     assert await interval.input_value() == "6"
                     interaction["rate_interval_updates_request"] = "passed"
+                if name == "reset-confirm":
+                    interaction["reset_confirmation_cancel"] = "passed; no consume/claim POST; blocked reason visible"
                 results[name]["interaction"] = interaction
                 saved.write_text(json.dumps(results, indent=2) + "\n")
                 await context.close()

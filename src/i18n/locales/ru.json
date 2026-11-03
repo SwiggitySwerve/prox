@@ -2492,7 +2492,22 @@
     "limit_low": "Мало",
     "limit_resets": "Сброс {{date}}",
     "expand_accounts": "Развернуть все",
-    "collapse_accounts": "Свернуть все"
+    "collapse_accounts": "Свернуть все",
+    "resets": "Сбросы",
+    "reset_count": "Сбросы: {{count}}",
+    "reset_summary": "Сбросы: {{count}} · Доступно сейчас: {{usable}}",
+    "reset_expiry": "Ближайшее истечение: {{date}}",
+    "reset_view_accounts": "Открыть аккаунты",
+    "use_reset": "Использовать сброс",
+    "reset_not_limited": "Доступно после достижения лимита аккаунта",
+    "reset_cooldown": "Действует задержка между сбросами",
+    "reset_paused": "Сбросы приостановлены",
+    "reset_not_applicable": "Не применимо к текущим лимитам",
+    "reset_ineligible": "Нет права на сброс",
+    "reset_unavailable": "Сейчас нет доступных сбросов",
+    "reset_source_unavailable": "Подключитесь к этому источнику для сброса",
+    "reset_lookup_failed": "Не удалось найти действующие учётные данные аккаунта",
+    "reset_loading": "Проверка доступности сброса…"
   },
   "provider_sources": {
     "discovery_error": "Список источников недоступен. Перезагрузите страницу.",
