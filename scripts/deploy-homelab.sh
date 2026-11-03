@@ -17,7 +17,12 @@ podman build -f deploy/Dockerfile.history --label "org.opencontainers.image.revi
 install -d -m 700 "$HOME/.local/share/prox-history"
 install -D -m 644 deploy/prox-history.container "$HOME/.config/containers/systemd/prox-history.container"
 install -D -m 644 deploy/prox.container "$HOME/.config/containers/systemd/prox.container"
+install -D -m 755 deploy/prox-auth-janitor.sh "$HOME/.local/share/prox/prox-auth-janitor.sh"
+install -D -m 644 deploy/prox-auth-janitor.service "$HOME/.config/systemd/user/prox-auth-janitor.service"
+install -D -m 644 deploy/prox-auth-janitor.path "$HOME/.config/systemd/user/prox-auth-janitor.path"
+install -D -m 644 deploy/prox-auth-janitor.timer "$HOME/.config/systemd/user/prox-auth-janitor.timer"
 systemctl --user daemon-reload
+systemctl --user enable --now prox-auth-janitor.path prox-auth-janitor.timer
 systemctl --user restart prox-history.service
 curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 \
   --max-time 5 http://127.0.0.1:18319/healthz
