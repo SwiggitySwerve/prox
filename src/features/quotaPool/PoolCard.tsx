@@ -685,67 +685,72 @@ export function PoolCard({
                     </ul>
                   )}
                 </summary>
-                <FactPanel>
-                  <FactSection title={t('quota_pool.facts_usage')}>
-                    <Fact
-                      label={t('quota_pool.observed')}
-                      {...(account.observedAtMs !== null
-                        ? { state: 'known' as const, value: date(account.observedAtMs) }
-                        : {
-                            state: 'notReported' as const,
-                            reason: t('quota_pool.usage_not_reported_reason'),
-                          })}
-                    />
-                    {!account.windows.some((limit) => limit.resetAtMs === account.resetAtMs) && (
+                <div className={styles.accountFacts}>
+                  <FactPanel>
+                    <FactSection title={t('quota_pool.facts_usage')}>
                       <Fact
-                        label={t('quota_pool.account_reset', { window: windowLabel })}
-                        {...(account.resetAtMs !== null
-                          ? { state: 'known' as const, value: date(account.resetAtMs) }
+                        label={t('quota_pool.observed')}
+                        {...(account.observedAtMs !== null
+                          ? { state: 'known' as const, value: date(account.observedAtMs) }
                           : {
                               state: 'notReported' as const,
-                              reason: t('quota_pool.reset_time_not_reported_reason'),
+                              reason: t('quota_pool.usage_not_reported_reason'),
                             })}
                       />
+                      {!account.windows.some((limit) => limit.resetAtMs === account.resetAtMs) && (
+                        <Fact
+                          label={t('quota_pool.account_reset', { window: windowLabel })}
+                          {...(account.resetAtMs !== null
+                            ? { state: 'known' as const, value: date(account.resetAtMs) }
+                            : {
+                                state: 'notReported' as const,
+                                reason: t('quota_pool.reset_time_not_reported_reason'),
+                              })}
+                        />
+                      )}
+                      <Fact
+                        label={t('quota_pool.predicted_empty')}
+                        {...(pool.forecastState === 'ready' && account.status === 'ok'
+                          ? {
+                              state: 'known' as const,
+                              value: forecastDate(account.emptyAtMs, true),
+                            }
+                          : {
+                              state: 'notReported' as const,
+                              reason: t('quota_pool.forecast_not_reported_reason'),
+                            })}
+                      />
+                      <Fact
+                        label={t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}
+                        {...(account.burnPointsPerHour !== null
+                          ? {
+                              state: 'known' as const,
+                              value: `${number(account.burnPointsPerHour)} ${t('quota_pool.points_hour')}`,
+                            }
+                          : {
+                              state: 'notReported' as const,
+                              reason: t('quota_pool.forecast_not_reported_reason'),
+                            })}
+                      />
+                    </FactSection>
+                    <FactSection title={t('quota_pool.facts_billing')}>
+                      <BillingFacts
+                        billing={account.billing ?? null}
+                        nowMs={dashboard.nowMs}
+                        formatDate={date}
+                      />
+                    </FactSection>
+                    {openAccounts.has(account.id) && (
+                      <PoolAccountResets
+                        account={account}
+                        name={accountName(account)}
+                        provider={pool.provider}
+                        instanceId={pool.instanceId}
+                        onRefresh={onRefresh}
+                      />
                     )}
-                    <Fact
-                      label={t('quota_pool.predicted_empty')}
-                      {...(pool.forecastState === 'ready' && account.status === 'ok'
-                        ? { state: 'known' as const, value: forecastDate(account.emptyAtMs, true) }
-                        : {
-                            state: 'notReported' as const,
-                            reason: t('quota_pool.forecast_not_reported_reason'),
-                          })}
-                    />
-                    <Fact
-                      label={t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}
-                      {...(account.burnPointsPerHour !== null
-                        ? {
-                            state: 'known' as const,
-                            value: `${number(account.burnPointsPerHour)} ${t('quota_pool.points_hour')}`,
-                          }
-                        : {
-                            state: 'notReported' as const,
-                            reason: t('quota_pool.forecast_not_reported_reason'),
-                          })}
-                    />
-                  </FactSection>
-                  <FactSection title={t('quota_pool.facts_billing')}>
-                    <BillingFacts
-                      billing={account.billing ?? null}
-                      nowMs={dashboard.nowMs}
-                      formatDate={date}
-                    />
-                  </FactSection>
-                  {openAccounts.has(account.id) && (
-                    <PoolAccountResets
-                      account={account}
-                      name={accountName(account)}
-                      provider={pool.provider}
-                      instanceId={pool.instanceId}
-                      onRefresh={onRefresh}
-                    />
-                  )}
-                </FactPanel>
+                  </FactPanel>
+                </div>
               </details>
             ))
           )}

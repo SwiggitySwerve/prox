@@ -2827,6 +2827,7 @@
     "spending": "支出",
     "status": "狀態",
     "expiry": "到期時間",
+    "reset_expires": "第 {{index}} 次重設到期",
     "not_reported_reason": "供應商未回報此項詳情。",
     "reset_disabled": "使用手動重設前，重新整理必須完成且帳戶必須啟用。",
     "spent": "已支出",

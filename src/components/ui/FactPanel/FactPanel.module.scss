@@ -1,6 +1,5 @@
 .container {
   container-type: inline-size;
-  padding: 12px 10px 16px 38px;
   min-width: 0;
 }
 .panel {
@@ -24,10 +23,34 @@
     line-height: 18px;
     font-weight: 600;
   }
+  // The panel styles its own action so it looks the same in every host.
   button {
-    font-size: 13px;
-    border-radius: 999px;
     flex-shrink: 0;
+    min-height: 32px;
+    padding: 0 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13px;
+    line-height: 18px;
+    white-space: nowrap;
+    cursor: pointer;
+    &:hover:not(:disabled) {
+      background: var(--bg-hover);
+    }
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    &:focus-visible {
+      outline: 2px solid var(--text-primary);
+      outline-offset: 2px;
+    }
+    @media (pointer: coarse) {
+      min-height: 44px;
+    }
   }
   dl {
     margin: 0;

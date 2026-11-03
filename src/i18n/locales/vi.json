@@ -2807,6 +2807,7 @@
     "spending": "Chi tiêu",
     "status": "Trạng thái",
     "expiry": "Hết hạn",
+    "reset_expires": "Lượt đặt lại {{index}} hết hạn",
     "not_reported_reason": "Nhà cung cấp chưa báo cáo thông tin này.",
     "reset_disabled": "Cần hoàn tất làm mới và bật tài khoản trước khi sử dụng lượt đặt lại.",
     "spent": "Đã chi",

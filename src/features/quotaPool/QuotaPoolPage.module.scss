@@ -2089,3 +2089,7 @@ $pool-error: #ff5252;
     font-variant-numeric: tabular-nums;
   }
 }
+// The drawer's facts start under the account name, past the disclosure chevron.
+.accountFacts {
+  padding: 12px 10px 16px 38px;
+}

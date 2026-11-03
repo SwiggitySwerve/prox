@@ -96,7 +96,8 @@ test('Codex card keeps facts and Use reset with its visible reason inside Accoun
   expect(details).toMatch(
     /<header><h4>Manual resets<\/h4><button[^>]+aria-describedby="[^"]+"[^>]*>Use reset/
   );
-  expect(details).toContain('synthetic.json will use 1 manual reset');
+  // The note states the reset's status; the confirmation dialog carries the spend wording.
+  expect(details).toContain('role="status" class="note">Usable now</p>');
   expect(details?.split('<footer')[1]).not.toContain('Use reset');
   expect(details?.split('<footer')[1]).toContain('Refresh');
 });
@@ -280,7 +281,9 @@ test('resource sheets use code facts, explicit missing states, and retain metada
   expect(html).toContain(
     '<dt>Base URL</dt><dd><span class="code value">https://fixture.invalid/a/long/path</span>'
   );
-  expect(html).toContain('<dt>Proxy URL</dt><dd><span class="code">Not reported</span>');
+  // An empty setting is a choice, not something the provider failed to report.
+  expect(html).toContain('<dt>Proxy URL</dt><dd><span class="code">Not set</span>');
+  expect(html).not.toContain('<h4>Account details</h4>');
   expect(html).toContain('Metadata');
   expect(html).not.toContain('synthetic-only');
 });

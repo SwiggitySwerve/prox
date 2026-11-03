@@ -2801,6 +2801,7 @@
     "spending": "Spending",
     "status": "Status",
     "expiry": "Expiry",
+    "reset_expires": "Reset {{index}} expires",
     "not_reported_reason": "The provider has not reported this detail.",
     "reset_disabled": "Refresh must finish and the account must be enabled before using a reset.",
     "spent": "Spent",

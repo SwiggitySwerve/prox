@@ -65,7 +65,7 @@ export function AccountDetails({ provider, quota, name, claudeReset, reset }: Pr
       : reset?.disabled
         ? t('account_details.reset_disabled')
         : (held ?? 0) > 0
-          ? t('quota_pool.reset_confirm_body', { name })
+          ? t('quota_pool.reset_usable')
           : t('quota_pool.reset_not_reported_reason');
   const resetAction = claudeReset
     ? {
@@ -175,7 +175,7 @@ export function AccountDetails({ provider, quota, name, claudeReset, reset }: Pr
             {codex?.rateLimitResetCredits?.map((credit, index) => (
               <Fact
                 key={credit.id || index}
-                label={`${t('codex_quota.reset_credit_number', { index: index + 1 })} · ${t('account_details.expiry')}`}
+                label={t('account_details.reset_expires', { index: index + 1 })}
                 {...dated(parseIsoToMs(credit.expiresAt))}
               />
             ))}

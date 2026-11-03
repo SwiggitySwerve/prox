@@ -2799,6 +2799,7 @@
     "spending": "支出",
     "status": "状态",
     "expiry": "到期时间",
+    "reset_expires": "第 {{index}} 次重置到期",
     "not_reported_reason": "提供商未报告此项详情。",
     "reset_disabled": "使用手动重置前，刷新必须完成且账户必须启用。",
     "spent": "已支出",

@@ -81,7 +81,7 @@ export function ResourceDetailView({ resource, usageByProvider }: ResourceDetail
         </div>
 
         <FactPanel>
-          <FactSection title={t('account_details.title')}>
+          <FactSection>
             <Fact
               label={t('providersPage.detail.fields.identifier')}
               state="known"
@@ -133,15 +133,15 @@ export function ResourceDetailView({ resource, usageByProvider }: ResourceDetail
       </div>
 
       <FactPanel>
-        <FactSection title={t('account_details.title')}>
+        <FactSection>
           {primary.map(([key, value]) => (
             <Fact
               key={key}
               label={t(`providersPage.detail.fields.${key}`)}
               {...(value === null
                 ? {
-                    state: 'notReported' as const,
-                    reason: t('account_details.not_reported_reason'),
+                    state: 'notApplicable' as const,
+                    reason: t('providersPage.status.notSet'),
                   }
                 : { state: 'known' as const, value })}
               variant={['identifier', 'baseUrl', 'proxyUrl'].includes(key) ? 'code' : undefined}
@@ -190,15 +190,15 @@ export function ResourceDetailView({ resource, usageByProvider }: ResourceDetail
       <div style={{ marginTop: 16 }}>
         <Collapsible label={t('providersPage.detail.metadataTitle')}>
           <FactPanel>
-            <FactSection title={t('providersPage.detail.metadataTitle')}>
+            <FactSection>
               {metadata.map(([key, value]) => (
                 <Fact
                   key={key}
                   label={t(`providersPage.detail.fields.${key}`)}
                   {...(value === null
                     ? {
-                        state: 'notReported' as const,
-                        reason: t('account_details.not_reported_reason'),
+                        state: 'notApplicable' as const,
+                        reason: t('providersPage.status.notSet'),
                       }
                     : { state: 'known' as const, value })}
                   variant={key === 'authIndex' ? 'code' : undefined}
