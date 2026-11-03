@@ -2084,29 +2084,9 @@ $pool-error: #ff5252;
   }
 }
 
-.resetSummary,
-.resetAction {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-.resetSummary {
-  margin: 0 0 8px;
-  a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    color: var(--text-primary);
-    text-decoration: underline;
-  }
-}
-.resetMarker {
+.accountResetMarker {
   white-space: nowrap;
   color: var(--text-secondary);
-  // The wide plan column is sized for the plan alone, so the count takes its own line there.
   @media (min-width: 901px) {
     display: block;
     .resetSeparator {
@@ -2114,29 +2094,79 @@ $pool-error: #ff5252;
     }
   }
 }
+.account[open] .accountResetMarker {
+  display: none;
+}
 .accountDetails > .accountResets {
   align-items: start;
+  dt {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
   dd {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
     min-width: 0;
   }
 }
-.resetAction {
-  button {
-    flex-shrink: 0;
-  }
-  [role='status'] {
-    max-width: 36ch;
-  }
+.resetAside {
+  text-wrap: pretty;
+  grid-column: 1;
+  grid-row: 2;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.accountResets .resetAction {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 13px;
 }
 @media (max-width: 640px) {
-  .accountDetails > .accountResets {
-    flex-direction: column;
-    gap: 6px;
-    dd {
-      text-align: left;
-    }
+  .accountResets .resetAction {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: end;
+    min-height: 44px;
+  }
+  .accountResets dd {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.resetDialog {
+  p {
+    margin: 0;
+  }
+  display: grid;
+  gap: 16px;
+  section {
+    font-size: 13px;
+  }
+  h4 {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 8px;
+    font-weight: 400;
+  }
+  dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    margin: 0;
+  }
+  dl > div {
+    display: flex;
+    gap: 12px;
+    white-space: nowrap;
+  }
+  dt {
+    color: var(--text-secondary);
+  }
+  dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
   }
 }

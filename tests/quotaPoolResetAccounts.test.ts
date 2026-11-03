@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { findPoolResetFile, poolResetReasonKey } from '../src/features/quotaPool/resetAccounts';
+import {
+  findPoolResetFile,
+  poolResetReasonKey,
+  poolResetStatus,
+  markSpent,
+  wasSpent,
+} from '../src/features/quotaPool/resetAccounts';
 import type { AuthFileItem } from '../src/types';
 
 const id = (source: string, provider: string, index: string) =>
@@ -56,4 +62,52 @@ describe('pool reset disabled reasons', () => {
     expect(poolResetReasonKey('ineligible:unknown')).toBe('quota_pool.reset_ineligible');
     expect(poolResetReasonKey(null)).toBe('quota_pool.reset_unavailable');
   });
+});
+
+test('manual reset state table separates held credits, usability and tab requests', () => {
+  const base = { available: 2, usable: 2, blocker: null, nextExpiryAtMs: 123, observedAtMs: 1 };
+  expect(poolResetStatus(null, 'codex', false)).toBeNull();
+  for (const provider of ['codex', 'claude'] as const) {
+    for (const blocker of [
+      null,
+      'not_limited',
+      'cooldown',
+      'paused',
+      'not_applicable',
+      'ineligible:org',
+    ] as const) {
+      expect(
+        poolResetStatus({ ...base, available: 0, usable: 0, blocker }, provider, false)
+      ).toEqual({ valueKey: 'quota_pool.reset_none', statusKey: null, early: false });
+      expect(poolResetStatus({ ...base, usable: 0, blocker }, provider, false)).toEqual({
+        valueKey: 'quota_pool.reset_held',
+        statusKey:
+          provider === 'codex' && blocker === 'not_applicable'
+            ? 'quota_pool.reset_early_status'
+            : poolResetReasonKey(blocker),
+        early: provider === 'codex' && blocker === 'not_applicable',
+      });
+    }
+    expect(poolResetStatus(base, provider, false)).toEqual({
+      valueKey: 'quota_pool.reset_held',
+      statusKey: 'quota_pool.reset_usable',
+      early: false,
+    });
+    expect(poolResetStatus({ ...base, usable: 1 }, provider, false)?.statusKey).toBe(
+      'quota_pool.reset_usable_count'
+    );
+    expect(poolResetStatus(base, provider, true)).toEqual({
+      valueKey: 'quota_pool.reset_requested',
+      statusKey: 'quota_pool.reset_spent',
+      early: false,
+    });
+  }
+});
+
+test('tab requests expire only when the server reading catches up', () => {
+  const before = Date.now() - 1;
+  expect(wasSpent('spent-fixture', before)).toBe(false);
+  markSpent('spent-fixture');
+  expect(wasSpent('spent-fixture', before)).toBe(true);
+  expect(wasSpent('spent-fixture', Date.now())).toBe(false);
 });

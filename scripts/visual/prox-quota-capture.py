@@ -641,7 +641,7 @@ async def main():
                 if name == "reset-confirm":
                     credentials_before_disclosure = len(credential_reads)
                     codex = page.locator('article[class*="__codex___"]')
-                    row = codex.locator('details[class*="__account___"]').filter(has_text="Resets: 2").first
+                    row = codex.locator('details[class*="__account___"]').filter(has_text="Manual resets (2)").first
                     await row.locator("summary").click()
                     use_reset = row.get_by_role("button", name="Use reset", exact=True)
                     await use_reset.wait_for()
@@ -656,7 +656,7 @@ async def main():
                     claude_row = page.locator('article[class*="__claude___"] details[class*="__account___"]').first
                     await claude_row.locator("summary").click()
                     assert await claude_row.get_by_role("button", name="Use reset", exact=True).is_disabled()
-                    assert await claude_row.get_by_text("Available once this account reaches its limit", exact=True).is_visible()
+                    assert await claude_row.get_by_text("Usable once a limit is reached", exact=False).is_visible()
                 grouping_src = (Path.home() / ".claude-cliproxy/skills/hillclimb-ui/grouping-checks.js").read_text()
                 loaded_checks = await page.evaluate(f"{grouping_src};groupingChecks({{ root: '.content' }})")
                 if state in ("stacked", "stacked-unavailable"):
