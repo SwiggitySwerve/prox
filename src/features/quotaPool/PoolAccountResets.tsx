@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolAccount, PoolProviderId } from '@/domain/quotaPool/types';
 import type { AuthFileItem } from '@/types';
@@ -199,13 +199,15 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent, ...fact
         run: async (...args: Parameters<typeof run>) => {
           const answer = await run(...args);
           if (answer.code === 'reset' && !answer.unresolved) markSpent(accountId);
-          if (!answer.unresolved && !session.signal.aborted) onRefresh(accountId);
           return answer;
         },
       },
     };
-  }, [session, accountId, onRefresh]);
-  const reset = useClaudeResetGrants(file, true, false, null, onRefresh, scope);
+  }, [session, accountId]);
+  // The hook refreshes once when a claim finishes; bind that to this account so a confirm
+  // re-reads only it, never the whole fleet as well.
+  const refreshAccount = useCallback(() => onRefresh(accountId), [onRefresh, accountId]);
+  const reset = useClaudeResetGrants(file, true, false, null, refreshAccount, scope);
   return (
     <ResetFact
       {...fact}
