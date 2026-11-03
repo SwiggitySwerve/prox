@@ -88,11 +88,8 @@
 }
 .fact {
   min-width: 0;
-  display: grid;
-  // Labels are short; size them to their text so values (dates) keep one line on phones.
-  grid-template-columns: minmax(auto, max-content) minmax(min-content, 1fr);
-  // 8px keeps "Predicted empty" and a full date on one line at phone width.
-  gap: 4px 8px;
+  // Label above value at every width, the one fact pattern on the page.
+  display: block;
   font-size: 14px;
   line-height: 20px;
   dt {
@@ -101,9 +98,9 @@
     line-height: 18px;
   }
   dd {
-    margin: 0;
+    margin: 4px 0 0;
     min-width: 0;
-    text-align: right;
+    text-align: left;
     color: var(--text-primary);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
@@ -117,10 +114,6 @@
     line-height: 18px;
     font-weight: 400;
     text-wrap: pretty;
-  }
-  // A short aside (a plan's start date) stays under its value; a long basis reads full width.
-  dd.aside {
-    text-align: right;
   }
   &[data-tone='overdue'] dd:not(.detail) {
     color: var(--critical-color);

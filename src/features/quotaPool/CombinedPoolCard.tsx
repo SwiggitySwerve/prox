@@ -52,25 +52,23 @@ export function CombinedPoolCard({
       return t('quota_pool.stale_count', { count: stale, total: accounts.length });
     return t(`quota_pool.state_note.${state}`, { window: windowLabel });
   };
+  const viewSelect = (
+    <label>
+      <span className={styles.srOnly}>{t('quota_pool.series_view')}</span>
+      <select value={shownView} onChange={(event) => setView(event.target.value as typeof view)}>
+        <option value="providers">{t('quota_pool.provider_lines')}</option>
+        <option value="stacked" disabled={!stackable}>
+          {t('quota_pool.stacked_providers')}
+        </option>
+      </select>
+    </label>
+  );
   return (
     <section className={`${styles.pool} ${styles.combined}`} aria-labelledby={`${id}-title`}>
       <div className={styles.graphHeader}>
         <h2 id={`${id}-title`}>{t('quota_pool.combined_usage')}</h2>
         {/* The chart's view control sits on the card's title row, next to the chart toggle. */}
-        <div className={styles.combinedOptions}>
-          <label>
-            <span className={styles.srOnly}>{t('quota_pool.series_view')}</span>
-            <select
-              value={shownView}
-              onChange={(event) => setView(event.target.value as typeof view)}
-            >
-              <option value="providers">{t('quota_pool.provider_lines')}</option>
-              <option value="stacked" disabled={!stackable}>
-                {t('quota_pool.stacked_providers')}
-              </option>
-            </select>
-          </label>
-        </div>
+        <div className={styles.combinedOptions}>{viewSelect}</div>
         <span className={styles.reorder}>
           <PoolGraphToggle
             minimized={minimized}

@@ -373,8 +373,14 @@ export function PoolCard({
           {/* The page's one "Refresh now" sits in the combined card's notice above. */}
           <span>{stateNote}</span>
           {affectedAccounts.length > 0 && (
-            <button type="button" className={styles.noteAction} onClick={showAffected}>
-              {t('quota_pool.show_affected')}
+            // Once the list is filtered, the same button puts every account back.
+            <button
+              type="button"
+              className={styles.noteAction}
+              aria-pressed={affectedOnly}
+              onClick={affectedOnly ? () => setAffectedOnly(false) : showAffected}
+            >
+              {t(affectedOnly ? 'quota_pool.show_all_accounts' : 'quota_pool.show_affected')}
             </button>
           )}
         </p>
@@ -564,7 +570,25 @@ export function PoolCard({
                     aria-hidden="true"
                   />
                   <span className={styles.accountName}>
-                    <span className={styles.accountLabel}>{accountName(account)}</span>
+                    <span className={styles.accountLabel}>
+                      {accountName(account)}
+                      {/* One compact badge beside the name, so the Plan cell holds only the plan. */}
+                      {account.resets &&
+                        account.resets.available > 0 &&
+                        !wasSpent(account.id, account.resets.observedAtMs) && (
+                          <span
+                            className={styles.accountResetMarker}
+                            data-usable={account.resets.usable > 0 || undefined}
+                          >
+                            {account.resets.usable > 0
+                              ? t('quota_pool.reset_chip_usable', {
+                                  count: account.resets.available,
+                                  usable: account.resets.usable,
+                                })
+                              : t('quota_pool.reset_chip', { count: account.resets.available })}
+                          </span>
+                        )}
+                    </span>
                     <small className={styles.accountPlan}>
                       {account.plan.known && account.plan.label
                         ? t('quota_pool.account_plan', {
@@ -574,21 +598,6 @@ export function PoolCard({
                         : t('quota_pool.account_plan_unknown', {
                             points: number(account.plan.capacityPoints),
                           })}
-                      {account.resets &&
-                        account.resets.available > 0 &&
-                        !wasSpent(account.id, account.resets.observedAtMs) && (
-                          <span className={styles.accountResetMarker}>
-                            {t('quota_pool.reset_count', { count: account.resets.available })}
-                          </span>
-                        )}
-                      {/* Which rows hold the card's usable resets, without opening each. */}
-                      {account.resets &&
-                        account.resets.usable > 0 &&
-                        !wasSpent(account.id, account.resets.observedAtMs) && (
-                          <span className={styles.accountResetMarker}>
-                            {t('quota_pool.reset_usable_count', { usable: account.resets.usable })}
-                          </span>
-                        )}
                     </small>
                   </span>
                   <span className={styles.accountStatus}>
