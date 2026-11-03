@@ -860,6 +860,15 @@
   }
 }
 
+.providerMark {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
+  vertical-align: -3px;
+  margin-right: 6px;
+}
+
 /* ---------- CTA ---------- */
 
 .ctaGrid {

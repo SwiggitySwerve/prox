@@ -200,7 +200,14 @@
     "cta_system_desc": "Version details and management center info.",
     "window_m": "{{minutes}}m",
     "window_h": "{{hours}}h",
-    "window_hm": "{{hours}}h {{minutes}}m"
+    "window_hm": "{{hours}}h {{minutes}}m",
+    "providers_label": "Providers",
+    "providers_all": "All providers",
+    "traffic_description_providers": "Requests per provider in buckets of {{bucket}} across the last {{window}}. Hover a column for each provider’s count.",
+    "traffic_mixed_meta": "Windows differ by provider",
+    "traffic_mixed_hint": "These providers count traffic over different windows, so their columns can’t share one chart. Select a provider to see its chart.",
+    "fleet_description_mixed": "Volume and success rate per provider. Providers with complete analytics show the last 24 hours; the others show lifetime counts since their proxy last restarted.",
+    "runtime_setting": "Setting"
   },
   "basic_settings": {
     "debug_enable": "Enable Debug Mode",
