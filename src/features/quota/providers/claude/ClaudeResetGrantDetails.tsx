@@ -1,3 +1,4 @@
+import { remainingClaudeResetGrants } from './presentation';
 import { useTranslation } from 'react-i18next';
 import { useNow } from '@/hooks/useNow';
 import type { AnthropicResetGrant } from '@/services/api/claudeResetGrants';
@@ -15,9 +16,7 @@ interface ClaudeResetGrantDetailsProps {
 export function ClaudeResetGrantDetails({ grants, classes }: ClaudeResetGrantDetailsProps) {
   const { t, i18n } = useTranslation();
   const now = useNow();
-  const remaining = grants
-    .filter((grant) => grant.resetsLeft > 0)
-    .sort((a, b) => (parseIsoToMs(a.endsAt) ?? Infinity) - (parseIsoToMs(b.endsAt) ?? Infinity));
+  const remaining = remainingClaudeResetGrants(grants);
 
   if (remaining.length === 0) return null;
 

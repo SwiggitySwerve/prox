@@ -1,3 +1,4 @@
+import { formatClaudeMoney, claudeExtraUsageNotes } from './presentation';
 /**
  * Claude plan windows, extra usage, and separate read-only dollar balances.
  */
@@ -28,27 +29,8 @@ export function ClaudeQuotaBody({
   const extraUsage = quota.extraUsage ?? null;
   const planType = quota.planType ?? null;
   const language = i18n.resolvedLanguage;
-  const formatMoney = (value: number | null, currency = 'USD', divisor = 1): string => {
-    if (value === null) return '--';
-    try {
-      return new Intl.NumberFormat(language, {
-        style: 'currency',
-        currency,
-      }).format(value / divisor);
-    } catch {
-      return `${(value / divisor).toFixed(2)} ${currency}`;
-    }
-  };
 
-  const extraUsageNotes = extraUsage
-    ? [
-        extraUsage.userDisabled ? t('claude_quota.extra_usage_user_disabled') : '',
-        extraUsage.spendLimitReached ? t('claude_quota.extra_usage_spend_limit_reached') : '',
-        extraUsage.disabledReason
-          ? t('claude_quota.extra_usage_disabled_reason', { reason: extraUsage.disabledReason })
-          : '',
-      ].filter(Boolean)
-    : [];
+  const extraUsageNotes = claudeExtraUsageNotes(extraUsage, t);
 
   return (
     <>
@@ -97,8 +79,18 @@ export function ClaudeQuotaBody({
           <div className={classes.quotaAmount}>
             {t('claude_quota.usage_spent_limit', {
               // Extra-usage amounts are minor units; dollar windows are already dollars.
-              spent: formatMoney(extraUsage.usedCredits, extraUsage.currency ?? 'USD', 100),
-              limit: formatMoney(extraUsage.monthlyLimit, extraUsage.currency ?? 'USD', 100),
+              spent: formatClaudeMoney(
+                language,
+                extraUsage.usedCredits,
+                extraUsage.currency ?? 'USD',
+                100
+              ),
+              limit: formatClaudeMoney(
+                language,
+                extraUsage.monthlyLimit,
+                extraUsage.currency ?? 'USD',
+                100
+              ),
             })}
           </div>
           {extraUsageNotes.length > 0 && (
@@ -131,15 +123,15 @@ export function ClaudeQuotaBody({
               <div className={classes.quotaMeta}>
                 <span className={classes.quotaPercent}>
                   {t('claude_quota.dollar_balance_remaining', {
-                    amount: formatMoney(balance.remainingDollars),
+                    amount: formatClaudeMoney(language, balance.remainingDollars),
                   })}
                 </span>
               </div>
             </div>
             <div className={classes.quotaAmount}>
               {t('claude_quota.usage_spent_limit', {
-                spent: formatMoney(balance.usedDollars),
-                limit: formatMoney(balance.limitDollars),
+                spent: formatClaudeMoney(language, balance.usedDollars),
+                limit: formatClaudeMoney(language, balance.limitDollars),
               })}
             </div>
             <div className={classes.quotaMeta}>
