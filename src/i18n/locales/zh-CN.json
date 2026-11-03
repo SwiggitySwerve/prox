@@ -2520,7 +2520,12 @@
     "reset_source_unavailable": "连接到此来源以使用重置",
     "reset_lookup_failed": "无法识别有效的账户凭证",
     "reset_loading": "正在检查重置可用性…",
-    "reset_spent": "已请求重置 · 计数将在下次采集时更新"
+    "reset_spent": "已请求重置 · 计数将在下次采集时更新",
+    "reset_early_hint": "尚未达到限额 · 仍可尝试提前重置",
+    "reset_early_confirm": "“{{name}}”仍有剩余用量：{{left}}。Codex 通常只在达到限额后才应用重置，因此可能拒绝本次请求并保留额度。如果接受，额度会立即使用且无法撤销。仍要使用吗？",
+    "reset_early_button": "仍要使用重置",
+    "reset_left_item": "{{limit}} 剩余 {{percent}}",
+    "reset_left_unknown": "用量尚未测得"
   },
   "provider_sources": {
     "discovery_error": "无法获取代理实例列表。请重新加载以重试。",

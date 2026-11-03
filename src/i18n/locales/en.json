@@ -2522,7 +2522,12 @@
     "reset_source_unavailable": "Connect to this source to use a reset",
     "reset_lookup_failed": "Could not identify an active account credential",
     "reset_loading": "Checking reset availability…",
-    "reset_spent": "Reset requested · counts update at the next collection"
+    "reset_spent": "Reset requested · counts update at the next collection",
+    "reset_early_hint": "Not at its limit yet · you can still try an early reset",
+    "reset_early_confirm": "“{{name}}” still has usage left: {{left}}. Codex normally applies a reset only once a limit is reached, so it may refuse this one and keep the credit. If it accepts, the credit is used now and can’t be undone. Use it anyway?",
+    "reset_early_button": "Use reset anyway",
+    "reset_left_item": "{{limit}} {{percent}} left",
+    "reset_left_unknown": "usage not yet measured"
   },
   "provider_sources": {
     "discovery_error": "Source discovery is unavailable. Reload to retry.",

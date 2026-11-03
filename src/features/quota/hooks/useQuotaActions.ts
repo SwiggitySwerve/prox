@@ -82,7 +82,12 @@ export function useQuotaActions(
   );
 
   const resetQuota = useCallback(
-    (file: AuthFileItem, adapter: QuotaAdapter) => {
+    (
+      file: AuthFileItem,
+      adapter: QuotaAdapter,
+      /** Replaces the standard wording, e.g. to warn that usage is still left. */
+      prompt?: { message: string; confirmText: string; variant: 'danger' | 'primary' }
+    ) => {
       const resetQuotaFn = adapter.resetQuota;
       if (!resetQuotaFn) return;
       if (disableControls || file.disabled || !isQuotaSourceCurrent(session)) return;
@@ -93,9 +98,9 @@ export function useQuotaActions(
       const cacheGeneration = captureQuotaCacheGeneration(file.name, store);
       showConfirmation({
         title: t('codex_quota.reset_confirm_title'),
-        message: t('codex_quota.reset_confirm_message', { name: file.name }),
-        confirmText: t('codex_quota.reset_confirm_button'),
-        variant: 'primary',
+        message: prompt?.message ?? t('codex_quota.reset_confirm_message', { name: file.name }),
+        confirmText: prompt?.confirmText ?? t('codex_quota.reset_confirm_button'),
+        variant: prompt?.variant ?? 'primary',
         onConfirm: async () => {
           if (
             !isQuotaSourceCurrent(session) ||

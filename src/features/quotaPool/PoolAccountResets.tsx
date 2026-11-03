@@ -34,6 +34,10 @@ export function PoolAccountResets(props: Props) {
   if (!resets) return null;
   const source = registry.sources.find((view) => view.source.instanceId === props.instanceId);
   const spent = (spentAt.get(props.account.id) ?? 0) > resets.observedAtMs;
+  // Codex holds the credit but won't apply it yet; the user may still ask early, with a warning.
+  // Claude refuses outright (use_requires_limit answers not_limited), so it stays blocked.
+  const early =
+    props.provider === 'codex' && resets.usable === 0 && resets.blocker === 'not_applicable';
   return (
     <div className={styles.accountResets}>
       <dt>{t('quota_pool.resets')}</dt>
@@ -50,7 +54,7 @@ export function PoolAccountResets(props: Props) {
         )}
         {/* Nothing held: the count already says so, and there is nothing to spend. */}
         {/* A running or just-finished spend keeps its action mounted so its result still shows. */}
-        {resets.available === 0 ? null : (resets.usable > 0 || spent) &&
+        {resets.available === 0 ? null : (resets.usable > 0 || spent || early) &&
           source?.session &&
           source.status === 'ready' ? (
           <SourceResetAction
@@ -58,6 +62,7 @@ export function PoolAccountResets(props: Props) {
             {...props}
             owner={source.session}
             spent={spent}
+            early={early}
           />
         ) : (
           <ResetButton
@@ -102,7 +107,8 @@ function SourceResetAction({
   provider,
   onRefresh,
   spent,
-}: Props & { owner: SourceSession; spent: boolean }) {
+  early,
+}: Props & { owner: SourceSession; spent: boolean; early: boolean }) {
   const { session } = useSourceLease(owner);
   const { t } = useTranslation();
   const [file, setFile] = useState<AuthFileItem | null>(null);
@@ -144,7 +150,19 @@ function SourceResetAction({
   return provider === 'claude' ? (
     <ClaudeResetAction {...{ file, session, onRefresh, spent }} accountId={account.id} />
   ) : (
-    <CodexResetAction {...{ file, session, onRefresh, spent }} accountId={account.id} />
+    <CodexResetAction
+      {...{ file, session, onRefresh, spent, early }}
+      accountId={account.id}
+      left={account.windows
+        .filter((limit) => limit.remainingPercent !== null)
+        .map((limit) =>
+          t('quota_pool.reset_left_item', {
+            limit: t(limit.labelKey, limit.labelParams),
+            percent: `${limit.remainingPercent!.toFixed(1)}%`,
+          })
+        )
+        .join(', ')}
+    />
   );
 }
 
@@ -193,7 +211,15 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent }: Actio
     />
   );
 }
-function CodexResetAction({ file, session, onRefresh, accountId, spent }: ActionProps) {
+function CodexResetAction({
+  file,
+  session,
+  onRefresh,
+  accountId,
+  spent,
+  early,
+  left,
+}: ActionProps & { early: boolean; left: string }) {
   const { t } = useTranslation();
   const [store] = useState(createQuotaStore);
   const adapter = useMemo(() => {
@@ -217,9 +243,30 @@ function CodexResetAction({ file, session, onRefresh, accountId, spent }: Action
   return (
     <ResetButton
       disabled={actions.resettingQuotaName !== null || spent}
-      onClick={() => actions.resetQuota(file, adapter)}
+      onClick={() =>
+        actions.resetQuota(
+          file,
+          adapter,
+          early
+            ? {
+                message: t('quota_pool.reset_early_confirm', {
+                  name: file.name,
+                  left: left || t('quota_pool.reset_left_unknown'),
+                }),
+                confirmText: t('quota_pool.reset_early_button'),
+                variant: 'danger',
+              }
+            : undefined
+        )
+      }
       reason={
-        spent && actions.resettingQuotaName === null ? t('quota_pool.reset_spent') : undefined
+        actions.resettingQuotaName !== null
+          ? undefined
+          : spent
+            ? t('quota_pool.reset_spent')
+            : early
+              ? t('quota_pool.reset_early_hint')
+              : undefined
       }
     />
   );

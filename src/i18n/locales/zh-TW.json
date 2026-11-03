@@ -2548,7 +2548,12 @@
     "reset_source_unavailable": "連線至此來源以使用重設",
     "reset_lookup_failed": "無法識別有效的帳戶憑證",
     "reset_loading": "正在檢查重設可用性…",
-    "reset_spent": "已要求重設 · 計數將在下次蒐集時更新"
+    "reset_spent": "已要求重設 · 計數將在下次蒐集時更新",
+    "reset_early_hint": "尚未達到限額 · 仍可嘗試提前重設",
+    "reset_early_confirm": "「{{name}}」仍有剩餘用量：{{left}}。Codex 通常只在達到限額後才套用重設，因此可能拒絕本次請求並保留額度。若接受，額度會立即使用且無法復原。仍要使用嗎？",
+    "reset_early_button": "仍要使用重設",
+    "reset_left_item": "{{limit}} 剩餘 {{percent}}",
+    "reset_left_unknown": "用量尚未測得"
   },
   "provider_sources": {
     "discovery_error": "無法取得代理執行個體清單。請重新載入以重試。",
