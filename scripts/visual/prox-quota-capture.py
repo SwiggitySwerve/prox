@@ -804,7 +804,7 @@ async def main():
                                 height:section.getBoundingClientRect().height,
                                 rows:[...section.querySelectorAll('details')].map(row=>({
                                     height:row.getBoundingClientRect().height,
-                                    name:row.querySelector('[class*="__accountName___"]').firstChild.textContent,
+                                    name:row.querySelector('[class*="__accountLabel___"]').firstChild.textContent,
                                     nameHeight:row.querySelector('[class*="__accountName___"]').getBoundingClientRect().height,
                                     balance:row.querySelector('summary > strong').textContent,
                                     balanceRight:row.querySelector('summary > strong').getBoundingClientRect().right,

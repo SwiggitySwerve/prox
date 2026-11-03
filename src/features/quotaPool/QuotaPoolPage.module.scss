@@ -332,8 +332,6 @@ $pool-error: #ff5252;
     background: transparent;
     border: 1px solid var(--hairline);
   }
-  // Already showing today: Today keeps its outline and readable text, a step dimmer, so the
-  // range's state shows without the control disappearing.
   // Already today: the pill keeps a faint outline and a dimmer label, off but still a control.
   .today[aria-disabled='true'],
   .today[aria-disabled='true']:hover {
@@ -1898,7 +1896,7 @@ $pool-error: #ff5252;
       align-items: start;
     }
     .account > summary {
-      // Name and plan sit in their own columns, so every row keeps one line.
+      // Name and plan sit in their own columns; only a long address with a reset badge wraps.
       > .accountName {
         display: contents;
       }

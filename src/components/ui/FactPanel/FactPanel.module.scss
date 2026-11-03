@@ -107,7 +107,6 @@
     overflow-wrap: anywhere;
   }
   dd.detail {
-    grid-column: 1 / -1;
     text-align: left;
     color: var(--text-secondary);
     font-size: 13px;
@@ -160,14 +159,6 @@
     dl {
       grid-column: 1 / -1;
       grid-template-columns: subgrid;
-    }
-  }
-  .fact {
-    display: block;
-    dd,
-    dd.aside {
-      text-align: left;
-      margin-top: 4px;
     }
   }
 }

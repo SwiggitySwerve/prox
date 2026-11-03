@@ -377,7 +377,6 @@ export function PoolCard({
             <button
               type="button"
               className={styles.noteAction}
-              aria-pressed={affectedOnly}
               onClick={affectedOnly ? () => setAffectedOnly(false) : showAffected}
             >
               {t(affectedOnly ? 'quota_pool.show_all_accounts' : 'quota_pool.show_affected')}
