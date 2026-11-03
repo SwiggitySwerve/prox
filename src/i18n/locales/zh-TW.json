@@ -200,7 +200,14 @@
     "cta_system_desc": "版本詳情與管理中心資訊。",
     "window_m": "{{minutes}} 分鐘",
     "window_h": "{{hours}} 小時",
-    "window_hm": "{{hours}} 小時 {{minutes}} 分"
+    "window_hm": "{{hours}} 小時 {{minutes}} 分",
+    "providers_label": "供應商",
+    "providers_all": "全部供應商",
+    "traffic_description_providers": "最近 {{window}} 各供應商的請求數，每桶 {{bucket}}。懸停任一柱可查看各供應商的數量。",
+    "traffic_mixed_meta": "各供應商的時間窗口不同",
+    "traffic_mixed_hint": "這些供應商的流量統計窗口不同，無法放在同一張圖中。選擇一個供應商即可查看其圖表。",
+    "fleet_description_mixed": "各供應商的請求量與成功率。分析資料完整的供應商顯示最近 24 小時，其餘顯示自其代理上次重新啟動以來的累計數。",
+    "runtime_setting": "設定項"
   },
   "basic_settings": {
     "debug_enable": "啟用除錯模式",

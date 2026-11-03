@@ -200,7 +200,14 @@
     "cta_system_desc": "Chi tiết phiên bản và thông tin trung tâm quản lý.",
     "window_m": "{{minutes}}p",
     "window_h": "{{hours}}g",
-    "window_hm": "{{hours}}g {{minutes}}p"
+    "window_hm": "{{hours}}g {{minutes}}p",
+    "providers_label": "Nhà cung cấp",
+    "providers_all": "Tất cả nhà cung cấp",
+    "traffic_description_providers": "Số yêu cầu theo từng nhà cung cấp trong {{window}} gần nhất, mỗi nhóm {{bucket}}. Di chuột lên một cột để xem số lượng của từng nhà cung cấp.",
+    "traffic_mixed_meta": "Khung thời gian khác nhau theo nhà cung cấp",
+    "traffic_mixed_hint": "Các nhà cung cấp này đếm lưu lượng theo khung thời gian khác nhau nên không thể chung một biểu đồ. Chọn một nhà cung cấp để xem biểu đồ của nó.",
+    "fleet_description_mixed": "Lưu lượng và tỷ lệ thành công theo từng nhà cung cấp. Nhà cung cấp có dữ liệu phân tích đầy đủ hiển thị 24 giờ gần nhất; các nhà cung cấp khác hiển thị số liệu tích lũy kể từ lần khởi động lại proxy gần nhất.",
+    "runtime_setting": "Cài đặt"
   },
   "basic_settings": {
     "debug_enable": "Bật chế độ Debug",

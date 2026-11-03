@@ -200,7 +200,14 @@
     "cta_system_desc": "版本详情与管理中心信息。",
     "window_m": "{{minutes}} 分钟",
     "window_h": "{{hours}} 小时",
-    "window_hm": "{{hours}} 小时 {{minutes}} 分"
+    "window_hm": "{{hours}} 小时 {{minutes}} 分",
+    "providers_label": "供应商",
+    "providers_all": "全部供应商",
+    "traffic_description_providers": "最近 {{window}} 各供应商的请求数，每桶 {{bucket}}。悬停任一柱可查看各供应商的数量。",
+    "traffic_mixed_meta": "各供应商的时间窗口不同",
+    "traffic_mixed_hint": "这些供应商的流量统计窗口不同，无法放在同一张图中。选择一个供应商即可查看其图表。",
+    "fleet_description_mixed": "各供应商的请求量与成功率。分析数据完整的供应商显示最近 24 小时，其余显示自其代理上次重启以来的累计数。",
+    "runtime_setting": "设置项"
   },
   "basic_settings": {
     "debug_enable": "启用调试模式",

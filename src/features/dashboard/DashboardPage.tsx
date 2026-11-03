@@ -3,7 +3,7 @@ import {
   ProviderSourceProvider,
   useProviderSource,
 } from '@/features/providers/ProviderSourceContext';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,12 +15,25 @@ import {
   IconSidebarSystem,
 } from '@/components/ui/icons';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useAuthStore } from '@/stores';
+import { PROVIDER_LOGOS } from '@/features/providers/brandLogos';
 import { formatCompactNumber, formatDateValue, formatPercent } from '@/utils/format';
 import { useDashboardOverview } from './hooks/useDashboardOverview';
 import { LiveWire } from './components/LiveWire';
 import { Meter } from './components/Meter';
 import { Sparkline } from './components/Sparkline';
 import { ThroughputChart } from './components/ThroughputChart';
+import { ProviderPills } from './components/ProviderPills';
+import {
+  ALL_PROVIDERS,
+  buildDashboardView,
+  connectedProviderPills,
+  effectiveSelection,
+  type DashboardSource,
+  type DashboardView,
+  type ProviderSelection,
+  type SourceOverview,
+} from './providerSelection';
 import { useCountUp, useRevealGroup, useRevealOnScroll } from '@/hooks/motion';
 import {
   formatBucketLength,
@@ -48,50 +61,113 @@ const formatHeadline = (value: number): string =>
 export function DashboardPage() {
   const registry = useProviderSources();
   const { t } = useTranslation();
+  const unknownLabel = t('dashboard.provider_unknown');
+  const pills = useMemo(
+    () => connectedProviderPills(registry.sources, unknownLabel),
+    [registry.sources, unknownLabel]
+  );
+  const [reports, setReports] = useState<Record<string, SourceOverview>>({});
+  const report = useCallback((id: string, overview: SourceOverview | null) => {
+    setReports((current) => {
+      if (overview) return current[id] === overview ? current : { ...current, [id]: overview };
+      if (!(id in current)) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }, []);
+  const [selection, setSelection] = useState<ProviderSelection>(ALL_PROVIDERS);
+  const selected = effectiveSelection(selection, pills);
+  const view = useMemo(
+    () =>
+      buildDashboardView(
+        pills
+          .filter((pill) => selected === ALL_PROVIDERS || pill.id === selected)
+          .flatMap((pill): DashboardSource[] =>
+            reports[pill.id] ? [{ ...pill, ...reports[pill.id] }] : []
+          )
+      ),
+    [pills, reports, selected]
+  );
+
   return (
     <div>
       {registry.status === 'loading' && <p role="status">{t('common.loading')}</p>}
       {registry.status === 'error' && <p role="alert">{t('provider_sources.discovery_error')}</p>}
-      {registry.sources.map((view) => (
-        <section key={view.source.instanceId} aria-label={view.source.label}>
-          <h2>{view.source.label}</h2>
-          {view.session && view.status === 'ready' ? (
-            <ProviderSourceProvider source={view.source} session={view.session}>
-              <SourceDashboard />
-            </ProviderSourceProvider>
-          ) : (
-            <p role="alert">{t('provider_sources.authentication_required')}</p>
-          )}
-        </section>
-      ))}
+      {registry.sources
+        .filter((entry) => !entry.session || entry.status !== 'ready')
+        .map((entry) => (
+          <p key={entry.source.instanceId} role="alert">
+            {entry.source.label}: {t('provider_sources.authentication_required')}
+          </p>
+        ))}
+      {/* Each connected source loads its own data; the page shows them in one dashboard. */}
+      {registry.sources.map((entry) =>
+        entry.session && entry.status === 'ready' ? (
+          <ProviderSourceProvider
+            key={entry.source.instanceId}
+            source={entry.source}
+            session={entry.session}
+          >
+            <SourceReporter onReport={report} />
+          </ProviderSourceProvider>
+        ) : null
+      )}
+      {pills.length > 0 && (
+        <UnifiedDashboard view={view} pills={pills} selected={selected} onSelect={setSelection} />
+      )}
     </div>
   );
 }
 
-function SourceDashboard() {
-  const { t, i18n } = useTranslation();
+/** Loads one source's dashboard data and hands it to the page; renders nothing. */
+function SourceReporter({
+  onReport,
+}: {
+  onReport: (id: string, overview: SourceOverview | null) => void;
+}) {
   const scope = useProviderSource();
   const registry = useProviderSources();
-  const serverVersion = registry.sources.find(
-    (view) => view.source.instanceId === scope.source.instanceId
-  )?.version;
-  const serverBuildDate = registry.sources.find(
-    (view) => view.source.instanceId === scope.source.instanceId
-  )?.buildDate;
-
-  const {
-    connectionStatus,
-    connected,
-    config,
-    counts,
-    traffic,
-    trafficSource,
-    providers,
-    credentials,
-    refresh,
-  } = useDashboardOverview();
+  const own = registry.sources.find((entry) => entry.source.instanceId === scope.source.instanceId);
+  const version = own?.version ?? null;
+  const buildDate = own?.buildDate ?? null;
+  const { connected, config, counts, traffic, trafficSource, providers, credentials, refresh } =
+    useDashboardOverview();
 
   useHeaderRefresh(refresh, connected);
+
+  const overview = useMemo<SourceOverview>(
+    () => ({ version, buildDate, config, counts, traffic, trafficSource, providers, credentials }),
+    [version, buildDate, config, counts, traffic, trafficSource, providers, credentials]
+  );
+  const id = scope.source.instanceId;
+  useEffect(() => onReport(id, overview), [id, overview, onReport]);
+  useEffect(() => () => onReport(id, null), [id, onReport]);
+  return null;
+}
+
+/** Brand mark for the providers the app has logos for. */
+function ProviderMark({ id }: { id: string }) {
+  if (id !== 'claude' && id !== 'codex') return null;
+  return <img className={styles.providerMark} src={PROVIDER_LOGOS[id].src} alt="" />;
+}
+
+function UnifiedDashboard({
+  view,
+  pills,
+  selected,
+  onSelect,
+}: {
+  view: DashboardView;
+  pills: ReturnType<typeof connectedProviderPills>;
+  selected: ProviderSelection;
+  onSelect: (selection: ProviderSelection) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const connected = connectionStatus === 'connected';
+  const { traffic, trafficSource, counts, credentials, fleet: providers, sources } = view;
+  const single = sources.length === 1 ? sources[0] : null;
 
   /* Hero 与静态网格走分组级联；异步内容区（图表/供应商）保持整块 reveal */
   const heroRef = useRevealGroup<HTMLElement>();
@@ -118,8 +194,8 @@ function SourceDashboard() {
     [traffic.buckets]
   );
 
-  const routingStrategy = useMemo(() => {
-    const raw = config?.routingStrategy?.trim() ?? '';
+  const routingStrategy = (source: DashboardSource) => {
+    const raw = source.config?.routingStrategy?.trim() ?? '';
     if (!raw) return DASH;
     if (raw === 'round-robin') return t('basic_settings.routing_strategy_round_robin');
     if (raw === 'weighted-round-robin') {
@@ -127,7 +203,7 @@ function SourceDashboard() {
     }
     if (raw === 'fill-first') return t('basic_settings.routing_strategy_fill_first');
     return raw;
-  }, [config?.routingStrategy, t]);
+  };
 
   const unknownProviderLabel = t('dashboard.provider_unknown');
   const successRateTone = toneForSuccessRate(traffic.successRate);
@@ -161,8 +237,19 @@ function SourceDashboard() {
         ? 'common.connecting'
         : 'common.disconnected'
   );
-  const versionLabel = serverVersion ? `v${serverVersion.trim().replace(/^[vV]+/, '')}` : null;
-  const heroMetaLine = [versionLabel, connectionLabel].filter(Boolean).join(' · ');
+  const versionLabel = (version: string | null) =>
+    version ? `v${version.trim().replace(/^[vV]+/, '')}` : null;
+  // One source keeps its own label; several name each version by provider.
+  const heroMetaLine = [
+    ...(single
+      ? [single.label, versionLabel(single.version)]
+      : sources.map((source) =>
+          versionLabel(source.version) ? `${source.name} ${versionLabel(source.version)}` : null
+        )),
+    connectionLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   const statTiles = [
     {
@@ -207,30 +294,40 @@ function SourceDashboard() {
     },
   ];
 
-  const runtimeRows: Array<{ label: string; value: string; mono?: boolean }> = [
-    { label: t('dashboard.runtime_routing'), value: routingStrategy },
-    { label: t('dashboard.runtime_retry'), value: String(config?.requestRetry ?? 0) },
+  const runtimeRows = (
+    source: DashboardSource
+  ): Array<{ label: string; value: string; mono?: boolean }> => [
+    { label: t('dashboard.runtime_routing'), value: routingStrategy(source) },
+    { label: t('dashboard.runtime_retry'), value: String(source.config?.requestRetry ?? 0) },
     {
       label: t('dashboard.runtime_management_keys'),
-      value: counts.managementKeys === null ? DASH : String(counts.managementKeys),
+      value: source.counts.managementKeys === null ? DASH : String(source.counts.managementKeys),
     },
-    { label: t('dashboard.runtime_version'), value: serverVersion?.trim() || DASH },
+    { label: t('dashboard.runtime_version'), value: source.version?.trim() || DASH },
     {
       label: t('dashboard.runtime_build'),
-      value: formatDateValue(serverBuildDate, i18n.language) || DASH,
+      value: formatDateValue(source.buildDate, i18n.language) || DASH,
     },
-    { label: t('dashboard.runtime_proxy'), value: config?.proxyUrl?.trim() || DASH, mono: true },
+    {
+      label: t('dashboard.runtime_proxy'),
+      value: source.config?.proxyUrl?.trim() || DASH,
+      mono: true,
+    },
   ];
 
-  const runtimeToggles = config
-    ? [
-        { label: t('dashboard.runtime_debug'), on: Boolean(config.debug) },
-        { label: t('dashboard.runtime_file_logging'), on: Boolean(config.loggingToFile) },
-        { label: t('dashboard.runtime_request_log'), on: Boolean(config.requestLog) },
-        { label: t('dashboard.runtime_ws_auth'), on: Boolean(config.wsAuth) },
-        { label: t('dashboard.runtime_model_prefix'), on: Boolean(config.forceModelPrefix) },
-      ]
-    : [];
+  const runtimeToggles = (source: DashboardSource) =>
+    source.config
+      ? [
+          { label: t('dashboard.runtime_debug'), on: Boolean(source.config.debug) },
+          { label: t('dashboard.runtime_file_logging'), on: Boolean(source.config.loggingToFile) },
+          { label: t('dashboard.runtime_request_log'), on: Boolean(source.config.requestLog) },
+          { label: t('dashboard.runtime_ws_auth'), on: Boolean(source.config.wsAuth) },
+          {
+            label: t('dashboard.runtime_model_prefix'),
+            on: Boolean(source.config.forceModelPrefix),
+          },
+        ]
+      : [];
 
   const ctaCards = [
     {
@@ -278,6 +375,8 @@ function SourceDashboard() {
         <span className={styles.gridWash} />
       </div>
 
+      <ProviderPills pills={pills} selected={selected} onSelect={onSelect} />
+
       {/* ---------- Hero ---------- */}
       <section className={styles.hero} ref={heroRef}>
         <div className={styles.heroCopy}>
@@ -320,7 +419,9 @@ function SourceDashboard() {
             {connected ? formatHeadline(animatedTotal) : DASH}
           </strong>
           <span className={styles.heroPanelMeta}>
-            {t('dashboard.hero_window_meta', { window: windowLabel, bucket: bucketLabel })}
+            {view.mixedWindows
+              ? t('dashboard.traffic_mixed_meta')
+              : t('dashboard.hero_window_meta', { window: windowLabel, bucket: bucketLabel })}
           </span>
           {traffic.total > 0 && (
             <div className={styles.ratioBar} aria-hidden="true">
@@ -394,15 +495,24 @@ function SourceDashboard() {
           <span className={styles.eyebrow}>{t('dashboard.traffic_eyebrow')}</span>
           <h2 className={styles.sectionTitle}>{t('dashboard.traffic_title')}</h2>
           <p className={styles.sectionDescription}>
-            {t('dashboard.traffic_description', { window: windowLabel, bucket: bucketLabel })}
+            {view.mixedWindows
+              ? t('dashboard.traffic_mixed_hint')
+              : t(
+                  view.series
+                    ? 'dashboard.traffic_description_providers'
+                    : 'dashboard.traffic_description',
+                  { window: windowLabel, bucket: bucketLabel }
+                )}
           </p>
-          {trafficSource === 'analytics' && (
+          {trafficSource !== 'recent' && (
             <p className={styles.sectionDescription}>{t('dashboard.traffic_local_time')}</p>
           )}
         </header>
-        <div className={styles.panel}>
-          <ThroughputChart traffic={traffic} />
-        </div>
+        {!view.mixedWindows && (
+          <div className={styles.panel}>
+            <ThroughputChart traffic={traffic} series={view.series} />
+          </div>
+        )}
       </section>
 
       {/* ---------- Provider fleet ---------- */}
@@ -414,7 +524,9 @@ function SourceDashboard() {
             {t(
               trafficSource === 'analytics'
                 ? 'dashboard.fleet_description'
-                : 'dashboard.fleet_description_counters'
+                : trafficSource === 'mixed'
+                  ? 'dashboard.fleet_description_mixed'
+                  : 'dashboard.fleet_description_counters'
             )}
           </p>
         </header>
@@ -424,12 +536,12 @@ function SourceDashboard() {
           ) : (
             <ul className={styles.fleetList}>
               {providers.map((provider, index) => (
-                <li key={provider.id} className={styles.fleetRow}>
+                <li key={provider.key} className={styles.fleetRow}>
                   <span className={styles.fleetRank} aria-hidden="true">
                     {String(index + 1).padStart(2, '0')}
                   </span>
                   <div className={styles.fleetIdentity}>
-                    {trafficSource === 'analytics' ? (
+                    {provider.trafficSource === 'analytics' ? (
                       <Link
                         className={styles.fleetName}
                         to={`/analytics?tab=overview&range=24h&bucket=hour&provider=${encodeURIComponent(provider.id)}`}
@@ -437,10 +549,12 @@ function SourceDashboard() {
                           provider: providerLabel(provider.id, unknownProviderLabel),
                         })}
                       >
+                        <ProviderMark id={provider.id} />
                         {providerLabel(provider.id, unknownProviderLabel)}
                       </Link>
                     ) : (
                       <span className={styles.fleetName}>
+                        <ProviderMark id={provider.id} />
                         {providerLabel(provider.id, unknownProviderLabel)}
                       </span>
                     )}
@@ -556,29 +670,84 @@ function SourceDashboard() {
             <span className={styles.eyebrow}>{t('dashboard.runtime_eyebrow')}</span>
             <h2 className={styles.panelTitle}>{t('dashboard.runtime_title')}</h2>
           </header>
-          <dl className={styles.specList}>
-            {runtimeRows.map((row) => (
-              <div key={row.label} className={styles.specRow}>
-                <dt className={styles.specLabel}>{row.label}</dt>
-                <dd className={`${styles.specValue} ${row.mono ? styles.specMono : ''}`}>
-                  {row.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          {runtimeToggles.length > 0 && (
-            <ul className={styles.toggleList}>
-              {runtimeToggles.map((toggle) => (
-                <li
-                  key={toggle.label}
-                  className={`${styles.togglePill} ${toggle.on ? styles.toggleOn : styles.toggleOff}`}
-                >
-                  {toggle.label}
-                  <b>{toggle.on ? t('common.yes') : t('common.no')}</b>
-                </li>
-              ))}
-            </ul>
-          )}
+          {single ? (
+            <>
+              <dl className={styles.specList}>
+                {runtimeRows(single).map((row) => (
+                  <div key={row.label} className={styles.specRow}>
+                    <dt className={styles.specLabel}>{row.label}</dt>
+                    <dd className={`${styles.specValue} ${row.mono ? styles.specMono : ''}`}>
+                      {row.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              {runtimeToggles(single).length > 0 && (
+                <ul className={styles.toggleList}>
+                  {runtimeToggles(single).map((toggle) => (
+                    <li
+                      key={toggle.label}
+                      className={`${styles.togglePill} ${toggle.on ? styles.toggleOn : styles.toggleOff}`}
+                    >
+                      {toggle.label}
+                      <b>{toggle.on ? t('common.yes') : t('common.no')}</b>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : sources.length > 1 ? (
+            // Settings belong to each source, so several sources compare side by side.
+            <table className={styles.runtimeTable}>
+              <thead>
+                <tr>
+                  <th scope="col">{t('dashboard.runtime_setting')}</th>
+                  {sources.map((source) => (
+                    <th key={source.id} scope="col" title={source.label}>
+                      <span className={styles.runtimeSource}>
+                        <ProviderMark id={source.brand ?? ''} />
+                        {source.name}
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {runtimeRows(sources[0]).map((row, index) => (
+                  <tr key={row.label}>
+                    <th scope="row">{row.label}</th>
+                    {sources.map((source) => (
+                      <td key={source.id} className={row.mono ? styles.specMono : undefined}>
+                        {runtimeRows(source)[index].value}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                {sources.some((source) => source.config) &&
+                  runtimeToggles(sources.find((source) => source.config)!).map((toggle, index) => (
+                    <tr key={toggle.label}>
+                      <th scope="row">{toggle.label}</th>
+                      {sources.map((source) => {
+                        const own = runtimeToggles(source)[index];
+                        return (
+                          <td key={source.id}>
+                            {own ? (
+                              <span
+                                className={`${styles.togglePill} ${own.on ? styles.toggleOn : styles.toggleOff}`}
+                              >
+                                <b>{own.on ? t('common.yes') : t('common.no')}</b>
+                              </span>
+                            ) : (
+                              DASH
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          ) : null}
           <Link to="/config" className={styles.panelLink}>
             {t('dashboard.runtime_link')}{' '}
             <span className={styles.linkArrow} aria-hidden="true">

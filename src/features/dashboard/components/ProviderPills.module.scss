@@ -1,0 +1,68 @@
+/* Matches the Quota page's provider bar (QuotaPoolPage.module.scss .providerBar). */
+.bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  /* The page's section gap (≥44px) is for sections; the filter belongs with the hero below. */
+  margin-bottom: -40px;
+  /* Room for the focus ring: the page container clips at its top edge. */
+  padding-top: 6px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  }
+
+  button[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--text-primary) 9%, transparent);
+    color: var(--text-primary);
+  }
+
+  // Neutral, so focus never reads as a provider colour.
+  button:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 460px) {
+    gap: 4px;
+
+    button {
+      padding-inline: 10px;
+      gap: 6px;
+    }
+  }
+}
+
+.mark {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--pill-accent);
+}

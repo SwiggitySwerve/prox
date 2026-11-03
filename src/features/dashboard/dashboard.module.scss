@@ -860,6 +860,74 @@
   }
 }
 
+/* 多个来源时，运行参数按来源并列对比 */
+.runtimeTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+
+  th,
+  td {
+    padding: 9px 0 9px $spacing-sm;
+    border-bottom: 1px solid var(--border-color);
+    text-align: right;
+    vertical-align: baseline;
+    overflow-wrap: anywhere;
+  }
+
+  th:first-child {
+    padding-left: 0;
+    text-align: left;
+  }
+
+  thead th {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  tbody th {
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+
+  td {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:last-child > * {
+    border-bottom: none;
+  }
+
+  .togglePill {
+    padding: 2px 8px;
+  }
+}
+
+.runtimeSource {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.providerMark {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
+  vertical-align: -3px;
+  margin-right: 6px;
+
+  .runtimeSource & {
+    margin-right: 0;
+  }
+}
+
 /* ---------- CTA ---------- */
 
 .ctaGrid {
