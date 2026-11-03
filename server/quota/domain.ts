@@ -1,3 +1,4 @@
+import type { AccountBilling } from '../../src/domain/accountBilling';
 import { combinedPools } from './combined';
 import { maskIdentifier } from './mask';
 import { sumKnown } from './values';
@@ -36,6 +37,7 @@ export interface CollectionState {
   refreshing: boolean;
   issues: PoolDashboard['issues'];
   sources?: readonly QuotaSourceView[];
+  billing?: ReadonlyMap<string, AccountBilling>;
   resets?: ReadonlyMap<string, AccountResets>;
   windows?: ReadonlyMap<string, readonly AccountQuotaWindow[]>;
 }
@@ -337,6 +339,7 @@ function buildPool(
       windows: [],
       // Filled by the collector's latest reset reading.
       resets: null,
+      billing: null,
     };
   });
   // An account with no limit here has nothing to add to this window's pool.
@@ -406,7 +409,7 @@ export function buildDashboard(
   const fromMs = Math.floor(options.nowMs / DAY_MS) * DAY_MS + (options.offsetDays - 3) * DAY_MS;
   const toMs = fromMs + 14 * DAY_MS;
   const filtered = samples.filter((s) => s.window === options.window);
-  const { sources, windows, resets, ...state } = collection;
+  const { sources, windows, resets, billing, ...state } = collection;
   const scopes = new Map<string, QuotaSourceView>();
   for (const source of sources ?? []) scopes.set(source.instanceId, source);
   for (const entry of [...accounts, ...collection.issues]) {
@@ -449,6 +452,7 @@ export function buildDashboard(
         ...account,
         windows: [...(windows?.get(account.id) ?? [])],
         resets: resets?.get(account.id) ?? null,
+        billing: billing?.get(account.id) ?? null,
         ...(pool.provider === 'claude' &&
         planWeight(pool.provider, accountPlans.get(account.id)).multiplier === 20 &&
         (windows?.get(account.id)?.length ?? 0) > 0 &&

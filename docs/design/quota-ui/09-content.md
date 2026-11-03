@@ -4,21 +4,31 @@ Closes: counts jargon, degraded repeats, pool empty "not before", latest reading
 
 ## Vocabulary (one term per idea)
 
-| Idea | Term | Not |
-|---|---|---|
-| most recent sample | Latest reading (chart marker shows its time) | snapshot, now, last observed |
-| account sample is old | Stale since 11:00 AM | last reported at, last observed |
-| account has no sample | Unavailable | no current quota data, missing |
-| coverage | 2 of 3 current | loaded · eligible, current · stale |
-| withheld total | — + "Withheld · 2 of 3 current" | Unavailable at headline size, Total unavailable |
-| combined total not computed | Not summed | unverified account overlap |
-| forecast beyond the horizon | After Nov 10 | Not before, Not in this range |
-| showing pre-failure data | Showing data from 12:00 PM UTC | Saved snapshot (as a chip or marker) |
-| low | Below 20% | low (unqualified) |
-| net change including resets | Drain rate | — |
-| usage only | Burn rate (3h) | Burn, last 3h |
-| the collector's last attempt | Last collection | Last collection attempt |
-| paging | Showing 25 of 120 · Show 25 more | Show all 80 accounts, 25 of 120 shown |
+| Idea                         | Term                                         | Not                                             |
+| ---------------------------- | -------------------------------------------- | ----------------------------------------------- |
+| most recent sample           | Latest reading (chart marker shows its time) | snapshot, now, last observed                    |
+| account sample is old        | Stale since 11:00 AM                         | last reported at, last observed                 |
+| account has no sample        | Unavailable                                  | no current quota data, missing                  |
+| coverage                     | 2 of 3 current                               | loaded · eligible, current · stale              |
+| withheld total               | — + "Withheld · 2 of 3 current"              | Unavailable at headline size, Total unavailable |
+| combined total not computed  | Not summed                                   | unverified account overlap                      |
+| forecast beyond the horizon  | After Nov 10                                 | Not before, Not in this range                   |
+| showing pre-failure data     | Showing data from 12:00 PM UTC               | Saved snapshot (as a chip or marker)            |
+| low                          | Below 20%                                    | low (unqualified)                               |
+| net change including resets  | Drain rate                                   | —                                               |
+| usage only                   | Burn rate (3h)                               | Burn, last 3h                                   |
+| the collector's last attempt | Last collection                              | Last collection attempt                         |
+| paging                       | Showing 25 of 120 · Show 25 more             | Show all 80 accounts, 25 of 120 shown           |
+
+| subscription continues | Renews | Renewal time |
+| subscription stops | Ends | Renews when cancelled |
+| scheduled tier change | Next plan | About to change |
+| subscription origin | Active since | Last checked |
+| payment delinquent | Payment overdue | Provider-coloured status |
+| inferred date | Estimated, with visible basis | Unlabelled date |
+| absent provider fact | Not reported, with visible reason | An em dash |
+| no subscription | No paid plan | Missing value |
+| reset inventory | Held | Available (which implies usable) |
 
 ## Copy rules
 

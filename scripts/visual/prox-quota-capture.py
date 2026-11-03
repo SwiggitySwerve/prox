@@ -62,6 +62,9 @@ def fixture(state):
             dict(
                 id=f"external:{provider}:" + hashlib.sha256(f"{provider}\0fixture-{provider}-{i}".encode()).hexdigest(),
                 sourceAccountId=f"external:{provider}:" + hashlib.sha256(f"{provider}\0fixture-{provider}-{i}".encode()).hexdigest(),
+                billing=(dict(provider="claude", status="active", activeSinceMs=NOW-45*DAY, billingType="stripe_subscription") if provider == "claude" else
+                    dict(provider="codex", plan="pro", renewsAtMs=NOW+17*DAY if i==0 else None, endsAtMs=None if i==0 else NOW+8*DAY, willRenew=i==0,
+                         nextPlan=dict(plan="prolite", atMs=NOW+17*DAY) if i==0 else None, overdue=False, graceEndsAtMs=None)),
                 resets=(dict(available=2 if provider == "codex" else 1, usable=2 if provider == "codex" else 0, blocker=None if provider == "codex" else "not_limited", nextExpiryAtMs=NOW + 7 * DAY, observedAtMs=NOW) if i == 0 else None),
                 label=f"{provider.title()} {i + 1}",
                 identifier=mask(provider, i),
@@ -643,7 +646,7 @@ async def main():
                     codex = page.locator('article[class*="__codex___"]')
                     row = codex.locator('details[class*="__account___"]').filter(has_text="Manual resets (2)").first
                     await row.locator("summary").click()
-                    use_reset = row.get_by_role("button", name="Use reset", exact=True)
+                    use_reset = row.get_by_role("button", name="Use reset", exact=False)
                     await use_reset.wait_for()
                     await use_reset.click()
                     dialog = page.get_by_role("dialog")
@@ -655,7 +658,7 @@ async def main():
                     assert not reset_spends, "Cancel must never consume a credit or claim a grant"
                     claude_row = page.locator('article[class*="__claude___"] details[class*="__account___"]').first
                     await claude_row.locator("summary").click()
-                    assert await claude_row.get_by_role("button", name="Use reset", exact=True).is_disabled()
+                    assert await claude_row.get_by_role("button", name="Use reset", exact=False).is_disabled()
                     assert await claude_row.get_by_text("Usable once a limit is reached", exact=False).is_visible()
                 grouping_src = (Path.home() / ".claude-cliproxy/skills/hillclimb-ui/grouping-checks.js").read_text()
                 loaded_checks = await page.evaluate(f"{grouping_src};groupingChecks({{ root: '.content' }})")

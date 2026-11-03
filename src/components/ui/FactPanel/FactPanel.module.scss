@@ -1,0 +1,144 @@
+.container {
+  container-type: inline-size;
+  padding: 12px 10px 16px 38px;
+  min-width: 0;
+}
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px 16px;
+}
+.section {
+  min-width: 0;
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  h4 {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+  }
+  button {
+    font-size: 13px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  dl {
+    margin: 0;
+    display: grid;
+    gap: 12px 16px;
+  }
+}
+.section[data-tone='accent'] {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--fact-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--fact-accent) 8%, transparent);
+  border-radius: 8px;
+}
+.section[data-tone='accent'] ~ .section[data-tone='accent'] {
+  border: 0;
+  background: none;
+}
+.fact {
+  min-width: 0;
+  display: grid;
+  // Labels are short; size them to their text so values (dates) keep one line on phones.
+  grid-template-columns: minmax(auto, max-content) minmax(min-content, 1fr);
+  gap: 4px 12px;
+  font-size: 14px;
+  line-height: 20px;
+  dt {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 18px;
+  }
+  dd {
+    margin: 0;
+    min-width: 0;
+    text-align: right;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+    margin-top: 4px;
+  }
+  &[data-tone='overdue'] dd {
+    color: var(--critical-color);
+  }
+}
+.note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.value {
+  // Dates, counts and plan names stay on one line; a long label wraps instead.
+  white-space: nowrap;
+}
+.code {
+  font-family: monospace;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@container (min-width: 440px) {
+  .panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .section {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+    header,
+    .note {
+      grid-column: 1 / -1;
+    }
+    dl {
+      grid-column: 1 / -1;
+      grid-template-columns: subgrid;
+    }
+  }
+  .fact {
+    display: block;
+    dd {
+      text-align: left;
+      margin-top: 4px;
+    }
+  }
+}
+@container (min-width: 720px) {
+  .panel {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .section[data-tone='accent'] {
+    grid-column: span 2;
+  }
+}
+@media (pointer: coarse) {
+  .section button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

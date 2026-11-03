@@ -964,7 +964,7 @@ describe('pool presentation', () => {
       createElement(PoolCard, { pool, dashboard, mode: 'remaining', reveal: false })
     );
     expect(markup).toContain('of 200 points');
-    expect(markup).toContain('Unavailable');
+    expect(markup).toContain('Not reported');
     expect(markup).toContain('Total and forecast unavailable');
     expect(markup).toContain('Claude account 1');
     expect(markup).toContain('Max 20x · 2,000 points');
@@ -1302,7 +1302,7 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).not.toContain('>Projected<');
-    expect(markup).toContain('Unavailable');
+    expect(markup).toContain('Not reported');
     expect(markup).not.toContain('Not in this range');
   });
 

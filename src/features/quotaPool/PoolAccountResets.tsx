@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { Fact, FactSection } from '@/components/ui/FactPanel';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolAccount, PoolProviderId } from '@/domain/quotaPool/types';
 import type { AuthFileItem } from '@/types';
@@ -34,6 +35,7 @@ type FactProps = Props & {
 
 function ResetFact({
   account,
+  name,
   provider,
   spent,
   reason,
@@ -42,10 +44,18 @@ function ResetFact({
   onClick,
 }: FactProps) {
   const { t, i18n } = useTranslation();
-  const asideId = useId();
   const resets = account.resets;
   const status = poolResetStatus(resets, provider, spent);
-  if (!resets || !status) return null;
+  if (!resets || !status)
+    return (
+      <FactSection title={t('quota_pool.resets')} tone="accent">
+        <Fact
+          label={t('quota_pool.reset_held_label')}
+          state="notReported"
+          reason={t('quota_pool.reset_not_reported_reason')}
+        />
+      </FactSection>
+    );
   const aside = [
     !live && status.statusKey && t(status.statusKey, { usable: resets.usable }),
     !spent && reason,
@@ -57,28 +67,27 @@ function ResetFact({
     .filter(Boolean)
     .join(' · ');
   return (
-    <div className={styles.accountResets}>
-      <dt>{t('quota_pool.resets')}</dt>
-      <dd>
-        <span>{t(status.valueKey, { count: resets.available })}</span>
-        {aside && (
-          <span id={asideId} role="status" className={styles.resetAside}>
-            {aside}
-          </span>
-        )}
-        {(resets.available > 0 || spent) && (
-          <button
-            className={styles.resetAction}
-            type="button"
-            disabled={disabled}
-            aria-describedby={asideId}
-            onClick={onClick}
-          >
-            {t('quota_pool.use_reset')}
-          </button>
-        )}
-      </dd>
-    </div>
+    <FactSection
+      title={t('quota_pool.resets')}
+      tone="accent"
+      {...(resets.available > 0 || spent
+        ? {
+            action: {
+              label: t('quota_pool.use_reset'),
+              context: t('quota_pool.reset_action_context', { name }),
+              disabled,
+              onClick: onClick ?? (() => {}),
+            },
+            note: aside || t('quota_pool.reset_not_usable'),
+          }
+        : { action: undefined })}
+    >
+      <Fact
+        label={t('quota_pool.reset_held_label')}
+        state="known"
+        value={t(status.valueKey, { count: resets.available })}
+      />
+    </FactSection>
   );
 }
 
@@ -87,7 +96,7 @@ export function PoolAccountResets(props: Props) {
   const { t } = useTranslation();
   const registry = useProviderSources();
   const resets = props.account.resets;
-  if (!resets) return null;
+  if (!resets) return <ResetFact {...props} spent={false} />;
   const source = registry.sources.find((view) => view.source.instanceId === props.instanceId);
   const spent = wasSpent(props.account.id, resets.observedAtMs);
   const status = poolResetStatus(resets, props.provider, spent)!;

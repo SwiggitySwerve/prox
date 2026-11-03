@@ -1,3 +1,8 @@
+import {
+  billingFromClaudeProfile,
+  billingFromCodexSubscription,
+  type AccountBilling,
+} from '../../src/domain/accountBilling';
 import { readJson } from '../http/readJson';
 import { readFile } from 'node:fs/promises';
 import type { DeploymentSource } from '../../src/domain/providerSources/types';
@@ -18,6 +23,7 @@ import {
   CLAUDE_USAGE_WINDOW_KEYS,
   CLAUDE_REQUEST_HEADERS,
   CODEX_USAGE_URL,
+  CODEX_SUBSCRIPTION_URL,
   CODEX_REQUEST_HEADERS,
 } from '../../src/utils/quota/constants';
 import { parseClaudeUsagePayload, parseCodexUsagePayload } from '../../src/utils/quota/parsers';
@@ -62,6 +68,7 @@ interface CollectionSource {
 interface InventoryAccount {
   account: StoredAccount;
   authIndex: string;
+  chatgptAccountId: string | null;
 }
 
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -117,6 +124,10 @@ function inventory(payload: unknown, provider: PoolProviderId, nowMs: number): I
     const id = legacyAccountId(provider, file.auth_index);
     accounts.push({
       authIndex: file.auth_index,
+      chatgptAccountId:
+        isRecord(file.id_token) && boundedString(file.id_token.chatgpt_account_id, 256)
+          ? file.id_token.chatgpt_account_id
+          : null,
       account: {
         id,
         provider,
@@ -260,6 +271,8 @@ export class QuotaCollector {
   private nextRefresh: number;
   private currentIssues: PoolDashboard['issues'] = [];
   private readonly profileAttempts = new Map<string, number>();
+  private readonly billingAttempts = new Map<string, number>();
+  private readonly latestBilling = new Map<string, AccountBilling>();
   private readonly latestWindows = new Map<string, AccountQuotaWindow[]>();
   private readonly latestResets = new Map<string, AccountResets>();
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -326,6 +339,9 @@ export class QuotaCollector {
   /** In memory only: refilled by the next successful reset reading. */
   get resets(): ReadonlyMap<string, AccountResets> {
     return this.latestResets;
+  }
+  get billing(): ReadonlyMap<string, AccountBilling> {
+    return this.latestBilling;
   }
   get sources(): QuotaSourceView[] | undefined {
     if (this.revision === undefined) return undefined;
@@ -405,7 +421,8 @@ export class QuotaCollector {
           source,
           key,
           signal,
-          new Map([[accountId, current.planObservedAtMs ?? null]])
+          new Map([[accountId, current.planObservedAtMs ?? null]]),
+          entry.chatgptAccountId
         );
       } catch {
         if (!signal.aborted) this.addIssue(source, stored.provider, 'quota-unavailable');
@@ -466,7 +483,7 @@ export class QuotaCollector {
       const observedAt = storedPlans.get(account.id) ?? null;
       const attemptedAt = this.profileAttempts.get(account.id) ?? null;
       const last = Math.max(observedAt ?? -Infinity, attemptedAt ?? -Infinity);
-      if (this.now() - last < PLAN_REFRESH_MS) return;
+      if (this.profileAttempts.has(account.id) && this.now() - last < PLAN_REFRESH_MS) return;
       this.profileAttempts.set(account.id, this.now());
       try {
         const response = await this.request(source, 'requests/api-call', key, signal, {
@@ -476,6 +493,8 @@ export class QuotaCollector {
           header: CLAUDE_REQUEST_HEADERS,
         });
         if (isRecord(response) && response.status_code === 200) {
+          const billing = billingFromClaudeProfile(response.body);
+          if (billing && !signal.aborted) this.latestBilling.set(account.id, billing);
           plan = planFromClaudeProfile(response.body);
         }
       } catch {
@@ -487,6 +506,34 @@ export class QuotaCollector {
       this.store.recordPlan(account.id, plan, this.now());
     } catch {
       // The plan only weights points; keep the samples and try again next collection.
+    }
+  }
+
+  private async recordCodexBilling(
+    accountId: string,
+    authIndex: string,
+    chatgptAccountId: string | null,
+    source: CollectionSource,
+    key: string,
+    signal: AbortSignal
+  ): Promise<void> {
+    if (!chatgptAccountId) return;
+    const last = this.billingAttempts.get(accountId);
+    if (last !== undefined && this.now() - last < PLAN_REFRESH_MS) return;
+    this.billingAttempts.set(accountId, this.now());
+    try {
+      const response = await this.request(source, 'requests/api-call', key, signal, {
+        authIndex,
+        method: 'GET',
+        url: `${CODEX_SUBSCRIPTION_URL}?account_id=${encodeURIComponent(chatgptAccountId)}`,
+        header: { ...CODEX_REQUEST_HEADERS, 'Chatgpt-Account-Id': chatgptAccountId },
+      });
+      if (!signal.aborted && isRecord(response) && response.status_code === 200) {
+        const billing = billingFromCodexSubscription(response.body);
+        if (billing) this.latestBilling.set(accountId, billing);
+      }
+    } catch {
+      // Billing is best-effort. Retain the previous reading and the attempt gate.
     }
   }
 
@@ -544,7 +591,8 @@ export class QuotaCollector {
     source: CollectionSource,
     key: string,
     signal: AbortSignal,
-    storedPlans: Map<string, number | null>
+    storedPlans: Map<string, number | null>,
+    chatgptAccountId: string | null
   ): Promise<boolean> {
     let samples: QuotaSample[];
     let windows: AccountQuotaWindow[];
@@ -593,6 +641,8 @@ export class QuotaCollector {
         this.addIssue(source, account.provider, 'quota-unavailable');
         throw new Error('Quota sample persistence failed');
       }
+      if (account.provider === 'codex')
+        await this.recordCodexBilling(account.id, authIndex, chatgptAccountId, source, key, signal);
       await this.recordPlan(account, authIndex, source, key, signal, usageBody, storedPlans);
     }
     return !signal.aborted;
@@ -668,8 +718,16 @@ export class QuotaCollector {
     let cursor = 0;
     const worker = async () => {
       while (cursor < accounts.length && !signal.aborted) {
-        const { account, authIndex, source, key } = accounts[cursor++];
-        await this.pollAccount(account, authIndex, source, key, signal, storedPlans);
+        const { account, authIndex, chatgptAccountId, source, key } = accounts[cursor++];
+        await this.pollAccount(
+          account,
+          authIndex,
+          source,
+          key,
+          signal,
+          storedPlans,
+          chatgptAccountId
+        );
       }
     };
     const workers = await Promise.allSettled([worker(), worker()]);
