@@ -20,6 +20,7 @@ import {
   CLAUDE_PROFILE_URL,
   CLAUDE_USAGE_URL,
   CODEX_USAGE_URL,
+  CODEX_SUBSCRIPTION_URL,
 } from '../src/utils/quota/constants';
 
 const NOW = 1_800_000_000_000;
@@ -123,6 +124,7 @@ function fixture(ids = ['source-a', 'source-b', 'source-c']) {
   );
   const failures = new Map<string, number>();
   const quotaFailures = new Set<string>();
+  const responses = new Map<string, unknown>();
   const calls: Call[] = [];
   let clock = NOW;
   let beforeResponse: ((call: Call) => Promise<void>) | undefined;
@@ -143,6 +145,8 @@ function fixture(ids = ['source-a', 'source-b', 'source-c']) {
           return new Response(SENTINEL, { status: failures.get(instanceId)! });
         return Response.json(inventories.get(instanceId));
       }
+      if (responses.has(String(call.body.url)))
+        return Response.json(responses.get(String(call.body.url)));
       if (quotaFailures.has(instanceId))
         return Response.json({
           status_code: 429,
@@ -175,6 +179,7 @@ function fixture(ids = ['source-a', 'source-b', 'source-c']) {
         ...state,
         issues: collector.issues,
         sources: collector.sources,
+        billing: collector.billing,
       }
     );
   return {
@@ -186,10 +191,11 @@ function fixture(ids = ['source-a', 'source-b', 'source-c']) {
     inventories,
     failures,
     quotaFailures,
+    responses,
     dashboard,
     fetcher,
-    advance: () => {
-      clock += MANUAL_REFRESH_INTERVAL_MS;
+    advance: (ms = MANUAL_REFRESH_INTERVAL_MS) => {
+      clock += ms;
     },
     delay: (callback: (call: Call) => Promise<void>) => {
       beforeResponse = callback;
@@ -362,6 +368,7 @@ describe('enumerated quota sources', () => {
           `${CLAUDE_USAGE_URL}?cedar_ember=1&skip_spend=1`,
           CLAUDE_PROFILE_URL,
           CODEX_USAGE_URL,
+          CODEX_SUBSCRIPTION_URL,
         ]).toContain(call.body.url);
         expect(call.body.authIndex).toBe('same-index');
         expect(Object.keys(call.body).sort()).toEqual(['authIndex', 'header', 'method', 'url']);
@@ -873,5 +880,107 @@ describe('additive legacy quota attribution', () => {
     expect(collector).not.toContain('DEFAULT_ORIGINS');
     expect(collector).not.toMatch(/127\.0\.0\.1:831[79]/);
     expect(dockerfile).toContain('COPY deploy/provider-sources.json');
+  });
+});
+
+describe('memory-only account billing collection', () => {
+  const subscription = {
+    entitlement: { subscription_plan: 'pro', renews_at: '2026-11-13T00:00:00Z' },
+    last_active_subscription: { will_renew: true },
+  };
+  const url = `${CODEX_SUBSCRIPTION_URL}?account_id=${encodeURIComponent(SENTINEL)}`;
+  test.each([
+    undefined,
+    null,
+    'bad',
+    {},
+    { chatgpt_account_id: 123 },
+    { chatgpt_account_id: 'x'.repeat(257) },
+  ])(
+    'lenient missing or malformed id token %j preserves inventory and call count',
+    async (id_token) => {
+      const f = fixture();
+      f.inventories.set('source-c', { files: [{ ...credential('codex'), id_token }] });
+      await f.collector.refresh();
+      expect(f.store.listAccounts().some((a) => a.provider === 'codex')).toBe(true);
+      expect(
+        f.calls.filter((c) => String(c.body?.url).startsWith(CODEX_SUBSCRIPTION_URL))
+      ).toHaveLength(0);
+    }
+  );
+  test('one subscription read across 72 polls and 3 targeted refreshes; failure keeps prior reading and never leaks identity', async () => {
+    const f = fixture();
+    f.inventories.set('source-c', {
+      files: [{ ...credential('codex'), id_token: { chatgpt_account_id: SENTINEL } }],
+    });
+    f.responses.set(url, { status_code: 200, body: JSON.stringify(subscription) });
+    await f.collector.refresh();
+    const account = f.store.listAccounts().find((a) => a.provider === 'codex')!;
+    const first = f.collector.billing.get(account.id);
+    expect(first).toMatchObject({ provider: 'codex', willRenew: true });
+    for (let i = 1; i < 72; i++) {
+      f.advance(5 * 60_000);
+      await f.collector.refresh();
+      if ([10, 30, 50].includes(i)) await f.collector.refreshAccount(account.id);
+    }
+    const calls = f.calls.filter((c) => c.body?.url === url);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body?.header).toMatchObject({ 'Chatgpt-Account-Id': SENTINEL });
+    f.advance(5 * 60_000);
+    f.responses.set(url, { status_code: 500, body: SENTINEL });
+    await f.collector.refreshAccount(account.id);
+    expect(f.calls.filter((c) => c.body?.url === url)).toHaveLength(2);
+    expect(f.collector.billing.get(account.id)).toEqual(first);
+    f.advance();
+    await f.collector.refresh();
+    expect(f.calls.filter((c) => c.body?.url === url)).toHaveLength(2);
+    expect(
+      JSON.stringify([f.store.listAccounts(), f.dashboard(), f.collector.issues])
+    ).not.toContain(SENTINEL);
+    expect(
+      f
+        .dashboard()
+        .pools.flatMap((p) => p.accounts)
+        .find((a) => a.id === account.id)?.billing
+    ).toEqual(first);
+  });
+  test('Claude reads once after restart with fresh stored plan, gates failures and records billing even without a plan', async () => {
+    const f = fixture(['source-a']);
+    await f.collector.refresh();
+    const account = f.store.listAccounts()[0];
+    f.store.recordPlan(account.id, 'claude_pro', NOW);
+    f.responses.set(CLAUDE_PROFILE_URL, { status_code: 500, body: SENTINEL });
+    let clock = NOW;
+    const restarted = new QuotaCollector(f.store, {
+      sources: f.manifest.sources,
+      revision: 'restart',
+      fetcher: f.fetcher,
+      now: () => clock,
+    });
+    cleanups.push(() => restarted.stop());
+    f.calls.length = 0;
+    await restarted.refresh();
+    expect(f.calls.filter((c) => c.body?.url === CLAUDE_PROFILE_URL)).toHaveLength(1);
+    clock += 5 * 60_000;
+    await restarted.refresh();
+    expect(f.calls.filter((c) => c.body?.url === CLAUDE_PROFILE_URL)).toHaveLength(1);
+    clock = NOW + 6 * HOUR_MS;
+    f.responses.set(CLAUDE_PROFILE_URL, {
+      status_code: 200,
+      body: {
+        organization: {
+          subscription_status: 'active',
+          subscription_created_at: '2026-01-31T00:00:00Z',
+          billing_type: 'stripe_subscription',
+        },
+      },
+    });
+    await restarted.refresh();
+    expect(f.calls.filter((c) => c.body?.url === CLAUDE_PROFILE_URL)).toHaveLength(2);
+    expect(restarted.billing.get(account.id)).toMatchObject({
+      provider: 'claude',
+      status: 'active',
+    });
+    expect(f.store.listAccounts()[0].plan).toBe('claude_pro');
   });
 });

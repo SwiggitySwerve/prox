@@ -103,3 +103,5 @@ total line is replaced by these distinct layers.
 Minimize controls shrink the plot and closed account roster. Account warnings
 remain visible, and opening a row reveals all plan, limit and reset details. Completion polling reads dashboard status every second
 while collection is running, without requesting additional collections.
+
+- Billing readings and ChatGPT account IDs are memory-only. Never persist or log the provider account ID or send it to the browser. Codex subscription attempts and Claude profile attempts are gated per account for six hours, including failures and targeted refreshes. Claude reads once after restart even with a fresh stored plan. Billing failures preserve the previous reading.

@@ -1,3 +1,4 @@
+import type { AccountBilling } from '../accountBilling';
 /** Public contract for the server-owned quota history and forecast domain. */
 export type PoolProviderId = 'claude' | 'codex';
 export type PoolWindow = 'weekly' | 'five-hour';
@@ -43,6 +44,7 @@ export interface PoolAccount {
   windows: AccountQuotaWindow[];
   /** Latest reset (Claude grant / Codex credit) reading; null when none has been read yet. */
   resets: AccountResets | null;
+  billing: AccountBilling | null;
 }
 /** Why resets this account holds can't be spent now. `ineligible:<reason>` keeps Claude's reason. */
 export type AccountResetBlocker =

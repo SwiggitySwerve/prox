@@ -151,6 +151,7 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
             sources: collector.sources,
             windows: collector.windows,
             resets: collector.resets,
+            billing: collector.billing,
           }
         )
       );
