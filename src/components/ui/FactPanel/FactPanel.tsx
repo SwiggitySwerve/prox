@@ -43,7 +43,8 @@ export function Fact(props: FactState & { label: ReactNode; tone?: 'overdue'; va
   );
 }
 export type FactSectionProps = {
-  title: ReactNode;
+  /** Omit when the host already names the group (a sheet header, a disclosure label). */
+  title?: ReactNode;
   tone?: 'accent';
   children: ReactNode;
 } & (
@@ -57,20 +58,22 @@ export function FactSection({ title, tone, children, action, note }: FactSection
   const id = useId();
   return (
     <section className={styles.section} data-tone={tone}>
-      <header>
-        <h4>{title}</h4>
-        {action && (
-          <button
-            type="button"
-            disabled={action.disabled}
-            onClick={action.onClick}
-            aria-describedby={id}
-          >
-            {action.label}
-            <span className={styles.srOnly}> {action.context}</span>
-          </button>
-        )}
-      </header>
+      {(title || action) && (
+        <header>
+          {title && <h4>{title}</h4>}
+          {action && (
+            <button
+              type="button"
+              disabled={action.disabled}
+              onClick={action.onClick}
+              aria-describedby={id}
+            >
+              {action.label}
+              <span className={styles.srOnly}> {action.context}</span>
+            </button>
+          )}
+        </header>
+      )}
       <dl>{children}</dl>
       {note && (
         <p id={id} role="status" className={styles.note}>

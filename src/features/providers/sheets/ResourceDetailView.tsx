@@ -1,3 +1,4 @@
+import { Fact, FactPanel, FactSection } from '@/components/ui/FactPanel';
 import { useTranslation } from 'react-i18next';
 import { Collapsible } from '@/components/ui/Collapsible';
 import { IconCheck, IconX } from '@/components/ui/icons';
@@ -79,39 +80,44 @@ export function ResourceDetailView({ resource, usageByProvider }: ResourceDetail
           ))}
         </div>
 
-        <dl className={styles.dl} style={{ marginTop: 16 }}>
-          <div>
-            <dt className={styles.dt}>{t('providersPage.detail.fields.identifier')}</dt>
-            <dd className={styles.dd}>{firstKey ? maskApiKey(firstKey) : resource.identifier}</dd>
-          </div>
-          <div>
-            <dt className={styles.dt}>{t('providersPage.detail.fields.prefix')}</dt>
-            <dd className={styles.dd}>{resource.prefix ?? t('providersPage.status.none')}</dd>
-          </div>
-          {definition.protocols.map((protocol) => (
-            <div key={protocol}>
-              <dt className={styles.dt}>
-                {t(`providersPage.sponsor.${sponsorProtocolEntryKey(protocol)}`)}
-              </dt>
-              <dd className={styles.dd}>{protocolCounts[protocol]}</dd>
-            </div>
-          ))}
-        </dl>
+        <FactPanel>
+          <FactSection>
+            <Fact
+              label={t('providersPage.detail.fields.identifier')}
+              state="known"
+              variant="code"
+              value={firstKey ? maskApiKey(firstKey) : resource.identifier}
+            />
+            <Fact
+              label={t('providersPage.detail.fields.prefix')}
+              state="known"
+              value={resource.prefix ?? t('providersPage.status.none')}
+            />
+            {definition.protocols.map((protocol) => (
+              <Fact
+                key={protocol}
+                label={t(`providersPage.sponsor.${sponsorProtocolEntryKey(protocol)}`)}
+                state="known"
+                value={protocolCounts[protocol]}
+              />
+            ))}
+          </FactSection>
+        </FactPanel>
       </div>
     );
   }
 
-  const primary: Array<[string, string]> = [
+  const primary: Array<[string, string | null]> = [
     ['identifier', resource.identifier],
-    ['baseUrl', resource.baseUrl ?? t('providersPage.status.notSet')],
-    ['proxyUrl', resource.proxyUrl ?? t('providersPage.status.notSet')],
+    ['baseUrl', resource.baseUrl ?? null],
+    ['proxyUrl', resource.proxyUrl ?? null],
     ['prefix', resource.prefix ?? t('providersPage.status.none')],
     ['models', String(resource.modelCount)],
     ['headers', String(resource.headerCount)],
   ];
 
-  const metadata: Array<[string, string]> = [
-    ['authIndex', resource.authIndex ?? t('providersPage.status.notSet')],
+  const metadata: Array<[string, string | null]> = [
+    ['authIndex', resource.authIndex ?? null],
     ['excludedModels', String(resource.excludedModelCount)],
     ['apiKeyEntries', String(resource.apiKeyEntryCount)],
   ];
@@ -126,14 +132,23 @@ export function ResourceDetailView({ resource, usageByProvider }: ResourceDetail
         <div className={styles.sectionTitle}>{resource.name ?? resource.identifier}</div>
       </div>
 
-      <dl className={styles.dl}>
-        {primary.map(([key, value]) => (
-          <div key={key}>
-            <dt className={styles.dt}>{t(`providersPage.detail.fields.${key}`)}</dt>
-            <dd className={styles.dd}>{value}</dd>
-          </div>
-        ))}
-      </dl>
+      <FactPanel>
+        <FactSection>
+          {primary.map(([key, value]) => (
+            <Fact
+              key={key}
+              label={t(`providersPage.detail.fields.${key}`)}
+              {...(value === null
+                ? {
+                    state: 'notApplicable' as const,
+                    reason: t('providersPage.status.notSet'),
+                  }
+                : { state: 'known' as const, value })}
+              variant={['identifier', 'baseUrl', 'proxyUrl'].includes(key) ? 'code' : undefined}
+            />
+          ))}
+        </FactSection>
+      </FactPanel>
 
       {openaiConfig && apiKeyEntries.length > 0 ? (
         <div className={styles.apiKeyEntriesSection}>
@@ -174,14 +189,23 @@ export function ResourceDetailView({ resource, usageByProvider }: ResourceDetail
 
       <div style={{ marginTop: 16 }}>
         <Collapsible label={t('providersPage.detail.metadataTitle')}>
-          <dl className={styles.dl}>
-            {metadata.map(([key, value]) => (
-              <div key={key}>
-                <dt className={styles.dt}>{t(`providersPage.detail.fields.${key}`)}</dt>
-                <dd className={styles.dd}>{value}</dd>
-              </div>
-            ))}
-          </dl>
+          <FactPanel>
+            <FactSection>
+              {metadata.map(([key, value]) => (
+                <Fact
+                  key={key}
+                  label={t(`providersPage.detail.fields.${key}`)}
+                  {...(value === null
+                    ? {
+                        state: 'notApplicable' as const,
+                        reason: t('providersPage.status.notSet'),
+                      }
+                    : { state: 'known' as const, value })}
+                  variant={key === 'authIndex' ? 'code' : undefined}
+                />
+              ))}
+            </FactSection>
+          </FactPanel>
         </Collapsible>
       </div>
     </div>

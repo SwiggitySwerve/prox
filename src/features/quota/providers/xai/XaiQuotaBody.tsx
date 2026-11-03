@@ -3,6 +3,8 @@
  * 周/月账单水位条、按量付费余额。
  */
 
+import { formatUsdFromCents, formatXaiProductPercent } from './presentation';
+
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { XaiBillingSummary, XaiQuotaState } from '@/types';
@@ -12,14 +14,6 @@ import { QuotaMeter } from '../../components/QuotaMeter';
 import { QuotaResetLabel } from '../../components/QuotaResetLabel';
 import { XAI_WEEKLY_ROW_ID, collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
 import type { QuotaBodyProps } from '../../types';
-
-const formatUsdFromCents = (cents: number | null): string => {
-  if (cents === null) return '--';
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-  }).format(cents / 100);
-};
 
 const formatXaiRemainingAmount = (billing: XaiBillingSummary): string => {
   const remainingCents =
@@ -72,7 +66,11 @@ const resolveXaiPlan = (
   return null;
 };
 
-export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) {
+export function XaiQuotaBody({
+  quota,
+  classes,
+  factsInPanel = false,
+}: QuotaBodyProps<XaiQuotaState>) {
   const { t, i18n } = useTranslation();
   // Ahead of the early return below — hooks cannot be conditional.
   const now = useNow();
@@ -104,7 +102,7 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
             {billing.planLabel ?? t('xai_quota.plan_paid')}
           </span>
         </div>
-        <div className={classes.quotaMessage}>{t('xai_quota.paid_health')}</div>
+        {!factsInPanel && <div className={classes.quotaMessage}>{t('xai_quota.paid_health')}</div>}
       </>
     );
   }
@@ -170,7 +168,7 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
 
   return (
     <>
-      {(subscriptionLabel || headerReset || onDemandCap <= 0) && (
+      {(subscriptionLabel || (!factsInPanel && (headerReset || onDemandCap <= 0))) && (
         <div className={classes.codexPlan}>
           {subscriptionLabel && (
             <span className={classes.codexPlanItem}>
@@ -178,7 +176,7 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
               <span className={subscriptionClass}>{subscriptionLabel}</span>
             </span>
           )}
-          {onDemandCap <= 0 && (
+          {!factsInPanel && onDemandCap <= 0 && (
             <span className={classes.codexPlanItem}>
               <span className={classes.codexPlanLabel}>{t('xai_quota.pay_as_you_go_label')}</span>
               <span className={classes.codexPlanValue}>
@@ -186,7 +184,7 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
               </span>
             </span>
           )}
-          {headerReset && (
+          {!factsInPanel && headerReset && (
             <span className={classes.codexPlanItem}>
               <span className={classes.codexPlanLabel}>{t('xai_quota.resets_label')}</span>
               <span className={classes.codexPlanValue}>{headerReset.absolute}</span>
@@ -197,14 +195,16 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
           )}
         </div>
       )}
-      {typeof billing.prepaidBalanceCents === 'number' && billing.prepaidBalanceCents > 0 && (
-        <div className={classes.codexPlan}>
-          <span className={classes.codexPlanLabel}>{t('xai_quota.prepaid')}</span>
-          <span className={classes.quotaAmount}>
-            {formatUsdFromCents(billing.prepaidBalanceCents)}
-          </span>
-        </div>
-      )}
+      {!factsInPanel &&
+        typeof billing.prepaidBalanceCents === 'number' &&
+        billing.prepaidBalanceCents > 0 && (
+          <div className={classes.codexPlan}>
+            <span className={classes.codexPlanLabel}>{t('xai_quota.prepaid')}</span>
+            <span className={classes.quotaAmount}>
+              {formatUsdFromCents(billing.prepaidBalanceCents)}
+            </span>
+          </div>
+        )}
       {hasWeeklyData && (
         <div
           className={classes.quotaRow}
@@ -228,16 +228,14 @@ export function XaiQuotaBody({ quota, classes }: QuotaBodyProps<XaiQuotaState>) 
           )}
         </div>
       )}
-      {billing.productUsage.length > 0 && (
+      {!factsInPanel && billing.productUsage.length > 0 && (
         <div className={classes.quotaMessage}>
           <div>{t('xai_quota.usage_breakdown')}</div>
           {billing.productUsage.map((item) => (
             <div key={`product-${item.product}`}>
               {t('xai_quota.product_usage', { product: item.product })}
               {': '}
-              {item.usagePercent === null
-                ? t('xai_quota.usage_unavailable')
-                : formatXaiPercent(Math.max(0, Math.min(100, item.usagePercent)))}
+              {formatXaiProductPercent(item.usagePercent) ?? t('xai_quota.usage_unavailable')}
             </div>
           ))}
         </div>

@@ -127,3 +127,30 @@ describe('account billing', () => {
     ).toBe('notReported');
   });
 });
+
+test('legacy Codex expiry is an estimate with its source and never overrides structured billing', () => {
+  for (const [source, basisKey] of [
+    ['id_token', 'billing_id_token_basis'],
+    ['subscriptions.active_until', 'billing_active_until_basis'],
+  ] as const) {
+    expect(billingFacts(null, 0, { value: '2026-11-13T00:00:00Z', source })).toEqual([
+      {
+        labelKey: 'billing_ends',
+        state: 'estimated',
+        kind: 'date',
+        value: Date.parse('2026-11-13T00:00:00Z'),
+        basisKey,
+      },
+    ]);
+  }
+  expect(billingFacts(null, 0, { value: 'invalid' })[0].state).toBe('notReported');
+  const billing = billingFromCodexSubscription({
+    entitlement: { subscription_plan: 'plus', renews_at: '2026-12-13T00:00:00Z' },
+    last_active_subscription: { will_renew: true },
+  });
+  expect(billingFacts(billing, 0, { value: '2026-11-13T00:00:00Z' })[0]).toMatchObject({
+    labelKey: 'billing_renews',
+    state: 'known',
+    value: Date.parse('2026-12-13T00:00:00Z'),
+  });
+});

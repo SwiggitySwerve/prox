@@ -1,0 +1,20 @@
+.details {
+  min-width: 0;
+  margin-top: 12px;
+  summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 8px 0;
+  }
+  dl > div {
+    grid-template-columns: minmax(0, max-content) minmax(min-content, 1fr);
+  }
+  dt {
+    overflow-wrap: anywhere;
+  }
+  // The compact card already supplies its inset; the pool drawer keeps its own.
+  > div {
+    padding: 12px 0 0;
+  }
+}

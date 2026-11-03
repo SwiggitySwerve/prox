@@ -124,7 +124,15 @@ const CODEX_PLAN_NAMES: Record<string, string> = {
 export const codexPlanName = (code: string) =>
   CODEX_PLAN_NAMES[code.toLowerCase()] ?? code.charAt(0).toUpperCase() + code.slice(1);
 
-export function billingFacts(billing: AccountBilling | null, nowMs: number): BillingFact[] {
+export type BillingExpiryFallback = {
+  value: string | number | null | undefined;
+  source?: 'subscriptions.active_until' | 'id_token';
+};
+export function billingFacts(
+  billing: AccountBilling | null,
+  nowMs: number,
+  fallback?: BillingExpiryFallback
+): BillingFact[] {
   const missing = (labelKey = 'billing_status'): BillingFact => ({
     labelKey,
     state: 'notReported',
@@ -132,7 +140,23 @@ export function billingFacts(billing: AccountBilling | null, nowMs: number): Bil
   });
   const date = (labelKey: string, value: number | null): BillingFact =>
     value === null ? missing(labelKey) : { labelKey, state: 'known', kind: 'date', value };
-  if (!billing) return [missing()];
+  if (!billing) {
+    const expiry = timestamp(fallback?.value);
+    return expiry === null
+      ? [missing()]
+      : [
+          {
+            labelKey: 'billing_ends',
+            state: 'estimated',
+            kind: 'date',
+            value: expiry,
+            basisKey:
+              fallback?.source === 'subscriptions.active_until'
+                ? 'billing_active_until_basis'
+                : 'billing_id_token_basis',
+          },
+        ];
+  }
   if (billing.provider === 'claude') {
     if (billing.status !== 'active')
       return [

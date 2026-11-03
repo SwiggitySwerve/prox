@@ -48,6 +48,12 @@ const result = (statusCode: number, body: unknown): ApiCallResult => ({
 });
 const snapshot = normalizeClaudeUsageSnapshot(fixture)!;
 const quota: ClaudeQuotaState = {
+  billing: {
+    provider: 'claude',
+    status: 'active',
+    activeSinceMs: Date.parse('2026-09-13T00:00:00Z'),
+    billingType: 'stripe_subscription',
+  },
   status: 'success',
   windows: [],
   extraUsage: snapshot.extraUsage,
@@ -414,15 +420,20 @@ describe('Claude usage snapshot rendering and retention', () => {
     expect(source).toContain("const showRefreshQuotaAction = quotaStatus !== 'idle';");
     expect(source).toContain('{showRefreshQuotaAction && (');
     expect(source).toContain('<div className={styles.quotaCardActions}>');
-    expect(source).toContain('onClick={() => void refreshQuotaForFile()}');
-    expect(source).toContain("disabled={!canRefreshQuota || quotaStatus === 'loading'}");
+    // Refresh waits for a running Claude claim, so the claim's result and refresh aren't dropped.
+    expect(source).toContain('if (!claudeReset.busy) void refreshQuotaForFile();');
+    expect(source).toContain(
+      "disabled={!canRefreshQuota || quotaStatus === 'loading' || claudeReset.busy}"
+    );
     expect(source).toContain("loading={quotaStatus === 'loading'}");
     expect(source).toContain("{t('auth_files.quota_refresh_single')}");
     expect(source).toContain("if (quota?.status === 'loading' || resettingQuota) return;");
     expect(source).toContain(
       'const canRefreshQuota = !disableControls && !file.disabled && !resettingQuota;'
     );
-    expect(source).toContain('{resetQuotaAction}');
+    expect(source).toContain('<AccountDetails');
+    expect(source).toContain('onClick: resetQuotaForFile');
+    expect(source).not.toContain('{resetQuotaAction}');
     expect(CLAUDE_CONFIG).not.toHaveProperty('resetQuota');
   });
 
@@ -533,12 +544,14 @@ describe('Claude usage snapshot rendering and retention', () => {
     expect(retained.status).toBe('loading');
     expect(retained.extraUsage).toEqual(quota.extraUsage);
     expect(retained.dollarWindows).toEqual(quota.dollarWindows);
+    expect(retained.billing).toEqual(quota.billing);
     store.setClaudeQuota({ [file.name]: CLAUDE_CONFIG.buildErrorState('network failed', 502) });
     retained = useQuotaStore.getState().claudeQuota[file.name];
     expect(retained.status).toBe('error');
     expect(retained.stale).toBe(true);
     expect(retained.observedAt).toBe(observedAt);
     expect(retained.dollarWindows).toEqual(quota.dollarWindows);
+    expect(retained.billing).toEqual(quota.billing);
     const recovered = { ...quota, observedAt: '2026-10-10T01:00:00Z', stale: false };
     store.setClaudeQuota({ [file.name]: recovered });
     expect(useQuotaStore.getState().claudeQuota[file.name]).toEqual(recovered);

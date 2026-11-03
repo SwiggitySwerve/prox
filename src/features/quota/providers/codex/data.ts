@@ -1,3 +1,8 @@
+import {
+  billingFromCodexSubscription,
+  type AccountBilling,
+  type BillingExpiryFallback,
+} from '@/domain/accountBilling';
 import { buildCodexQuotaWindows } from '@/domain/quotaWindows/codex';
 export { buildCodexQuotaWindows } from '@/domain/quotaWindows/codex';
 /**
@@ -46,6 +51,8 @@ type CodexResetCreditsData = {
 };
 
 export type CodexQuotaData = {
+  billing?: AccountBilling | null;
+  subscriptionActiveUntilSource?: BillingExpiryFallback['source'];
   planType: string | null;
   subscriptionActiveUntil: string | number | null;
   creditBalance: string | null;
@@ -110,7 +117,7 @@ export function createCodexQuotaConfig(deps: QuotaDependencies) {
     authIndex: string,
     accountId: string | null,
     requestHeader: Record<string, string>
-  ): Promise<string | number | null> => {
+  ): Promise<{ activeUntil: string | number | null; billing: AccountBilling | null } | null> => {
     if (!accountId) return null;
 
     try {
@@ -124,7 +131,10 @@ export function createCodexQuotaConfig(deps: QuotaDependencies) {
         { timeout: CODEX_OPTIONAL_REQUEST_TIMEOUT_MS }
       );
       if (result.statusCode < 200 || result.statusCode >= 300) return null;
-      return parseCodexSubscriptionActiveUntil(result.body ?? result.bodyText);
+      return {
+        activeUntil: parseCodexSubscriptionActiveUntil(result.body ?? result.bodyText),
+        billing: billingFromCodexSubscription(result.body ?? result.bodyText),
+      };
     } catch {
       return null;
     }
@@ -233,11 +243,17 @@ export function createCodexQuotaConfig(deps: QuotaDependencies) {
       resetCreditsData.applicableAvailableCount ??
       rateLimitResetCreditsAvailableCount;
     const planType = planTypeFromUsage ?? planTypeFromFile;
-    const subscriptionActiveUntil = liveSubscriptionActiveUntil ?? subscriptionActiveUntilFromFile;
+    const subscriptionActiveUntil =
+      liveSubscriptionActiveUntil?.activeUntil ?? subscriptionActiveUntilFromFile;
     const windows = buildCodexQuotaWindows(payload, t);
     return {
       planType,
       subscriptionActiveUntil,
+      subscriptionActiveUntilSource:
+        liveSubscriptionActiveUntil?.activeUntil != null
+          ? 'subscriptions.active_until'
+          : 'id_token',
+      billing: liveSubscriptionActiveUntil?.billing ?? null,
       creditBalance: accountCredits.balance,
       creditsUnlimited: accountCredits.unlimited,
       rateLimitResetCreditsAvailableCount,
@@ -330,6 +346,8 @@ export function createCodexQuotaConfig(deps: QuotaDependencies) {
       windows: data.windows,
       planType: data.planType,
       subscriptionActiveUntil: data.subscriptionActiveUntil,
+      subscriptionActiveUntilSource: data.subscriptionActiveUntilSource,
+      billing: data.billing,
       creditBalance: data.creditBalance,
       creditsUnlimited: data.creditsUnlimited,
       rateLimitResetCreditsAvailableCount: data.rateLimitResetCreditsAvailableCount,

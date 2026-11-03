@@ -86,6 +86,7 @@ export const createQuotaStore = () =>
               dollarWindows: previous.dollarWindows,
               observedAt: previous.observedAt,
               planType: previous.planType,
+              billing: previous.billing,
               stale: quota.status === 'error' || previous.stale,
             };
           }
