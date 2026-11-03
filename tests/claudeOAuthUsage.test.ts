@@ -420,8 +420,11 @@ describe('Claude usage snapshot rendering and retention', () => {
     expect(source).toContain("const showRefreshQuotaAction = quotaStatus !== 'idle';");
     expect(source).toContain('{showRefreshQuotaAction && (');
     expect(source).toContain('<div className={styles.quotaCardActions}>');
-    expect(source).toContain('onClick={() => void refreshQuotaForFile()}');
-    expect(source).toContain("disabled={!canRefreshQuota || quotaStatus === 'loading'}");
+    // Refresh waits for a running Claude claim, so the claim's result and refresh aren't dropped.
+    expect(source).toContain('if (!claudeReset.busy) void refreshQuotaForFile();');
+    expect(source).toContain(
+      "disabled={!canRefreshQuota || quotaStatus === 'loading' || claudeReset.busy}"
+    );
     expect(source).toContain("loading={quotaStatus === 'loading'}");
     expect(source).toContain("{t('auth_files.quota_refresh_single')}");
     expect(source).toContain("if (quota?.status === 'loading' || resettingQuota) return;");

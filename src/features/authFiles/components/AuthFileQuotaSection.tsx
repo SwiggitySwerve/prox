@@ -211,10 +211,11 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       {retainedClaudeUsage && quota && (
         <adapter.Body quota={quota} classes={compactQuotaClasses} factsInPanel />
       )}
-      {quota && (quotaStatus === 'success' || retainedClaudeUsage) && (
+      {((quota && (quotaStatus === 'success' || retainedClaudeUsage)) ||
+        (quotaType === 'claude' && quotaStatus !== 'idle')) && (
         <AccountDetails
           provider={quotaType}
-          quota={quota}
+          quota={quotaStatus === 'success' || retainedClaudeUsage ? quota : undefined}
           name={file.name}
           claudeReset={quotaType === 'claude' ? claudeReset : undefined}
           reset={
@@ -223,6 +224,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
                   disabled:
                     !canRefreshQuota ||
                     quotaStatus === 'loading' ||
+                    !quota ||
                     !adapter.canResetQuota?.(quota),
                   onClick: resetQuotaForFile,
                 }
@@ -238,8 +240,11 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
               variant="secondary"
               size="sm"
               className={styles.quotaResetCreditButton}
-              onClick={() => void refreshQuotaForFile()}
-              disabled={!canRefreshQuota || quotaStatus === 'loading'}
+              onClick={() => {
+                if (!claudeReset.busy) void refreshQuotaForFile();
+              }}
+              // A refresh mid-claim would drop the claim's result and its follow-up refresh.
+              disabled={!canRefreshQuota || quotaStatus === 'loading' || claudeReset.busy}
               loading={quotaStatus === 'loading'}
               title={t('auth_files.quota_refresh_hint')}
             >

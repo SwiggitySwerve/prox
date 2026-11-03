@@ -23,7 +23,8 @@ import styles from './AccountDetails.module.scss';
 
 type Props = {
   provider: QuotaProviderType;
-  quota: QuotaCardState;
+  /** Absent when usage hasn't loaded; Claude's reset grants are read separately. */
+  quota?: QuotaCardState;
   name: string;
   claudeReset?: ReturnType<typeof useClaudeResetGrants>;
   reset?: { disabled: boolean; onClick: () => void };
@@ -44,13 +45,13 @@ export function AccountDetails({ provider, quota, name, claudeReset, reset }: Pr
     value == null ? missing() : { state: 'known', value: date(value) };
   const billing =
     provider === 'codex' || provider === 'claude'
-      ? ((quota as CodexQuotaState | ClaudeQuotaState).billing ?? null)
+      ? ((quota as CodexQuotaState | ClaudeQuotaState | undefined)?.billing ?? null)
       : null;
-  const codex = provider === 'codex' ? (quota as CodexQuotaState) : null;
-  const claude = provider === 'claude' ? (quota as ClaudeQuotaState) : null;
-  const devin = provider === 'devin' ? (quota as DevinQuotaState) : null;
-  const xai = provider === 'xai' ? (quota as XaiQuotaState).billing : null;
-  const plugin = provider === 'plugin' ? (quota as PluginQuotaState) : null;
+  const codex = provider === 'codex' && quota ? (quota as CodexQuotaState) : null;
+  const claude = provider === 'claude' && quota ? (quota as ClaudeQuotaState) : null;
+  const devin = provider === 'devin' && quota ? (quota as DevinQuotaState) : null;
+  const xai = provider === 'xai' && quota ? (quota as XaiQuotaState).billing : null;
+  const plugin = provider === 'plugin' && quota ? (quota as PluginQuotaState) : null;
   const held = codex ? codex.rateLimitResetCreditsAvailableCount : claudeReset?.count;
   const resetReason = claudeReset
     ? claudeReset.message
@@ -160,7 +161,7 @@ export function AccountDetails({ provider, quota, name, claudeReset, reset }: Pr
             />
           )}
         </FactSection>
-        {(codex || claude) && (
+        {(codex || claude || claudeReset) && (
           <FactSection
             title={t('quota_pool.resets')}
             tone="accent"

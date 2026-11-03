@@ -155,16 +155,23 @@ export function QuotaCard(props: QuotaCardProps) {
         )}
       </div>
 
-      {quota && (status === 'success' || retainedClaudeUsage) && (
+      {/* Claude's reset grants load independently of usage, so its resets stay reachable. */}
+      {((quota && (status === 'success' || retainedClaudeUsage)) ||
+        (entry.type === 'claude' && status !== 'idle')) && (
         <AccountDetails
           provider={entry.type}
-          quota={quota}
+          quota={status === 'success' || retainedClaudeUsage ? quota : undefined}
           name={displayName}
           claudeReset={entry.type === 'claude' ? claudeReset : undefined}
           reset={
             entry.type === 'codex' && adapter.resetQuota
               ? {
-                  disabled: !canRefresh || loading || resetting || !adapter.canResetQuota?.(quota),
+                  disabled:
+                    !canRefresh ||
+                    loading ||
+                    resetting ||
+                    !quota ||
+                    !adapter.canResetQuota?.(quota),
                   onClick: onReset,
                 }
               : undefined

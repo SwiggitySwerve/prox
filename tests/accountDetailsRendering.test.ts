@@ -130,6 +130,26 @@ test('Claude card renders estimated billing and its reset action with a visible 
     /<header><h4>Manual resets<\/h4><button[^>]*disabled=""[^>]*aria-describedby="[^"]+"[^>]*>Use reset/
   );
 });
+test('a failed Claude usage read still shows Manual resets and its reason', () => {
+  // Reset grants are read separately from usage; a usage failure must not hide the action.
+  const html = markup(
+    h(QuotaCard, {
+      entry: { file: { ...file, type: 'claude' }, type: 'claude' },
+      adapter: adapters.claude,
+      quota: { status: 'error', error: 'Usage unavailable' } as never,
+      resolvedTheme: 'dark',
+      canRefresh: true,
+      resetting: false,
+      onRefresh: noop,
+      onReset: noop,
+    })
+  );
+  expect(html).toContain('<details');
+  expect(html).toMatch(
+    /<h4>Manual resets<\/h4><button[^>]*aria-describedby="[^"]+"[^>]*>Use reset/
+  );
+  expect(html).toContain('role="status" class="note">');
+});
 test('Claude panel renders reset inventory and disabled reason without chip markup', () => {
   const html = markup(
     h(AccountDetails, {
