@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch CLI-Proxy auth directories for lock file cleanup
+# A path unit does not recurse, so each auth directory is listed. A burst of changes cannot hammer
+# the janitor: prox-auth-janitor.service sets StartLimitIntervalSec and StartLimitBurst.
+
+[Path]
+PathChanged=%h/.local/share/cli-proxy-api/auth
+PathChanged=%h/.local/share/cli-proxy-claude/auth
+Unit=prox-auth-janitor.service
+
+[Install]
+WantedBy=default.target
