@@ -1,11 +1,11 @@
 import type { TFunction } from 'i18next';
 import type { MetaQuotaData, MetaQuotaState } from '@/types';
-import { isDisabledAuthFile, resolveAuthProvider } from '@/utils/quota';
 import type { QuotaProviderData } from '../types';
-import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
+import { isMetaQuotaFile } from '../filters';
+import type { QuotaDependencies } from '../dependencies';
 import { createMetaQuotaFetcher, MetaQuotaError } from './requests';
 
-export function createMetaQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+export function createMetaQuotaConfig(deps: QuotaDependencies) {
   const { apiCallApi, authFilesApi } = deps;
 
   const fetchMetaQuota = createMetaQuotaFetcher({
@@ -17,7 +17,7 @@ export function createMetaQuotaConfig(deps: QuotaDependencies = legacyQuotaDepen
   const config: QuotaProviderData<MetaQuotaState, MetaQuotaData> = {
     type: 'meta',
     i18nPrefix: 'meta_quota',
-    filterFn: (file) => resolveAuthProvider(file) === 'meta' && !isDisabledAuthFile(file),
+    filterFn: isMetaQuotaFile,
     fetchQuota: async (file, t: TFunction) => {
       try {
         return await fetchMetaQuota(file);
@@ -41,5 +41,3 @@ export function createMetaQuotaConfig(deps: QuotaDependencies = legacyQuotaDepen
 
   return config;
 }
-
-export const META_CONFIG = createMetaQuotaConfig();

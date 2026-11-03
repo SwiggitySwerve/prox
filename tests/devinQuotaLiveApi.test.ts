@@ -1,8 +1,11 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { describe, expect, spyOn, test } from 'bun:test';
 import i18n from '@/i18n';
-import { DEVIN_CONFIG } from '@/features/quota/providers/devin/data';
+import { createDevinQuotaConfig } from '@/features/quota/providers/devin/data';
 import { apiClient } from '@/services/api/client';
 import { authFilesApi } from '@/services/api/authFiles';
+
+const DEVIN_CONFIG = createDevinQuotaConfig(testQuotaDependencies);
 
 describe('Devin quota Management API integration', () => {
   test('queries only api-call with a body token placeholder, not auth-file refresh or list', async () => {

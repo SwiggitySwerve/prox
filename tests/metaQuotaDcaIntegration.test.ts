@@ -1,11 +1,14 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { afterEach, expect, spyOn, test } from 'bun:test';
-import { META_CONFIG } from '@/features/quota/providers/meta/data';
+import { createMetaQuotaConfig } from '@/features/quota/providers/meta/data';
 import { authFilesApi } from '@/services/api/authFiles';
 import { apiCallApi } from '@/services/api/apiCall';
 import { apiClient } from '@/services/api/client';
 import { metaQuotaResponse } from './fixtures/metaQuota';
 import { useQuotaStore } from '@/stores/useQuotaStore';
 import i18n from '@/i18n';
+
+const META_CONFIG = createMetaQuotaConfig(testQuotaDependencies);
 
 for (const hasUsage of [true, false]) {
   test(`Meta adapter uses /requests/api-call with ${hasUsage ? 'populated' : 'missing'} usage`, async () => {

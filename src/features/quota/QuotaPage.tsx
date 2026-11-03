@@ -50,12 +50,7 @@ import {
   type QuotaFileEntry,
 } from './logic';
 import { nextRecoveryMs } from './resetSchedule';
-import {
-  QUOTA_ADAPTERS,
-  createQuotaAdapters,
-  getQuotaSetter,
-  type QuotaCardState,
-} from './providers';
+import { createQuotaAdapters, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
@@ -442,14 +437,14 @@ function SourceQuotaPage({
                 ? t('quota_management.search_empty_title')
                 : tab === 'all'
                   ? t('quota_management.empty_title')
-                  : t(`${QUOTA_ADAPTERS[tab].i18nPrefix}.empty_title`)
+                  : t(`${adapters[tab].i18nPrefix}.empty_title`)
             }
             description={
               search.trim()
                 ? t('quota_management.search_empty_desc')
                 : tab === 'all'
                   ? t('quota_management.empty_desc')
-                  : t(`${QUOTA_ADAPTERS[tab].i18nPrefix}.empty_desc`)
+                  : t(`${adapters[tab].i18nPrefix}.empty_desc`)
             }
             action={
               search.trim() ? (

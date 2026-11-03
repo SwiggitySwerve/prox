@@ -1,3 +1,4 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { afterEach, describe, expect, test } from 'bun:test';
 import { createElement } from 'react';
 import { readFileSync } from 'node:fs';
@@ -5,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import i18n from '@/i18n';
 import type { AuthFileItem, MetaQuotaState } from '@/types';
 import { MetaQuotaBody } from '@/features/quota/providers/meta/MetaQuotaBody';
-import { META_CONFIG } from '@/features/quota/providers/meta/data';
+import { createMetaQuotaConfig } from '@/features/quota/providers/meta/data';
 import { parseMetaQuotaPayload } from '@/services/api/metaQuota';
 import { metaQuotaResponse } from './fixtures/metaQuota';
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
@@ -16,6 +17,8 @@ import {
   commitIfQuotaCacheCurrent,
   useQuotaStore,
 } from '@/stores/useQuotaStore';
+
+const META_CONFIG = createMetaQuotaConfig(testQuotaDependencies);
 
 const file: AuthFileItem = { name: 'meta-fixture.json', type: 'meta', authIndex: 'fixture-index' };
 const classes = bindQuotaClasses(

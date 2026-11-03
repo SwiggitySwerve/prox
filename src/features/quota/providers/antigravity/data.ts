@@ -21,12 +21,11 @@ import {
   buildAntigravityQuotaGroups,
   createStatusError,
   getStatusFromError,
-  isAntigravityFile,
-  isDisabledAuthFile,
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
-import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
+import { isAntigravityQuotaFile } from '../filters';
+import type { QuotaDependencies } from '../dependencies';
 
 export type AntigravityQuotaData = {
   groups: AntigravityQuotaGroup[];
@@ -34,7 +33,7 @@ export type AntigravityQuotaData = {
   serverTimeOffsetMs: number | null;
 };
 
-export function createAntigravityQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+export function createAntigravityQuotaConfig(deps: QuotaDependencies) {
   const { apiCallApi, authFilesApi, antigravitySubscriptionApi } = deps;
 
   const resolveAntigravityProjectId = async (file: AuthFileItem): Promise<string> => {
@@ -201,7 +200,7 @@ export function createAntigravityQuotaConfig(deps: QuotaDependencies = legacyQuo
   const config: QuotaProviderData<AntigravityQuotaState, AntigravityQuotaData> = {
     type: 'antigravity',
     i18nPrefix: 'antigravity_quota',
-    filterFn: (file) => isAntigravityFile(file) && !isDisabledAuthFile(file),
+    filterFn: isAntigravityQuotaFile,
     fetchQuota: fetchAntigravityQuota,
     storeSelector: (state) => state.antigravityQuota,
     storeSetter: 'setAntigravityQuota',
@@ -229,5 +228,3 @@ export function createAntigravityQuotaConfig(deps: QuotaDependencies = legacyQuo
 
   return config;
 }
-
-export const ANTIGRAVITY_CONFIG = createAntigravityQuotaConfig();

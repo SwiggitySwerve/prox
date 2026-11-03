@@ -6,7 +6,7 @@ import i18n from '@/i18n';
 import { normalizeAuthFilesResponse } from '@/services/api/authFiles';
 import { resolveAuthFileQuotaType } from '@/features/authFiles/logic';
 import { classifyQuotaFiles, resolveQuotaProviderType } from '@/features/quota/logic';
-import { QUOTA_ADAPTERS } from '@/features/quota/providers';
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { PluginQuotaBody } from '@/features/quota/providers/plugin/PluginQuotaBody';
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
 import type { PluginListEntry, PluginListResponse, PluginQuotaState } from '@/types';
@@ -20,11 +20,14 @@ import {
 } from '@/utils/quota';
 import { QUOTA_TAB_ORDER } from '@/features/quota/constants';
 import {
-  fetchPluginQuota,
+  createPluginQuotaConfig,
   normalizePluginQuotaSummary,
-  resetPluginQuotaRouteCache,
   resolveQuotaPluginId,
 } from '@/features/quota/providers/plugin/data';
+
+const pluginConfig = createPluginQuotaConfig(testQuotaDependencies);
+const fetchPluginQuota = pluginConfig.fetchQuota;
+const resetPluginQuotaRouteCache = pluginConfig.resetRouteCache;
 
 const quotaPlugin = (overrides: Partial<PluginListEntry> = {}): PluginListEntry => ({
   id: 'kiro-quota',
@@ -125,7 +128,8 @@ describe('generic plugin quota', () => {
           expect(classifyQuotaFiles([{ ...candidate, disabled: true }])).toEqual([]);
         }
         const [entry] = classifyQuotaFiles([file]);
-        const fetched = QUOTA_ADAPTERS[entry.type].fetchQuota(file, i18n.t);
+        expect(entry.type).toBe('plugin');
+        const fetched = pluginConfig.fetchQuota(file, i18n.t);
         if (capability.quota_provider) {
           await fetched;
           expect(post.mock.calls).toEqual([['/plugins/kiro-quota/quota', { auth_index: '7' }]]);

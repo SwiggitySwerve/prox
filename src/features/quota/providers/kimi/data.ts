@@ -10,14 +10,13 @@ import {
   parseKimiUsagePayload,
   buildKimiQuotaRows,
   createStatusError,
-  isKimiFile,
-  isDisabledAuthFile,
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
-import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
+import { isKimiQuotaFile } from '../filters';
+import type { QuotaDependencies } from '../dependencies';
 
-export function createKimiQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+export function createKimiQuotaConfig(deps: QuotaDependencies) {
   const { apiCallApi, resolveKimiQuotaUrl } = deps;
 
   const fetchKimiQuota = async (file: AuthFileItem, t: TFunction): Promise<KimiQuotaRow[]> => {
@@ -65,7 +64,7 @@ export function createKimiQuotaConfig(deps: QuotaDependencies = legacyQuotaDepen
   const config: QuotaProviderData<KimiQuotaState, KimiQuotaRow[]> = {
     type: 'kimi',
     i18nPrefix: 'kimi_quota',
-    filterFn: (file) => isKimiFile(file) && !isDisabledAuthFile(file),
+    filterFn: isKimiQuotaFile,
     fetchQuota: fetchKimiQuota,
     storeSelector: (state) => state.kimiQuota,
     storeSetter: 'setKimiQuota',
@@ -81,5 +80,3 @@ export function createKimiQuotaConfig(deps: QuotaDependencies = legacyQuotaDepen
 
   return config;
 }
-
-export const KIMI_CONFIG = createKimiQuotaConfig();

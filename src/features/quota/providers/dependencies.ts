@@ -1,8 +1,6 @@
 import type { AuthFileItem } from '@/types';
-import { apiCallApi, createApiCallApi } from '@/services/api/apiCall';
-import { authFilesApi, createAuthFilesApi } from '@/services/api/authFiles';
-import { apiClient } from '@/services/api/client';
-import { guardConfigConnection } from '@/services/api/configValue';
+import { createApiCallApi } from '@/services/api/apiCall';
+import { createAuthFilesApi } from '@/services/api/authFiles';
 import { antigravitySubscriptionApi } from '@/services/api/antigravitySubscription';
 import { resolveKimiQuotaUrl } from '@/services/api/kimiQuota';
 import { pluginsApi } from '@/services/api/plugins';
@@ -10,13 +8,12 @@ import type { ManagementTransport, SourceSession } from '@/services/api/sourceSe
 import {
   captureQuotaCacheGeneration,
   commitIfQuotaCacheCurrent,
-  useQuotaStore,
   type QuotaStore,
 } from '@/stores/useQuotaStore';
 
 /** Request dependencies only; provider calculations remain in their existing owners. */
 export interface QuotaDependencies {
-  apiCallApi: typeof apiCallApi;
+  apiCallApi: ReturnType<typeof createApiCallApi>;
   authFilesApi: ReturnType<typeof createAuthFilesApi>;
   management: ManagementTransport;
   guardConfigConnection: () => () => void;
@@ -27,26 +24,6 @@ export interface QuotaDependencies {
   antigravitySubscriptionApi: Pick<typeof antigravitySubscriptionApi, 'get'>;
   resolveKimiQuotaUrl: (file: AuthFileItem) => Promise<string>;
 }
-
-/** Only the compatibility facade uses ambient management state. */
-export const legacyQuotaDependencies: QuotaDependencies = {
-  apiCallApi,
-  authFilesApi,
-  management: apiClient,
-  guardConfigConnection,
-  captureCurrent: (name) => {
-    const generation = captureQuotaCacheGeneration(name);
-    return () => commitIfQuotaCacheCurrent(generation, () => {});
-  },
-  generation: (name) => {
-    const state = useQuotaStore.getState();
-    return { session: state.cacheGeneration, file: state.fileGenerations[name] ?? 0 };
-  },
-  revision: () => apiClient.getConnectionRevision(),
-  loadPlugins: () => pluginsApi.list(),
-  antigravitySubscriptionApi,
-  resolveKimiQuotaUrl,
-};
 
 export function createQuotaDependencies(
   session: SourceSession,
