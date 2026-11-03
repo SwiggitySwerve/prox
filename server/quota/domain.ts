@@ -332,6 +332,8 @@ function buildPool(
               ? emptyAt
               : null,
       windows: [],
+      // Filled by the collector's latest reset reading.
+      resets: null,
     };
   });
   // An account with no limit here has nothing to add to this window's pool.
