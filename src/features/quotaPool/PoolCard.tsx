@@ -567,8 +567,8 @@ export function PoolCard({
                           })}
                       {account.resets && account.resets.available > 0 && (
                         <span className={styles.resetMarker}>
-                          {' '}
-                          · {t('quota_pool.reset_count', { count: account.resets.available })}
+                          <span className={styles.resetSeparator}> · </span>
+                          {t('quota_pool.reset_count', { count: account.resets.available })}
                         </span>
                       )}
                     </small>

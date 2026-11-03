@@ -2106,6 +2106,13 @@ $pool-error: #ff5252;
 .resetMarker {
   white-space: nowrap;
   color: var(--text-secondary);
+  // The wide plan column is sized for the plan alone, so the count takes its own line there.
+  @media (min-width: 901px) {
+    display: block;
+    .resetSeparator {
+      display: none;
+    }
+  }
 }
 .accountDetails > .accountResets {
   align-items: start;
