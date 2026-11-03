@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolAccount, PoolProviderId } from '@/domain/quotaPool/types';
 import type { AuthFileItem } from '@/types';
@@ -20,7 +20,7 @@ type Props = {
   name: string;
   instanceId?: string;
   provider: PoolProviderId;
-  onRefresh: () => void;
+  onRefresh: (accountId?: string) => void;
 };
 
 type FactProps = Props & {
@@ -182,7 +182,7 @@ function SourceResetAction({
 type ActionProps = Props & {
   file: AuthFileItem;
   session: SourceSession;
-  onRefresh: () => void;
+  onRefresh: (accountId?: string) => void;
   accountId: string;
   /** A spend from this tab is newer than the server's reading. */
   spent: boolean;
@@ -204,7 +204,10 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent, ...fact
       },
     };
   }, [session, accountId]);
-  const reset = useClaudeResetGrants(file, true, false, null, onRefresh, scope);
+  // The hook refreshes once when a claim finishes; bind that to this account so a confirm
+  // re-reads only it, never the whole fleet as well.
+  const refreshAccount = useCallback(() => onRefresh(accountId), [onRefresh, accountId]);
+  const reset = useClaudeResetGrants(file, true, false, null, refreshAccount, scope);
   return (
     <ResetFact
       {...fact}
@@ -254,7 +257,7 @@ function CodexResetAction({
           // A confirmed attempt may have consumed the credit even if its cooldown clear or
           // follow-up read failed, so the row waits for the next reading either way.
           markSpent(accountId);
-          if (!session.signal.aborted) onRefresh();
+          if (!session.signal.aborted) onRefresh(accountId);
         }
       },
     };

@@ -252,6 +252,9 @@ export class QuotaCollector {
   private readonly fetcher: typeof fetch;
   private readonly now: () => number;
   private inFlight: Promise<void> | null = null;
+  private readonly accountFlights = new Map<string, Promise<boolean>>();
+  private readonly accountControllers = new Set<AbortController>();
+  private readonly accountAttempts = new Map<string, number>();
   private lastAttemptAtMs: number | null = null;
   private lastRefresh: number | null = null;
   private nextRefresh: number;
@@ -344,7 +347,10 @@ export class QuotaCollector {
     this.lastAttemptAtMs = nowMs;
     this.nextRefresh = nowMs + REFRESH_INTERVAL_MS;
     this.controller = new AbortController();
-    this.inFlight = this.collect(this.controller.signal)
+    const pendingAccounts = [...this.accountFlights.values()];
+    const signal = this.controller.signal;
+    this.inFlight = Promise.allSettled(pendingAccounts)
+      .then(() => this.collect(signal))
       .catch(() => {
         if (!this.currentIssues.length) {
           for (const source of this.collectionSources) {
@@ -365,6 +371,54 @@ export class QuotaCollector {
     return this.inFlight;
   }
 
+  refreshAccount(accountId: string): Promise<boolean> {
+    const existing = this.accountFlights.get(accountId);
+    if (existing) return existing;
+    const stored = this.store.listAccounts().find((account) => account.id === accountId);
+    if (!stored || stored.disabled || stored.retired) return Promise.resolve(false);
+    const source = this.collectionSources.find((entry) => entry.instanceId === stored.instanceId);
+    if (!source) return Promise.resolve(false);
+    const last = this.accountAttempts.get(accountId);
+    if (last !== undefined && this.now() - last < 20_000) return Promise.resolve(false);
+    const fullCollection = this.inFlight;
+    const controller = new AbortController();
+    const signal = controller.signal;
+    this.accountControllers.add(controller);
+    const flight = (async () => {
+      await fullCollection?.catch(() => {});
+      if (signal.aborted) return false;
+      const current = this.store.listAccounts().find((account) => account.id === accountId);
+      if (!current || current.disabled || current.retired) return false;
+      this.accountAttempts.set(accountId, this.now());
+      try {
+        const { key, groups } = await this.readInventory(source, signal);
+        const entry = groups
+          .flatMap((group) => group.accounts)
+          .find(
+            ({ account, authIndex }) =>
+              this.store.accountIdFor(source.instanceId!, account.provider, authIndex) === accountId
+          );
+        if (!entry || entry.account.disabled) return false;
+        return await this.pollAccount(
+          current,
+          entry.authIndex,
+          source,
+          key,
+          signal,
+          new Map([[accountId, current.planObservedAtMs ?? null]])
+        );
+      } catch {
+        if (!signal.aborted) this.addIssue(source, stored.provider, 'quota-unavailable');
+        return false;
+      }
+    })().finally(() => {
+      this.accountFlights.delete(accountId);
+      this.accountControllers.delete(controller);
+    });
+    this.accountFlights.set(accountId, flight);
+    return flight;
+  }
+
   start(): void {
     if (this.running) return;
     this.running = true;
@@ -378,6 +432,7 @@ export class QuotaCollector {
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = null;
     this.controller?.abort();
+    this.accountControllers.forEach((controller) => controller.abort());
   }
 
   private schedule(): void {
@@ -483,6 +538,77 @@ export class QuotaCollector {
     return readJson(response.body, MAX_RESPONSE_BYTES, 'Quota response too large');
   }
 
+  private async pollAccount(
+    account: StoredAccount,
+    authIndex: string,
+    source: CollectionSource,
+    key: string,
+    signal: AbortSignal,
+    storedPlans: Map<string, number | null>
+  ): Promise<boolean> {
+    let samples: QuotaSample[];
+    let windows: AccountQuotaWindow[];
+    let usageBody: unknown;
+    let upstream: unknown;
+    try {
+      const claude = account.provider === 'claude';
+      const response = await this.request(source, 'requests/api-call', key, signal, {
+        authIndex,
+        method: 'GET',
+        url: claude ? ANTHROPIC_API_ORIGIN + ANTHROPIC_RESET_GRANT_STATUS_PATH : CODEX_USAGE_URL,
+        header: claude ? CLAUDE_REQUEST_HEADERS : CODEX_REQUEST_HEADERS,
+      });
+      upstream = response;
+      if (
+        !isRecord(response) ||
+        response.status_code !== 200 ||
+        !(typeof response.body === 'string' || isRecord(response.body))
+      ) {
+        throw new Error('Quota request unavailable');
+      }
+      ({ samples, windows } = quotaSamples(
+        account.provider,
+        account.id,
+        response.body,
+        this.now()
+      ));
+      usageBody = response.body;
+    } catch {
+      if (!signal.aborted) {
+        console.error(
+          `Quota request failed: ${account.provider} ${failureDetail(account.id, upstream)}`
+        );
+        this.addIssue(source, account.provider, 'quota-unavailable');
+        this.store.markAccountError(account.id, this.now());
+      }
+      return false;
+    }
+    if (!signal.aborted) {
+      try {
+        this.store.recordSamples(samples);
+        this.latestWindows.set(account.id, windows);
+        const resets = readAccountResets(account.provider, usageBody, this.now());
+        if (resets) this.latestResets.set(account.id, resets);
+      } catch {
+        this.addIssue(source, account.provider, 'quota-unavailable');
+        throw new Error('Quota sample persistence failed');
+      }
+      await this.recordPlan(account, authIndex, source, key, signal, usageBody, storedPlans);
+    }
+    return !signal.aborted;
+  }
+
+  private async readInventory(source: CollectionSource, signal: AbortSignal) {
+    const key = (await readFile(source.managementKeyFile, 'utf8')).trim();
+    if (!boundedString(key, 8192)) throw new Error('Invalid management key');
+    const payload = await this.request(source, 'credentials', key, signal);
+    const groups = source.providers.map((provider) => ({
+      provider,
+      accounts: inventory(payload, provider, this.now()),
+    }));
+    return { key, groups };
+  }
+
   private async collect(signal: AbortSignal): Promise<void> {
     this.currentIssues = [];
     this.store.prune(this.now());
@@ -491,14 +617,7 @@ export class QuotaCollector {
         let key: string;
         let groups: { provider: PoolProviderId; accounts: InventoryAccount[] }[];
         try {
-          key = (await readFile(source.managementKeyFile, 'utf8')).trim();
-          if (!boundedString(key, 8192)) throw new Error('Invalid management key');
-          const payload = await this.request(source, 'credentials', key, signal);
-          // Validate every supported kind before retiring any part of this inventory.
-          groups = source.providers.map((provider) => ({
-            provider,
-            accounts: inventory(payload, provider, this.now()),
-          }));
+          ({ key, groups } = await this.readInventory(source, signal));
         } catch {
           if (!signal.aborted) {
             for (const provider of source.providers)
@@ -550,57 +669,7 @@ export class QuotaCollector {
     const worker = async () => {
       while (cursor < accounts.length && !signal.aborted) {
         const { account, authIndex, source, key } = accounts[cursor++];
-        let samples: QuotaSample[];
-        let windows: AccountQuotaWindow[];
-        let usageBody: unknown;
-        let upstream: unknown;
-        try {
-          const claude = account.provider === 'claude';
-          const response = await this.request(source, 'requests/api-call', key, signal, {
-            authIndex,
-            method: 'GET',
-            url: claude
-              ? ANTHROPIC_API_ORIGIN + ANTHROPIC_RESET_GRANT_STATUS_PATH
-              : CODEX_USAGE_URL,
-            header: claude ? CLAUDE_REQUEST_HEADERS : CODEX_REQUEST_HEADERS,
-          });
-          upstream = response;
-          if (
-            !isRecord(response) ||
-            response.status_code !== 200 ||
-            !(typeof response.body === 'string' || isRecord(response.body))
-          ) {
-            throw new Error('Quota request unavailable');
-          }
-          ({ samples, windows } = quotaSamples(
-            account.provider,
-            account.id,
-            response.body,
-            this.now()
-          ));
-          usageBody = response.body;
-        } catch {
-          if (!signal.aborted) {
-            console.error(
-              `Quota request failed: ${account.provider} ${failureDetail(account.id, upstream)}`
-            );
-            this.addIssue(source, account.provider, 'quota-unavailable');
-            this.store.markAccountError(account.id, this.now());
-          }
-          continue;
-        }
-        if (!signal.aborted) {
-          try {
-            this.store.recordSamples(samples);
-            this.latestWindows.set(account.id, windows);
-            const resets = readAccountResets(account.provider, usageBody, this.now());
-            if (resets) this.latestResets.set(account.id, resets);
-          } catch {
-            this.addIssue(source, account.provider, 'quota-unavailable');
-            throw new Error('Quota sample persistence failed');
-          }
-          await this.recordPlan(account, authIndex, source, key, signal, usageBody, storedPlans);
-        }
+        await this.pollAccount(account, authIndex, source, key, signal, storedPlans);
       }
     };
     const workers = await Promise.allSettled([worker(), worker()]);

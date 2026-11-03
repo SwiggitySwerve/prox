@@ -46,6 +46,7 @@ export function createPoolResource(
   let timer: ReturnType<typeof setInterval> | undefined;
   let collector: ReturnType<typeof setInterval> | undefined;
   let completionPoll: ReturnType<typeof setTimeout> | undefined;
+  const targeted = new Set<AbortController>();
   const listeners = new Set<() => void>();
   const publish = (patch: Partial<PoolSnapshot>) => {
     snapshot = { ...snapshot, ...patch };
@@ -74,7 +75,22 @@ export function createPoolResource(
       if (valid()) publish({ error: true, errorStatus: statusOf(error), loading: false });
     }
   };
-  const refresh = async () => {
+  const refresh = async (accountId?: string) => {
+    if (accountId) {
+      if (!active || !isCurrent()) return false;
+      const controller = new AbortController();
+      targeted.add(controller);
+      try {
+        const result = await api.refreshAccount(accountId, controller.signal).catch(() => null);
+        if (!result?.refreshed && active && isCurrent() && !controller.signal.aborted) {
+          await api.refresh(controller.signal).catch(() => {});
+        }
+      } finally {
+        targeted.delete(controller);
+      }
+      await reload();
+      return !snapshot.error;
+    }
     if (!active || !isCurrent()) return false;
     if (mutation) return true;
     const controller = new AbortController();
@@ -126,6 +142,8 @@ export function createPoolResource(
         generation += 1;
         read?.abort();
         mutation?.abort();
+        targeted.forEach((controller) => controller.abort());
+        targeted.clear();
         mutation = undefined;
         clearInterval(timer);
         clearInterval(collector);

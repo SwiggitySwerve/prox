@@ -198,6 +198,146 @@ function fixture(ids = ['source-a', 'source-b', 'source-c']) {
 }
 
 describe('enumerated quota sources', () => {
+  test('targeted refresh polls only its account, updates samples/windows/resets and throttles for 20 seconds', async () => {
+    const f = fixture();
+    await f.collector.refresh();
+    const account = f.store.listAccounts().find((a) => a.provider === 'codex')!;
+    f.advance();
+    f.calls.length = 0;
+    let targetedClock = NOW + 1000;
+    // Supply a changed usage and reset reading through the same source transport.
+    const collector = new QuotaCollector(f.store, {
+      sources: f.manifest.sources,
+      revision: 'test',
+      now: () => targetedClock,
+      fetcher: Object.assign(
+        async (input: string | URL | Request, init?: RequestInit) => {
+          if (init?.body) {
+            expect(new URL(String(input)).hostname).toBe('source-c.invalid');
+            expect(JSON.parse(String(init.body)).authIndex).toBe('same-index');
+            return Response.json({
+              status_code: 200,
+              body: {
+                ...usage('codex', 5),
+                rate_limit_reset_credits: {
+                  available_count: 1,
+                  applicable_available_count: 1,
+                  credits: [],
+                },
+              },
+            });
+          }
+          return f.fetcher(input, init);
+        },
+        { preconnect: () => {} }
+      ),
+    });
+    cleanups.push(() => collector.stop());
+    expect(await collector.refreshAccount(account.id)).toBe(true);
+    expect(collector.windows.get(account.id)?.[0].remainingPercent).toBe(95);
+    expect(collector.resets.get(account.id)?.available).toBe(1);
+    expect(collector.resets.get(account.id)?.observedAtMs).toBe(NOW + 1000);
+    expect(f.store.listSamples(NOW + 1000, NOW + 1000).map((s) => s.accountId)).toEqual([
+      account.id,
+      account.id,
+    ]);
+    expect(f.calls.map((c) => c.instanceId)).toEqual(['source-c']);
+    expect(await collector.refreshAccount(account.id)).toBe(false);
+    targetedClock += 19_999;
+    expect(await collector.refreshAccount(account.id)).toBe(false);
+    targetedClock += 1;
+    expect(await collector.refreshAccount(account.id)).toBe(true);
+    expect(await collector.refreshAccount('unknown')).toBe(false);
+    const disabled = f.store.listAccounts().find((a) => a.provider === 'claude')!;
+    f.store.recordInventory('claude', [{ ...disabled, disabled: true }], NOW, disabled.instanceId);
+    expect(await collector.refreshAccount(disabled.id)).toBe(false);
+  });
+
+  test('targeted refresh is single-flight, waits for full collection, and never records partial inventory', async () => {
+    const f = fixture();
+    await f.collector.refresh();
+    const account = f.store
+      .listAccounts()
+      .find((a) => a.instanceId === 'source-c' && a.provider === 'claude')!;
+    const before = f.store.listAccounts();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    f.calls.length = 0;
+    f.delay(async () => {
+      await gate;
+    });
+    f.advance();
+    const full = f.collector.refresh();
+    const first = f.collector.refreshAccount(account.id);
+    expect(f.collector.refreshAccount(account.id)).toBe(first);
+    await Promise.resolve();
+    expect(f.calls.filter((c) => c.body)).toHaveLength(0);
+    release();
+    await full;
+    expect(await first).toBe(true);
+    expect(f.calls.filter((c) => c.body && c.body.url !== CLAUDE_PROFILE_URL)).toHaveLength(5);
+    const afterFull = f.store.listAccounts();
+    f.advance();
+    f.inventories.set(account.instanceId!, { files: [credential(account.provider)] });
+    expect(await f.collector.refreshAccount(account.id)).toBe(true);
+    expect(f.store.listAccounts()).toEqual(afterFull);
+    expect(before).toHaveLength(afterFull.length);
+  });
+
+  test('a full refresh waits for targeted work and upstream-disabled accounts are skipped without inventory writes', async () => {
+    const f = fixture();
+    await f.collector.refresh();
+    const account = f.store.listAccounts()[0];
+    f.advance();
+    f.calls.length = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    f.delay(async () => {
+      await gate;
+    });
+    const targeted = f.collector.refreshAccount(account.id);
+    const full = f.collector.refresh();
+    await Bun.sleep(5);
+    expect(f.calls).toHaveLength(1);
+    release();
+    expect(await targeted).toBe(true);
+    await full;
+    f.advance();
+    f.calls.length = 0;
+    const before = f.store.listAccounts();
+    f.inventories.set(account.instanceId!, {
+      files: [{ ...credential(account.provider), disabled: true }],
+    });
+    expect(await f.collector.refreshAccount(account.id)).toBe(false);
+    expect(f.calls).toHaveLength(1);
+    expect(f.store.listAccounts()).toEqual(before);
+  });
+
+  test('stop aborts targeted reads and prevents writes even when the transport ignores cancellation', async () => {
+    const f = fixture();
+    await f.collector.refresh();
+    const account = f.store.listAccounts()[0];
+    const before = f.store.listSamples(0, NOW + MANUAL_REFRESH_INTERVAL_MS);
+    f.advance();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    f.delay(async () => {
+      await gate;
+    });
+    const targeted = f.collector.refreshAccount(account.id);
+    await Bun.sleep(5);
+    f.collector.stop();
+    release();
+    expect(await targeted).toBe(false);
+    expect(f.store.listSamples(0, NOW + MANUAL_REFRESH_INTERVAL_MS)).toEqual(before);
+  });
+
   test('enumerates aliases once, collects both supported kinds in mixed inventory, and retains every collision', async () => {
     const f = fixture();
     await f.collector.refresh();

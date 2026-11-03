@@ -1,3 +1,5 @@
+import { readText } from './http/readJson';
+import { isRecord } from '../src/utils/helpers';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { buildDashboard } from './quota/domain';
@@ -7,6 +9,7 @@ import { DAY_MS, HOUR_MS } from './quota/types';
 
 interface CollectorState extends Omit<CollectionState, 'historyStartedAtMs'> {
   refresh(): Promise<void>;
+  refreshAccount(accountId: string): Promise<boolean>;
 }
 export interface AppDependencies {
   store: QuotaStore;
@@ -54,7 +57,19 @@ export function authorized(request: Request, keyFile: string): boolean {
 }
 
 export function createHandler({ store, collector, keyFile, now = Date.now }: AppDependencies) {
-  return (request: Request): Response => {
+  const fullRefresh = () => {
+    // Collection owns single-flight behavior, rate limits and sanitized failures.
+    void collector.refresh().catch(() => console.error('Quota collection failed'));
+    return json(
+      {
+        refreshing: collector.refreshing,
+        lastRefreshAtMs: collector.lastRefreshAtMs,
+        nextRefreshAtMs: collector.nextRefreshAtMs,
+      },
+      202
+    );
+  };
+  return (request: Request): Response | Promise<Response> => {
     const url = new URL(request.url);
     if (url.pathname === '/healthz' && request.method === 'GET') return new Response('ok\n');
     try {
@@ -63,16 +78,45 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
       return json({ error: 'Management authentication unavailable' }, 503);
     }
     if (url.pathname === '/v1/refresh' && request.method === 'POST') {
-      // Collection owns single-flight behavior, rate limits and sanitized failures.
-      void collector.refresh().catch(() => console.error('Quota collection failed'));
-      return json(
-        {
-          refreshing: collector.refreshing,
-          lastRefreshAtMs: collector.lastRefreshAtMs,
-          nextRefreshAtMs: collector.nextRefreshAtMs,
-        },
-        202
-      );
+      // A body naming an account asks for that one account now; anything else (no body, an
+      // empty one, or `{}` from pages loaded before this route existed) is a full refresh.
+      if (!request.body) return fullRefresh();
+      return (async () => {
+        let accountId: string | undefined;
+        let text: string;
+        try {
+          text = await readText(request.body!, 4096);
+        } catch {
+          return json({ error: 'Invalid refresh body' }, 400);
+        }
+        if (text.trim()) {
+          let body: unknown;
+          try {
+            body = JSON.parse(text);
+          } catch {
+            return json({ error: 'Invalid refresh body' }, 400);
+          }
+          if (!isRecord(body)) return json({ error: 'Invalid refresh body' }, 400);
+          if ('accountId' in body) {
+            if (
+              typeof body.accountId !== 'string' ||
+              !body.accountId.trim() ||
+              body.accountId.length > 512
+            ) {
+              return json({ error: 'Invalid accountId' }, 400);
+            }
+            accountId = body.accountId;
+          }
+        }
+        if (accountId !== undefined) {
+          try {
+            return json({ refreshed: await collector.refreshAccount(accountId) });
+          } catch {
+            return json({ refreshed: false });
+          }
+        }
+        return fullRefresh();
+      })();
     }
     if (url.pathname !== '/v1/pools' || request.method !== 'GET')
       return json({ error: 'Not found' }, 404);

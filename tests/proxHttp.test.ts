@@ -16,6 +16,7 @@ function fixture() {
   writeFileSync(keyFile, 'synthetic-test-key', { mode: 0o600 });
   let reads = 0;
   let refreshes = 0;
+  const targeted: string[] = [];
   const store = {
     listAccounts: () => {
       reads++;
@@ -30,6 +31,10 @@ function fixture() {
     lastRefreshAtMs: null,
     nextRefreshAtMs: 0,
     issues: [],
+    refreshAccount: async (id: string) => {
+      targeted.push(id);
+      return true;
+    },
     refresh: async () => {
       refreshes++;
     },
@@ -42,9 +47,62 @@ function fixture() {
         headers: auth ? { Authorization: 'Bearer synthetic-test-key' } : {},
       })
     );
-  return { request, keyFile, store, reads: () => reads, refreshes: () => refreshes };
+  return {
+    request,
+    handler,
+    targeted,
+    keyFile,
+    store,
+    reads: () => reads,
+    refreshes: () => refreshes,
+  };
 }
 describe('quota history HTTP boundary', () => {
+  test('targeted refresh validates bounded JSON and awaits the account result', async () => {
+    const f = fixture();
+    const send = (body: string) =>
+      f.handler(
+        new Request('http://localhost/v1/refresh', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer synthetic-test-key' },
+          body,
+        })
+      );
+    const response = await send(JSON.stringify({ accountId: 'account' }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ refreshed: true });
+    expect(f.targeted).toEqual(['account']);
+    for (const body of [
+      'null',
+      '[]',
+      '{',
+      JSON.stringify({ accountId: '' }),
+      JSON.stringify({ accountId: 4 }),
+      JSON.stringify({ accountId: 'a'.repeat(513) }),
+      JSON.stringify({ accountId: 'ok', padding: 'x'.repeat(4096) }),
+    ]) {
+      expect((await send(body)).status).toBe(400);
+    }
+    expect(f.targeted).toEqual(['account']);
+    expect(f.request('/v1/refresh', true, 'POST').status).toBe(202);
+    expect(f.refreshes()).toBe(1);
+  });
+  test('a refresh without an accountId stays a full refresh, whatever its body', async () => {
+    // Pages loaded before this change post `{}`; an empty POST may still carry a body stream.
+    const f = fixture();
+    for (const body of ['', '{}', '  ']) {
+      const response = await f.handler(
+        new Request('http://localhost/v1/refresh', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer synthetic-test-key' },
+          body,
+        })
+      );
+      expect(response.status).toBe(202);
+    }
+    expect(f.targeted).toEqual([]);
+    expect(f.refreshes()).toBe(3);
+  });
   test('fractional forecast depletion returns a dashboard instead of HTTP 503', async () => {
     const f = fixture();
     const now = Date.UTC(2026, 9, 27);
