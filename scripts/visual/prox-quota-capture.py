@@ -653,7 +653,7 @@ async def main():
                 if name == "reset-confirm":
                     credentials_before_disclosure = len(credential_reads)
                     codex = page.locator('article[class*="__codex___"]')
-                    row = codex.locator('details[class*="__account___"]').filter(has_text="Manual resets (2)").first
+                    row = codex.locator('details[class*="__account___"]').filter(has_text="Resets 2").first
                     await row.locator("summary").click()
                     use_reset = row.get_by_role("button", name="Use reset", exact=False)
                     await use_reset.wait_for()
@@ -717,7 +717,9 @@ async def main():
                 if name == "partial-affected-narrow":
                     # The notice's action filters its card's list to the affected rows and focuses the first.
                     show = page.get_by_role("button", name="Show affected accounts").first
-                    card = show.locator("xpath=ancestor::article")
+                    # The button relabels itself once the filter is on, so pin its card first.
+                    index = await show.evaluate("b => [...document.querySelectorAll('article')].indexOf(b.closest('article'))")
+                    card = page.locator("article").nth(index)
                     await show.click()
                     rows = await card.locator('details[class*="__account___"]').count()
                     focused = await page.evaluate("document.activeElement && document.activeElement.tagName")
@@ -802,7 +804,7 @@ async def main():
                                 height:section.getBoundingClientRect().height,
                                 rows:[...section.querySelectorAll('details')].map(row=>({
                                     height:row.getBoundingClientRect().height,
-                                    name:row.querySelector('[class*="__accountName___"]').firstChild.textContent,
+                                    name:row.querySelector('[class*="__accountLabel___"]').firstChild.textContent,
                                     nameHeight:row.querySelector('[class*="__accountName___"]').getBoundingClientRect().height,
                                     balance:row.querySelector('summary > strong').textContent,
                                     balanceRight:row.querySelector('summary > strong').getBoundingClientRect().right,
@@ -977,6 +979,11 @@ async def main():
                     assert await page.get_by_role("link", name="Open OAuth Login").get_attribute("href") == "#/oauth"
                     interaction["credential_action_targets_login"] = "passed"
                 if state == "ready":
+                    # Phones fold Rate behind Options; opening it shows the select.
+                    options = page.get_by_role("button", name="Options", exact=True)
+                    if await options.is_visible():
+                        await options.click()
+                        assert await options.get_attribute("aria-expanded") == "true"
                     interval = page.get_by_role("combobox", name="Rate interval", exact=True)
                     async with page.expect_request(
                         lambda request: "/prox/pools?" in request.url and "lookback=6" in request.url

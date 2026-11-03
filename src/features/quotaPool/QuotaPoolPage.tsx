@@ -6,6 +6,7 @@ import {
   IconEye,
   IconClock,
   IconRefreshCw,
+  IconSlidersHorizontal,
   IconChevronDown,
   IconChevronLeft,
   IconFilterAll,
@@ -33,6 +34,7 @@ const PLAN_WEIGHTS = [
 ] as const;
 
 export function QuotaPoolPage() {
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const { t, i18n } = useTranslation();
   // Pool, window, measure and the two settings live in the address, so a link opens this view.
   // The view is state first, so a click repaints at once; the address follows it, and a link or
@@ -170,7 +172,11 @@ export function QuotaPoolPage() {
                 </button>
               ))}
             </div>
-            <div className={styles.chartSettings}>
+            <div
+              className={styles.chartSettings}
+              id="pool-view-options"
+              data-open={optionsOpen || undefined}
+            >
               {/* The setting's name sits inside the box, so every toolbar control shares one top edge. */}
               <label className={styles.selectLabel}>
                 <span className={styles.srOnly}>{t('quota_pool.rate_interval')}</span>
@@ -220,6 +226,7 @@ export function QuotaPoolPage() {
               </span>
               <button
                 type="button"
+                className={styles.dateStep}
                 aria-label={t('quota_pool.previous')}
                 disabled={query.offsetDays <= -14}
                 onClick={() => change('offsetDays', query.offsetDays - 1)}
@@ -230,18 +237,32 @@ export function QuotaPoolPage() {
                   focusable (aria-disabled, not disabled), so pressing it never drops keyboard focus. */}
               <button
                 type="button"
+                className={styles.today}
                 aria-disabled={query.offsetDays === 0 || undefined}
+                title={query.offsetDays === 0 ? t('quota_pool.today_current') : undefined}
                 onClick={() => query.offsetDays !== 0 && change('offsetDays', 0)}
               >
                 {t('quota_pool.today')}
               </button>
               <button
                 type="button"
+                className={styles.dateStep}
                 aria-label={t('quota_pool.next')}
                 disabled={query.offsetDays >= 14}
                 onClick={() => change('offsetDays', query.offsetDays + 1)}
               >
                 <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
+              </button>
+              {/* Phones fold Rate and Future behind this, beside the dates, to save a row. */}
+              <button
+                type="button"
+                className={styles.optionsToggle}
+                aria-expanded={optionsOpen}
+                aria-controls="pool-view-options"
+                onClick={() => setOptionsOpen((open) => !open)}
+              >
+                <IconSlidersHorizontal size={16} aria-hidden="true" />
+                {t('quota_pool.view_options')}
               </button>
             </div>
           </fieldset>

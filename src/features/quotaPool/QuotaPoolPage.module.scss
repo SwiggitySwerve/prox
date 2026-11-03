@@ -319,8 +319,7 @@ $pool-error: #ff5252;
     align-items: center;
     justify-content: center;
   }
-  button:first-of-type,
-  button:last-of-type {
+  .dateStep {
     background: transparent;
     padding-inline: 8px;
   }
@@ -329,16 +328,15 @@ $pool-error: #ff5252;
   button {
     border-radius: 999px;
   }
-  button:not(:first-of-type):not(:last-of-type) {
+  .today {
     background: transparent;
     border: 1px solid var(--hairline);
   }
-  // Already showing today: Today keeps its outline and readable text, a step dimmer, so the
-  // range's state shows without the control disappearing.
-  button[aria-disabled='true'],
-  button[aria-disabled='true']:hover {
+  // Already today: the pill keeps a faint outline and a dimmer label, off but still a control.
+  .today[aria-disabled='true'],
+  .today[aria-disabled='true']:hover {
     background: transparent;
-    color: var(--text-tertiary);
+    color: var(--text-quaternary);
     border-color: var(--hairline-soft);
     cursor: default;
   }
@@ -1852,7 +1850,8 @@ $pool-error: #ff5252;
   .pool:not([data-minimized='true']) {
     // Sized from the viewport, not the table, so every provider's limit columns start at the
     // same x whatever its number of limits.
-    --name-track: clamp(140px, 16vw, 260px);
+    // Wide enough for an address plus its reset badge on one line.
+    --name-track: clamp(160px, 18vw, 330px);
     --plan-track: clamp(110px, 10vw, 140px);
     .accountHead,
     .account > summary {
@@ -1897,7 +1896,7 @@ $pool-error: #ff5252;
       align-items: start;
     }
     .account > summary {
-      // Name and plan sit in their own columns, so every row keeps one line.
+      // Name and plan sit in their own columns; only a long address with a reset badge wraps.
       > .accountName {
         display: contents;
       }
@@ -2130,11 +2129,23 @@ $pool-error: #ff5252;
   }
 }
 
-// Its own line under the plan at every width, so on phones it never runs into the row's value.
+// A small badge after the account name; tinted when one can be used now.
 .accountResetMarker {
-  display: block;
-  white-space: nowrap;
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
   color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+  vertical-align: 1px;
+  // Usable now: brighter, in a neutral tone, so the provider colour keeps its one meaning.
+  &[data-usable] {
+    border-color: var(--text-tertiary);
+    color: var(--text-primary);
+  }
 }
 .account[open] .accountResetMarker {
   display: none;
@@ -2192,4 +2203,35 @@ $pool-error: #ff5252;
   .showAll {
     margin-right: 0;
   }
+}
+
+// Phones fold Rate and Future behind an options button on the date row; wide screens show them.
+.dateNavigation .optionsToggle {
+  display: none;
+}
+@media (max-width: 640px) {
+  .chartSettings:not([data-open]) {
+    display: none;
+  }
+  .dateNavigation .optionsToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding-inline: 14px;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    // Outlined like the other secondary pills; filled only while open.
+    &[aria-expanded='true'] {
+      color: var(--text-primary);
+      background: var(--fill-soft);
+    }
+  }
+}
+// State cards share one title size.
+.pools > .emptyNotice h2,
+.errorNotice h2 {
+  font-size: 17px;
 }
