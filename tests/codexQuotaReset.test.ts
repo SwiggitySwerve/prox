@@ -1,8 +1,11 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import type { TFunction } from 'i18next';
-import { CODEX_CONFIG } from '@/features/quota/providers/codex/data';
+import { createCodexQuotaConfig } from '@/features/quota/providers/codex/data';
 import { apiCallApi, authFilesApi, apiClient } from '@/services/api';
 import { CODEX_RATE_LIMIT_RESET_CREDITS_CONSUME_URL } from '@/utils/quota';
+
+const CODEX_CONFIG = createCodexQuotaConfig(testQuotaDependencies);
 
 const t = ((key: string) => key) as TFunction;
 const file = { name: 'codex-test.json', auth_index: 'test-index', type: 'codex' };

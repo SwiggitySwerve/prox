@@ -8,9 +8,10 @@ import type {
   PluginQuotaState,
 } from '@/types';
 import { normalizeAuthIndex } from '@/utils/authIndex';
-import { buildAntigravityQuotaGroups, isDisabledAuthFile, isPluginQuotaFile } from '@/utils/quota';
+import { buildAntigravityQuotaGroups } from '@/utils/quota';
 import type { QuotaProviderData } from '../types';
-import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
+import { isEnabledPluginQuotaFile } from '../filters';
+import type { QuotaDependencies } from '../dependencies';
 
 type PluginQuotaPayload = AntigravityQuotaSummaryPayload & {
   subscription?: Partial<AntigravityQuotaSubscription> | null;
@@ -83,7 +84,7 @@ export const resolveQuotaPluginId = (
   return match?.id ?? null;
 };
 
-export function createPluginQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+export function createPluginQuotaConfig(deps: QuotaDependencies) {
   const { management } = deps;
 
   const PLUGIN_LIST_TTL_MS = 30_000;
@@ -149,7 +150,7 @@ export function createPluginQuotaConfig(deps: QuotaDependencies = legacyQuotaDep
   const config: QuotaProviderData<PluginQuotaState, PluginQuotaData> = {
     type: 'plugin',
     i18nPrefix: 'plugin_quota',
-    filterFn: (file) => isPluginQuotaFile(file) && !isDisabledAuthFile(file),
+    filterFn: isEnabledPluginQuotaFile,
     fetchQuota: fetchPluginQuota,
     storeSelector: (state) => state.pluginQuota,
     storeSetter: 'setPluginQuota',
@@ -167,7 +168,3 @@ export function createPluginQuotaConfig(deps: QuotaDependencies = legacyQuotaDep
 
   return Object.assign(config, { resetRouteCache: resetPluginQuotaRouteCache });
 }
-
-export const PLUGIN_CONFIG = createPluginQuotaConfig();
-export const fetchPluginQuota = PLUGIN_CONFIG.fetchQuota;
-export const resetPluginQuotaRouteCache = PLUGIN_CONFIG.resetRouteCache;

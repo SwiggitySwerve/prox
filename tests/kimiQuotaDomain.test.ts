@@ -1,10 +1,13 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import i18n from '@/i18n';
-import { KIMI_CONFIG } from '@/features/quota/providers/kimi/data';
+import { createKimiQuotaConfig } from '@/features/quota/providers/kimi/data';
 import { apiCallApi, authFilesApi } from '@/services/api';
 import { parseKimiQuotaUrl } from '@/services/api/kimiQuota';
 import { useQuotaStore } from '@/stores/useQuotaStore';
 import { KIMI_AI_USAGE_URL, KIMI_USAGE_URL } from '@/utils/quota';
+
+const KIMI_CONFIG = createKimiQuotaConfig(testQuotaDependencies);
 
 const file = { name: 'kimi-ai-fixture.json', provider: 'kimi-ai', authIndex: 'fixture-index' };
 const response = { statusCode: 200, header: {}, bodyText: '', body: { limits: [] } };

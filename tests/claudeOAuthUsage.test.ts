@@ -1,3 +1,4 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
@@ -7,7 +8,10 @@ import i18n from '@/i18n';
 import { normalizeClaudeUsageSnapshot } from '@/services/api/claudeUsage';
 import { apiCallApi, getApiCallErrorMessage, type ApiCallResult } from '@/services/api/apiCall';
 import { apiClient } from '@/services/api/client';
-import { CLAUDE_CONFIG, hasClaudeUsageData } from '@/features/quota/providers/claude/data';
+import {
+  createClaudeQuotaConfig,
+  hasClaudeUsageData,
+} from '@/features/quota/providers/claude/data';
 import { ClaudeQuotaBody } from '@/features/quota/providers/claude/ClaudeQuotaBody';
 import { buildTimelineLane } from '@/features/quota/quotaTimelineModel';
 import { nextRecoveryMs } from '@/features/quota/resetSchedule';
@@ -26,6 +30,8 @@ import {
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { ClaudeQuotaState } from '@/types';
 import fixture from './fixtures/claude-oauth-usage.json';
+
+const CLAUDE_CONFIG = createClaudeQuotaConfig(testQuotaDependencies);
 
 const translations = i18n.cloneInstance({ lng: 'en' });
 const observedAt = '2026-10-10T00:00:00Z';

@@ -30,12 +30,11 @@ import {
   resolveCodexPlanType,
   resolveCodexSubscriptionActiveUntil,
   createStatusError,
-  isCodexFile,
-  isDisabledAuthFile,
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
-import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
+import { isCodexQuotaFile } from '../filters';
+import type { QuotaDependencies } from '../dependencies';
 
 const CODEX_OPTIONAL_REQUEST_TIMEOUT_MS = 8000;
 
@@ -104,7 +103,7 @@ const parseCodexSubscriptionActiveUntil = (payload: unknown): string | number | 
   return stringValue && stringValue !== '0' ? stringValue : null;
 };
 
-export function createCodexQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+export function createCodexQuotaConfig(deps: QuotaDependencies) {
   const { apiCallApi, authFilesApi, guardConfigConnection } = deps;
 
   const fetchCodexSubscriptionActiveUntil = async (
@@ -314,7 +313,7 @@ export function createCodexQuotaConfig(deps: QuotaDependencies = legacyQuotaDepe
   const config: QuotaProviderData<CodexQuotaState, CodexQuotaData> = {
     type: 'codex',
     i18nPrefix: 'codex_quota',
-    filterFn: (file) => isCodexFile(file) && !isDisabledAuthFile(file),
+    filterFn: isCodexQuotaFile,
     fetchQuota: fetchCodexQuota,
     resetQuota: resetCodexQuota,
     canResetQuota: (quota) => (quota.rateLimitResetCreditsAvailableCount ?? 0) > 0,
@@ -351,5 +350,3 @@ export function createCodexQuotaConfig(deps: QuotaDependencies = legacyQuotaDepe
 
   return config;
 }
-
-export const CODEX_CONFIG = createCodexQuotaConfig();

@@ -17,7 +17,7 @@ import { useQuotaStore, type QuotaStore } from '@/stores/useQuotaStore';
 import type { SourceSession } from '@/services/api/sourceSession';
 import { isQuotaSourceCurrent } from '../sourceCurrent';
 import type { QuotaFileEntry } from '../logic';
-import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from '../providers';
+import { type QuotaAdapter, getQuotaSetter, type QuotaCardState } from '../providers';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
 import type { QuotaProviderType } from '../providers/types';
 
@@ -31,7 +31,7 @@ interface BatchFetchResult {
 }
 
 export function useQuotaBatchLoader(
-  adapters = QUOTA_ADAPTERS,
+  adapters: Record<QuotaProviderType, QuotaAdapter>,
   store: QuotaStore = useQuotaStore,
   session?: SourceSession
 ) {

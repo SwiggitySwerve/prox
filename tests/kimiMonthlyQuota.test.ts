@@ -1,8 +1,11 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { describe, expect, spyOn, test } from 'bun:test';
-import { KIMI_CONFIG } from '@/features/quota/providers/kimi/data';
+import { createKimiQuotaConfig } from '@/features/quota/providers/kimi/data';
 import { apiCallApi, authFilesApi } from '@/services/api';
 import { KIMI_AI_USAGE_URL, KIMI_USAGE_URL, buildKimiQuotaRows } from '@/utils/quota';
 import type { AuthFileItem } from '@/types';
+
+const KIMI_CONFIG = createKimiQuotaConfig(testQuotaDependencies);
 
 describe('Kimi monthly quota', () => {
   test('plans without a weekly limit show the monthly total from usages', () => {

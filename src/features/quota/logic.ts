@@ -4,26 +4,28 @@
  */
 
 import type { AuthFileItem } from '@/types';
-import { ANTIGRAVITY_CONFIG } from './providers/antigravity/data';
-import { CLAUDE_CONFIG } from './providers/claude/data';
-import { CODEX_CONFIG } from './providers/codex/data';
-import { DEVIN_CONFIG } from './providers/devin/data';
-import { KIMI_CONFIG } from './providers/kimi/data';
-import { META_CONFIG } from './providers/meta/data';
-import { PLUGIN_CONFIG } from './providers/plugin/data';
-import { XAI_CONFIG } from './providers/xai/data';
+import {
+  isAntigravityQuotaFile,
+  isClaudeQuotaFile,
+  isCodexQuotaFile,
+  isDevinQuotaFile,
+  isKimiQuotaFile,
+  isMetaQuotaFile,
+  isEnabledPluginQuotaFile,
+  isXaiQuotaFile,
+} from './providers/filters';
 import type { QuotaProviderType } from './providers/types';
 import { QUOTA_TAB_ORDER, type QuotaSortMode, type QuotaTabId } from './constants';
 
 const QUOTA_FILTER_MAP: Record<QuotaProviderType, (file: AuthFileItem) => boolean> = {
-  antigravity: ANTIGRAVITY_CONFIG.filterFn,
-  claude: CLAUDE_CONFIG.filterFn,
-  codex: CODEX_CONFIG.filterFn,
-  devin: DEVIN_CONFIG.filterFn,
-  kimi: KIMI_CONFIG.filterFn,
-  meta: META_CONFIG.filterFn,
-  plugin: PLUGIN_CONFIG.filterFn,
-  xai: XAI_CONFIG.filterFn,
+  antigravity: isAntigravityQuotaFile,
+  claude: isClaudeQuotaFile,
+  codex: isCodexQuotaFile,
+  devin: isDevinQuotaFile,
+  kimi: isKimiQuotaFile,
+  meta: isMetaQuotaFile,
+  plugin: isEnabledPluginQuotaFile,
+  xai: isXaiQuotaFile,
 };
 
 export interface QuotaFileEntry {
@@ -45,7 +47,7 @@ export function canRefreshQuotaAfterList(
 }
 
 export const resolveQuotaProviderType = (file: AuthFileItem): QuotaProviderType | null =>
-  PLUGIN_CONFIG.filterFn(file)
+  isEnabledPluginQuotaFile(file)
     ? 'plugin'
     : (QUOTA_TAB_ORDER.find((type) => QUOTA_FILTER_MAP[type](file)) ?? null);
 

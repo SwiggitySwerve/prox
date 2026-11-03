@@ -23,12 +23,11 @@ import {
   normalizeStringValue,
   parseClaudeUsagePayload,
   createStatusError,
-  isClaudeFile,
-  isDisabledAuthFile,
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
-import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
+import { isClaudeQuotaFile } from '../filters';
+import type { QuotaDependencies } from '../dependencies';
 
 export type ClaudeQuotaData = {
   windows: ClaudeQuotaWindow[];
@@ -98,7 +97,7 @@ export const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): st
   return null;
 };
 
-export function createClaudeQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+export function createClaudeQuotaConfig(deps: QuotaDependencies) {
   const { apiCallApi } = deps;
 
   const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<ClaudeQuotaData> => {
@@ -165,7 +164,7 @@ export function createClaudeQuotaConfig(deps: QuotaDependencies = legacyQuotaDep
   const config: QuotaProviderData<ClaudeQuotaState, ClaudeQuotaData> = {
     type: 'claude',
     i18nPrefix: 'claude_quota',
-    filterFn: (file) => isClaudeFile(file) && !isDisabledAuthFile(file),
+    filterFn: isClaudeQuotaFile,
     fetchQuota: fetchClaudeQuota,
     storeSelector: (state) => state.claudeQuota,
     storeSetter: 'setClaudeQuota',
@@ -189,5 +188,3 @@ export function createClaudeQuotaConfig(deps: QuotaDependencies = legacyQuotaDep
 
   return config;
 }
-
-export const CLAUDE_CONFIG = createClaudeQuotaConfig();

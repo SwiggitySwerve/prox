@@ -1,6 +1,6 @@
 import type { AuthFileItem } from '@/types';
 import { KIMI_AI_USAGE_URL, KIMI_USAGE_URL } from '@/utils/quota/constants';
-import { authFilesApi } from './authFiles';
+import type { createAuthFilesApi } from './authFiles';
 
 const domainFromValue = (value: unknown): 'ai' | 'com' | null => {
   if (typeof value !== 'string') return null;
@@ -65,7 +65,7 @@ export function parseKimiQuotaUrl(text: string, file: AuthFileItem): string {
 /** Read only for this request; never retain the downloaded credential in a cache/store. */
 export async function resolveKimiQuotaUrl(
   file: AuthFileItem,
-  files: Pick<typeof authFilesApi, 'downloadText'> = authFilesApi
+  files: Pick<ReturnType<typeof createAuthFilesApi>, 'downloadText'>
 ): Promise<string> {
   if (
     !file.name?.trim() ||

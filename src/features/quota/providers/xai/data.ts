@@ -23,13 +23,12 @@ import {
   mergeXaiBillingSummaries,
   resolveXaiSubscriptionPlan,
   createStatusError,
-  isDisabledAuthFile,
   isPaidXaiAuthFile,
-  isXaiFile,
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
-import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
+import { isXaiQuotaFile } from '../filters';
+import type { QuotaDependencies } from '../dependencies';
 
 const XAI_PAID_HEALTH_REQUEST_TIMEOUT_MS = 15000;
 const XAI_SUBSCRIPTION_REQUEST_TIMEOUT_MS = 8000;
@@ -82,7 +81,7 @@ const buildXaiRequestHeaders = (file: AuthFileItem): Record<string, string> => {
   return headers;
 };
 
-export function createXaiQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+export function createXaiQuotaConfig(deps: QuotaDependencies) {
   const { apiCallApi } = deps;
 
   const requestXaiBilling = async (
@@ -242,7 +241,7 @@ export function createXaiQuotaConfig(deps: QuotaDependencies = legacyQuotaDepend
   const config: QuotaProviderData<XaiQuotaState, XaiBillingSummary> = {
     type: 'xai',
     i18nPrefix: 'xai_quota',
-    filterFn: (file) => isXaiFile(file) && !isDisabledAuthFile(file),
+    filterFn: isXaiQuotaFile,
     fetchQuota: fetchXaiQuota,
     enrichQuota: async (file, summary) => {
       const authIndex = normalizeAuthIndex(file['auth_index'] ?? file.authIndex);
@@ -263,5 +262,3 @@ export function createXaiQuotaConfig(deps: QuotaDependencies = legacyQuotaDepend
 
   return config;
 }
-
-export const XAI_CONFIG = createXaiQuotaConfig();

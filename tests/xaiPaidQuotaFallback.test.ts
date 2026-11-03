@@ -1,6 +1,7 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { TFunction } from 'i18next';
-import { XAI_CONFIG } from '@/features/quota/providers/xai/data';
+import { createXaiQuotaConfig } from '@/features/quota/providers/xai/data';
 import { apiCallApi, type ApiCallRequest, type ApiCallResult } from '@/services/api';
 import {
   XAI_API_CHAT_URL,
@@ -9,6 +10,8 @@ import {
   XAI_BILLING_WEEKLY_URL,
   isPaidXaiAuthFile,
 } from '@/utils/quota';
+
+const XAI_CONFIG = createXaiQuotaConfig(testQuotaDependencies);
 
 const t = ((key: string) => key) as unknown as TFunction;
 const originalApiCallRequest = apiCallApi.request;

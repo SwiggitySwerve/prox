@@ -1,8 +1,10 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
+import { createCodexQuotaConfig } from '@/features/quota/providers/codex/data';
 import { afterEach, expect, spyOn, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import type { AxiosAdapter, InternalAxiosRequestConfig } from 'axios';
 import type { TFunction } from 'i18next';
-import { createQuotaAdapters, QUOTA_ADAPTERS } from '@/features/quota/providers';
+import { createQuotaAdapters, QUOTA_PRESENTATION } from '@/features/quota/providers';
 import { createAuthFilesApi } from '@/services/api/authFiles';
 import { apiClient } from '@/services/api/client';
 import { apiCallApi, type ApiCallRequest } from '@/services/api/apiCall';
@@ -99,7 +101,7 @@ test('factory and source inventory enumeration are passive for every quota provi
   for (const id of ['alpha', 'beta']) {
     const session = f.capture(id);
     const adapters = createQuotaAdapters(session);
-    expect(Object.keys(adapters)).toEqual(Object.keys(QUOTA_ADAPTERS));
+    expect(Object.keys(adapters)).toEqual(Object.keys(QUOTA_PRESENTATION));
     expect(f.calls.every((call) => call.path === '/credentials')).toBe(true);
     await createAuthFilesApi(session).list();
   }
@@ -214,7 +216,7 @@ test('Codex reset, cooldown, quota and subscription metadata stay on captured A 
     const raw = codexResponse({
       path: '/requests/api-call',
       payload,
-      owner: 'legacy',
+      owner: 'explicit-test',
     }) as ReturnType<typeof envelope>;
     return {
       statusCode: raw.status_code,
@@ -224,8 +226,8 @@ test('Codex reset, cooldown, quota and subscription metadata stay on captured A 
     };
   });
   spies.push(request);
-  const legacy = await QUOTA_ADAPTERS.codex.fetchQuota(target, t);
-  expect(data).toEqual(legacy);
+  const expected = await createCodexQuotaConfig(testQuotaDependencies).fetchQuota(target, t);
+  expect(data).toEqual(expected);
 });
 
 test('stale reset confirmation and stale redemption response cannot clear another source cooldown', async () => {
@@ -369,7 +371,7 @@ test('Devin queued work checks original source before dequeue and never dispatch
 });
 
 test('provider implementations obtain request dependencies only through injection', () => {
-  for (const provider of Object.keys(QUOTA_ADAPTERS)) {
+  for (const provider of Object.keys(QUOTA_PRESENTATION)) {
     const source = readFileSync(`src/features/quota/providers/${provider}/data.ts`, 'utf8');
     const imports = source.match(/import[\s\S]*?from\s+['"][^'"]+['"];?/g) ?? [];
     for (const statement of imports) {
@@ -429,4 +431,20 @@ test('retiring source during grant preflight prevents status and spending dispat
   expect(await outcome).toBe('stale');
   expect(f.calls).toHaveLength(1);
   expect(f.calls[0].payload.method).toBe('GET');
+});
+
+test('quota config factories require explicit dependencies and export no ambient defaults', () => {
+  for (const provider of Object.keys(QUOTA_PRESENTATION)) {
+    const source = readFileSync(`src/features/quota/providers/${provider}/data.ts`, 'utf8');
+    expect(source).toMatch(/export function create\w+QuotaConfig\(deps: QuotaDependencies\)/);
+    expect(source).not.toMatch(/export const \w+_CONFIG\b/);
+  }
+  const dependencies = readFileSync('src/features/quota/providers/dependencies.ts', 'utf8');
+  expect(dependencies).not.toContain('legacyQuotaDependencies');
+  expect(dependencies).not.toMatch(
+    /import\s*\{[^}]*\b(?:apiClient|authFilesApi|apiCallApi|guardConfigConnection|useQuotaStore)\b[^}]*\}\s*from/
+  );
+  const kimi = readFileSync('src/services/api/kimiQuota.ts', 'utf8');
+  expect(kimi).not.toMatch(/\bimport\s*\{[^}]*\bauthFilesApi\b/);
+  expect(kimi).not.toContain('= authFilesApi');
 });

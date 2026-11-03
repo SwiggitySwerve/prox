@@ -1,11 +1,11 @@
 import type { TFunction } from 'i18next';
 import type { DevinQuotaData, DevinQuotaState } from '@/types';
-import { isDevinFile, isDisabledAuthFile } from '@/utils/quota';
 import type { QuotaProviderData } from '../types';
-import { legacyQuotaDependencies, type QuotaDependencies } from '../dependencies';
+import { isDevinQuotaFile } from '../filters';
+import type { QuotaDependencies } from '../dependencies';
 import { createDevinQuotaFetcher, DevinQuotaError } from './requests';
 
-export function createDevinQuotaConfig(deps: QuotaDependencies = legacyQuotaDependencies) {
+export function createDevinQuotaConfig(deps: QuotaDependencies) {
   const { apiCallApi } = deps;
 
   const fetchSnapshot = createDevinQuotaFetcher({
@@ -32,7 +32,7 @@ export function createDevinQuotaConfig(deps: QuotaDependencies = legacyQuotaDepe
   const config: QuotaProviderData<DevinQuotaState, DevinQuotaData> = {
     type: 'devin',
     i18nPrefix: 'devin_quota',
-    filterFn: (file) => isDevinFile(file) && !isDisabledAuthFile(file),
+    filterFn: isDevinQuotaFile,
     fetchQuota: async (file, t) => {
       try {
         return withLabels(await fetchSnapshot(file), t);
@@ -57,5 +57,3 @@ export function createDevinQuotaConfig(deps: QuotaDependencies = legacyQuotaDepe
 
   return config;
 }
-
-export const DEVIN_CONFIG = createDevinQuotaConfig();

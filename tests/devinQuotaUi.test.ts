@@ -1,10 +1,11 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { afterEach, describe, expect, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import i18n from '@/i18n';
 import type { AuthFileItem, DevinQuotaState } from '@/types';
 import { readDevinQuotaResponse } from '@/services/api/devinQuota';
-import { DEVIN_CONFIG } from '@/features/quota/providers/devin/data';
+import { createDevinQuotaConfig } from '@/features/quota/providers/devin/data';
 import { DevinQuotaBody } from '@/features/quota/providers/devin/DevinQuotaBody';
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
 import { classifyQuotaFiles, buildTabCounts } from '@/features/quota/logic';
@@ -16,6 +17,8 @@ import {
   commitIfQuotaCacheCurrent,
   useQuotaStore,
 } from '@/stores/useQuotaStore';
+
+const DEVIN_CONFIG = createDevinQuotaConfig(testQuotaDependencies);
 
 const file: AuthFileItem = {
   name: 'devin-example.json',

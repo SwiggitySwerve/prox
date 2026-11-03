@@ -1,7 +1,8 @@
+import { testQuotaDependencies } from './helpers/quotaDependencies';
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { TFunction } from 'i18next';
 import {
-  CODEX_CONFIG,
+  createCodexQuotaConfig,
   buildCodexQuotaWindows,
   normalizeCodexAccountCredits,
 } from '@/features/quota/providers/codex/data';
@@ -14,6 +15,8 @@ import {
   normalizeCodexResetCreditsPayload,
   parseCodexUsagePayload,
 } from '@/utils/quota';
+
+const CODEX_CONFIG = createCodexQuotaConfig(testQuotaDependencies);
 
 const t = ((key: string) => key) as TFunction;
 const originalApiCallRequest = apiCallApi.request;

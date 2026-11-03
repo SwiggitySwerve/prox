@@ -16,7 +16,7 @@ import {
   isThemeSurfaceIconProvider,
 } from '@/features/authFiles/constants';
 import { bindQuotaClasses } from '../types';
-import { QUOTA_ADAPTERS, type QuotaCardState, type QuotaAdapter } from '../providers';
+import { type QuotaCardState, type QuotaAdapter } from '../providers';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
@@ -29,7 +29,7 @@ const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 
 export type QuotaCardProps = {
   entry: QuotaFileEntry;
-  adapter?: QuotaAdapter;
+  adapter: QuotaAdapter;
   quota?: QuotaCardState;
   resolvedTheme: ResolvedTheme;
   canRefresh: boolean;
@@ -52,7 +52,7 @@ export function QuotaCard(props: QuotaCardProps) {
     onReset,
   } = props;
   const { t } = useTranslation();
-  const adapter = props.adapter ?? QUOTA_ADAPTERS[entry.type];
+  const adapter = props.adapter;
   const file = entry.file;
   const retainedClaudeUsage =
     entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
