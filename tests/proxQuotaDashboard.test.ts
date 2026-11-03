@@ -783,9 +783,9 @@ describe('stacked chart geometry', () => {
     expect(long).toContain('type="search"');
     expect(long).toContain('aria-label="Search accounts"');
     expect(long).toContain('Lowest limit first');
-    expect(long).toContain('1 low');
+    expect(long).toContain('1 under 20%');
     // The count is a toggle that filters the roster to accounts with a low limit.
-    expect(long).toMatch(/<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?1 low/);
+    expect(long).toMatch(/<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?1 under 20%/);
     expect(long).toContain('data-large="true"');
     const short = render(3);
     expect(short).not.toContain('type="search"');
@@ -835,6 +835,18 @@ describe('stacked chart geometry', () => {
     expect(markup).not.toContain('Default order');
     expect(markup.indexOf('Roster A')).toBeLessThan(markup.indexOf('Roster B'));
     expect(markup.indexOf('Roster B')).toBeLessThan(markup.indexOf('Roster J'));
+  });
+  test('the latest reading names its value unless the card already shows it', async () => {
+    await i18n.changeLanguage('en');
+    const readout = (shown: QuotaPool) =>
+      renderToStaticMarkup(
+        createElement(PoolChart, { pool: shown, dashboard, mode: 'remaining' })
+      ).match(/id="[^"]*-readout"[^>]*>([^<]*)</)?.[1] ?? '';
+    // The card's big number is the latest value, so the readout gives only its moment.
+    expect(readout(pool)).toMatch(/^Latest reading · /);
+    expect(readout(pool)).not.toContain('73');
+    // A withheld total leaves the card without a number, so the readout keeps the value.
+    expect(readout({ ...pool, remainingPoints: null })).toContain('73');
   });
   test('a combined readout states every provider at the selected moment', async () => {
     await i18n.changeLanguage('en');
@@ -1032,10 +1044,10 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).toContain('role="img"');
-    expect(markup).toContain('unverified account overlap');
+    expect(markup).toContain('may share accounts');
     expect(markup).toMatch(/<option value="stacked" disabled="">/);
     // The reason is its own paragraph; the view select is not nested inside it.
-    expect(markup).toMatch(/unverified account overlap[^<]*<\/p>/);
+    expect(markup).toMatch(/may share accounts[^<]*<\/p>/);
   });
   test('the limit that feeds the pool is marked, not repeated as another column', async () => {
     await i18n.changeLanguage('en');
@@ -1121,7 +1133,7 @@ describe('pool presentation', () => {
     expect(markup).toContain(
       'No current quota data from 1 of 2 accounts, so the total is withheld.'
     );
-    expect(markup).toMatch(/<button[^>]*>Show in list<\/button>/);
+    expect(markup).toMatch(/<button[^>]*>Show affected accounts<\/button>/);
     expect(markup.match(/<p role="status"[^>]*>[\s\S]*?<\/p>/)?.[0]).not.toContain('gra•••er');
     // The page has one "Refresh now", on the combined card; pool notices only name the cause.
     expect(markup).not.toContain('Refresh now');

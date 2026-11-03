@@ -93,9 +93,6 @@ export function CombinedPoolCard({
           ) : (
             formatPoolNumber(headline, i18n.language)
           )}
-          {mode !== 'remaining' && headline !== null && (
-            <small> {t('quota_pool.points_hour')}</small>
-          )}
         </strong>
         <div className={styles.headlineContext}>
           <p className={styles.metricLabel}>
@@ -106,13 +103,16 @@ export function CombinedPoolCard({
                 })
               : t('quota_pool.window_remaining', { window: windowLabel })}
           </p>
-          {mode === 'remaining' && total?.series && (
-            <span>
-              {t('quota_pool.of_capacity', {
-                capacity: formatPoolNumber(total.series.capacityPoints, i18n.language),
-              })}
-            </span>
-          )}
+          {/* A two-line caption in every view: what the number is, then its unit or scale. */}
+          {mode === 'remaining'
+            ? total?.series && (
+                <span>
+                  {t('quota_pool.of_capacity', {
+                    capacity: formatPoolNumber(total.series.capacityPoints, i18n.language),
+                  })}
+                </span>
+              )
+            : headline !== null && <span>{t('quota_pool.points_hour')}</span>}
         </div>
       </div>
       {/* Partial or stale data withholds the total; say why under the headline, as the provider cards do. */}

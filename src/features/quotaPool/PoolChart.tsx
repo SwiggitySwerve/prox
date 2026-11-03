@@ -125,8 +125,11 @@ function PoolChartView({
   );
   // Order inspection by time without joining or resampling separate source traces.
   if (comparison) samples.sort((a, b) => a.point.atMs - b.point.atMs);
+  // The source only tells series apart when one provider has several; otherwise it is noise.
+  const sharesProvider = (pool: ChartPool) =>
+    pools.filter((other) => other.provider === pool.provider).length > 1;
   const poolLabel = (pool: ChartPool) =>
-    `${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel || pool.instanceId ? ` · ${pool.sourceLabel ?? pool.instanceId}` : ''}`;
+    `${t(`quota_pool.${pool.provider}`)}${(pool.sourceLabel || pool.instanceId) && sharesProvider(pool) ? ` · ${pool.sourceLabel ?? pool.instanceId}` : ''}`;
   const geometry = chartGeometry(
     stacked
       ? stacked.flatMap((layer) =>
@@ -196,11 +199,21 @@ function PoolChartView({
         ? `${readingAt.map((other) => `${poolLabel(other.pool)}: ${readingValue(other)}`).join(' · ')}${readingAt.some((other) => other.point[field] !== null) ? `\u00a0${unit}` : ''}`
         : `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])}\u00a0${unit}`}`;
   const latestPrefix = selected === latestRecorded ? `${t('quota_pool.latest_reading')} · ` : '';
-  const description = sample
-    ? unobserved
+  // When a single-provider chart's latest recorded value is the card's big number, the readout
+  // names only its moment; a withheld total, any other point or a combined chart shows values.
+  const valueOnCard =
+    !comparison &&
+    selected === latestRecorded &&
+    !sample?.projected &&
+    sample?.point[field] !== null &&
+    sample?.point[field] === sample?.pool[field];
+  const description = !sample
+    ? t('quota_pool.inspect_hint')
+    : unobserved
       ? readingText
-      : `${latestPrefix}${readingAt.length > 1 ? `${date(sample.point.atMs)} · ` : ''}${readingText}${sample.projected ? ` · ${t('quota_pool.projected')}` : ''}`
-    : t('quota_pool.inspect_hint');
+      : valueOnCard
+        ? `${latestPrefix}${date(sample.point.atMs)}`
+        : `${latestPrefix}${readingAt.length > 1 ? `${date(sample.point.atMs)} · ` : ''}${readingText}${sample.projected ? ` · ${t('quota_pool.projected')}` : ''}`;
 
   const selectAtPointer = (event: PointerEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();

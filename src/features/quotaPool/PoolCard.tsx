@@ -286,9 +286,6 @@ export function PoolCard({
               ) : (
                 number(pool[metricField[mode]])
               )}
-              {mode !== 'remaining' && pool[metricField[mode]] !== null && (
-                <small> {t('quota_pool.points_hour')}</small>
-              )}
             </strong>
             <div className={styles.headlineContext}>
               <p className={styles.metricLabel}>
@@ -299,63 +296,73 @@ export function PoolCard({
                     })
                   : balanceLabel}
               </p>
-              {mode === 'remaining' && (
+              {/* A two-line caption in every view: what the number is, then its unit or scale. */}
+              {mode === 'remaining' ? (
                 <span>
                   {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
                 </span>
+              ) : (
+                pool[metricField[mode]] !== null && <span>{t('quota_pool.points_hour')}</span>
               )}
             </div>
           </div>
         </div>
-        <div className={styles.statsBlock}>
+        {/* Every view names its fact groups. Rate views lead with the rate, so the balance it
+            replaced sits in its own "Now" group beside the forecast rather than inside it. */}
+        <div className={styles.statsBlock} data-split={mode !== 'remaining' || undefined}>
           {mode !== 'remaining' && (
-            <p className={styles.statsHeading}>{t('quota_pool.remaining_forecast')}</p>
-          )}
-          <dl className={styles.stats}>
-            {mode !== 'remaining' && (
-              <div>
-                <dt>{t('quota_pool.account_remaining', { window: windowLabel })}</dt>
-                <dd>
-                  {number(pool.remainingPoints)}{' '}
-                  <small>
-                    {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
-                  </small>
-                </dd>
-              </div>
-            )}
-            {/* A withheld forecast is explained by the notice; its empty facts aren't repeated. */}
-            {!(forecastWithheld && pool.poolEmptyAtMs === null) && (
-              <div>
-                <dt>{t('quota_pool.pool_empty')}</dt>
-                <dd>{forecastDate(pool.poolEmptyAtMs)}</dd>
-              </div>
-            )}
-            {!(forecastWithheld && pool.firstEmptyAtMs === null) && (
-              <div>
-                <dt>{t('quota_pool.first_empty')}</dt>
-                <dd>{forecastDate(pool.firstEmptyAtMs)}</dd>
-              </div>
-            )}
-            <div>
-              <dt>{t('quota_pool.next_reset')}</dt>
-              <dd>{date(pool.nextResetAtMs)}</dd>
-              {pool.nextResetGainPoints !== null && (
-                <small>
-                  +{number(pool.nextResetGainPoints)} {t('quota_pool.points')}
-                </small>
-              )}
+            <div className={styles.statsGroup}>
+              <p className={styles.statsHeading}>{t('quota_pool.now_group')}</p>
+              <dl className={styles.stats}>
+                <div>
+                  <dt>{t('quota_pool.account_remaining', { window: windowLabel })}</dt>
+                  <dd>
+                    {number(pool.remainingPoints)}{' '}
+                    <small>
+                      {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
+                    </small>
+                  </dd>
+                </div>
+              </dl>
             </div>
-            {/* Rate views lead with the rate itself; this group is the remaining-quota forecast. */}
-            {mode === 'remaining' && !(forecastWithheld && pool.burnPointsPerHour === null) && (
+          )}
+          <div className={styles.statsGroup}>
+            <p className={styles.statsHeading}>{t('quota_pool.remaining_forecast')}</p>
+            <dl className={styles.stats}>
+              {/* A withheld forecast is explained by the notice; its empty facts aren't repeated. */}
+              {!(forecastWithheld && pool.poolEmptyAtMs === null) && (
+                <div>
+                  <dt>{t('quota_pool.pool_empty')}</dt>
+                  <dd>{forecastDate(pool.poolEmptyAtMs)}</dd>
+                </div>
+              )}
+              {!(forecastWithheld && pool.firstEmptyAtMs === null) && (
+                <div>
+                  <dt>{t('quota_pool.first_empty')}</dt>
+                  <dd>{forecastDate(pool.firstEmptyAtMs)}</dd>
+                </div>
+              )}
               <div>
-                <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
-                <dd>
-                  {number(pool.burnPointsPerHour)}
-                  {pool.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
-                </dd>
+                <dt>{t('quota_pool.next_reset')}</dt>
+                <dd>{date(pool.nextResetAtMs)}</dd>
+                {pool.nextResetGainPoints !== null && (
+                  <small>
+                    +{number(pool.nextResetGainPoints)} {t('quota_pool.points')}
+                  </small>
+                )}
               </div>
-            )}
-          </dl>
+              {/* Rate views lead with the rate itself; this group is the remaining-quota forecast. */}
+              {mode === 'remaining' && !(forecastWithheld && pool.burnPointsPerHour === null) && (
+                <div>
+                  <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
+                  <dd>
+                    {number(pool.burnPointsPerHour)}
+                    {pool.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
         </div>
       </div>
       {/* Why the forecast or total is limited, across the card under its summary. */}
@@ -390,6 +397,7 @@ export function PoolCard({
             {resetTotals.available > 0 && (
               <small className={styles.accountCoverage}>
                 {t('quota_pool.reset_count', { count: resetTotals.available })}
+                {/* Kept beside the total: a minimized card's rows don't show their own markers. */}
                 {resetTotals.usable > 0 &&
                   ` · ${t('quota_pool.reset_usable_count', { usable: resetTotals.usable })}`}
               </small>
@@ -520,8 +528,8 @@ export function PoolCard({
           {visibleAccounts.length > 0 && (
             <div className={styles.accountHead} aria-hidden="true">
               <span />
-              <span />
-              <span />
+              <span>{t('quota_pool.account_column')}</span>
+              <span>{t('quota_pool.plan_column')}</span>
               {limitColumns.map((limit) => (
                 <span key={limit.id} data-counted={limit.id === countedLimitId || undefined}>
                   {limitLabel(limit)}
@@ -571,8 +579,15 @@ export function PoolCard({
                         account.resets.available > 0 &&
                         !wasSpent(account.id, account.resets.observedAtMs) && (
                           <span className={styles.accountResetMarker}>
-                            <span className={styles.resetSeparator}> · </span>
                             {t('quota_pool.reset_count', { count: account.resets.available })}
+                          </span>
+                        )}
+                      {/* Which rows hold the card's usable resets, without opening each. */}
+                      {account.resets &&
+                        account.resets.usable > 0 &&
+                        !wasSpent(account.id, account.resets.observedAtMs) && (
+                          <span className={styles.accountResetMarker}>
+                            {t('quota_pool.reset_usable_count', { usable: account.resets.usable })}
                           </span>
                         )}
                     </small>
