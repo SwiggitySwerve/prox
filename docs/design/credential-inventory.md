@@ -107,7 +107,7 @@
 - A user systemd path unit, installed by the deploy script, removes `.lock` files whose `.json` is gone whenever either auth directory changes.
 
 **PR B (CPA-Manager-Plus fork):** cpa-manager-plus becomes another reader of the same central source.
-- It polls prox-history's `GET /v1/inventory` with an ETag every 5 s. That covers Codex too, even though it proxies only Claude.
+- It polls the CLI-Proxy credential listings it can already reach (Codex and Claude) every 5 s and computes the same kind of membership version from them. prox-history listens only on the host's loopback, which the cpa-manager-plus container can't reach. Both read models therefore derive from the one source, the CLI-Proxy auth files, rather than one calling the other.
 - On a version change it reconciles its account-keyed metadata (cooldowns, inspection records and any account-candidate rows, once the screen inventory confirms which exist) so removed credentials leave its metadata screens within about 5 s.
 - Its usage, request and dollar history stays.
 
