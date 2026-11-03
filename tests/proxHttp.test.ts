@@ -73,7 +73,6 @@ describe('quota history HTTP boundary', () => {
     expect(await response.json()).toEqual({ refreshed: true });
     expect(f.targeted).toEqual(['account']);
     for (const body of [
-      '{}',
       'null',
       '[]',
       '{',
@@ -87,6 +86,22 @@ describe('quota history HTTP boundary', () => {
     expect(f.targeted).toEqual(['account']);
     expect(f.request('/v1/refresh', true, 'POST').status).toBe(202);
     expect(f.refreshes()).toBe(1);
+  });
+  test('a refresh without an accountId stays a full refresh, whatever its body', async () => {
+    // Pages loaded before this change post `{}`; an empty POST may still carry a body stream.
+    const f = fixture();
+    for (const body of ['', '{}', '  ']) {
+      const response = await f.handler(
+        new Request('http://localhost/v1/refresh', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer synthetic-test-key' },
+          body,
+        })
+      );
+      expect(response.status).toBe(202);
+    }
+    expect(f.targeted).toEqual([]);
+    expect(f.refreshes()).toBe(3);
   });
   test('fractional forecast depletion returns a dashboard instead of HTTP 503', async () => {
     const f = fixture();
