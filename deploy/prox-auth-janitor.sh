@@ -17,7 +17,7 @@ for dir in "$@"; do
   # Run inside the directory so names starting with a dash are never parsed as options.
   # -type f does not match symlinks, and find does not follow them by default.
   (
-    cd -- "$dir"
+    cd -- "$dir" || exit 1
     find . -maxdepth 1 -type f -name '*.json.lock' -mmin "+$min_age" -print0 |
       while IFS= read -r -d '' path; do
         lock=${path#./}

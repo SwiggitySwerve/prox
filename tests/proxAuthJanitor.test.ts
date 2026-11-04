@@ -134,6 +134,21 @@ describe('prox auth janitor script', () => {
     }
   });
 
+  test('a directory it cannot enter is skipped, never cleaned from the working directory', () => {
+    const [blocked, cwd, next] = [authDir(), authDir(), authDir()];
+    const bystander = write(cwd, 'x.json.lock', 60);
+    const lock = write(next, 'n.json.lock', 60);
+    chmodSync(blocked, 0o600); // no execute bit: cd fails
+    try {
+      const result = Bun.spawnSync(['bash', scriptPath, blocked, next], { cwd });
+      expect(result.stdout.toString()).toBe('n.json.lock\n');
+      expect(existsSync(bystander)).toBe(true);
+      expect(existsSync(lock)).toBe(false);
+    } finally {
+      chmodSync(blocked, 0o700);
+    }
+  });
+
   test('handles names with spaces and leading dashes', () => {
     const dir = authDir();
     const spaced = write(dir, 'my account.json.lock', 60);
