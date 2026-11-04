@@ -44,17 +44,22 @@ ACCOUNTS                                                          2 of 3 current
 
 ## Narrow (rows)
 
-One anatomy at every roster size:
+One anatomy at every roster size, at 900px and below (closed rows of a minimized card keep their compact list):
 
 ```
-›  ada•••ce@ex•••.test                         82.8%
-   Pro · 100 points                        Weekly ●
-   5-hour 62.0% ▬▬▬      Opus 45.0% ▬▬
+›  ada•••ce@ex•••.test  [Resets 1]
+   Pro · 100 points
+   Weekly remaining                          82.8%
+   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+   5-hour remaining                 ⚠ Low    14.0%
+   ▬▬
 ```
 
-- The counted limit is the row value, captioned with its name; the other limits are one compact line (value + mini bar each), always shown, at every roster size.
-- An opened row does not list the active window a second time: its list item is hidden, and one line under the heading, spanning the name and value columns, reads "{window} · Resets {date}" (for example "Weekly · Resets Oct 28, 12:00 PM UTC"). The line is omitted when the limit has no reset time. The heading keeps its value, low mark and stale line; every other limit keeps its value, warning, bar and reset.
-- A low limit stays in the compact line: neutral value, red ⚠ and bar, and the visible word "Low" (S5). Stale adds one line, "◷ Stale · Last reading 11:00 AM", in amber with a clock icon, on one line; values and bars keep the normal colour and opacity (S6). Unavailable replaces that limit's value with "Unavailable".
+- The row header holds only the chevron, name, reset chip and plan: no figure and no caption.
+- The limits follow as blocks, the active window first. A block is one line, label on the left and value on the right (the Low word, icon and value stay on one line, S11), with its bar beneath. The active window leads with "{window} remaining" (for example "Weekly remaining"). A block's "Resets {date}" line sits directly under its own bar, in one type size and colour for every limit; closed rows leave reset lines to the opened row, as before.
+- Closed rows show the active block, plus every other limit on short rosters (a roster of more than 8 accounts shows only the low ones). Opened rows show every limit. Bar lengths are the same as before blocks (S13): a wide "Low" value in the active block never widens the shared value column.
+- Unavailable: the block's value reads "Unavailable" over an empty dashed track, and no separate "Weekly quota unavailable" line remains. A missing or unlimited active window keeps its reason ("Not reported", "No 5-hour limit") in the value place, with no percentage and no bar.
+- A low limit keeps the neutral value, red ⚠ and bar, and the visible word "Low" (S5). Stale adds one line, "◷ Stale · Last reading 11:00 AM", in amber with a clock icon, on one line directly under the active block; values and bars keep the normal colour and opacity (S6).
 
 ## Minimized list (≥ 901px)
 

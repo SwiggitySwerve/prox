@@ -15,6 +15,7 @@ import type { PoolQuery } from '@/services/api/quotaPool';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh, useReportHeaderRefreshBusy } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
+import { usePhoneChipLine } from './usePhoneChipLine';
 import { PoolCard } from './PoolCard';
 import { CombinedPoolCard } from './CombinedPoolCard';
 import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
@@ -37,6 +38,8 @@ export function QuotaPoolPage() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const optionsToggleRef = useRef<HTMLButtonElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
+  const poolsRef = useRef<HTMLDivElement>(null);
+  const chipLine = usePhoneChipLine(poolsRef);
   const { t, i18n } = useTranslation();
   // Pool, window, measure and the two settings live in the address, so a link opens this view.
   // The view is state first, so a click repaints at once; the address follows it, and a link or
@@ -532,7 +535,12 @@ export function QuotaPoolPage() {
           onRefresh={() => void refresh()}
         />
       )}
-      <div className={styles.pools} aria-busy={state.loading}>
+      <div
+        ref={poolsRef}
+        className={styles.pools}
+        aria-busy={state.loading}
+        data-chip-line={chipLine || undefined}
+      >
         {data &&
           shownPools.map((pool, index, shown) => (
             <PoolCard
