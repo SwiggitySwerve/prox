@@ -1304,7 +1304,7 @@ $pool-error: #ff5252;
   .accountPlan {
     flex-basis: 100%;
   }
-  // Search takes its own line; sort, the low filter and the count share the next.
+  // Search takes its own line; the R block at the end gives sort, the chips and the count theirs.
   .rosterSearch {
     flex-basis: 100%;
   }
@@ -1877,10 +1877,14 @@ $pool-error: #ff5252;
   &:hover {
     color: var(--text-primary);
   }
-  // On: the page's pressed style and a check; red stays for the low values themselves.
+  // On: the selected-segment fill and a check; red stays for the low values themselves. A segment's
+  // button (fill-hover) sits on its track (fill-soft), so it reads about 14% light; the chip sits
+  // straight on the card and draws that same result. The border is strong enough to read against
+  // the card without the fill (3:1).
   &[aria-pressed='true'] {
-    background: var(--bg-pressed);
-    border-color: var(--border-hover);
+    background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+    border-color: color-mix(in srgb, var(--text-primary) 45%, transparent);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
     color: var(--text-primary);
   }
   &[aria-pressed='true'] svg {
@@ -2427,5 +2431,30 @@ $pool-error: #ff5252;
           minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 56px) / 3))
         );
     }
+  }
+}
+
+/* R */
+// Phone roster toolbar: search, sort, each filter chip, then the count, one full-width row each.
+// A chip's long rule wording wraps inside its pill instead of clipping.
+@media (max-width: 640px) {
+  .rosterTools {
+    > * {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+    select {
+      width: 100%;
+    }
+    .rosterCount {
+      flex-basis: 100%;
+    }
+  }
+  .page .rosterTools .rosterLow {
+    justify-content: flex-start;
+    min-height: 44px;
+    padding-block: 8px;
+    text-align: start;
+    white-space: normal;
   }
 }

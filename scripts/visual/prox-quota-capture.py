@@ -6,6 +6,7 @@ import colorsys
 import json
 import hashlib
 import math
+import re
 import time
 from collections import Counter
 from pathlib import Path
@@ -869,6 +870,351 @@ async def check_action_align(page, state):
       }
       return out;
     }""")
+# R roster checks (counts, filter chip, phone toolbar). Each has its own JSON key, registered in R_KEYS for the
+# summary and the exit gate. They open a fresh page of their own (so the filters they flip never leak into the
+# case's screenshots) and apply the case's own initial roster state. A check that finds nothing to measure fails.
+R_KEYS = ("rosterCountFailures", "filterChipFailures", "rosterToolbarFailures")
+R_LANGS = ("ru", "vi")
+# ru and vi run where a roster exists: `many` and its phone twin (the `narrow` fixture has five accounts, no toolbar).
+R_LANG_CASES = ("many", "many-narrow")
+R_COUNT_CASES = ("many", "many-low", "many-narrow", "many-search-narrow")
+R_CHIP_CASES = ("many", "many-low", "many-narrow", "partial-affected-narrow")
+R_TOOLBAR_CASES = ("many-narrow", "many-search-narrow")
+R_TOTALS = {"claude": 120, "codex": 80}  # the `many` fixture's roster sizes
+R_PAGE = 25  # rows before "Show more"
+R_NO_MATCH = "zzzz-no-such-account"
+R_JS = r"""
+const shown = e => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && e.checkVisibility({checkVisibilityCSS: true}); };
+const countOf = text => (text.match(/\d+(?![\d%])/g) || []).map(Number);
+const toolsIn = a => a.querySelector('[class*="__rosterTools___"]');
+"""
+
+
+async def r_page(context, url, route_api, state, lng):
+    """A fresh Quota page in `lng`, with the case's own starting roster state (low chip on, search typed, affected shown)."""
+    page = await context.new_page()
+    await page.route("**/prox/sources.json", lambda route: route.fulfill(status=404))
+    await page.route("**/v8/management/**", route_api)
+    await page.goto(url, wait_until="networkidle")
+    await page.evaluate("""async (lng) => {
+        const {useAuthStore}=await import('/src/stores/useAuthStore.ts');
+        const {apiClient}=await import('/src/services/api/client.ts');
+        const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage(lng);
+        apiClient.setConfig({apiBase:location.origin,managementKey:'visual-fixture-only'});
+        useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
+        location.hash='/quota';
+    }""", lng)
+    await page.locator('[class*="QuotaPoolPage"][class*="__page___"]').wait_for()
+    await page.locator("article").first.wait_for()
+    if state == "many-low":
+        await page.locator('article [class*="__rosterLow___"]').first.click()
+    if state == "many-search":
+        await page.locator('article input[type="search"]').first.fill("gra")
+    if state == "partial":
+        await page.get_by_role("button", name="Show affected accounts").first.click()
+    await page.wait_for_timeout(150)
+    return page
+
+
+async def r_cards(page):
+    """Indexes (and providers) of the provider cards that carry a roster toolbar."""
+    return await page.evaluate("() => {" + R_JS + r"""
+      return [...document.querySelectorAll('article')].map((a, i) => toolsIn(a) ? {i, provider: /__codex___/.test(a.className) ? 'codex' : 'claude'} : null).filter(Boolean);
+    }""")
+
+
+R_SNAP = "(i) => {" + R_JS + r"""
+  const a = document.querySelectorAll('article')[i], tools = toolsIn(a);
+  const counts = [...tools.querySelectorAll('[class*="__rosterCount___"]')], footer = a.querySelector('[class*="__rosterFooter___"]');
+  const chips = [...tools.querySelectorAll('[class*="__rosterLow___"]')], low = chips[chips.length - 1] || null;
+  const more = footer && footer.querySelector('button');
+  return {
+    text: counts[0] ? counts[0].textContent.trim() : '', inTools: counts.length, inCard: a.querySelectorAll('[class*="__rosterCount___"]').length,
+    last: !!counts[0] && tools.lastElementChild === counts[0],
+    rows: [...a.querySelectorAll('details[class*="__account___"]')].filter(shown).length,
+    moreN: more ? (countOf(more.textContent)[0] || 0) : 0, footerKids: footer ? footer.children.length : 0,
+    query: tools.querySelector('input[type="search"]')?.value || '',
+    lowPressed: !!low && low.getAttribute('aria-pressed') === 'true', chipN: low ? (countOf(low.textContent)[0] ?? -1) : -1, hasChip: !!low,
+  };
+}"""
+
+
+def r_count_verify(out, card, step, s, total, lng):
+    """Check one reading of a count against the DOM: D = rows drawn, T = the fixture's roster size, F = rows + the rest behind "Show more"."""
+    where = dict(card=card, lng=lng, step=step, text=s["text"])
+    clause = s["lowPressed"] or s["query"] != ""
+    nums = s["nums"] = [int(n) for n in re.findall(r"\d+", s["text"])]
+    found = (s["inTools"], s["inCard"], s["last"])
+    if found != (1, 1, True):
+        out.append(dict(where, why=f"count elements (in toolbar, in card, is last item) = {found}"))
+    if s["footerKids"] > 1:
+        out.append(dict(where, why="the footer still holds more than the Show more button"))
+    if len(nums) != (3 if clause else 2):
+        out.append(dict(where, why=f"{len(nums)} numbers where {3 if clause else 2} were expected (match clause {'wanted' if clause else 'not wanted'})"))
+        return
+    d, t, f = nums[0], nums[1], s["rows"] + s["moreN"]
+    if d != s["rows"]:
+        out.append(dict(where, why=f"D says {d} but {s['rows']} rows are on screen"))
+    if t != total:
+        out.append(dict(where, why=f"T says {t} but the provider has {total} accounts"))
+    if clause and nums[2] != f:
+        out.append(dict(where, why=f"F says {nums[2]} but {f} rows match (rows + Show more)"))
+    if not clause and f != total:
+        out.append(dict(where, why=f"no filter is active but {f} of {total} rows match"))
+    if s["lowPressed"] and not s["query"] and s["chipN"] != f:
+        out.append(dict(where, why=f"the low filter's chip says {s['chipN']} but {f} rows match"))
+    if not (d == f or (s["moreN"] > 0 and d == R_PAGE)):
+        out.append(dict(where, why=f"D={d} is neither all {f} matches nor a full page of {R_PAGE}"))
+    if lng == "en" and not re.fullmatch(r"\d+ of \d+ shown( · \d+ match)?", s["text"]):
+        out.append(dict(where, why="English count is not 'D of T shown[ · F match]'"))
+
+
+async def _roster_counts(page, lng):
+    out = []
+    cards = await r_cards(page)
+    if not cards:
+        return [dict(lng=lng, why="no roster toolbar found")]
+    for c in cards:
+        art, card = page.locator("article").nth(c["i"]), c["provider"]
+        total = R_TOTALS[card]
+
+        async def settle(step):
+            s = await page.evaluate(R_SNAP, c["i"])
+            r_count_verify(out, card, step, s, total, lng)
+            return s
+
+        s = await settle("initial")
+        if s["moreN"]:
+            await art.locator('[class*="__rosterFooter___"] button').click()
+            s = await settle("after Show more")
+            if s["moreN"]:
+                out.append(dict(card=card, lng=lng, why="Show more is still offered after showing everything"))
+        elif s["rows"] > R_PAGE:
+            out.append(dict(card=card, lng=lng, why="more than a page of rows without Show more"))
+        if not s["hasChip"]:
+            out.append(dict(card=card, lng=lng, why="no low-limit chip to filter with"))
+            continue
+        chip = art.locator('[class*="__rosterLow___"]').last
+        await chip.click()
+        await settle("after toggling the filter")
+        await chip.click()
+        await settle("after toggling it back")
+        search = art.locator('input[type="search"]')
+        await search.fill(R_NO_MATCH)
+        s = await settle("zero-result search")
+        if s["rows"] != 0 or s["nums"][:1] != [0]:
+            out.append(dict(card=card, lng=lng, why="a search with no match should show 0 rows and D = 0", text=s["text"]))
+        await search.fill("")
+        await settle("search cleared")
+        await search.fill("gra")
+        s = await settle("search")
+        if not s["rows"]:
+            out.append(dict(card=card, lng=lng, why="the search 'gra' matched nothing, so no filtered count was measured"))
+    return out
+
+
+async def check_roster_count(context, url, route_api, name, state):
+    """R1: every roster toolbar shows one count, "D of T shown", plus " · F match" while a filter or search is active,
+    as the toolbar's last item and nowhere else; D, F and T stay right through filtering, clearing, a zero-result
+    search and Show more. ru and vi repeat it on the cases with a roster."""
+    if name not in R_COUNT_CASES:
+        return []
+    out = []
+    for lng in ("en", *(R_LANGS if name in R_LANG_CASES else ())):
+        page = await r_page(context, url, route_api, state, lng)
+        try:
+            out += await _roster_counts(page, lng)
+        finally:
+            await page.close()
+    return out
+
+
+def r_lab(rgb):
+    """sRGB -> CIE L*a*b* (D65)."""
+    lin = [v / 255 / 12.92 if v / 255 <= 0.04045 else ((v / 255 + 0.055) / 1.055) ** 2.4 for v in rgb]
+    x, y, z = (sum(m * c for m, c in zip(row, lin)) for row in (
+        (0.4124, 0.3576, 0.1805), (0.2126, 0.7152, 0.0722), (0.0193, 0.1192, 0.9505)))
+    f = lambda v: v ** (1 / 3) if v > 216 / 24389 else (24389 / 27 * v + 16) / 116
+    fx, fy, fz = f(x / 0.95047), f(y), f(z / 1.08883)
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def r_delta_e(a, b):
+    return math.dist(r_lab(a), r_lab(b))
+
+
+async def r_chip_paint(chip):
+    """Sample the chip's rendered pixels: the card just outside its rounded corner, its fill inside the padding, and
+    its border (the edge pixel farthest from the fill along the top edge)."""
+    import io
+    await chip.scroll_into_view_if_needed()
+    await chip.page.mouse.move(0, 0)  # a hovered chip is drawn lighter than a resting one
+    await chip.page.wait_for_timeout(120)
+    im = Image.open(io.BytesIO(await chip.screenshot(animations="disabled"))).convert("RGB")
+    w, h = im.size
+    fill = im.getpixel((7, h // 2))
+    border = max((im.getpixel((w // 2, y)) for y in range(0, min(3, h))), key=lambda p: r_delta_e(p, fill))
+    return dict(card=im.getpixel((0, 0)), fill=fill, border=border)
+
+
+R_CHIP_STATE = "(el) => {" + R_JS + r"""
+  const svg = el.querySelector('svg'), b = svg ? svg.getBoundingClientRect() : null;
+  return {text: el.textContent.trim(), pressed: el.getAttribute('aria-pressed'), icon: !!svg && shown(svg) && b.width >= 12 && b.height >= 12,
+          n: countOf(el.textContent)[0] ?? -1};
+}"""
+
+
+async def _chip_flip(page, chip):
+    """Read the chip in the state it is in, press it, read it again; return {pressed: reading}."""
+    seen = {}
+    for _ in range(2):
+        s = await chip.evaluate(R_CHIP_STATE)
+        s.update(await r_chip_paint(chip))
+        seen[s["pressed"]] = s
+        await chip.click()
+        await page.wait_for_timeout(100)
+    return seen
+
+
+async def _chip_checks(page, lng, out):
+    cards = await r_cards(page)
+    if not cards:
+        return out.append(dict(lng=lng, why="no roster toolbar found"))
+    for c in cards:
+        art = page.locator("article").nth(c["i"])
+        chip = art.locator('[class*="__rosterLow___"]').last
+        who = dict(card=c["provider"], lng=lng)
+        if not await chip.count():
+            out.append(dict(who, why="no low-limit chip to toggle"))
+            continue
+        seen = await _chip_flip(page, chip)
+        if set(seen) != {"true", "false"}:
+            out.append(dict(who, why=f"toggling reached states {sorted(seen)}, not both"))
+            continue
+        on, off = seen["true"], seen["false"]
+        labels = await page.evaluate("""async (n) => { const i18n = (await import('/src/i18n/index.ts')).default;
+            return {off: i18n.t('quota_pool.accounts_low', {count: n[0]}), on: i18n.t('quota_pool.accounts_low_on', {count: n[1]}), enOff: i18n.t('quota_pool.accounts_low', {count: n[0], lng: 'en'})}; }""", [off["n"], on["n"]])
+        if off["text"] != labels["off"] or on["text"] != labels["on"]:
+            out.append(dict(who, why="chip label is not the translated 'Show…' (off) / 'Filtering to…' (on) text", off=off["text"], on=on["text"]))
+        if lng == "en":
+            if not (re.match(r"Show\b", off["text"]) and re.fullmatch(r"Show \d+ with a limit below 20%", off["text"])):
+                out.append(dict(who, why="off label is not 'Show N with a limit below 20%'", text=off["text"]))
+            if not (re.match(r"Filtering\b", on["text"]) and re.fullmatch(r"Filtering to \d+ with a limit below 20%", on["text"])):
+                out.append(dict(who, why="on label is not 'Filtering to N with a limit below 20%'", text=on["text"]))
+        else:
+            if off["text"] == labels["enOff"]:
+                out.append(dict(who, why="off label is still the English text", text=off["text"]))
+            if on["text"] == off["text"]:
+                out.append(dict(who, why="on and off labels are identical", text=on["text"]))
+        if (off["pressed"], on["pressed"]) != ("false", "true"):
+            out.append(dict(who, why="aria-pressed is not false when off and true when on"))
+        if not (off["icon"] and on["icon"]):
+            out.append(dict(who, why="the chip's icon is not visible in both states", off=off["icon"], on=on["icon"]))
+        de = r_delta_e(on["fill"], off["fill"])
+        contrast = max(ratio(on["border"], on["card"]), ratio(on["fill"], on["card"]))
+        if de < 12:
+            out.append(dict(who, why=f"on fill differs from the off fill by only dE {de:.1f}", on=on["fill"], off=off["fill"]))
+        if contrast < 3:
+            out.append(dict(who, why=f"the on chip's border/fill has contrast {contrast:.2f}:1 against the card (< 3:1)", border=on["border"], card=on["card"]))
+
+
+async def _affected_chip(page, out):
+    """The affected chip keeps its wording and takes the same filled style when on."""
+    chip = page.locator('article [class*="__rosterLow___"]').first
+    if not await chip.count():
+        return out.append(dict(why="no affected chip after Show affected accounts"))
+    s = await chip.evaluate(R_CHIP_STATE)
+    s.update(await r_chip_paint(chip))
+    if not re.fullmatch(r"Affected \(\d+\)", s["text"]):
+        out.append(dict(why="affected chip wording changed", text=s["text"]))
+    if s["pressed"] != "true" or not s["icon"]:
+        out.append(dict(why="affected chip is not aria-pressed with a visible icon", state=s["pressed"], icon=s["icon"]))
+    if r_delta_e(s["fill"], s["card"]) < 12:
+        out.append(dict(why="affected chip fill is not the filled selected style", fill=s["fill"], card=s["card"]))
+    if max(ratio(s["border"], s["card"]), ratio(s["fill"], s["card"])) < 3:
+        out.append(dict(why="affected chip border has under 3:1 contrast against the card"))
+
+
+async def check_filter_chip(context, url, route_api, name, state):
+    """R2: the low chip reads "Show N with a limit below 20%" off and "Filtering to N with a limit below 20%" on, with
+    aria-pressed, the icon and the page's selected-segment fill (dE >= 12 from off, a 3:1 border or fill against the
+    card) in each state. The affected chip keeps "Affected (N)" and takes the same fill."""
+    if name not in R_CHIP_CASES:
+        return []
+    out = []
+    if name == "partial-affected-narrow":
+        page = await r_page(context, url, route_api, state, "en")
+        try:
+            await _affected_chip(page, out)
+        finally:
+            await page.close()
+        return out
+    for lng in ("en", *(R_LANGS if name in R_LANG_CASES else ())):
+        page = await r_page(context, url, route_api, state, lng)
+        try:
+            await _chip_checks(page, lng, out)
+        finally:
+            await page.close()
+    return out
+
+
+R_TOOLBAR = "() => {" + R_JS + r"""
+  const out = [], tools = [...document.querySelectorAll('article')].map(toolsIn).filter(Boolean), canvas = document.createElement('canvas').getContext('2d');
+  if (!tools.length) return [{why: 'no roster toolbar found'}];
+  const kind = e => e.matches('input[type="search"]') ? 'search' : e.tagName === 'SELECT' ? 'sort' : e.tagName === 'BUTTON' ? 'chip' : e.matches('[class*="__rosterCount___"]') ? 'count' : 'other';
+  for (const t of tools) {
+    const card = t.closest('article').querySelector('h2')?.textContent, kids = [...t.children].filter(shown), kinds = kids.map(kind).join();
+    if (!/^search,sort(,chip)+,count$/.test(kinds)) { out.push({card, why: 'controls are not search, sort, chip(s), count', kinds}); continue; }
+    const rects = kids.map(k => k.getBoundingClientRect()), s = rects[0];
+    kids.forEach((k, j) => {
+      const r = rects[j], what = kind(k) + ' ' + (k.textContent.trim().slice(0, 30) || k.getAttribute('aria-label') || '');
+      if (kind(k) !== 'count' && (Math.abs(r.left - s.left) > 2 || Math.abs(r.right - s.right) > 2)) out.push({card, what, why: `edges ${r.left.toFixed(1)}-${r.right.toFixed(1)} vs search ${s.left.toFixed(1)}-${s.right.toFixed(1)}`});
+      if (kind(k) === 'count' && Math.abs(r.left - s.left) > 2) out.push({card, what, why: 'count does not start at the search field\'s left edge'});
+      if (j && r.top < rects[j - 1].bottom - 1) out.push({card, what, why: 'overlaps or sits beside the control before it'});
+      if (kind(k) !== 'count' && r.height < 43.5) out.push({card, what, why: `target is ${r.height.toFixed(1)}px tall, not 44`});
+      const st = getComputedStyle(k);
+      if (k.scrollWidth > k.clientWidth + 1 || (kind(k) === 'chip' && k.scrollHeight > k.clientHeight + 1)) out.push({card, what, why: 'content is clipped'});
+      if (kind(k) === 'chip' || kind(k) === 'count') {
+        const range = document.createRange(); range.selectNodeContents(k);
+        for (const q of range.getClientRects()) if (q.left < r.left - 0.5 || q.right > r.right + 0.5 || q.top < r.top - 0.5 || q.bottom > r.bottom + 0.5) { out.push({card, what, why: 'text leaves its box'}); break; }
+      }
+      if (kind(k) === 'sort' || kind(k) === 'search') {
+        canvas.font = st.font;
+        const text = kind(k) === 'sort' ? k.selectedOptions[0].textContent : k.placeholder, room = r.width - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight) - (kind(k) === 'sort' ? 24 : 0);
+        if (canvas.measureText(text).width > room) out.push({card, what, why: `"${text}" is wider than its ${room.toFixed(0)}px of room`});
+      }
+    });
+  }
+  return out;
+}"""
+
+
+async def check_roster_toolbar(context, url, route_api, name, state):
+    """R3 (390 and 320px, then ru and vi): search, sort and each chip run the search field's width, in that order, then the
+    count; 44px targets, nothing overlapping or clipped. Measured twice: chips off, then the low chip on (its longer wording)."""
+    if name not in R_TOOLBAR_CASES:
+        return []
+    out = []
+    for lng in ("en", *R_LANGS):
+        page = await r_page(context, url, route_api, state, lng)
+        try:
+            for width in (390, 320):
+                await page.set_viewport_size(dict(width=width, height=844))
+                await page.wait_for_timeout(150)
+                out += [dict(f, lng=lng, width=width, chips="as loaded") for f in await page.evaluate(R_TOOLBAR)]
+                chip = page.locator('article [class*="__rosterLow___"]').last
+                if not await chip.count():
+                    continue
+                if await chip.get_attribute("aria-pressed") != "true":
+                    await chip.click()
+                    await page.wait_for_timeout(150)
+                    out += [dict(f, lng=lng, width=width, chips="low chip on") for f in await page.evaluate(R_TOOLBAR)]
+                    await chip.click()
+        finally:
+            await page.close()
+    return out
+
+
 OPTIONS_BUTTON = 'button[aria-controls="pool-view-options"]'
 
 
@@ -1307,6 +1653,9 @@ async def main():
                 results[name]["lowInlineFailures"] = await check_low_inline(page, state)
                 results[name]["forecastRowFailures"] = await check_forecast_row(page, state, width)
                 results[name]["actionAlignFailures"] = await check_action_align(page, state)
+                results[name]["rosterCountFailures"] = await check_roster_count(context, args.url, route_api, name, state)
+                results[name]["filterChipFailures"] = await check_filter_chip(context, args.url, route_api, name, state)
+                results[name]["rosterToolbarFailures"] = await check_roster_toolbar(context, args.url, route_api, name, state)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -1543,7 +1892,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + R_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

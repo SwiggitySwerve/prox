@@ -6,7 +6,7 @@ Closes: low chip state, no-limit cell, detail type sizes, expanded detail grid, 
 
 ```
 ACCOUNTS                                                          2 of 3 current
-[🔍 Search Claude accounts] [Sort: Name A–Z ▾] [Below 20% (40)]   Showing 25 of 120  [Expand all]
+[🔍 Search Claude accounts] [Sort: Name A–Z ▾] [Show 40 with a limit below 20%]   25 of 120 shown
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │    Account                Plan               5-hour         Weekly          Weekly Opus      │
 │                                                             Counts toward total              │
@@ -20,10 +20,10 @@ ACCOUNTS                                                          2 of 3 current
 
 ## Toolbar
 
-- One row under the section heading [R§4: ≤ 5 toolbar actions]: search, sort, low filter, count, expand all. Count and Expand all sit right.
+- One row under the section heading [R§4: ≤ 5 toolbar actions]: search, sort, filter chip(s), then the count as the toolbar's last item. From 641px it is one wrapping row; at 640px and below search, sort, each chip and the count take a full-width row each, in that order, with 44px targets. Expand all sits in the section heading.
 - Scoped labels: "Search Claude accounts"; sort options "Name A–Z" (default: stable across the 15s reloads, honest; the server order is sha256-id order) and "Lowest limit first" (accounts with no data first, then lowest percent, then name) [R§4: one column sorted by default; council decision 4b].
-- Low filter: a toggle chip labelled with its rule, "Below 20% (40)". Off = outline; on = filled with a leading check and `aria-pressed` [R§4: chips]. The red stays on the low values' icon and bar; the chip keeps its wording.
-- Search filters live, resets paging to the first page, and the count reads "Showing 12 of 120".
+- Filter chip: a toggle labelled with its rule. Off = outline with the warning icon, "Show 40 with a limit below 20%". On = "Filtering to 40 with a limit below 20%", `aria-pressed="true"`, a leading check, the page's selected-segment fill (clearly lighter than off, ΔE ≥ 12) and a border that reads 3:1 against the card [R§4: chips]. The affected chip keeps "Affected (N)" and takes the same filled style. The red stays on the low values' icon and bar.
+- Search filters live, resets paging to the first page, and the count reads "12 of 120 shown · 12 match".
 - "Expand all" appears only when the list shows ≤ 25 rows and is never on by default [R§4].
 - On rosters over 25 rows, the toolbar and the column header are sticky within the card while the list scrolls past.
 
@@ -68,4 +68,4 @@ On the Quota Management page each estimated renewal reads "Estimated · from sta
 
 ## Paging
 
-- 25 rows, then "Show 25 more"; the count lives in the toolbar ("Showing 25 of 120") [R§4: X of Y viewed]. After the last page, "Show fewer".
+- 25 rows, then "Show 25 more". The count lives in the toolbar only, never in the footer [R§4: X of Y viewed]: "25 of 120 shown" (D of T), plus " · 40 match" (F) while a filter or search is active. D = rows on screen, F = rows matching the filter or search, T = all accounts in the provider. Rosters with no toolbar (8 or fewer accounts, and not affected-only) show no count.
