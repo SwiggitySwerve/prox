@@ -590,6 +590,10 @@ def measure(path, geo, touch):
             continue
         dominant = box.most_common(1)[0][0]
         if mk["kind"] == "bar":
+            # A fill under 8px wide (a low value's bar in a tight table cell) is mostly anti-aliased edge, so its
+            # ink is the pixel at its centre rather than the most common colour in a box that includes the track.
+            if mk["w"] < 8:
+                dominant = im.getpixel((min(im.width - 1, round(mk["x"] + mk["w"] / 2)), round(mk["y"] + mk["h"] / 2)))
             ink, ground = dominant, im.getpixel((max(0, round(mk["x"] + mk["w"] + 3)), round(mk["y"] + mk["h"] / 2))) if mk["x"] + mk["w"] + 3 < im.width else dominant
             if ink == ground:  # bar fills its track; compare with the card behind it instead
                 ground = im.getpixel((max(0, round(mk["x"])), max(0, round(mk["y"] - 6))))
@@ -802,6 +806,69 @@ async def check_header_order(page, state, width):
       }
       return fails;
     }""", state in C1_CARDLESS)
+
+
+# P1 polish checks (blind A/B concerns). Each has its own JSON key, registered in P1_KEYS for the summary and exit gate.
+P1_KEYS = ("lowInlineFailures", "forecastRowFailures", "actionAlignFailures")
+P1_FORECAST_WIDTHS = (1280, 1440, 1920)
+
+
+async def check_low_inline(page, state):
+    """P1.1: every visible low value shows its icon, "Low" and percentage on one line, unclipped."""
+    if state in C3_NO_ROSTER:
+        return []
+    return await page.evaluate("() => {" + C3_HELPERS + r"""
+      const out = [], values = [...document.querySelectorAll('article details > summary > strong[data-low="true"], article ul[aria-label="Limits"] li[data-low="true"] > strong')].filter(shown);
+      if (!values.length) out.push({why: 'no visible low value in a case that has a roster'});
+      for (const e of values) {
+        const row = e.closest('details'), where = (row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '') + ' ' + (e.parentElement.tagName === 'LI' ? e.parentElement.firstElementChild.textContent : 'row value');
+        const word = e.querySelector('[class*="__lowWord___"]'), pctNode = textNodeWith(e, /%/);
+        if (!word || !pctNode) { out.push({where, why: 'missing "Low" word or percentage'}); continue; }
+        const range = document.createRange(); range.selectNodeContents(pctNode);
+        const w = word.getBoundingClientRect(), p = range.getBoundingClientRect(), box = row.getBoundingClientRect();
+        if (Math.abs(w.top - p.top) > 4) out.push({where, why: `"Low" top ${w.top.toFixed(1)} vs percentage top ${p.top.toFixed(1)}`});
+        for (const [what, r] of [['"Low"', w], ['percentage', p]]) if (r.left < box.left - 0.5 || r.right > box.right + 0.5) out.push({where, why: `${what} leaves its row`});
+        if (e.scrollWidth > Math.ceil(e.getBoundingClientRect().width) + 1 || word.scrollWidth > word.clientWidth + 1) out.push({where, why: 'value or "Low" clipped'});
+      }
+      return out;
+    }""")
+
+
+async def check_forecast_row(page, state, width):
+    """P1.2: at 1280/1440/1920 the three Forecast facts share one row (tops within 4px)."""
+    if width not in P1_FORECAST_WIDTHS or state in C1_CARDLESS:
+        return []
+    return await page.evaluate("() => {" + C1_PRELUDE + r"""
+      const out = [], groups = [...document.querySelectorAll('article [class*="__statsBlock___"] > :last-child dl')].filter(shown);
+      if (!groups.length) out.push({why: 'no Forecast facts found'});
+      for (const dl of groups) {
+        const facts = [...dl.children].filter(shown);
+        if (facts.length !== 3) continue;
+        const tops = facts.map(f => f.getBoundingClientRect().top);
+        if (Math.max(...tops) - Math.min(...tops) > 4) out.push({card: dl.closest('article').querySelector('h2')?.textContent, why: 'Forecast facts on more than one row', tops: tops.map(Math.round)});
+      }
+      return out;
+    }""")
+
+
+async def check_action_align(page, state):
+    """P1.4: where the card actions share the title's row, their centre is within 3px of the title text's centre."""
+    if state in C1_CARDLESS:
+        return []
+    return await page.evaluate("() => {" + C1_PRELUDE + r"""
+      const out = [], all = cards();
+      if (!all.length) out.push({why: 'no cards found'});
+      for (const card of all) {
+        const group = card.querySelector('[class*="__reorder___"]'), h2 = card.querySelector('h2');
+        if (!group || !h2 || !shown(group)) { out.push({why: 'card has no visible actions or title'}); continue; }
+        const g = group.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(h2);
+        const t = range.getBoundingClientRect();
+        if (!(g.top < t.bottom && g.bottom > t.top)) continue;
+        const d = Math.abs((g.top + g.bottom) / 2 - (t.top + t.bottom) / 2);
+        if (d > 3) out.push({card: h2.textContent, why: `actions centre ${d.toFixed(1)}px from the title text centre`});
+      }
+      return out;
+    }""")
 OPTIONS_BUTTON = 'button[aria-controls="pool-view-options"]'
 
 
@@ -1237,6 +1304,9 @@ async def main():
                 results[name]["renewalCaveatFailures"] = await renewal_caveat_failures(page, state, width)
                 results[name]["minimizedWidthFailures"] = await minimized_width_failures(page, name)
                 results[name]["toolbarBudgetFailures"] = await check_toolbar_budget(page, name, results[name])
+                results[name]["lowInlineFailures"] = await check_low_inline(page, state)
+                results[name]["forecastRowFailures"] = await check_forecast_row(page, state, width)
+                results[name]["actionAlignFailures"] = await check_action_align(page, state)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -1473,7 +1543,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

@@ -328,6 +328,7 @@ export function QuotaPoolPage() {
               >
                 <IconSlidersHorizontal size={16} aria-hidden="true" />
                 <span>{optionsSummary}</span>
+                <IconChevronDown className={styles.optionsChevron} size={16} aria-hidden="true" />
               </button>
             </div>
           </fieldset>
