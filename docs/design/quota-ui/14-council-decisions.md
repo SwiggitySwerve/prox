@@ -40,7 +40,7 @@ The corpus is `/tmp/hc/notes_all.json`: 6,242 notes from r10 to r27, extracted f
 | On phones, the two selects already share one full-width row; a label line sits above them, plus a hint line in Drain and Burn | `src/features/quotaPool/QuotaPoolPage.module.scss:1373-1385` |
 
 The capture harness, `scripts/visual/prox-quota-capture.py`:
-- uses the combobox "Rate interval" by name (around line 895);
+- uses the combobox "Averaged over" by name (it was "Rate interval" before S8 made names start with their visible label);
 - asserts 5 `article details` in the ready case (around line 813);
 - checks the shell box doesn't overlap the countdown (around lines 846-851).
 
@@ -86,7 +86,7 @@ Inline labels stay instead.
 - **Why:**
   - These two settings change every card's numbers. Future usage is shown nowhere else, so hiding it buries meaning. Archivist's Grafana and GOV.UK evidence points the same way.
   - On phones the selects already share one row (code table above). A popover trigger with values would take that same row, so the popover saves no rows. It only removes the label and hint lines, which inline prefixes also remove.
-  - Native selects keep the capture's "Rate interval" locator working.
+  - Native selects keep the capture's "Averaged over" locator working (renamed from "Rate interval" by S8).
   - A `title` tooltip is unreliable on disabled controls and on touch, so the reason stays as visible text.
 
 ### 3. Keep the shell cluster out of scope: rejected

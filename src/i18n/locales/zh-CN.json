@@ -2521,6 +2521,8 @@
     "collapse_accounts": "全部收起",
     "resets": "手动重置",
     "view_options": "选项",
+    "option_window": "周期",
+    "option_measure": "指标",
     "reset_chip_usable": "重置 {{count}} · {{usable}} 个可用",
     "reset_chip": "重置 {{count}}",
     "reset_expiry_label": "下次到期",

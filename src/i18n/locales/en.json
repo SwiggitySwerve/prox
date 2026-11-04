@@ -2523,6 +2523,8 @@
     "collapse_accounts": "Collapse all",
     "resets": "Manual resets",
     "view_options": "Options",
+    "option_window": "Window",
+    "option_measure": "Measure",
     "reset_chip_usable": "Resets {{count}} · {{usable}} usable",
     "reset_chip": "Resets {{count}}",
     "reset_expiry_label": "Next expiry",

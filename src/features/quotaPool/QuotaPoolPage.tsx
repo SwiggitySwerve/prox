@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -35,6 +35,8 @@ const PLAN_WEIGHTS = [
 
 export function QuotaPoolPage() {
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const optionsToggleRef = useRef<HTMLButtonElement>(null);
+  const optionsRef = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
   // Pool, window, measure and the two settings live in the address, so a link opens this view.
   // The view is state first, so a click repaints at once; the address follows it, and a link or
@@ -87,6 +89,50 @@ export function QuotaPoolPage() {
   const range = data ? viewRange(data, mode) : null;
   const change = <K extends keyof typeof local>(key: K, value: (typeof local)[K]) =>
     setLocal((current) => ({ ...current, [key]: value }));
+  // Phones show the options as an overlay: focus enters it on open, and Escape or a tap outside
+  // closes it. A tap that lands on nothing focusable returns focus to the button. The toolbar
+  // remounts after a reload, so toolbarShown re-runs this and focus re-enters the open overlay.
+  const toolbarShown = !chartUnavailable;
+  useEffect(() => {
+    if (!optionsOpen) return;
+    optionsRef.current?.querySelector<HTMLElement>('button, select')?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOptionsOpen(false);
+      optionsToggleRef.current?.focus();
+    };
+    const onClick = (event: MouseEvent) => {
+      // Changing the window or interval unmounts the toolbar until the new data arrives, so a click's
+      // target can already be detached and the refs stale: match by id along the dispatch path.
+      const inside = (node: EventTarget) =>
+        node instanceof Element &&
+        (node.id === 'pool-view-options' ||
+          node.getAttribute('aria-controls') === 'pool-view-options');
+      if (event.composedPath().some(inside)) return;
+      setOptionsOpen(false);
+      if (document.activeElement === document.body) optionsToggleRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('click', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('click', onClick);
+    };
+  }, [optionsOpen, toolbarShown]);
+  // The Options button spells out the current choices; Future joins only when it applies and
+  // differs from the default.
+  const optionsSummary = [
+    t(`quota_pool.${view.window === 'weekly' ? 'weekly' : 'five_hour'}`),
+    t(`quota_pool.${mode}`),
+    t('quota_pool.hours', { hours: view.lookback }),
+    ...(mode === 'remaining' && view.future !== 1
+      ? [
+          `${t('quota_pool.future_prefix')}: ${t(
+            `quota_pool.scenario.${view.future === 0.5 ? 'half' : view.future === 2 ? 'double' : 'idle'}`
+          )}`,
+        ]
+      : []),
+  ].join(' · ');
 
   return (
     <div className={styles.page}>
@@ -148,77 +194,93 @@ export function QuotaPoolPage() {
             ))}
           </div>
           <fieldset className={styles.toolbar} aria-label={t('quota_pool.chart_mode')}>
-            <div className={styles.segment} role="group" aria-label={t('quota_pool.window')}>
-              {(['weekly', 'five-hour'] as const).map((item) => (
-                <button
-                  type="button"
-                  key={item}
-                  aria-pressed={query.window === item}
-                  onClick={() => setView({ window: item })}
-                >
-                  {t(`quota_pool.${item === 'weekly' ? 'weekly' : 'five_hour'}`)}
-                </button>
-              ))}
-            </div>
-            <div className={styles.segment} role="group" aria-label={t('quota_pool.chart_mode')}>
-              {(['remaining', 'drain', 'burn'] as const).map((item) => (
-                <button
-                  type="button"
-                  key={item}
-                  aria-pressed={mode === item}
-                  onClick={() => setView({ mode: item })}
-                >
-                  {t(`quota_pool.${item}`)}
-                </button>
-              ))}
-            </div>
+            {/* Phones fold everything below into one overlay under the Options button; from 641px
+                this wrapper is transparent to layout. */}
             <div
-              className={styles.chartSettings}
+              className={styles.viewOptions}
               id="pool-view-options"
+              ref={optionsRef}
               data-open={optionsOpen || undefined}
             >
-              {/* The setting's name sits inside the box, so every toolbar control shares one top edge. */}
-              <label className={styles.selectLabel}>
-                <span className={styles.srOnly}>{t('quota_pool.rate_interval')}</span>
-                <span className={styles.selectPrefix} aria-hidden="true">
-                  {t('quota_pool.rate_prefix')}
-                </span>
-                <select
-                  value={query.lookback}
-                  onChange={(event) =>
-                    setView({ lookback: Number(event.target.value) as QuotaViewState['lookback'] })
-                  }
-                >
-                  {([1, 3, 6] as const).map((hours) => (
-                    <option key={hours} value={hours}>
-                      {t('quota_pool.hours', { hours })}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {/* The scenario only shapes the Remaining forecast, so rate views don't offer it. */}
-              {mode === 'remaining' && (
+              <span className={styles.groupLabel} aria-hidden="true">
+                {t('quota_pool.option_window')}
+              </span>
+              <div
+                className={styles.segment}
+                role="group"
+                aria-label={t('quota_pool.option_window')}
+              >
+                {(['weekly', 'five-hour'] as const).map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    aria-pressed={query.window === item}
+                    onClick={() => setView({ window: item })}
+                  >
+                    {t(`quota_pool.${item === 'weekly' ? 'weekly' : 'five_hour'}`)}
+                  </button>
+                ))}
+              </div>
+              <span className={styles.groupLabel} aria-hidden="true">
+                {t('quota_pool.option_measure')}
+              </span>
+              <div
+                className={styles.segment}
+                role="group"
+                aria-label={t('quota_pool.option_measure')}
+              >
+                {(['remaining', 'drain', 'burn'] as const).map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    aria-pressed={mode === item}
+                    onClick={() => setView({ mode: item })}
+                  >
+                    {t(`quota_pool.${item}`)}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.chartSettings}>
+                {/* The setting's name sits inside the box, so every toolbar control shares one top edge.
+                  The visible name is also the accessible one. */}
                 <label className={styles.selectLabel}>
-                  <span className={styles.srOnly}>{t('quota_pool.future_usage')}</span>
-                  <span className={styles.selectPrefix} aria-hidden="true">
-                    {t('quota_pool.future_prefix')}
-                  </span>
+                  <span className={styles.selectPrefix}>{t('quota_pool.rate_prefix')}</span>
                   <select
-                    value={query.multiplier}
+                    value={query.lookback}
                     onChange={(event) =>
-                      setView({ future: Number(event.target.value) as QuotaViewState['future'] })
+                      setView({
+                        lookback: Number(event.target.value) as QuotaViewState['lookback'],
+                      })
                     }
                   >
-                    {([1, 0.5, 2, 0] as const).map((value) => (
-                      <option value={value} key={value}>
-                        {t(
-                          `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
-                        )}
+                    {([1, 3, 6] as const).map((hours) => (
+                      <option key={hours} value={hours}>
+                        {t('quota_pool.hours', { hours })}
                       </option>
                     ))}
                   </select>
                 </label>
-              )}
+                {/* The scenario only shapes the Remaining forecast, so rate views don't offer it. */}
+                {mode === 'remaining' && (
+                  <label className={styles.selectLabel}>
+                    <span className={styles.selectPrefix}>{t('quota_pool.future_prefix')}</span>
+                    <select
+                      value={query.multiplier}
+                      onChange={(event) =>
+                        setView({ future: Number(event.target.value) as QuotaViewState['future'] })
+                      }
+                    >
+                      {([1, 0.5, 2, 0] as const).map((value) => (
+                        <option value={value} key={value}>
+                          {t(
+                            `quota_pool.scenario.${value === 1 ? 'same' : value === 0.5 ? 'half' : value === 2 ? 'double' : 'idle'}`
+                          )}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
             </div>
             <div className={styles.dateNavigation}>
               <span>
@@ -253,16 +315,19 @@ export function QuotaPoolPage() {
               >
                 <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
               </button>
-              {/* Phones fold Rate and Future behind this, beside the dates, to save a row. */}
+              {/* Phones fold the view settings behind this button, which spells out the current
+                  choices; its name is that visible text, so "Options" is the description. */}
               <button
                 type="button"
+                ref={optionsToggleRef}
                 className={styles.optionsToggle}
                 aria-expanded={optionsOpen}
                 aria-controls="pool-view-options"
+                title={t('quota_pool.view_options')}
                 onClick={() => setOptionsOpen((open) => !open)}
               >
                 <IconSlidersHorizontal size={16} aria-hidden="true" />
-                {t('quota_pool.view_options')}
+                <span>{optionsSummary}</span>
               </button>
             </div>
           </fieldset>

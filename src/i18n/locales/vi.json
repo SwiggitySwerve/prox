@@ -2529,6 +2529,8 @@
     "collapse_accounts": "Thu gọn tất cả",
     "resets": "Lượt đặt lại thủ công",
     "view_options": "Tùy chọn",
+    "option_window": "Chu kỳ",
+    "option_measure": "Chỉ số",
     "reset_chip_usable": "Đặt lại {{count}} · {{usable}} dùng được",
     "reset_chip": "Đặt lại {{count}}",
     "reset_expiry_label": "Hết hạn tiếp theo",
