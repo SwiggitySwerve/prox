@@ -213,6 +213,19 @@ describe('purging deleted accounts', () => {
     expect(store.isLive(codex.id)).toBe(true);
   });
 
+  test('purgeRetired removes only accounts that are already retired', () => {
+    const { store, path } = open();
+    const live = account('live');
+    const gone = account('gone');
+    store.recordInventory('claude', [live, gone], NOW, 'claude-primary');
+    for (const entry of [live, gone]) store.recordSamples([sample(entry.id)]);
+    store.recordInventory('claude', [live], NOW + 1, 'claude-primary');
+    expect(store.purgeRetired([live.id, gone.id, 'unknown'])).toEqual([gone.id]);
+    expect(store.listAccounts().map((entry) => entry.id)).toEqual([live.id]);
+    expect(store.listSamples(0, NOW + 5).map((entry) => entry.accountId)).toEqual([live.id]);
+    expect(rows(path, 'PRAGMA foreign_key_check')).toEqual([]);
+  });
+
   test('prune purges accounts retired for the whole 24 h grace and nothing sooner', () => {
     const { store, path } = open();
     const early = account('early');
