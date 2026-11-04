@@ -1,7 +1,14 @@
 import { Fact, FactPanel, FactSection } from '@/components/ui/FactPanel';
 import { BillingFacts } from '@/components/ui/FactPanel/BillingFacts';
 import { billingFacts } from '@/domain/accountBilling';
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   IconAlertTriangle,
@@ -44,6 +51,20 @@ const CHIP_ICONS: Record<PoolChipIcon, typeof IconCheck> = {
   info: IconInfo,
 };
 
+const STACKED_FACTS = '(max-width: 900px)';
+/** At 900px and below an opened row reads: limits, Manual resets, Usage, Billing. Rendered on the server, rows are wide. */
+function useStackedFacts() {
+  return useSyncExternalStore(
+    (notify) => {
+      const query = window.matchMedia(STACKED_FACTS);
+      query.addEventListener('change', notify);
+      return () => query.removeEventListener('change', notify);
+    },
+    () => window.matchMedia(STACKED_FACTS).matches,
+    () => false
+  );
+}
+
 export function PoolCard({
   pool,
   dashboard,
@@ -64,6 +85,7 @@ export function PoolCard({
 }) {
   const { t, i18n } = useTranslation();
   const id = useId();
+  const stackedFacts = useStackedFacts();
   const [minimized, setMinimized] = useState(false);
   const [rosterQuery, setRosterQuery] = useState('');
   const [rosterSort, setRosterSort] = useState<AccountSort>('name');
@@ -206,6 +228,25 @@ export function PoolCard({
         ? 'seven-day'
         : 'weekly';
   const balanceHasColumn = limitColumns.some((column) => column.id === countedLimitId);
+  const resetSection = (account: (typeof pool.accounts)[number]) =>
+    openAccounts.has(account.id) && (
+      <PoolAccountResets
+        key="resets"
+        account={account}
+        name={accountName(account)}
+        provider={pool.provider}
+        instanceId={pool.instanceId}
+        onRefresh={onRefresh}
+      />
+    );
+  const activeResetLine = (account: (typeof pool.accounts)[number]) => {
+    const resetAtMs = account.windows.find((limit) => limit.id === countedLimitId)?.resetAtMs;
+    return resetAtMs == null ? null : (
+      <small className={styles.activeReset}>
+        {windowLabel} · {t('quota_pool.limit_resets', { date: date(resetAtMs) })}
+      </small>
+    );
+  };
   // Every account counts, not only those shown, so search, filters and paging never hide the caveat.
   const hasEstimatedRenewal = pool.accounts.some((account) =>
     billingFacts(account.billing ?? null, dashboard.nowMs).some(
@@ -685,6 +726,9 @@ export function PoolCard({
                       <span className={styles.valueCaption}>{windowLabel}</span>
                     )}
                   </strong>
+                  {/* Open narrow rows hide the active limit's list item (the heading shows its value);
+                      this line keeps its reset time. */}
+                  {activeResetLine(account)}
                   {account.windows.length > 0 && (
                     <ul className={styles.limits} aria-label={t('quota_pool.limits')}>
                       {account.windows.map((limit) => (
@@ -692,6 +736,7 @@ export function PoolCard({
                           key={limit.id}
                           data-limit-id={limit.id}
                           data-low={isLowQuota(limit.remainingPercent)}
+                          data-limit-id={limit.id}
                           data-counted={limit.id === countedLimitId || undefined}
                           style={
                             {
@@ -735,6 +780,7 @@ export function PoolCard({
                             data-limit-id={column.id}
                             data-missing="true"
                             data-low="false"
+                            data-limit-id={column.id}
                             style={
                               {
                                 '--col':
@@ -759,7 +805,9 @@ export function PoolCard({
                 </summary>
                 <div className={styles.accountFacts}>
                   <FactPanel>
-                    <FactSection title={t('quota_pool.facts_usage')}>
+                    {/* One reset section per open row; the keys let it move without remounting. */}
+                    {stackedFacts && resetSection(account)}
+                    <FactSection key="usage" title={t('quota_pool.facts_usage')}>
                       <Fact
                         label={t('quota_pool.observed')}
                         {...(account.observedAtMs !== null
@@ -805,7 +853,7 @@ export function PoolCard({
                             })}
                       />
                     </FactSection>
-                    <FactSection title={t('quota_pool.facts_billing')}>
+                    <FactSection key="billing" title={t('quota_pool.facts_billing')}>
                       <BillingFacts
                         billing={account.billing ?? null}
                         nowMs={dashboard.nowMs}
@@ -813,15 +861,7 @@ export function PoolCard({
                         basisOverrides={ESTIMATE_BASIS_OVERRIDES}
                       />
                     </FactSection>
-                    {openAccounts.has(account.id) && (
-                      <PoolAccountResets
-                        account={account}
-                        name={accountName(account)}
-                        provider={pool.provider}
-                        instanceId={pool.instanceId}
-                        onRefresh={onRefresh}
-                      />
-                    )}
+                    {!stackedFacts && resetSection(account)}
                   </FactPanel>
                 </div>
               </details>
