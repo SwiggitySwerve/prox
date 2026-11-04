@@ -816,6 +816,7 @@ export function PoolCard({
                                     —
                                   </span>
                                   <span className={styles.unavailableWord}>
+                                    <IconAlertTriangle size={14} aria-hidden="true" />
                                     {t('quota_pool.value_unavailable')}
                                   </span>
                                 </>

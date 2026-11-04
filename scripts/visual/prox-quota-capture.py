@@ -2074,6 +2074,7 @@ async def check_status_chip(page, context, url, route_api, name, state):
 B_KEYS = (
     "phoneRowBlockFailures",
     "phoneHeaderConsistencyFailures",
+    "phoneTrackFailures",
 )
 # case -> views measured. no-limit-narrow is a 5-hour page (the Ultra account has no 5-hour limit).
 B_ROW_VIEWS = {
@@ -2108,6 +2109,15 @@ B_ROW_JS = "(args) => { const [view, isOpen, width] = args;" + H_PRELUDE + r"""
       if (v.left < l.left + 1) fails.push({...at, why: 'the value is not right of its label'});
       if (v.top > l.bottom - 2) fails.push({...at, why: 'the value is on a line below its label'});
       if (b && r(b).top < Math.max(l.bottom, v.bottom) - 1) fails.push({...at, why: 'the bar is not under its label and value'});
+      // An "Unavailable" value keeps the wide table's amber warning colour (the status line's, hidden here but still
+      // computed; a probe of the same token when the row has none) and its aria-hidden warning icon.
+      const uw = li.querySelector('[class*="__unavailableWord___"]');
+      if (uw && shown(uw)) {
+        const ref = row.matches('[data-status="error"], [data-status="missing-window"]') ? getComputedStyle(summary.querySelector('[class*="__accountStatus___"]')).color : (() => { const p = document.createElement('i'); p.style.color = 'var(--warning-text)'; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; })();
+        if (getComputedStyle(uw).color !== ref) fails.push({...at, why: 'the Unavailable value is not in the warning colour', colour: getComputedStyle(uw).color, warning: ref});
+        const icon = uw.querySelector('svg');
+        if (!icon || icon.getAttribute('aria-hidden') !== 'true' || !shown(icon)) fails.push({...at, why: 'the Unavailable value lacks its aria-hidden warning icon'});
+      }
       const small = li.querySelector(':scope > small');
       if (small && shown(small)) {
         if (!b || b.nextElementSibling !== small) fails.push({...at, why: 'the reset line is not the next sibling of its own bar'});
@@ -2116,6 +2126,10 @@ B_ROW_JS = "(args) => { const [view, isOpen, width] = args;" + H_PRELUDE + r"""
       } else if (small && isOpen) fails.push({...at, why: 'an opened row hides a limit\'s reset line'});
     }
     // The active window's exceptions keep their reason and never invent a value or a filled bar.
+    // The active window keeps weight 600 on its label and value; no other block's value does.
+    const weight = e => parseInt(getComputedStyle(e).fontWeight, 10);
+    if (weight(label(activeItem)) < 600 || weight(value(activeItem)) < 600) fails.push({who, why: 'the active window lacks weight 600', label: weight(label(activeItem)), value: weight(value(activeItem))});
+    for (const li of items) if (li !== activeItem && weight(value(li)) >= 600) fails.push({who, limit: li.dataset.limitId, why: 'a non-active limit value is bold', weight: weight(value(li))});
     const ev = value(activeItem), eb = bar(activeItem), filled = eb && eb.querySelector(':scope > span');
     const status = summary.querySelector('[class*="__accountStatus___"]');
     if (activeItem.dataset.missing) {
@@ -2183,6 +2197,53 @@ async def check_phone_row_blocks(page, name, state, width):
         await switch_view(page, labels[start])
         await page.locator("article").first.wait_for()
         await page.wait_for_timeout(400)
+    return out
+
+
+P2_TRACK_CASES = ("narrow", "narrow-320", "tablet", "many-narrow", "partial-narrow", "stale-narrow", "collecting-narrow",
+                  "burn-narrow", "refresh-pending-narrow")
+P2_TRACK_JS = "(isOpen) => {" + C1_PRELUDE + r"""
+  const fails = [], pct = /(\d+(?:\.\d+)?)%/;
+  let tracks = 0;
+  for (const article of document.querySelectorAll('article')) {
+    const who = (article.querySelector('h2')?.textContent || '?').trim() + (isOpen ? ' open' : ' closed');
+    const seen = [];
+    for (const li of article.querySelectorAll('details ul[aria-label="Limits"] > li')) {
+      const bar = li.querySelector(':scope > [class*="__limitBar___"]');
+      if (!bar || !shown(bar)) continue;
+      const r = bar.getBoundingClientRect(), at = {who, limit: li.dataset.limitId, left: +r.left.toFixed(1), right: +r.right.toFixed(1)};
+      seen.push(at);
+      tracks++;
+      // The fill encodes the value: fill width over track width equals the printed percentage, within 2 points.
+      const fill = bar.querySelector(':scope > span'), text = li.querySelector(':scope > strong')?.textContent.match(pct);
+      if (fill && text) {
+        const ratio = fill.getBoundingClientRect().width / r.width * 100;
+        if (Math.abs(ratio - parseFloat(text[1])) > 2) fails.push({...at, why: `fill is ${ratio.toFixed(1)}% of its track but the value reads ${text[1]}%`});
+      } else if (fill || text) fails.push({...at, why: 'a bar and its value text do not pair up'});
+    }
+    // Every track in a card shares both edges (1px), whatever its value text, Low word or row.
+    if (seen.length) {
+      const lefts = seen.map(s => s.left), rights = seen.map(s => s.right);
+      if (Math.max(...lefts) - Math.min(...lefts) > 1 || Math.max(...rights) - Math.min(...rights) > 1) fails.push({who, why: 'bar tracks do not share left and right edges', lefts: [...new Set(lefts)], rights: [...new Set(rights)]});
+    }
+  }
+  if (!tracks) fails.push({why: 'no visible limit bar track to measure'});
+  return fails;
+}"""
+
+
+async def check_phone_tracks(page, name):
+    """P2: at 900px and below, every visible limit bar track in a provider card has the same left and right edges
+    (1px), and its fill is the printed value of its width (2 points), in closed and opened rows."""
+    if name not in P2_TRACK_CASES:
+        return []
+    out = []
+    for opened in (False, True):
+        if opened:
+            await h_expand_all(page)
+        out += [dict(open=opened, **f) for f in await page.evaluate(P2_TRACK_JS, opened)]
+    for _ in range(await page.get_by_role("button", name="Collapse all").count()):
+        await page.get_by_role("button", name="Collapse all").first.click()
     return out
 
 
@@ -2560,6 +2621,7 @@ async def main():
                 results[name]["expandedDuplicateFailures"] = await check_expanded_duplicates(page, state, width)
                 results[name]["phoneRowBlockFailures"] = await check_phone_row_blocks(page, name, state, width)
                 results[name]["phoneHeaderConsistencyFailures"] = await check_header_consistency(browser, args.url, page, name, state, width)
+                results[name]["phoneTrackFailures"] = await check_phone_tracks(page, name)
                 results[name]["rosterCountFailures"] = await check_roster_count(context, args.url, route_api, name, state)
                 results[name]["filterChipFailures"] = await check_filter_chip(context, args.url, route_api, name, state)
                 results[name]["rosterToolbarFailures"] = await check_roster_toolbar(context, args.url, route_api, name, state)

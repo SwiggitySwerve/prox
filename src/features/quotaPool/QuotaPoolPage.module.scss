@@ -2691,8 +2691,8 @@ $pool-error: #ff5252;
 // Phone account rows (900px and below). The header holds the chevron, name, chip and plan. The
 // limits follow as blocks, the active window first: one line (label left, value right) over its
 // bar, and a limit's reset line directly under its bar. The list takes no box of its own, so the
-// stale line sits directly under the active block, and every block shares one value column, as the
-// bars always did. A closed row of a minimized card keeps its compact list (no data-phone-blocks).
+// stale line sits directly under the active block, and every bar track spans the block's full width.
+// A closed row of a minimized card keeps its compact list (no data-phone-blocks).
 .unavailableWord {
   position: absolute;
   width: 1px;
@@ -2751,9 +2751,10 @@ $pool-error: #ff5252;
           > strong {
             grid-area: 1 / 2;
           }
-          // The bar keeps the length it had before blocks: the list width less the value column.
+          // The track spans the block's whole width, under the label and value line, so the same
+          // value draws the same length in every row, whatever its value text or Low word.
           > .limitBar {
-            grid-area: 2 / 1;
+            grid-area: 2 / 1 / 3 / -1;
           }
           > small {
             grid-area: 3 / 1 / 4 / -1;
@@ -2761,9 +2762,15 @@ $pool-error: #ff5252;
             font-size: 13px;
           }
           // The active value spans both columns, so a wide "Low" value never widens the shared column
-          // and shortens the other limits' bars.
+          // and squeezes the other limits' labels. The active window's label and value keep weight 600,
+          // which marks the selected balance.
           &[data-counted='true'] {
             grid-row: 2;
+            > span:first-child,
+            > strong,
+            > em {
+              font-weight: 600;
+            }
             > strong {
               grid-column: 1 / -1;
               justify-self: end;
@@ -2799,13 +2806,17 @@ $pool-error: #ff5252;
     .limitDash {
       display: none;
     }
+    // Same amber as the wide table's "Weekly quota unavailable", with its warning icon.
     .unavailableWord {
       position: static;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       width: auto;
       height: auto;
       overflow: visible;
       clip-path: none;
-      color: var(--text-secondary);
+      color: var(--warning-text);
     }
     .limitBar[data-empty] {
       display: block;
