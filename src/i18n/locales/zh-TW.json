@@ -2552,6 +2552,8 @@
     "collapse_accounts": "全部收合",
     "resets": "手動重設",
     "view_options": "選項",
+    "option_window": "週期",
+    "option_measure": "指標",
     "reset_chip_usable": "重設 {{count}} · {{usable}} 個可用",
     "reset_chip": "重設 {{count}}",
     "reset_expiry_label": "下次到期",

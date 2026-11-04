@@ -2519,6 +2519,8 @@
     "collapse_accounts": "Свернуть все",
     "resets": "Ручные сбросы",
     "view_options": "Параметры",
+    "option_window": "Период",
+    "option_measure": "Показатель",
     "reset_chip_usable": "Сбросы: {{count}} · доступно {{usable}}",
     "reset_chip": "Сбросы: {{count}}",
     "reset_expiry_label": "Ближайшее истечение",

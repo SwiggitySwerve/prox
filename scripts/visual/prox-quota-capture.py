@@ -802,6 +802,110 @@ async def check_header_order(page, state, width):
       }
       return fails;
     }""", state in C1_CARDLESS)
+OPTIONS_BUTTON = 'button[aria-controls="pool-view-options"]'
+
+
+async def switch_view(page, name):
+    """Press a view-setting button. Phones fold those buttons into the Options overlay, so open it
+    first and close it again; the captured state then matches the wide layouts' (overlay closed)."""
+    toggle = page.locator(OPTIONS_BUTTON)
+    folded = await toggle.is_visible()
+    if folded:
+        await toggle.click()
+        assert await toggle.get_attribute("aria-expanded") == "true"
+    await page.get_by_role("button", name=name, exact=True).click()
+    if folded:
+        await toggle.click()
+        assert await toggle.get_attribute("aria-expanded") == "false"
+
+
+async def check_toolbar_budget(page, name, result):
+    """I1: at 390x844 the Combined headline number starts no lower than 470px (420px when the
+    Options summary shares the date row). The measured value is kept in result["toolbarBudget"]."""
+    if name != "narrow":
+        return []
+    headline = page.get_by_role("region", name="Combined usage", exact=True).locator('[class*="__headline___"] strong')
+    if not await headline.count():
+        return [dict(why="Combined headline not found")]
+    top = await page.evaluate(
+        """el => el.getBoundingClientRect().top + (document.querySelector('.content')?.scrollTop || 0)""",
+        await headline.first.element_handle(),
+    )
+    same_row = await page.evaluate("""() => {
+        const b = document.querySelector('button[aria-controls="pool-view-options"]').getBoundingClientRect();
+        const t = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === 'Today').getBoundingClientRect();
+        return Math.abs(b.top - t.top) < 8;
+    }""")
+    limit = 420 if same_row else 470
+    result["toolbarBudget"] = dict(headlineTop=round(top, 1), limit=limit, summaryOnDateRow=same_row)
+    return [dict(why="headline below budget", **result["toolbarBudget"])] if top > limit else []
+
+
+async def check_options_summary(page, name, state, width):
+    """I2: the Options button spells out the window, the measure and the averaging interval, plus a
+    non-default Future (the narrow case sets one and puts it back)."""
+    if width >= 600 or state in ("empty", "loading", "error"):
+        return []
+    toggle = page.locator(OPTIONS_BUTTON)
+    if not await toggle.is_visible():
+        return [dict(why="Options button not visible")]
+    expected = ["5-hour" if state == "no-limit" else "Weekly", "Drain rate" if state == "drain" else "Burn rate" if state == "burn" else "Remaining", "3h"]
+    failures = []
+    text = await toggle.inner_text()
+    failures += [dict(why=f"summary lacks {item!r}", text=text) for item in expected if item not in text]
+    if name == "narrow":
+        await toggle.click()
+        future = page.get_by_role("combobox", name="Future", exact=True)
+        await future.select_option("Half")
+        text = await toggle.inner_text()
+        if "Half" not in text:
+            failures.append(dict(why="summary lacks the non-default Future", text=text))
+        await future.select_option("Same as now")
+        await toggle.click()
+    return failures
+
+
+async def check_options_overlay(page, name):
+    """I3 (390px): open with the keyboard, focus lands on the first control, the overlay hangs under
+    the button without moving the page, stays reachable across 640/641px, Escape and an outside tap
+    close it, and Escape returns focus to the button."""
+    if name != "narrow":
+        return []
+    failures = []
+    toggle, overlay = page.locator(OPTIONS_BUTTON), page.locator("#pool-view-options")
+    heights = "[document.documentElement.scrollHeight, document.querySelector('.content')?.scrollHeight]"
+    before = await page.evaluate(heights)
+    await toggle.focus()
+    await page.keyboard.press("Enter")
+    if await toggle.get_attribute("aria-expanded") != "true" or not await overlay.is_visible():
+        return [dict(why="keyboard did not open the overlay")]
+    if not await page.evaluate("document.activeElement === document.querySelector('#pool-view-options').querySelector('button, select')"):
+        failures.append(dict(why="focus is not on the first control"))
+    if await page.evaluate(heights) != before:
+        failures.append(dict(why="page height changed on open", before=before))
+    box, anchor, viewport = await overlay.bounding_box(), await toggle.bounding_box(), page.viewport_size["width"]
+    if box["y"] < anchor["y"] + anchor["height"] - 1 or abs(box["width"] - (viewport - 32)) > 1:
+        failures.append(dict(why="overlay is not anchored under the button at viewport - 32px", box=box, anchor=anchor))
+    if not await overlay.evaluate("o => o.contains(document.elementFromPoint(o.getBoundingClientRect().x + 20, o.getBoundingClientRect().y + 20))"):
+        failures.append(dict(why="overlay is under other content"))
+    for crossing in (641, 640):
+        await page.set_viewport_size(dict(width=crossing, height=page.viewport_size["height"]))
+        await page.wait_for_timeout(100)
+        reachable = await overlay.evaluate("o => { const c = [...o.querySelectorAll('button, select')]; return c.length === 7 && c.every(e => e.checkVisibility()); }")
+        if not reachable:
+            failures.append(dict(why=f"a control is unreachable at {crossing}px"))
+    await page.set_viewport_size(dict(width=viewport, height=page.viewport_size["height"]))
+    await page.keyboard.press("Escape")
+    if await toggle.get_attribute("aria-expanded") != "false" or await overlay.is_visible():
+        failures.append(dict(why="Escape did not close the overlay"))
+    if not await toggle.evaluate("b => document.activeElement === b"):
+        failures.append(dict(why="focus did not return to the button after Escape"))
+    await page.keyboard.press("Enter")
+    heading = await page.locator("h1").bounding_box()
+    await page.touchscreen.tap(heading["x"] + heading["width"] / 2, heading["y"] + heading["height"] / 2)
+    if await toggle.get_attribute("aria-expanded") != "false" or await overlay.is_visible():
+        failures.append(dict(why="an outside tap did not close the overlay"))
+    return failures
 
 
 async def main():
@@ -1019,13 +1123,9 @@ async def main():
                         assert await combined.locator('svg[role="img"]').count() == 1
                         assert "may share accounts" in await combined.inner_text()
                 if state in ("drain", "burn"):
-                    await page.get_by_role(
-                        "button",
-                        name="Drain rate" if state == "drain" else "Burn rate",
-                        exact=True,
-                    ).click()
+                    await switch_view(page, "Drain rate" if state == "drain" else "Burn rate")
                 if state == "no-limit":
-                    await page.get_by_role("button", name="5-hour", exact=True).click()
+                    await switch_view(page, "5-hour")
                 if state == "details":
                     await (
                         page.locator('details[class*="__account___"]')
@@ -1043,7 +1143,7 @@ async def main():
                     await page.get_by_role("button", name="Burn rate", exact=True).and_(
                         page.locator('[aria-pressed="true"]')).wait_for()
                     pressed = await page.locator('fieldset [aria-pressed="true"]').all_inner_texts()
-                    interval = await page.get_by_role("combobox", name="Rate interval", exact=True).input_value()
+                    interval = await page.get_by_role("combobox", name="Averaged over", exact=True).input_value()
                     await page.get_by_role("button", name="Remaining", exact=True).click()
                     await page.wait_for_function("!location.hash.includes('mode=')")
                     address = await page.evaluate("location.hash")
@@ -1136,6 +1236,7 @@ async def main():
                 results[name]["staleLabelFailures"] = await stale_label_failures(page, state)
                 results[name]["renewalCaveatFailures"] = await renewal_caveat_failures(page, state, width)
                 results[name]["minimizedWidthFailures"] = await minimized_width_failures(page, name)
+                results[name]["toolbarBudgetFailures"] = await check_toolbar_budget(page, name, results[name])
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -1336,13 +1437,15 @@ async def main():
                 if state == "empty":
                     assert await page.get_by_role("link", name="Open OAuth Login").get_attribute("href") == "#/oauth"
                     interaction["credential_action_targets_login"] = "passed"
+                results[name]["optionsSummaryFailures"] = await check_options_summary(page, name, state, width)
+                results[name]["optionsOverlayFailures"] = await check_options_overlay(page, name)
                 if state == "ready":
                     # Phones fold Rate behind Options; opening it shows the select.
-                    options = page.get_by_role("button", name="Options", exact=True)
+                    options = page.locator(OPTIONS_BUTTON)
                     if await options.is_visible():
                         await options.click()
                         assert await options.get_attribute("aria-expanded") == "true"
-                    interval = page.get_by_role("combobox", name="Rate interval", exact=True)
+                    interval = page.get_by_role("combobox", name="Averaged over", exact=True)
                     async with page.expect_request(
                         lambda request: "/prox/pools?" in request.url and "lookback=6" in request.url
                     ):
@@ -1365,7 +1468,8 @@ async def main():
             pageOverflow=any(r["pageOverflow"] for r in scopes),
             **{key:sum(len(r.get(key, [])) for r in scopes)
                for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures", "inkFailures", "nestingFailures", "hiddenReasonFailures", "overlapFailures",
-                        "lowColourFailures", "staleDimFailures", "staleLabelFailures", "renewalCaveatFailures", "minimizedWidthFailures"]},
+                        "lowColourFailures", "staleDimFailures", "staleLabelFailures", "renewalCaveatFailures", "minimizedWidthFailures",
+                        "toolbarBudgetFailures", "optionsSummaryFailures", "optionsOverlayFailures"]},
             errors=result["errors"],
         )
     for name, result in results.items():

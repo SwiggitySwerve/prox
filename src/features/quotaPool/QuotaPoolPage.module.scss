@@ -1334,9 +1334,6 @@ $pool-error: #ff5252;
     min-height: 44px;
     padding-inline: 8px;
   }
-  .toolbar > .segment:first-child {
-    flex-basis: 100%;
-  }
   // Settings share a row when both fit whole, and wrap to their own rows when they don't, so a
   // value or reason is never cut short.
   .chartSettings {
@@ -2014,14 +2011,11 @@ $pool-error: #ff5252;
   }
 }
 
-// Phones fold Rate and Future behind an options button on the date row; wide screens show them.
+// Phones fold the view settings behind an options button under the date row; wide screens show them.
 .dateNavigation .optionsToggle {
   display: none;
 }
 @media (max-width: 640px) {
-  .chartSettings:not([data-open]) {
-    display: none;
-  }
   .dateNavigation .optionsToggle {
     display: inline-flex;
     align-items: center;
@@ -2348,5 +2342,53 @@ $pool-error: #ff5252;
         }
       }
     }
+/* C2 */
+// From 641px the options wrapper takes no part in layout: its controls stay toolbar items.
+.viewOptions {
+  display: contents;
+}
+.groupLabel {
+  display: none;
+}
+@media (max-width: 640px) {
+  // The overlay hangs under the Options button (the toolbar's last row) and floats over the
+  // cards, so opening it shifts nothing.
+  .toolbar {
+    position: relative;
+  }
+  .viewOptions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: calc(100vw - 32px);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 12px;
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow);
+  }
+  .viewOptions:not([data-open]) {
+    display: none;
+  }
+  .groupLabel {
+    display: block;
+    color: var(--text-secondary);
+  }
+  // The date row holds the range and its steps; the Options button takes the full row below.
+  .dateNavigation {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .dateNavigation .optionsToggle {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+    padding-block: 8px;
+    text-align: left;
+    line-height: 1.3;
   }
 }

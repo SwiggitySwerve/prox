@@ -2526,6 +2526,8 @@
     "collapse_accounts": "모두 접기",
     "resets": "수동 초기화",
     "view_options": "옵션",
+    "option_window": "기간",
+    "option_measure": "측정 기준",
     "reset_chip_usable": "초기화 {{count}} · {{usable}}개 사용 가능",
     "reset_chip": "초기화 {{count}}",
     "reset_expiry_label": "다음 만료",
