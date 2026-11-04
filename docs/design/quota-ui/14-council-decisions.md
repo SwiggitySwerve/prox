@@ -159,6 +159,18 @@ It moves to "Beyond this redesign".
   - Reusing `<details>` breaks the capture invariant of 5 `article details`.
   - A toggle button would add a second pattern for the same job in the middle of a hill-climb.
 
+### 5. Card actions: labelled pills, not a card menu (amended 2026-11-05)
+
+Settled after the council, from three rounds of reviewer notes. It replaces the `⋯` card menu that `04-components` once specified.
+
+- **What ships:** every provider and Combined card shows the same `.reorder` group of labelled pills: "Minimize graph" / "Expand graph", and on provider cards "Move up" / "Move down". Each has an icon and a visible word at every width. Each is 32px tall, or 44px on coarse pointers and phones. The word is never truncated.
+- **Impossible moves:** the first card has no "Move up" and the last has no "Move down". They are not drawn, so the pills that remain sit against the card's right edge.
+- **Names:** each accessible name starts with its visible label, e.g. "Move up (Claude)".
+- **Why:**
+  - Icon-only buttons below 1600px read as "fullscreen" (the diagonal arrows) or as nothing (the up and down arrows), in all six reviewers' notes over three rounds.
+  - A menu would hide the one control that says what the card does, behind another icon.
+  - The pills don't squeeze the facts: they sit on the identity row, and drop to their own row under it when both don't fit.
+
 ## Survival Score
 
 **Modified.**

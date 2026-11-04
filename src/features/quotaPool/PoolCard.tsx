@@ -56,7 +56,7 @@ export function PoolCard({
   mode: ChartMode;
   reveal: boolean;
   savedData?: boolean;
-  /** Reorder controls; a missing direction is shown disabled. */
+  /** Reorder controls; a missing direction (first or last card) is not drawn. */
   move?: { up?: () => void; down?: () => void };
 }) {
   const { t, i18n } = useTranslation();
@@ -245,79 +245,74 @@ export function PoolCard({
                     })}
               </span>
             </div>
-            <span className={styles.reorder}>
-              <PoolGraphToggle
-                minimized={minimized}
-                onToggle={() => setMinimized((value) => !value)}
-                label={`${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel ? ` · ${pool.sourceLabel}` : ''}`}
-                controls={`${id}-plot`}
-              />
-              {move && (
-                <>
-                  <button
-                    type="button"
-                    onClick={move.up}
-                    disabled={!move.up}
-                    aria-label={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
-                    title={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
-                  >
-                    <IconArrowUp size={16} aria-hidden="true" />
-                    <span className={styles.actionLabel}>{t('quota_pool.move_up_short')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={move.down}
-                    disabled={!move.down}
-                    aria-label={t('quota_pool.move_down', {
-                      pool: t(`quota_pool.${pool.provider}`),
-                    })}
-                    title={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
-                  >
-                    <IconArrowDown size={16} aria-hidden="true" />
-                    <span className={styles.actionLabel}>{t('quota_pool.move_down_short')}</span>
-                  </button>
-                </>
-              )}
-            </span>
           </div>
-          <div
-            className={styles.headline}
-            data-unavailable={pool[metricField[mode]] === null}
-            data-rate={mode !== 'remaining'}
-            data-no-limit={pool.forecastState === 'no-limit'}
-          >
-            <strong>
-              {pool.forecastState === 'no-limit' ? (
-                <span className={styles.unavailableValue}>
-                  {t('quota_pool.no_window_limit', { window: windowLabel })}
-                </span>
-              ) : pool[metricField[mode]] === null ? (
-                // A muted word in the number slot, so a withheld total never passes for a value.
-                <span className={styles.unavailableValue}>{t('quota_pool.value_withheld')}</span>
-              ) : (
-                <>
-                  {number(pool[metricField[mode]])}
-                  {/* Rates carry their unit on the number line. */}
-                  {mode !== 'remaining' && <small> {t('quota_pool.points_hour')}</small>}
-                </>
-              )}
-            </strong>
-            <div className={styles.headlineContext}>
-              <p className={styles.metricLabel}>
-                {mode !== 'remaining'
-                  ? t('quota_pool.recorded_rate', {
-                      rate: t(`quota_pool.${mode}`),
-                      hours: dashboard.lookbackHours,
-                    })
-                  : balanceLabel}
-              </p>
-              {/* Remaining adds its scale on a second line; rates keep their unit beside the number. */}
-              {mode === 'remaining' && (
-                <span>
-                  {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
-                </span>
-              )}
-            </div>
+          <span className={styles.reorder}>
+            <PoolGraphToggle
+              minimized={minimized}
+              onToggle={() => setMinimized((value) => !value)}
+              label={`${t(`quota_pool.${pool.provider}`)}${pool.sourceLabel ? ` · ${pool.sourceLabel}` : ''}`}
+              controls={`${id}-plot`}
+            />
+            {/* A move that can't happen (first or last card) isn't drawn. */}
+            {move?.up && (
+              <button
+                type="button"
+                onClick={move.up}
+                aria-label={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
+                title={t('quota_pool.move_up', { pool: t(`quota_pool.${pool.provider}`) })}
+              >
+                <IconArrowUp size={16} aria-hidden="true" />
+                {t('quota_pool.move_up_short')}
+              </button>
+            )}
+            {move?.down && (
+              <button
+                type="button"
+                onClick={move.down}
+                aria-label={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
+                title={t('quota_pool.move_down', { pool: t(`quota_pool.${pool.provider}`) })}
+              >
+                <IconArrowDown size={16} aria-hidden="true" />
+                {t('quota_pool.move_down_short')}
+              </button>
+            )}
+          </span>
+        </div>
+        <div
+          className={styles.headline}
+          data-unavailable={pool[metricField[mode]] === null}
+          data-rate={mode !== 'remaining'}
+          data-no-limit={pool.forecastState === 'no-limit'}
+        >
+          <strong>
+            {pool.forecastState === 'no-limit' ? (
+              <span className={styles.unavailableValue}>
+                {t('quota_pool.no_window_limit', { window: windowLabel })}
+              </span>
+            ) : pool[metricField[mode]] === null ? (
+              // A muted word in the number slot, so a withheld total never passes for a value.
+              <span className={styles.unavailableValue}>{t('quota_pool.value_withheld')}</span>
+            ) : (
+              <>
+                {number(pool[metricField[mode]])}
+                {/* Rates carry their unit on the number line. */}
+                {mode !== 'remaining' && <small> {t('quota_pool.points_hour')}</small>}
+              </>
+            )}
+          </strong>
+          <div className={styles.headlineContext}>
+            <p className={styles.metricLabel}>
+              {mode !== 'remaining'
+                ? t('quota_pool.recorded_rate', {
+                    rate: t(`quota_pool.${mode}`),
+                    hours: dashboard.lookbackHours,
+                  })
+                : balanceLabel}
+            </p>
+            {/* Remaining adds its scale on a second line; rates keep their unit beside the number. */}
+            {mode === 'remaining' && (
+              <span>{t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}</span>
+            )}
           </div>
         </div>
         {/* Every view has the same two groups: "Now" holds the one measured fact the headline

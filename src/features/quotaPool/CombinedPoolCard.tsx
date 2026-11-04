@@ -67,7 +67,7 @@ export function CombinedPoolCard({
     <section className={`${styles.pool} ${styles.combined}`} aria-labelledby={`${id}-title`}>
       <div className={styles.graphHeader}>
         <h2 id={`${id}-title`}>{t('quota_pool.combined_usage')}</h2>
-        {/* The chart's view control sits on the card's title row, next to the chart toggle. */}
+        {/* The chart's view control sits beside the actions on wide cards; below the title row otherwise. */}
         <div className={styles.combinedOptions}>{viewSelect}</div>
         <span className={styles.reorder}>
           <PoolGraphToggle

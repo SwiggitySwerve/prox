@@ -56,7 +56,7 @@ At most one [R§3], directly under the page header.
 
 ```
 ┌ header ─────────────────────────────────────────────────────────────────┐
-│ ✳ Claude  3 accounts  [◐ Partial]                    [⤡] [⋯]               │
+│ ✳ Claude  3 accounts  [◐ Partial]        [⤡ Minimize graph] [↓ Move down]   │
 ├ summary ────────────────────────────────────────────────────────────────┤
 │ 248.4                        │ WEEKLY FORECAST                             │
 │ Weekly remaining             │ Pool empty   First empty   Next reset   Burn rate (3h) │
@@ -72,7 +72,9 @@ At most one [R§3], directly under the page header.
 ### Header
 
 - Provider mark, title (`type-title`), account count, then the status chip. The chip shows in every state in one pill shape with a word and an icon; "Forecast: Ready" is neutral (secondary text, check icon), the others keep their tone (council decision 1).
-- Right side: chart-specific control (combined card only: "Stacked / Provider lines"), collapse (`control-icon`), card menu `⋯` with "Move up" / "Move down" (disabled items show why) [R§1: secondary actions in one icon dropdown].
+- Right side, the same `.reorder` group on every card: labelled pills with icons, "Minimize graph" / "Expand graph" and, on provider cards, "Move up" / "Move down". The words show at every width, are never truncated, and sit on one line. Pills are 32px tall (44px on coarse pointers and phones). An impossible move (first card up, last card down) isn't drawn. Each accessible name starts with its visible label, e.g. "Move up (Claude)". There is no card menu: a menu hides the one control that says what the card does (`14-council-decisions` §5).
+- Combined card: a chart-view select ("Stacked providers" / "Provider lines") sits beside the actions from 901px up, on its own right-aligned row under the title and actions at 641–900px, and on its own row under the title and toggle on phones (the heading and toggle keep one row; the heading may wrap).
+- Provider cards: identity (name, account count, chip) on the left and the actions on the right. If both don't fit on one line, the actions take their own row directly under the identity, right-aligned from 641px up and left-aligned on phones. On phones the rows are name, then count and chip, then actions.
 
 ### Summary: headline
 
@@ -83,7 +85,7 @@ At most one [R§3], directly under the page header.
 ### Summary: facts
 
 - A labelled group: section heading names the window ("Weekly forecast" / "5-hour forecast") — this also answers "are these weekly facts?" in the 5-hour view.
-- Four fixed slots. Every slot reserves three lines: label (`type-label`), value (`type-body` 500), aside (`type-label`). Four across only at ≥ 1200px card width; 2 × 2 below; a list on narrow.
+- Four fixed slots. Every slot reserves three lines: label (`type-label`), value (`type-body` 500), aside (`type-label`). Four across only at ≥ 1200px card width (headline, then Now and the three forecast facts on one row). From 720px, Now sits beside Forecast, and Forecast's facts fall into two columns. Below 720px the facts stack full width under the headline as a label-left, value-right list. Fact columns are sized to their content (at most 16rem), left-aligned directly after the headline block, and never stretched across the card or right-aligned. A fact's value never wraps or clips.
 
 | Slot | Remaining view | Drain / Burn view | Combined card |
 |---|---|---|---|

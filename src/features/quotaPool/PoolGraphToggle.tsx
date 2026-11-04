@@ -30,9 +30,7 @@ export function PoolGraphToggle({
       onClick={onToggle}
     >
       <Icon size={16} aria-hidden="true" />
-      <span className={styles.actionLabel}>
-        {t(minimized ? 'quota_pool.expand_graph' : 'quota_pool.minimize_graph')}
-      </span>
+      {t(minimized ? 'quota_pool.expand_graph' : 'quota_pool.minimize_graph')}
     </button>
   );
 }
