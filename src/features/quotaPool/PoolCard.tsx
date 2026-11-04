@@ -594,17 +594,23 @@ export function PoolCard({
                 ) : (
                   <IconAlertTriangle size={14} aria-hidden="true" />
                 )}
-                {t('quota_pool.accounts_low', { count: lowAccountCount })}
+                {t(lowOnly ? 'quota_pool.accounts_low_on' : 'quota_pool.accounts_low', {
+                  count: lowAccountCount,
+                })}
               </button>
             )}
+            {/* Always the last item: rows on screen of all accounts, plus the matches while filtering. */}
             <span className={styles.rosterCount} role="status">
-              {/* Filtering counts here, against the whole roster; paging counts by "Show more". */}
-              {query || lowOnly || affectedOnly
-                ? t('quota_pool.accounts_shown', {
-                    shown: visibleAccounts.length,
-                    total: pool.accounts.length,
-                  })
-                : null}
+              {t(
+                query || lowOnly || affectedOnly
+                  ? 'quota_pool.accounts_shown_match'
+                  : 'quota_pool.accounts_shown',
+                {
+                  shown: pageAccounts.length,
+                  total: pool.accounts.length,
+                  count: visibleAccounts.length,
+                }
+              )}
             </span>
           </div>
         )}
@@ -877,12 +883,6 @@ export function PoolCard({
                 count: visibleAccounts.length - pageAccounts.length,
               })}
             </button>
-            <span className={styles.rosterCount}>
-              {t('quota_pool.accounts_shown', {
-                shown: pageAccounts.length,
-                total: visibleAccounts.length,
-              })}
-            </span>
           </div>
         )}
       </section>
