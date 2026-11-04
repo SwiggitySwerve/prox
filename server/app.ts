@@ -5,11 +5,23 @@ import { readFileSync } from 'node:fs';
 import { buildDashboard } from './quota/domain';
 import type { CollectionState, DashboardOptions } from './quota/domain';
 import type { QuotaStore } from './quota/store';
-import { DAY_MS, HOUR_MS } from './quota/types';
+import { buildInventory, inventoryVersion, type InventorySourceStatus } from './quota/inventory';
+import { DAY_MS, HOUR_MS, type InventoryChange } from './quota/types';
+
+/** `GET /v1/inventory` re-reads the sources when the last read is older than this. */
+const INVENTORY_FRESH_MS = 5000;
+const MAX_SYNC_BODY_BYTES = 256 * 1024;
+const MAX_DELETED_NAMES = 200;
+const MAX_NAME_LENGTH = 1024;
+const SYNC_REASONS = ['add', 'delete', 'change'] as const;
 
 interface CollectorState extends Omit<CollectionState, 'historyStartedAtMs'> {
   refresh(): Promise<void>;
   refreshAccount(accountId: string): Promise<boolean>;
+  syncInventory(options?: { deletedNames?: readonly string[] }): Promise<InventoryChange>;
+  pollAdded(accountIds: readonly string[]): Promise<void>;
+  inventorySources: readonly InventorySourceStatus[];
+  inventorySyncedAtMs: number | null;
 }
 export interface AppDependencies {
   store: QuotaStore;
@@ -54,6 +66,35 @@ export function authorized(request: Request, keyFile: string): boolean {
   if (!key) throw new Error('Management key unavailable');
   const digest = (value: string) => createHash('sha256').update(value).digest();
   return timingSafeEqual(digest(key), digest(header.slice(7)));
+}
+
+/** `If-None-Match` per RFC 9110: a list of entity tags (weak ones compare equal) or `*`. */
+function etagMatches(header: string | null, etag: string): boolean {
+  if (!header) return false;
+  return header
+    .split(',')
+    .map((candidate) => candidate.trim().replace(/^W\//, ''))
+    .some((candidate) => candidate === '*' || candidate === etag);
+}
+
+type SyncRequest = { reason: (typeof SYNC_REASONS)[number]; deletedNames: string[] };
+function parseSyncRequest(text: string): SyncRequest | null {
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!isRecord(body) || !SYNC_REASONS.some((reason) => reason === body.reason)) return null;
+  const names = body.deletedNames ?? [];
+  if (
+    !Array.isArray(names) ||
+    names.length > MAX_DELETED_NAMES ||
+    names.some((name) => typeof name !== 'string' || !name.trim() || name.length > MAX_NAME_LENGTH)
+  ) {
+    return null;
+  }
+  return { reason: body.reason as SyncRequest['reason'], deletedNames: names as string[] };
 }
 
 export function createHandler({ store, collector, keyFile, now = Date.now }: AppDependencies) {
@@ -118,6 +159,72 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
         return fullRefresh();
       })();
     }
+    if (url.pathname === '/v1/inventory' && request.method === 'GET') {
+      return (async () => {
+        const syncedAtMs = collector.inventorySyncedAtMs;
+        if (syncedAtMs === null || now() - syncedAtMs > INVENTORY_FRESH_MS) {
+          // Reconcile lazily so an outside change shows within one poll. A failed read retires
+          // nothing and leaves the last known inventory in place.
+          try {
+            const change = await collector.syncInventory();
+            void collector.pollAdded(change.added).catch(() => {});
+          } catch {
+            console.error('Quota inventory reconcile failed');
+          }
+        }
+        try {
+          const view = buildInventory(
+            store.listAccounts(),
+            collector.inventorySources,
+            collector.inventorySyncedAtMs
+          );
+          const etag = `"${view.version}"`;
+          if (etagMatches(request.headers.get('if-none-match'), etag)) {
+            return new Response(null, {
+              status: 304,
+              headers: { ETag: etag, 'Cache-Control': 'no-store' },
+            });
+          }
+          const response = json(view);
+          response.headers.set('ETag', etag);
+          return response;
+        } catch {
+          console.error('Quota inventory read failed');
+          return json({ error: 'Credential inventory is temporarily unavailable' }, 503);
+        }
+      })();
+    }
+    if (url.pathname === '/v1/inventory/sync' && request.method === 'POST') {
+      return (async () => {
+        let parsed: SyncRequest | null = null;
+        if (request.body) {
+          try {
+            parsed = parseSyncRequest(await readText(request.body, MAX_SYNC_BODY_BYTES));
+          } catch {
+            parsed = null;
+          }
+        }
+        if (!parsed) return json({ error: 'Invalid inventory sync body' }, 400);
+        try {
+          // Only an explicit delete may purge by name; any other reason just reconciles.
+          const change = await collector.syncInventory({
+            deletedNames: parsed.reason === 'delete' ? parsed.deletedNames : [],
+          });
+          void collector.pollAdded(change.added).catch(() => {});
+          if (collector.inventorySources.every((source) => source.state === 'unavailable')) {
+            return json({ error: 'Credential inventory is unavailable' }, 503);
+          }
+          return json({
+            version: inventoryVersion(store.listAccounts()),
+            added: change.added.length,
+            removed: change.removed.length + change.purged.length,
+          });
+        } catch {
+          console.error('Quota inventory sync failed');
+          return json({ error: 'Credential inventory is unavailable' }, 503);
+        }
+      })();
+    }
     if (url.pathname !== '/v1/pools' || request.method !== 'GET')
       return json({ error: 'Not found' }, 404);
     let options: DashboardOptions;
@@ -134,9 +241,10 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
           6 * HOUR_MS
       );
       const firstSamples = store.firstSampleTimes();
-      return json(
-        buildDashboard(
-          store.listAccounts().map((account) => ({
+      const accounts = store.listAccounts();
+      return json({
+        ...buildDashboard(
+          accounts.map((account) => ({
             ...account,
             firstSampleAtMs: firstSamples.get(account.id) ?? null,
           })),
@@ -153,8 +261,9 @@ export function createHandler({ store, collector, keyFile, now = Date.now }: App
             resets: collector.resets,
             billing: collector.billing,
           }
-        )
-      );
+        ),
+        inventoryVersion: inventoryVersion(accounts),
+      });
     } catch {
       console.error('Quota dashboard read failed');
       return json({ error: 'Quota history is temporarily unavailable' }, 503);

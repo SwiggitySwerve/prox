@@ -26,6 +26,18 @@ credential UI. The store owns persistence; the collector uses only public APIs.
   and unresolved; scoped dashboards expose its count without assigning its quota.
   New occurrences cannot claim an old ID without its persisted ownership alias.
   The original 30-day collection retention rule remains separate from migration.
+- The credential inventory is one read model, versioned by a hash of the active
+  `[instanceId, provider, accountId, disabled]` tuples (no names or emails), served at
+  `/v1/inventory` (ETag) and echoed on `/v1/pools`. `syncInventory()` re-reads only the
+  credential lists: single flight, one-second floor, outside the manual-refresh limit, never a
+  usage API. Only `<name>.json` entries count. A read that fails or is malformed changes nothing.
+  Reads are numbered per source, and a result older than one already applied is dropped.
+- Retiring an account clears its email, replaces its name and stamps `retiredAtMs` in the same
+  transaction; coming back restores them. A credential the user deleted by name (delete sync)
+  that a fresh validated inventory confirms gone is purged at once, children first. Any other
+  retired account is purged 24 hours after `retiredAtMs`: absence alone (an unmounted auth
+  directory looks the same) is not proof of intent. The collector forgets a retired account's
+  in-memory readings, aborts its polls and persists nothing for an account that is no longer live.
 - Dashboard arithmetic runs separately for each instance/provider using the same
   source-local rules below. Equal emails, filenames or auth indices do not merge
   occurrences. Multiple same-provider sources expose unavailable combined values

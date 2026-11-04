@@ -116,6 +116,8 @@ export interface PoolDashboard {
   lookbackHours: 1 | 3 | 6;
   multiplier: 0 | 0.5 | 1 | 2;
   historyStartedAtMs: number | null;
+  /** Membership version of the credential inventory this pool was built from. */
+  inventoryVersion?: string;
   lastRefreshAtMs: number | null;
   nextRefreshAtMs: number;
   refreshing: boolean;
