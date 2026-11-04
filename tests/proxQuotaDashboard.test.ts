@@ -999,8 +999,10 @@ describe('pool presentation', () => {
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(
-      /<li data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span title="Low">[\s\S]*?<span>Low<\/span>[\s\S]*?12.0%/
+      /<li data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span><span aria-hidden="true">[\s\S]*?<\/span><span>Low<\/span><\/span>12.0%/
     );
+    // The visible word is the accessible text: no second, hidden "Low" beside it.
+    expect(markup.match(/>Low</g)).toHaveLength(1);
     expect(markup).toMatch(/<li data-low="false"[^>]*><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64.0%/);
     // Accounts start collapsed (numbers only); one control expands the whole section.
     expect(markup).toMatch(
@@ -1089,9 +1091,9 @@ describe('pool presentation', () => {
     expect(markup).toContain(
       '<span data-counted="true">Weekly remaining<small>counts toward total</small></span>'
     );
-    // The phone heading label, the column heading and the row's own limit name it once each; the
-    // table has no duplicate balance column.
-    expect(markup.match(/Weekly remaining/g)).toHaveLength(3);
+    // The column heading and the row's own limit name it once each; the section heading doesn't
+    // repeat it and the table has no duplicate balance column.
+    expect(markup.match(/Weekly remaining/g)).toHaveLength(2);
   });
   test('a low balance is marked on the row as well as on its limit', async () => {
     await i18n.changeLanguage('en');

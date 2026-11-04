@@ -22,7 +22,7 @@ ACCOUNTS                                                          2 of 3 current
 
 - One row under the section heading [R§4: ≤ 5 toolbar actions]: search, sort, low filter, count, expand all. Count and Expand all sit right.
 - Scoped labels: "Search Claude accounts"; sort options "Name A–Z" (default: stable across the 15s reloads, honest; the server order is sha256-id order) and "Lowest limit first" (accounts with no data first, then lowest percent, then name) [R§4: one column sorted by default; council decision 4b].
-- Low filter: a toggle chip labelled with its rule, "Below 20% (40)". Off = outline; on = filled with a leading check and `aria-pressed` [R§4: chips]. The red stays on the low values.
+- Low filter: a toggle chip labelled with its rule, "Below 20% (40)". Off = outline; on = filled with a leading check and `aria-pressed` [R§4: chips]. The red stays on the low values' icon and bar; the chip keeps its wording.
 - Search filters live, resets paging to the first page, and the count reads "Showing 12 of 120".
 - "Expand all" appears only when the list shows ≤ 25 rows and is never on by default [R§4].
 - On rosters over 25 rows, the toolbar and the column header are sticky within the card while the list scrolls past.
@@ -33,7 +33,7 @@ ACCOUNTS                                                          2 of 3 current
 - Column tracks are shared by every provider table on the page (a limit an account lacks leaves an empty track), so Claude and Codex columns line up.
 - Plan always reads "Pro · 100 points".
 - Limit cell: value right-aligned with tabular figures, then the bar [R§4]. Empty cells use one pattern: muted text ("Unavailable", "No 5-hour limit") over a dashed empty track.
-- Low (< 20%): critical value, ⚠ icon, critical fill; the track stays neutral.
+- Low (< 20%): neutral value, a critical ⚠ icon (`aria-hidden`) beside the visible word "Low" (`quota_pool.limit_low`, `--text-secondary`, weight 600, never red), critical fill; the track stays neutral. The visible word is the accessible text, so nothing reads "Low Low" (S5).
 - Row: 40/48px; the whole summary row is the toggle (a button with `aria-expanded`); chevron 16px in a 32px cell, centred on the first text line.
 
 ## Expanded row
@@ -53,7 +53,17 @@ One anatomy at every roster size:
 ```
 
 - The counted limit is the row value, captioned with its name; the other limits are one compact line (value + mini bar each), always shown, at every roster size.
-- A low limit stays in the compact line, critical with ⚠. Stale adds one line ("◷ Stale since 11:00 AM"). Unavailable replaces that limit's value with "Unavailable".
+- A low limit stays in the compact line: neutral value, red ⚠ and bar, and the visible word "Low" (S5). Stale adds one line, "◷ Stale · Last reading 11:00 AM", in amber with a clock icon, on one line; values and bars keep the normal colour and opacity (S6). Unavailable replaces that limit's value with "Unavailable".
+
+## Minimized list (≥ 901px)
+
+- A minimized card's closed rows form one bounded grid across the card's content width: columns `minmax(0,2fr) minmax(0,1fr) minmax(0,1fr)` under a header row, Account | `<active window> remaining` | Other low limits.
+- The primary column holds the active window's remaining value (weekly or 5-hour), right-aligned, with the low mark when it is low. The third column holds every other low limit, including Weekly Opus, as label, value, ⚠ and "Low"; it is empty when there are none. The reset chip stays in the Account cell, and "Expand all" stays beside the list header.
+- Opening a row restores every limit and fact, spanning all columns. At ≤ 900px the minimized list keeps its single bounded column.
+
+## Estimated renewals (S7)
+
+On the Quota Management page each estimated renewal reads "Estimated · from start date" (`quota_pool.billing_estimate_from_start`). One caveat, "Renewal dates are estimated from each plan's start date; annual plans differ.", sits directly under the Accounts header of every provider section that has an estimated renewal among any of its accounts, whatever the search, filter or paging. Known dates and end-date fallbacks keep their meaning.
 - Open rows add each limit's reset time beside it and the account facts as label/value rows.
 
 ## Paging
