@@ -5,7 +5,8 @@ Closes: low chip state, no-limit cell, detail type sizes, expanded detail grid, 
 ## Anatomy (wide)
 
 ```
-ACCOUNTS                                                          2 of 3 current
+ACCOUNTS
+Manual resets 1   Usable now 2   Current 2   Stale 1
 [🔍 Search Claude accounts] [Sort: Name A–Z ▾] [Show 40 with a limit below 20%]   25 of 120 shown
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │    Account                Plan               5-hour         Weekly          Weekly Opus      │
@@ -23,7 +24,7 @@ ACCOUNTS                                                          2 of 3 current
 - One row under the section heading [R§4: ≤ 5 toolbar actions]: search, sort, filter chip(s), then the count as the toolbar's last item. From 641px it is one wrapping row; at 640px and below search, sort, each chip and the count take a full-width row each, in that order, with 44px targets. Expand all sits in the section heading.
 - Scoped labels: "Search Claude accounts"; sort options "Name A–Z" (default: stable across the 15s reloads, honest; the server order is sha256-id order) and "Lowest limit first" (accounts with no data first, then lowest percent, then name) [R§4: one column sorted by default; council decision 4b].
 - Filter chip: a toggle labelled with its rule. Off = outline with the warning icon, "Show 40 with a limit below 20%". On = "Filtering to 40 with a limit below 20%", `aria-pressed="true"`, a leading check, the page's selected-segment fill (clearly lighter than off, ΔE ≥ 12) and a border that reads 3:1 against the card [R§4: chips]. The affected chip keeps "Affected (N)" and takes the same filled style. The red stays on the low values' icon and bar.
-- Search filters live, resets paging to the first page, and the count reads "12 of 120 shown · 12 match", or "12 of 120 match" when every match is on screen.
+- Search filters live, resets paging to the first page, and the count reads "25 of 40 matches shown · 120 total" (D < F), or "12 of 120 match" when every match is on screen (D = F). See Paging for the full table.
 - "Expand all" appears only when the list shows ≤ 25 rows and is never on by default [R§4].
 - On rosters over 25 rows, the toolbar and the column header are sticky within the card while the list scrolls past.
 
@@ -64,9 +65,22 @@ One anatomy at every roster size:
 
 ## Estimated renewals (S7)
 
-On the Quota Management page each estimated renewal reads "Estimated · from start date" (`quota_pool.billing_estimate_from_start`). One caveat, "Renewal dates are estimated from each plan's start date; annual plans differ.", sits directly under the Accounts header of every provider section that has an estimated renewal among any of its accounts, whatever the search, filter or paging. Known dates and end-date fallbacks keep their meaning.
+On the Quota Management page each estimated renewal reads "Estimated · from start date" (`quota_pool.billing_estimate_from_start`). One caveat, "Renewal dates are estimated from each plan's start date; annual plans differ.", sits once at the end of every provider's Accounts section that has an estimated renewal among any of its accounts (after the list and the optional Show more footer, never inside a row or disclosure), whatever the search, filter or paging, including a search with no match. Known dates and end-date fallbacks keep their meaning.
 - Open rows add each limit's reset time beside it and the account facts as label/value rows.
+
+## Accounts header summary
+
+- All summary items sit in one wrapping group under the heading. Each is a label element and a value element; values use the Manual resets value style (weight 500, tabular figures). A pair wraps as a unit and never breaks inside or overflows its container, down to 320px.
+- Items, each only when it applies: "Manual resets N", "Usable now N", "Reporting X of Y", "Current N", "Stale N", "5-hour limit X of Y".
+- The "Resets N" / "Resets N · N usable" chip in a closed row is a read-only status chip, not a control: no border, a subtle fill at least 1.15:1 against the closed, hovered and open row, `--radius-md`, text of 13px or more at 4.5:1 on that fill. "Usable" keeps its brighter neutral text so the two states stay distinct.
 
 ## Paging
 
-- 25 rows, then "Show 25 more". The count lives in the toolbar only, never in the footer [R§4: X of Y viewed]: "25 of 120 shown" (D of T), plus " · 40 match" (F) while a filter or search is active. When D = F it reads "F of T match" instead ("40 of 120 match"). D = rows on screen, F = rows matching the filter or search, T = all accounts in the provider. Rosters with no toolbar (8 or fewer accounts, and not affected-only) show no count.
+- 25 rows, then "Show 25 more". The count lives in the toolbar only, never in the footer [R§4: X of Y viewed]. D = rows on screen, F = rows matching the filter or search, T = all accounts in the provider. Rosters with no toolbar (8 or fewer accounts, and not affected-only) show no count. The text, with i18next plurals on count = F in every locale:
+
+| State | Text |
+|---|---|
+| No filter or search | "{D} of {T} shown" |
+| Filter or search, D < F | "{D} of {F} matches shown · {T} total" |
+| Filter or search, D = F | "{F} of {T} match" ("1 of 3 matches") |
+| F = 0 | "No matches · {T} total" |

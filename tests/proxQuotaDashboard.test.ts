@@ -1129,7 +1129,7 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toContain('1 of 2 have a 5-hour limit');
+    expect(markup).toMatch(/>5-hour limit<\/span> <b[^>]*>1 of 2<\/b>/);
     expect(markup).not.toContain('loaded ·');
   });
   test('a partial pool counts the accounts missing data and offers to show them; the combined card offers one refresh', async () => {
@@ -1203,8 +1203,8 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toContain('1 current');
-    expect(markup).toContain('1 stale');
+    expect(markup).toMatch(/>Current<\/span> <b[^>]*>1<\/b>/);
+    expect(markup).toMatch(/>Stale<\/span> <b[^>]*>1<\/b>/);
   });
   test('a forecast beyond the range says when the range ends', async () => {
     await i18n.changeLanguage('en');

@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -50,6 +51,16 @@ const CHIP_ICONS: Record<PoolChipIcon, typeof IconCheck> = {
   collecting: IconTimer,
   info: IconInfo,
 };
+
+/** One label/value pair of the Accounts summary; the pair wraps as a unit, never inside. */
+function SummaryFact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className={styles.summaryFact}>
+      <span className={styles.summaryLabel}>{label}</span>{' '}
+      <b className={styles.summaryValue}>{children}</b>
+    </span>
+  );
+}
 
 const STACKED_FACTS = '(max-width: 900px)';
 /** At 900px and below an opened row reads: limits, Manual resets, Usage, Billing. Rendered on the server, rows are wide. */
@@ -268,6 +279,8 @@ export function PoolCard({
           },
     { available: 0, usable: 0 }
   );
+  const coverageMissing =
+    pool.loadedCount !== pool.accountCount || pool.eligibleCount !== pool.accountCount;
   const chip = poolChip(pool.forecastState, savedData);
   const ChipIcon = CHIP_ICONS[chip.icon];
   const headlineContext = (
@@ -471,54 +484,55 @@ export function PoolCard({
             <span>
               <b className={styles.accountHeadingLabel}>{t('quota_pool.accounts')}</b>
             </span>
-            {/* Reset facts and data-reporting facts are separate lines of small label/value items. */}
-            {resetTotals.available > 0 && (
+            {/* Reset facts and data-reporting facts are one wrapping group of label/value pairs. */}
+            {(resetTotals.available > 0 || coverageMissing) && (
               <span className={styles.accountSummary}>
-                <span>
-                  {t('quota_pool.resets')} <b>{resetTotals.available}</b>
-                </span>
-                {/* Kept beside the total: a minimized card's rows don't show their own markers. */}
-                {resetTotals.usable > 0 && (
-                  <span>
-                    {t('quota_pool.reset_usable')} <b>{resetTotals.usable}</b>
-                  </span>
+                {resetTotals.available > 0 && (
+                  <SummaryFact label={t('quota_pool.resets')}>{resetTotals.available}</SummaryFact>
                 )}
-              </span>
-            )}
-            {/* The card header already counts the accounts; say coverage only when some are missing. */}
-            {(pool.loadedCount !== pool.accountCount ||
-              pool.eligibleCount !== pool.accountCount) && (
-              <span className={styles.accountSummary}>
-                {/* In the 5-hour view an account without that limit is excluded, not missing. */}
-                {staleAccounts.length > 0 ? (
+                {/* Kept beside the total: a minimized card's rows don't show their own markers. */}
+                {resetTotals.available > 0 && resetTotals.usable > 0 && (
+                  <SummaryFact label={t('quota_pool.reset_usable')}>
+                    {resetTotals.usable}
+                  </SummaryFact>
+                )}
+                {/* The card header already counts the accounts; say coverage only when some are missing.
+                    In the 5-hour view an account without that limit is excluded, not missing. */}
+                {coverageMissing && staleAccounts.length > 0 ? (
                   <>
-                    <span>{t('quota_pool.coverage_current', { count: pool.loadedCount })}</span>
-                    <span>{t('quota_pool.coverage_stale', { count: staleAccounts.length })}</span>
+                    <SummaryFact label={t('quota_pool.summary_current')}>
+                      {pool.loadedCount}
+                    </SummaryFact>
+                    <SummaryFact label={t('quota_pool.summary_stale')}>
+                      {staleAccounts.length}
+                    </SummaryFact>
                   </>
-                ) : noLimitCount > 0 ? (
+                ) : coverageMissing && noLimitCount > 0 ? (
                   <>
-                    <span>
-                      {t('quota_pool.coverage_with_limit', {
-                        eligible: pool.eligibleCount,
-                        total: pool.accountCount,
+                    <SummaryFact label={t('quota_pool.summary_five_hour_limit')}>
+                      {t('quota_pool.summary_x_of_y', {
+                        x: pool.eligibleCount,
+                        y: pool.accountCount,
                       })}
-                    </span>
+                    </SummaryFact>
                     {pool.loadedCount < pool.eligibleCount && (
-                      <span>
-                        {t('quota_pool.coverage', {
-                          loaded: pool.loadedCount,
-                          eligible: pool.eligibleCount,
+                      <SummaryFact label={t('quota_pool.summary_reporting')}>
+                        {t('quota_pool.summary_x_of_y', {
+                          x: pool.loadedCount,
+                          y: pool.eligibleCount,
                         })}
-                      </span>
+                      </SummaryFact>
                     )}
                   </>
                 ) : (
-                  <span>
-                    {t('quota_pool.coverage', {
-                      loaded: pool.loadedCount,
-                      eligible: pool.eligibleCount,
-                    })}
-                  </span>
+                  coverageMissing && (
+                    <SummaryFact label={t('quota_pool.summary_reporting')}>
+                      {t('quota_pool.summary_x_of_y', {
+                        x: pool.loadedCount,
+                        y: pool.eligibleCount,
+                      })}
+                    </SummaryFact>
+                  )
                 )}
               </span>
             )}
@@ -536,9 +550,6 @@ export function PoolCard({
             </button>
           )}
         </h3>
-        {hasEstimatedRenewal && (
-          <p className={styles.renewalCaveat}>{t('quota_pool.billing_estimate_caveat')}</p>
-        )}
         {(showRosterControls || affectedOnly) && (
           <div className={styles.rosterTools}>
             {showRosterControls && (
@@ -599,21 +610,26 @@ export function PoolCard({
                 })}
               </button>
             )}
-            {/* Always the last item: rows on screen of all accounts, plus the matches while filtering.
-                When every match is on screen, "shown" and "match" are the same number, so it says it once. */}
+            {/* Always the last item: D of T shown; while filtering, D of F matches shown · T total.
+                When every match is on screen (D = F) it says "F of T match" once; no match says so. */}
             <span className={styles.rosterCount} role="status">
-              {t(
-                query || lowOnly || affectedOnly
-                  ? pageAccounts.length === visibleAccounts.length
-                    ? 'quota_pool.accounts_match_only'
-                    : 'quota_pool.accounts_shown_match'
-                  : 'quota_pool.accounts_shown',
-                {
-                  shown: pageAccounts.length,
-                  total: pool.accounts.length,
-                  count: visibleAccounts.length,
-                }
-              )}
+              {!(query || lowOnly || affectedOnly)
+                ? t('quota_pool.accounts_shown', {
+                    shown: pageAccounts.length,
+                    total: pool.accounts.length,
+                  })
+                : visibleAccounts.length === 0
+                  ? t('quota_pool.accounts_no_match', { count: 0, total: pool.accounts.length })
+                  : pageAccounts.length < visibleAccounts.length
+                    ? t('quota_pool.accounts_matches_shown', {
+                        shown: pageAccounts.length,
+                        count: visibleAccounts.length,
+                        total: pool.accounts.length,
+                      })
+                    : t('quota_pool.accounts_match_only', {
+                        count: visibleAccounts.length,
+                        total: pool.accounts.length,
+                      })}
             </span>
           </div>
         )}
@@ -882,6 +898,10 @@ export function PoolCard({
               })}
             </button>
           </div>
+        )}
+        {/* After the list and its Show more footer, never inside a row or a disclosure. */}
+        {hasEstimatedRenewal && (
+          <p className={styles.renewalCaveat}>{t('quota_pool.billing_estimate_caveat')}</p>
         )}
       </section>
     </article>

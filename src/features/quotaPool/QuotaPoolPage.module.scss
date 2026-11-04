@@ -673,16 +673,6 @@ $pool-error: #ff5252;
   gap: 0 16px;
   font-size: 13px;
   font-weight: 400;
-  > span {
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-  b {
-    margin-left: 4px;
-    color: var(--text-primary);
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-  }
 }
 .page .expandAccounts {
   margin-left: auto;
@@ -1946,16 +1936,17 @@ $pool-error: #ff5252;
   display: inline-block;
   margin-left: 8px;
   padding: 0 8px;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
+  // A read-only status chip: a quiet fill (about 1.25:1 on closed, hovered and open rows), no outline.
+  border: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 20px;
   white-space: nowrap;
   vertical-align: 1px;
   // Usable now: brighter, in a neutral tone, so the provider colour keeps its one meaning.
   &[data-usable] {
-    border-color: var(--text-tertiary);
     color: var(--text-primary);
   }
 }
@@ -2264,10 +2255,10 @@ $pool-error: #ff5252;
   margin-inline-end: 4px;
   vertical-align: -2px;
 }
-// One caveat per provider Accounts section, directly under its header.
+// One caveat per provider Accounts section, after the list and its Show more footer.
 .renewalCaveat {
   margin: 0;
-  padding: 0 0 6px;
+  padding: 6px 0 0;
   color: var(--text-secondary);
   font-size: 13px;
 }
@@ -2671,4 +2662,20 @@ $pool-error: #ff5252;
     text-align: start;
     white-space: normal;
   }
+}
+
+/* A */
+// Accounts summary: label/value pairs in one wrapping group. A pair wraps as a unit, never inside,
+// and its value keeps the Manual resets style (weight 500, tabular figures).
+.summaryFact {
+  max-width: 100%;
+  white-space: nowrap;
+}
+.accountSummary .summaryLabel {
+  color: var(--text-secondary);
+}
+.accountSummary .summaryValue {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }

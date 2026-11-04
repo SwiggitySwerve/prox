@@ -406,37 +406,81 @@ async def stale_label_failures(page, state):
     }""")
 
 
-async def renewal_caveat_failures(page, state, width):
-    """I4: one caveat in each Accounts section with an estimated renewal, none elsewhere; short basis on one line."""
+A_PAGED_CASES = ("many", "many-low", "many-narrow")  # rosters that offer Show more
+CAVEAT_EN = "Renewal dates are estimated from each plan's start date; annual plans differ."
+# Reads every Accounts section: the caveat's place, count and text. Returns {out, texts} for one page state.
+CAVEAT_JS = "() => {" + C3_HELPERS + r"""
+  const out=[],texts=[],caveat='[class*="__renewalCaveat___"]';
+  for(const article of document.querySelectorAll('article')){
+    const section=article.querySelector('section[class*="__accounts___"]'),card=article.querySelector('h2').textContent;
+    // Fixture: every Claude account's renewal is estimated from its start date; Codex reports its dates.
+    const want=/claude/i.test(card)?1:0,got=[...section.querySelectorAll(caveat)];
+    if(got.length!==want)out.push({card,why:'expected '+want+' caveat(s), found '+got.length});
+    const grid=section.querySelector('[class*="__accountGrid___"]'),footer=section.querySelector('[class*="__rosterFooter___"]');
+    for(const c of got){
+      texts.push({card,text:c.textContent.trim()});
+      if(!shown(c))out.push({card,why:'caveat is not visible'});
+      if(c.parentElement!==section||c.closest('details'))out.push({card,why:'caveat sits inside a row, a disclosure or the paged list'});
+      const after=[grid,footer].filter(Boolean);
+      const bottom=Math.max(...after.map(e=>e.getBoundingClientRect().bottom));
+      if(c.getBoundingClientRect().top<bottom-0.5)out.push({card,why:'caveat top '+Math.round(c.getBoundingClientRect().top)+' is above the list/footer bottom '+Math.round(bottom)});
+      if(after.some(e=>!(e.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING)))out.push({card,why:'caveat precedes the list or footer in the DOM'});
+      if(section.lastElementChild!==c)out.push({card,why:'caveat is not the last item of the section'});
+    }
+    const mentions=(section.innerText.match(/annual plans differ|годовые тарифы|gói năm/gi)||[]).length;
+    if(mentions!==want)out.push({card,why:'the annual-plan sentence appears '+mentions+' times, expected '+want});
+  }
+  if([...document.querySelectorAll(caveat)].some(c=>!c.closest('section[class*="__accounts___"]')))out.push({why:'caveat outside an Accounts section'});
+  return {out,texts};
+}"""
+
+
+async def caveat_pass(page, label, out, ref, lng="en"):
+    """Measure the caveat in the page's current state; every state must show the same text as the first one read."""
+    got = await page.evaluate(CAVEAT_JS)
+    out += [dict(f, during=label, lng=lng) for f in got["out"]]
+    if not got["texts"]:
+        out.append(dict(why="no caveat to measure", during=label, lng=lng))
+    for t in got["texts"]:
+        ref.setdefault(t["card"], t["text"])
+        if t["text"] != ref[t["card"]]:
+            out.append(dict(card=t["card"], why=f"caveat text changed to {t['text']!r}", during=label, lng=lng))
+        if lng == "en" and t["text"] != CAVEAT_EN:
+            out.append(dict(card=t["card"], why=f"caveat reads {t['text']!r}", during=label, lng=lng))
+        if lng != "en" and t["text"] == CAVEAT_EN:
+            out.append(dict(card=t["card"], why="caveat is not translated", during=label, lng=lng))
+
+
+async def renewal_caveat_failures(page, context, url, route_api, name, state):
+    """A2: each provider Accounts section with an estimated renewal among any of its accounts shows the caveat exactly
+    once, after the list and its Show more footer (never inside a row, disclosure or page), with the same text when
+    rows are closed, opened, searched, filtered or paged, in DOM and visual order. Short basis stays on one line."""
     if state in C3_NO_ROSTER:
         return []
-    caveat = '[class*="__renewalCaveat___"]'
-    measure_once = "() => {" + C3_HELPERS + r"""
-      const out=[],text="Renewal dates are estimated from each plan's start date; annual plans differ.";
-      for(const article of document.querySelectorAll('article')){
-        const section=article.querySelector('section[class*="__accounts___"]');
-        // Fixture: every Claude account's renewal is estimated from its start date; Codex reports its dates.
-        const want=/claude/i.test(article.querySelector('h2').textContent)?1:0,got=[...section.querySelectorAll('""" + caveat + r"""')];
-        if(got.length!==want)out.push({why:'expected '+want+' caveat(s), found '+got.length,card:article.querySelector('h2').textContent});
-        for(const c of got){
-          if(c.textContent.trim()!==text||!shown(c))out.push({why:'caveat text or visibility is wrong'});
-          if(c.previousElementSibling?.tagName!=='H3')out.push({why:'caveat is not directly under the Accounts header'});
-        }
-        const mentions=(section.innerText.match(/annual plans differ/gi)||[]).length;
-        if(mentions!==want)out.push({why:'"annual plans differ" appears '+mentions+' times, expected '+want});
-      }
-      const outside=[...document.querySelectorAll('""" + caveat + r"""')].filter(c=>!c.closest('section[class*="__accounts___"]'));
-      if(outside.length)out.push({why:'caveat outside an Accounts section'});
-      return out;
-    }"""
-    out = await page.evaluate(measure_once)
-    # Search, filter and paging never hide it: a search with no match leaves the same caveat.
+    out, ref = [], {}
+    await caveat_pass(page, "closed", out, ref)
+    toggles = page.locator('article [class*="__expandAccounts___"][aria-expanded="false"]:not([class*="__showAll___"])')
+    closed = await toggles.count()  # the cases that start expanded have none to open
+    for _ in range(closed):
+        await toggles.first.click()
+    await caveat_pass(page, "opened", out, ref)
+    for _ in range(closed):
+        await page.locator('article [class*="__expandAccounts___"][aria-expanded="true"]:not([class*="__showAll___"])').first.click()
     search = page.get_by_role("searchbox", name="Search accounts").first
     if await search.count():
         original = await search.input_value()
-        await search.fill("zzzz-no-match")
-        out += [dict(f, during="no-match search") for f in await page.evaluate(measure_once)]
+        for term in ("zzzz-no-match", "gra"):
+            await search.fill(term)
+            await caveat_pass(page, f"searched {term!r}", out, ref)
         await search.fill(original)
+    low = page.locator('article [class*="__rosterLow___"]')
+    if await low.count():
+        flip = await low.first.get_attribute("aria-pressed") != "true"  # many-low starts filtered
+        if flip:
+            await low.first.click()
+        await caveat_pass(page, "filtered", out, ref)
+        if flip:
+            await low.first.click()
     if state == "expanded":
         out += await page.evaluate("() => {" + C3_HELPERS + r"""
           const out=[],basis=[...document.querySelectorAll('[class*="__detail___"]')].filter(e=>/^Estimated/.test(e.textContent.trim()));
@@ -446,6 +490,25 @@ async def renewal_caveat_failures(page, state, width):
             if(e.getBoundingClientRect().height>fs*1.8||e.scrollWidth>e.clientWidth+1)out.push({why:'basis wraps or is clipped'});}
           return out;
         }""")
+    if name in A_PAGED_CASES:
+        # A fresh page for what can't be undone (Show more).
+        fresh = await r_page(context, url, route_api, state, "en")
+        try:
+            more = fresh.locator('article [class*="__rosterFooter___"] button')
+            if await more.count():
+                await more.first.click()
+                await caveat_pass(fresh, "paged", out, dict(ref))
+            else:
+                out.append(dict(why="no Show more to page with", during="paged"))
+        finally:
+            await fresh.close()
+    if name in R_LANG_CASES:
+        for lng in R_LANGS:
+            fresh = await r_page(context, url, route_api, state, lng)
+            try:
+                await caveat_pass(fresh, "closed", out, {}, lng)
+            finally:
+                await fresh.close()
     return out
 
 
@@ -1037,12 +1100,57 @@ R_KEYS = ("rosterCountFailures", "filterChipFailures", "rosterToolbarFailures")
 R_LANGS = ("ru", "vi")
 # ru and vi run where a roster exists: `many` and its phone twin (the `narrow` fixture has five accounts, no toolbar).
 R_LANG_CASES = ("many", "many-narrow")
-R_COUNT_CASES = ("many", "many-low", "many-narrow", "many-search-narrow")
+R_COUNT_CASES = ("many", "many-low", "many-lowest", "partial-affected-narrow", "many-narrow", "many-search-narrow")
 R_CHIP_CASES = ("many", "many-low", "many-narrow", "partial-affected-narrow")
 R_TOOLBAR_CASES = ("many-narrow", "many-search-narrow")
-R_TOTALS = {"claude": 120, "codex": 80}  # the `many` fixture's roster sizes
 R_PAGE = 25  # rows before "Show more"
 R_NO_MATCH = "zzzz-no-such-account"
+R_LOW = 20  # a limit below this many percent is low (the UI's own rule)
+# The exact count strings the app must show, written out here rather than read from the locales.
+# A tuple is (singular form, other form) where the language has two; a language with one form has a 1-tuple.
+R_COUNT_TEXT = {
+    "en": dict(shown="{d} of {t} shown", only=("{f} of {t} matches", "{f} of {t} match"),
+               some=("{d} of {f} match shown · {t} total", "{d} of {f} matches shown · {t} total"),
+               none="No matches · {t} total"),
+    "ru": dict(shown="Показано {d} из {t}", only=("Совпадает {f} из {t}", "Совпадают {f} из {t}"),
+               some=("Показано {d} из {f} совпадения · всего {t}", "Показано {d} из {f} совпадений · всего {t}"),
+               none="Нет совпадений · всего {t}"),
+    "vi": dict(shown="Hiển thị {d} / {t}", only=("Khớp {f} / {t}",), some=("Hiển thị {d} / {f} kết quả khớp · tổng {t}",),
+               none="Không có kết quả khớp · tổng {t}"),
+}
+
+
+def r_form(lng, n):
+    """Index of the form for the integer n: 0 for "one" (ru: 1, 21, 31... but not 11), 1 for everything else."""
+    if lng == "en":
+        return 0 if n == 1 else 1
+    if lng == "ru":
+        return 0 if n % 10 == 1 and n % 100 != 11 else 1
+    return 0
+
+
+def r_expected_text(lng, d, f, t, filtering):
+    """The count string for D rows shown, F matches and T accounts (see the spec's four-row table)."""
+    text = R_COUNT_TEXT[lng]
+    if not filtering:
+        return text["shown"].format(d=d, t=t)
+    if f == 0:
+        return text["none"].format(t=t)
+    forms = text["some"] if d < f else text["only"]
+    return forms[min(r_form(lng, f), len(forms) - 1)].format(d=d, f=f, t=t)
+
+
+def r_expected(state, provider, flt, show_all):
+    """D, F and T for a provider, derived from the fixture accounts and the active search or filter, not from the page."""
+    pool = next(p for p in fixture(state)["pools"] if p["provider"] == provider)
+    query = flt["query"].strip().lower()
+    broken = ("error", "missing-window") if pool["forecastState"] == "partial" else ("stale",) if pool["forecastState"] == "stale" else ()
+    matched = [a for a in pool["accounts"]
+               if (not query or query in a["identifier"].lower())
+               and (not flt["low"] or any(w["remainingPercent"] is not None and w["remainingPercent"] < R_LOW for w in a["windows"]))
+               and (not flt["affected"] or a["status"] in broken)]
+    f, t = len(matched), len(pool["accounts"])
+    return dict(d=f if show_all else min(f, R_PAGE), f=f, t=t, filtering=bool(query or flt["low"] or flt["affected"]))
 R_JS = r"""
 const shown = e => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && e.checkVisibility({checkVisibilityCSS: true}); };
 const countOf = text => (text.match(/\d+(?![\d%])/g) || []).map(Number);
@@ -1099,102 +1207,101 @@ R_SNAP = "(i) => {" + R_JS + r"""
 }"""
 
 
-def r_count_verify(out, card, step, s, total, lng):
-    """Check one reading of a count against the DOM: D = rows drawn, T = the fixture's roster size, F = rows + the rest behind "Show more"."""
+def r_count_verify(out, card, step, s, want, lng):
+    """Check one reading of a count against the fixture-derived D, F and T, as an exact string."""
     where = dict(card=card, lng=lng, step=step, text=s["text"])
-    clause = s["lowPressed"] or s["query"] != ""
-    nums = s["nums"] = [int(n) for n in re.findall(r"\d+", s["text"])]
     found = (s["inTools"], s["inCard"], s["last"])
     if found != (1, 1, True):
         out.append(dict(where, why=f"count elements (in toolbar, in card, is last item) = {found}"))
     if s["footerKids"] > 1:
         out.append(dict(where, why="the footer still holds more than the Show more button"))
-    f = s["rows"] + s["moreN"]
-    # While filtering, every match on screen (D == F) reads "F of T match" in every language; otherwise "D of T shown · F match".
-    match_only = clause and s["moreN"] == 0
-    want = 3 if clause and not match_only else 2
-    if len(nums) != want:
-        out.append(dict(where, why=f"{len(nums)} numbers where {want} were expected ({'match only' if match_only else 'match clause wanted' if clause else 'no match clause'})"))
-        return
-    t = nums[1]
-    if match_only:
-        if nums[0] != f:
-            out.append(dict(where, why=f"F says {nums[0]} but {f} rows match (all on screen)"))
-    else:
-        d = nums[0]
-        if d != s["rows"]:
-            out.append(dict(where, why=f"D says {d} but {s['rows']} rows are on screen"))
-        if clause and nums[2] != f:
-            out.append(dict(where, why=f"F says {nums[2]} but {f} rows match (rows + Show more)"))
-        if not (d == f or (s["moreN"] > 0 and d == R_PAGE)):
-            out.append(dict(where, why=f"D={d} is neither all {f} matches nor a full page of {R_PAGE}"))
-    if t != total:
-        out.append(dict(where, why=f"T says {t} but the provider has {total} accounts"))
-    if not clause and f != total:
-        out.append(dict(where, why=f"no filter is active but {f} of {total} rows match"))
-    if s["lowPressed"] and not s["query"] and s["chipN"] != f:
-        out.append(dict(where, why=f"the low filter's chip says {s['chipN']} but {f} rows match"))
-    if lng == "en":
-        pattern = r"\d+ of \d+ match" if match_only else r"\d+ of \d+ shown( · \d+ match)?"
-        if not re.fullmatch(pattern, s["text"]) or (not match_only and clause and "match" not in s["text"]):
-            out.append(dict(where, why="English count is not 'F of T match' (all matches shown), 'D of T shown · F match' or 'D of T shown' (no filter)"))
+    expected = r_expected_text(lng, want["d"], want["f"], want["t"], want["filtering"])
+    if s["text"] != expected:
+        out.append(dict(where, why=f"expected {expected!r} (D={want['d']}, F={want['f']}, T={want['t']})"))
+    if s["rows"] != want["d"]:
+        out.append(dict(where, why=f"{s['rows']} rows on screen but D = {want['d']}"))
+    if s["moreN"] != want["f"] - want["d"]:
+        out.append(dict(where, why=f"Show more offers {s['moreN']} but {want['f'] - want['d']} matches are hidden"))
+    if s["lowPressed"] and not s["query"] and s["chipN"] != want["f"]:
+        out.append(dict(where, why=f"the low filter's chip says {s['chipN']} but {want['f']} rows match"))
 
 
-async def _roster_counts(page, lng):
+async def _roster_counts(page, lng, state):
     out = []
     cards = await r_cards(page)
     if not cards:
         return [dict(lng=lng, why="no roster toolbar found")]
     for c in cards:
         art, card = page.locator("article").nth(c["i"]), c["provider"]
-        total = R_TOTALS[card]
+        # The filters this case starts with (see r_page); the steps below flip them and track the change.
+        # r_page applies them to the first card only.
+        first = c is cards[0]
+        flt = dict(low=first and state == "many-low", query="gra" if first and state == "many-search" else "", affected=first and state == "partial")
+        show_all = False
 
         async def settle(step):
             s = await page.evaluate(R_SNAP, c["i"])
-            r_count_verify(out, card, step, s, total, lng)
+            r_count_verify(out, card, step, s, r_expected(state, card, flt, show_all), lng)
             return s
 
         s = await settle("initial")
         if s["moreN"]:
             await art.locator('[class*="__rosterFooter___"] button').click()
+            show_all = True
             s = await settle("after Show more")
-            if s["moreN"]:
-                out.append(dict(card=card, lng=lng, why="Show more is still offered after showing everything"))
         elif s["rows"] > R_PAGE:
             out.append(dict(card=card, lng=lng, why="more than a page of rows without Show more"))
+        search = art.locator('input[type="search"]')
+        if not await search.count():
+            continue  # a short roster: only its affected-only count exists, and the initial step measured it
         if not s["hasChip"]:
             out.append(dict(card=card, lng=lng, why="no low-limit chip to filter with"))
             continue
         chip = art.locator('[class*="__rosterLow___"]').last
-        await chip.click()
-        await settle("after toggling the filter")
-        await chip.click()
-        await settle("after toggling it back")
-        search = art.locator('input[type="search"]')
+        for step in ("after toggling the filter", "after toggling it back"):
+            await chip.click()
+            flt["low"] = not flt["low"]
+            await settle(step)
+        flt["query"] = R_NO_MATCH
         await search.fill(R_NO_MATCH)
         s = await settle("zero-result search")
-        if s["rows"] != 0 or s["nums"][:1] != [0]:
-            out.append(dict(card=card, lng=lng, why="a search with no match should show 0 rows and D = 0", text=s["text"]))
+        if s["rows"] != 0:
+            out.append(dict(card=card, lng=lng, why="a search with no match should show 0 rows", text=s["text"]))
+        flt["query"] = ""
         await search.fill("")
         await settle("search cleared")
+        flt["query"] = "gra"
         await search.fill("gra")
         s = await settle("search")
         if not s["rows"]:
             out.append(dict(card=card, lng=lng, why="the search 'gra' matched nothing, so no filtered count was measured"))
+        if await art.locator('[class*="__rosterLow___"]').count():
+            await art.locator('[class*="__rosterLow___"]').last.click()
+            flt["low"] = not flt["low"]
+            await settle("search + filter")
+            await art.locator('[class*="__rosterLow___"]').last.click()
+            flt["low"] = not flt["low"]
+        else:
+            out.append(dict(card=card, lng=lng, why="no low-limit chip while searching, so search + filter was not measured"))
+        flt["query"] = ""
+        await search.fill("")
+        await settle("cleared")
     return out
 
 
 async def check_roster_count(context, url, route_api, name, state):
-    """R1: every roster toolbar shows one count, "D of T shown", plus " · F match" while a filter or search is active
-    (just "F of T match" when D == F), as the toolbar's last item and nowhere else; D, F and T stay right through filtering, clearing, a zero-result
-    search and Show more. ru and vi repeat it on the cases with a roster."""
+    """R1/A1: every roster toolbar shows one count as its last item and nowhere else, and its exact text follows
+    D (rows on screen), F (matches) and T (all accounts), each derived from the fixture and the active filters:
+    "D of T shown"; "D of F matches shown · T total" (D < F); "F of T match(es)" (D == F); "No matches · T total".
+    Low-only, affected-only, search, search + filter, zero matches, Show more and cleared are all read. ru and vi
+    repeat it on the cases with a roster."""
     if name not in R_COUNT_CASES:
         return []
     out = []
     for lng in ("en", *(R_LANGS if name in R_LANG_CASES else ())):
         page = await r_page(context, url, route_api, state, lng)
         try:
-            out += await _roster_counts(page, lng)
+            out += await _roster_counts(page, lng, state)
         finally:
             await page.close()
     return out
@@ -1695,6 +1802,204 @@ async def h_open_ready_page(browser, url, width, height):
     return page, context
 
 
+# A checks (Accounts header). Each has its own JSON key, registered in A_KEYS (one per line) for the summary and the
+# exit gate. A check that finds nothing to measure fails. ru and vi open a fresh page of their own.
+A_KEYS = (
+    "summaryFactFailures",
+    "statusChipFailures",
+)
+# "ready" is the laptop case (and narrow-320, where a pair is most likely to overflow).
+A_SUMMARY_CASES = ("laptop", "narrow-320", "partial", "stale", "no-limit", "many", "many-narrow", "stale-narrow")
+A_SUMMARY_LANG_CASES = ("partial", "no-limit", "stale-narrow", "many", "many-narrow")
+A_CHIP_CASES = ("laptop", "narrow", "many", "stale-minimized")
+A_CHIP_LANG_CASES = ("many",)
+
+
+def a_expected_facts(state, provider):
+    """The summary pairs a provider card must show today (English), derived from the fixture, not from the page."""
+    pool = next(p for p in fixture(state)["pools"] if p["provider"] == provider)
+    five_hour = state == "no-limit"
+    available = sum(a["resets"]["available"] for a in pool["accounts"] if a["resets"])
+    usable = sum(a["resets"]["usable"] for a in pool["accounts"] if a["resets"])
+    stale = sum(a["status"] == "stale" for a in pool["accounts"])
+    no_limit = sum(bool(a.get("noFiveHourLimit")) for a in pool["accounts"]) if five_hour else 0
+    facts = []
+    if available:
+        facts.append(("Manual resets", str(available)))
+        if usable:
+            facts.append(("Usable now", str(usable)))
+    if pool["loadedCount"] != pool["accountCount"] or pool["eligibleCount"] != pool["accountCount"]:
+        if stale:
+            facts += [("Current", str(pool["loadedCount"])), ("Stale", str(stale))]
+        elif no_limit:
+            facts.append(("5-hour limit", f"{pool['eligibleCount']} of {pool['accountCount']}"))
+            if pool["loadedCount"] < pool["eligibleCount"]:
+                facts.append(("Reporting", f"{pool['loadedCount']} of {pool['eligibleCount']}"))
+        else:
+            facts.append(("Reporting", f"{pool['loadedCount']} of {pool['eligibleCount']}"))
+    return facts
+
+
+A_SUMMARY_JS = "() => {" + C3_HELPERS + r"""
+  const out=[],cards=[];
+  for(const article of document.querySelectorAll('article')){
+    const provider=/__codex___/.test(article.className)?'codex':'claude',section=article.querySelector('section[class*="__accounts___"]');
+    const groups=[...section.querySelectorAll('[class*="__accountSummary___"]')].filter(shown),facts=[];
+    if(groups.length>1)out.push({provider,why:groups.length+' summary groups; the facts share one wrapping group'});
+    for(const group of groups){
+      const items=[...group.children],gap=parseFloat(getComputedStyle(group).columnGap)||0,box=group.getBoundingClientRect();
+      const rects=items.map(e=>e.getBoundingClientRect()),sum=rects.reduce((a,b)=>a+b.width,0)+gap*Math.max(0,items.length-1);
+      for(const [i,item] of items.entries()){
+        const label=item.querySelector('[class*="__summaryLabel___"]'),value=item.querySelector('[class*="__summaryValue___"]');
+        if(!label||!value||!label.textContent.trim()||!value.textContent.trim()){out.push({provider,why:'a summary item lacks a label or a value element'});continue;}
+        facts.push([label.textContent.trim(),value.textContent.trim()]);
+        const vs=getComputedStyle(value),fs=parseFloat(getComputedStyle(item).fontSize),r=rects[i];
+        if(vs.fontWeight!=='500'||!/tabular-nums/.test(vs.fontVariantNumeric))out.push({provider,label:label.textContent,why:'value is not weight 500 with tabular figures',weight:vs.fontWeight,numeric:vs.fontVariantNumeric});
+        const lr=label.getBoundingClientRect(),vr=value.getBoundingClientRect();
+        if(Math.abs(lr.top-vr.top)>3||r.height>fs*1.9)out.push({provider,label:label.textContent,why:'a pair breaks internally'});
+        if(r.right>box.right+0.5||r.left<box.left-0.5||r.right>innerWidth+0.5)out.push({provider,label:label.textContent,why:'a pair overflows its container',right:Math.round(r.right),container:Math.round(box.right),viewport:innerWidth});
+      }
+      const tops=rects.map(r=>Math.round(r.top));
+      if(sum<=box.width+0.5&&Math.max(...tops)-Math.min(...tops)>1)out.push({provider,why:'the items fit on one line ('+Math.round(sum)+' of '+Math.round(box.width)+'px) but sit on different tops',tops});
+    }
+    cards.push({provider,facts});
+  }
+  return {out,cards};
+}"""
+
+
+async def a_summary_pass(page, state, lng, out):
+    got = await page.evaluate(A_SUMMARY_JS)
+    out += [dict(f, lng=lng) for f in got["out"]]
+    if not got["cards"]:
+        out.append(dict(lng=lng, why="no provider card to measure"))
+    measured = 0
+    for card in got["cards"]:
+        want = a_expected_facts(state, card["provider"])
+        have = card["facts"]
+        measured += len(have)
+        if lng == "en" and have != [list(w) for w in want]:
+            out.append(dict(provider=card["provider"], lng=lng, why=f"summary reads {have}, expected {want}"))
+        elif lng != "en":
+            numbers = lambda pairs: [re.findall(r"\d+", v) for _, v in pairs]
+            if numbers(have) != numbers(want) or any(not label or label == w[0] for (label, _), w in zip(have, want)):
+                out.append(dict(provider=card["provider"], lng=lng, why=f"summary {have} should have the numbers of {want} under translated labels"))
+    if not measured:
+        out.append(dict(lng=lng, why="no summary item to measure"))
+
+
+async def check_summary_facts(page, context, url, route_api, name, state):
+    """A3: every summary item is a label/value pair in one shared wrapping group; values keep the Manual resets style;
+    the facts are today's (Manual resets, Usable now, Reporting, Current, Stale, 5-hour limit) with the fixture's
+    numbers; a pair never breaks inside or overflows its container; items that fit one line share a top."""
+    if name not in A_SUMMARY_CASES:
+        return []
+    out = []
+    await a_summary_pass(page, state, "en", out)
+    if name in A_SUMMARY_LANG_CASES:
+        for lng in R_LANGS:
+            fresh = await r_page(context, url, route_api, "", lng)
+            try:
+                if state == "no-limit":
+                    await fresh.evaluate("location.hash = '/quota?window=five-hour'")
+                    await fresh.wait_for_timeout(400)
+                await a_summary_pass(fresh, state, lng, out)
+            finally:
+                await fresh.close()
+    return out
+
+
+A_CHIP_JS = "(idxs) => {" + C3_HELPERS + r"""
+  const parse=c=>{const m=(c.match(/[\d.]+(?:e-?\d+)?/g)||[]).map(Number);if(!m.length)return [0,0,0,0];
+    const v=m.slice(0,3).map(x=>c.startsWith('color(')?x*255:x);return [...v,m.length>3?m[3]:1];};
+  const over=(top,under)=>{const a=top[3];return [0,1,2].map(i=>top[i]*a+under[i]*(1-a)).concat(1);};
+  const lum=c=>{const l=c.slice(0,3).map(v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;});return 0.2126*l[0]+0.7152*l[1]+0.0722*l[2];};
+  const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);};
+  // The surface under the chip: every ancestor's background painted from the page down (the card's gradient is ignored).
+  const surface=el=>{const chain=[];for(let n=el.parentElement;n;n=n.parentElement)chain.unshift(n);
+    return chain.reduce((under,n)=>over(parse(getComputedStyle(n).backgroundColor),under),[0,0,0,1]);};
+  const chips=[...document.querySelectorAll('article [class*="__accountResetMarker___"]')];
+  return (idxs||chips.map((_,i)=>i)).map(i=>{
+    const chip=chips[i],s=getComputedStyle(chip),row=surface(chip),fill=over(parse(s.backgroundColor),row),ink=parse(s.color);
+    const sides=['Top','Right','Bottom','Left'].map(x=>parseFloat(s['border'+x+'Width']));
+    return {i,text:chip.textContent.trim(),usable:chip.hasAttribute('data-usable'),shown:chip.checkVisibility({checkVisibilityCSS:true}),
+      provider:/__codex___/.test(chip.closest('article').className)?'codex':'claude',
+      border:Math.max(...sides),radius:parseFloat(s.borderTopLeftRadius),size:parseFloat(s.fontSize),
+      fillRatio:ratio(fill,row),textRatio:ratio(ink,fill),ink:s.color,open:chip.closest('details').open};
+  });
+}"""
+
+
+async def a_chip_pass(page, lng, out, compare=True):
+    chips = await page.evaluate(A_CHIP_JS, None)
+    if not chips:
+        out.append(dict(lng=lng, why="no reset chip to measure"))
+        return
+    # One chip per provider and variant stands for the hover and open rows.
+    probes = {}
+    for c in chips:
+        probes.setdefault((c["provider"], c["usable"]), c)
+    states = {"closed": chips}
+    for label in ("hover", "open"):
+        states[label] = []
+        for c in probes.values():
+            row = page.locator("article [class*='__accountResetMarker___']").nth(c["i"]).locator("xpath=ancestor::details[1]")
+            if label == "hover":
+                await row.locator("summary").hover()
+            else:
+                await page.mouse.move(0, 0)
+                await row.evaluate("r => { r.open = true; }")
+            states[label] += await page.evaluate(A_CHIP_JS, [c["i"]])
+            if label == "open":
+                await row.evaluate("r => { r.open = false; }")
+        await page.mouse.move(0, 0)
+    for label, readings in states.items():
+        for c in readings:
+            where = dict(lng=lng, state=label, chip=c["text"])
+            if c["border"] != 0:
+                out.append(dict(where, why=f"border is {c['border']}px"))
+            if not c["radius"] < 999:
+                out.append(dict(where, why=f"radius is {c['radius']}px"))
+            if c["size"] < 13:
+                out.append(dict(where, why=f"text is {c['size']}px"))
+            if c["fillRatio"] < 1.15:
+                out.append(dict(where, why=f"chip vs row contrast {c['fillRatio']:.2f}"))
+            if c["textRatio"] < 4.5:
+                out.append(dict(where, why=f"text contrast {c['textRatio']:.2f}"))
+            if label == "closed" and not c["shown"]:
+                out.append(dict(where, why="a closed row's chip is not visible"))
+    inks = {usable: {c["ink"] for c in chips if c["usable"] == usable} for usable in (True, False)}
+    if not compare:
+        return
+    if not inks[True] or not inks[False]:
+        out.append(dict(lng=lng, why="needs both a usable and a non-usable chip to compare", usable=sorted(inks[True]), plain=sorted(inks[False])))
+    elif inks[True] & inks[False]:
+        out.append(dict(lng=lng, why="usable and non-usable chips share a text colour", colours=sorted(inks[True] & inks[False])))
+
+
+async def check_status_chip(page, context, url, route_api, name, state):
+    """A4: the "Resets N" and "Resets N · N usable" chips in rows have no border, a subtle fill (at least 1.15:1 on the
+    closed, hovered and open row), the small radius, text of 13px or more at 4.5:1 on that fill, and a usable chip's
+    text colour differs from a plain one's. ru and vi repeat it on `many`."""
+    if name not in A_CHIP_CASES:
+        return []
+    out = []
+    # A long roster shows 25 rows, and the Codex row that has a usable reset sorts later: the `many` passes
+    # (in every language) open all rows on a fresh page, so both chip variants are on screen to compare.
+    paged = name in A_CHIP_LANG_CASES
+    await a_chip_pass(page, "en", out, compare=not paged)
+    for lng in (("en", *R_LANGS) if paged else ()):
+        fresh = await r_page(context, url, route_api, "", lng)
+        try:
+            more = fresh.locator('article [class*="__rosterFooter___"] button')
+            while await more.count():
+                await more.first.click()
+            await a_chip_pass(fresh, lng, out)
+        finally:
+            await fresh.close()
+    return out
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", required=True)
@@ -2025,7 +2330,7 @@ async def main():
                 results[name]["lowColourFailures"] = await low_colour_failures(page, state)
                 results[name]["staleDimFailures"] = await stale_dim_failures(page, state)
                 results[name]["staleLabelFailures"] = await stale_label_failures(page, state)
-                results[name]["renewalCaveatFailures"] = await renewal_caveat_failures(page, state, width)
+                results[name]["renewalCaveatFailures"] = await renewal_caveat_failures(page, context, args.url, route_api, name, state)
                 results[name]["minimizedWidthFailures"] = await minimized_width_failures(page, name)
                 results[name]["toolbarBudgetFailures"] = await check_toolbar_budget(page, name, results[name])
                 results[name]["lowInlineFailures"] = await check_low_inline(page, state)
@@ -2038,6 +2343,8 @@ async def main():
                 results[name]["rosterCountFailures"] = await check_roster_count(context, args.url, route_api, name, state)
                 results[name]["filterChipFailures"] = await check_filter_chip(context, args.url, route_api, name, state)
                 results[name]["rosterToolbarFailures"] = await check_roster_toolbar(context, args.url, route_api, name, state)
+                results[name]["summaryFactFailures"] = await check_summary_facts(page, context, args.url, route_api, name, state)
+                results[name]["statusChipFailures"] = await check_status_chip(page, context, args.url, route_api, name, state)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -2274,7 +2581,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():
