@@ -2226,6 +2226,9 @@ $pool-error: #ff5252;
     .accountHead,
     .account > summary {
       column-gap: 12px;
+    }
+  }
+}
 /* C3 */
 // Low: the value keeps its normal colour; the red icon and bar and the visible word carry it.
 .lowMark {
@@ -2342,6 +2345,8 @@ $pool-error: #ff5252;
         }
       }
     }
+  }
+}
 /* C2 */
 // From 641px the options wrapper takes no part in layout: its controls stay toolbar items.
 .viewOptions {
