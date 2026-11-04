@@ -58,9 +58,9 @@ One anatomy at every roster size:
 
 ## Minimized list (≥ 901px)
 
-- A minimized card's closed rows form one bounded grid across the card's content width: columns `minmax(0,2fr) minmax(0,1fr) minmax(0,1fr)` under a header row, Account | `<active window> remaining` | Other low limits.
-- The primary column holds the active window's remaining value (weekly or 5-hour), right-aligned, with the low mark when it is low. The third column holds every other low limit, including Weekly Opus, as label, value, ⚠ and "Low"; it is empty when there are none. The reset chip stays in the Account cell, and "Expand all" stays beside the list header.
-- Opening a row restores every limit and fact, spanning all columns. At ≤ 900px the minimized list keeps its single bounded column.
+- A minimized card's closed rows and their header row (Account | `<active window> remaining` | Other low limits) are left-aligned and content-sized, on the same column tracks in every minimized card on the page. The Account track is `min(max-content of name + reset chip, 40ch)`; the name ends in an ellipsis beyond 28ch (or where the card runs out of room) and then carries a `title` with the whole name; the chip never wraps below it. The value track is `max(14ch, header width)`. The other-low track takes the rest. Closed rows without a status line have equal height. The rightmost Account item in a card is at most 160px from the leftmost value in that card.
+- The primary column holds the active window's remaining value (weekly or 5-hour), right-aligned and on one line, with the low mark when it is low. The third column holds every other low limit, including Weekly Opus, as label, value, ⚠ and "Low"; several sit inline and wrap only when the card runs out of room, and none is hidden. It is empty when there are none. The reset chip stays in the Account cell, and "Expand all" stays beside the list header.
+- Opening a row restores every limit and fact; it spans the card's content width (the t15 fact panel, S3). At ≤ 900px the minimized list keeps its single bounded column.
 
 ## Estimated renewals (S7)
 
