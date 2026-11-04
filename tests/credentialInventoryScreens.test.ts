@@ -91,6 +91,15 @@ describe('every add and remove path announces itself', () => {
   });
 });
 
+describe('Analytics keeps its history', () => {
+  test('the analytics server reads no quota table, so retiring or purging an account cannot touch it', () => {
+    const imports = sources('server/analytics').flatMap((path) =>
+      [...read(path).matchAll(/from '([^']+)'/g)].map((match) => match[1])
+    );
+    expect(imports.filter((specifier) => /quota|store|collector/i.test(specifier))).toEqual([]);
+  });
+});
+
 describe('AI Providers does not depend on credential files', () => {
   test('no provider screen imports the inventory store, its events or the credential endpoints', () => {
     const offenders = [
