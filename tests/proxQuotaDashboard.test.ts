@@ -999,11 +999,11 @@ describe('pool presentation', () => {
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(
-      /<li data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span><span aria-hidden="true">[\s\S]*?<\/span><span>Low<\/span><\/span>12.0%/
+      /<li data-limit-id="five-hour" data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span><span aria-hidden="true">[\s\S]*?<\/span><span>Low<\/span><\/span>12.0%/
     );
     // The visible word is the accessible text: no second, hidden "Low" beside it.
     expect(markup.match(/>Low</g)).toHaveLength(1);
-    expect(markup).toMatch(/<li data-low="false"[^>]*><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64.0%/);
+    expect(markup).toMatch(/<li data-limit-id="seven-day-opus" data-low="false"[^>]*><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64.0%/);
     // Accounts start collapsed (numbers only); one control expands the whole section.
     expect(markup).toMatch(
       /<button type="button"[^>]*aria-expanded="false"[^>]*>Expand all<\/button>/
@@ -1274,7 +1274,7 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).toMatch(
-      /<li data-missing="true"[^>]*><span>5-hour remaining<\/span><em>No 5-hour limit<\/em><\/li>/
+      /<li data-limit-id="five-hour" data-missing="true"[^>]*><span>5-hour remaining<\/span><span data-empty="true" aria-hidden="true"><\/span><em>No 5-hour limit<\/em><\/li>/
     );
   });
   test('every forecast state gets one chip shape with its own icon, and Ready is neutral', async () => {

@@ -32,7 +32,7 @@ ACCOUNTS                                                          2 of 3 current
 - Real table semantics; every column has a header in one style: Account, Plan, then each limit [R§4]. The counted limit's header carries a second line, "Counts toward total" in `type-label` (text, not a dot or weight).
 - Column tracks are shared by every provider table on the page (a limit an account lacks leaves an empty track), so Claude and Codex columns line up.
 - Plan always reads "Pro · 100 points".
-- Limit cell: value right-aligned with tabular figures, then the bar [R§4]. Empty cells use one pattern: muted text ("Unavailable", "No 5-hour limit") over a dashed empty track.
+- Limit cell: value right-aligned with tabular figures, then the bar [R§4]. Every limit column has a fixed value slot wide enough for "⚠ Low 100.0%", so all tracks in a column start and end at the same x. Empty cells use one pattern: muted reason text ("Unavailable", "No 5-hour limit") in the value slot, beside a dashed empty track at that same x range; never a filled 0% bar.
 - Low (< 20%): neutral value, a critical ⚠ icon (`aria-hidden`) beside the visible word "Low" (`quota_pool.limit_low`, `--text-secondary`, weight 600, never red), critical fill; the track stays neutral. The visible word is the accessible text, so nothing reads "Low Low" (S5).
 - Row: 40/48px; the whole summary row is the toggle (a button with `aria-expanded`); chevron 16px in a 32px cell, centred on the first text line.
 

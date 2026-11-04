@@ -229,6 +229,22 @@ export function PoolCard({
   );
   const chip = poolChip(pool.forecastState, savedData);
   const ChipIcon = CHIP_ICONS[chip.icon];
+  const headlineContext = (
+    <div className={styles.headlineContext}>
+      <p className={styles.metricLabel}>
+        {mode !== 'remaining'
+          ? t('quota_pool.recorded_rate', {
+              rate: t(`quota_pool.${mode}`),
+              hours: dashboard.lookbackHours,
+            })
+          : balanceLabel}
+      </p>
+      {/* Remaining adds its scale on a second line; rates keep their unit beside the number. */}
+      {mode === 'remaining' && (
+        <span>{t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}</span>
+      )}
+    </div>
+  );
   return (
     <article
       className={`${styles.pool} ${styles[pool.provider]}`}
@@ -303,6 +319,8 @@ export function PoolCard({
           data-rate={mode !== 'remaining'}
           data-no-limit={pool.forecastState === 'no-limit'}
         >
+          {/* Rate views read label, then number; Remaining keeps its caption beside the number. */}
+          {mode !== 'remaining' && headlineContext}
           <strong>
             {pool.forecastState === 'no-limit' ? (
               <span className={styles.unavailableValue}>
@@ -319,20 +337,7 @@ export function PoolCard({
               </>
             )}
           </strong>
-          <div className={styles.headlineContext}>
-            <p className={styles.metricLabel}>
-              {mode !== 'remaining'
-                ? t('quota_pool.recorded_rate', {
-                    rate: t(`quota_pool.${mode}`),
-                    hours: dashboard.lookbackHours,
-                  })
-                : balanceLabel}
-            </p>
-            {/* Remaining adds its scale on a second line; rates keep their unit beside the number. */}
-            {mode === 'remaining' && (
-              <span>{t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}</span>
-            )}
-          </div>
+          {mode === 'remaining' && headlineContext}
         </div>
         {/* Every view has the same two groups: "Now" holds the one measured fact the headline
             doesn't show (the burn rate, or in rate views the balance), "Forecast" the projections. */}
@@ -685,6 +690,7 @@ export function PoolCard({
                       {account.windows.map((limit) => (
                         <li
                           key={limit.id}
+                          data-limit-id={limit.id}
                           data-low={isLowQuota(limit.remainingPercent)}
                           data-counted={limit.id === countedLimitId || undefined}
                           style={
@@ -695,12 +701,16 @@ export function PoolCard({
                           }
                         >
                           <span>{limitLabel(limit)}</span>
-                          {/* No track for a missing value, so it can't read as 0%. */}
-                          {limit.remainingPercent !== null && (
-                            <span className={styles.limitBar} aria-hidden="true">
+                          {/* A missing value gets a dashed empty track, so it can't read as 0%. */}
+                          <span
+                            className={styles.limitBar}
+                            data-empty={limit.remainingPercent === null || undefined}
+                            aria-hidden="true"
+                          >
+                            {limit.remainingPercent !== null && (
                               <span style={{ width: `${limit.remainingPercent}%` }} />
-                            </span>
-                          )}
+                            )}
+                          </span>
                           <strong>
                             {isLowQuota(limit.remainingPercent) && lowMark}
                             {limit.remainingPercent === null
@@ -722,6 +732,7 @@ export function PoolCard({
                         .map((column) => (
                           <li
                             key={`missing-${column.id}`}
+                            data-limit-id={column.id}
                             data-missing="true"
                             data-low="false"
                             style={
@@ -732,7 +743,8 @@ export function PoolCard({
                             }
                           >
                             <span>{limitLabel(column)}</span>
-                            {/* The reason fills the cell, so the column still says why it is empty. */}
+                            <span className={styles.limitBar} data-empty aria-hidden="true" />
+                            {/* The reason sits in the value slot, so the column still says why it is empty. */}
                             <em>
                               {account.noFiveHourLimit && column.id === 'five-hour'
                                 ? t('quota_pool.no_window_limit', {

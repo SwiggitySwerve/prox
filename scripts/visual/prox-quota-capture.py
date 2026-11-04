@@ -761,17 +761,17 @@ async def check_toggle_consistency(page, state, width):
 
 
 async def check_phone_header(page, state, width):
-    """I4: at 390 a provider card's top to its headline number's top is at most 150px."""
+    """I4: at 390 a provider card's top to the top of its headline block (rate label included) is at most 150px."""
     if width != 390:
         return []
     return await page.evaluate("(cardless) => {" + C1_PRELUDE + r"""
       const fails = [], articles = [...document.querySelectorAll('article')];
       if (!cardless && !articles.length) fails.push({why: 'no provider cards found'});
       for (const a of articles) {
-        const n = a.querySelector('[class*="__headline___"] strong');
-        if (!n) { fails.push({why: 'card has no headline number'}); continue; }
+        const n = a.querySelector('[class*="__headline___"]');
+        if (!n) { fails.push({why: 'card has no headline'}); continue; }
         const d = n.getBoundingClientRect().top - a.getBoundingClientRect().top;
-        if (d > 150) fails.push({card: a.querySelector('h2')?.textContent, why: `headline number starts ${d.toFixed(0)}px below the card top`});
+        if (d > 150) fails.push({card: a.querySelector('h2')?.textContent, why: `headline starts ${d.toFixed(0)}px below the card top`});
       }
       return fails;
     }""", state in C1_CARDLESS)
@@ -869,6 +869,230 @@ async def check_action_align(page, state):
       }
       return out;
     }""")
+# G geometry checks (value slots, tracks, Combined controls, rate headline). Each has its own JSON key,
+# registered in G_KEYS for the summary and the exit gate. They run on pages of their own, opened at the
+# widths and languages of G_SWEEPS, because one case has one viewport. A check that finds nothing to
+# measure on a page where it applies fails.
+G_KEYS = ("trackAlignFailures", "unavailableSlotFailures", "combinedControlsFailures", "rateHeadlineFailures")
+G_WIDTHS = (390, 820, 1100, 1440)
+# base case -> pages (fixture state, width, language, view to apply first)
+G_SWEEPS = {
+    "laptop": [("ready", w, "en", None) for w in (390, 820, 1100, 1280, 1440, 1920)],
+    "many": [("many", w, "en", None) for w in G_WIDTHS]
+    + [("many", w, lng, view) for lng in ("ru", "vi") for w in (390, 1100, 1440) for view in (None, "Drain rate")],
+    "narrow": [("ready", 390, lng, view) for lng in ("ru", "vi") for view in (None, "Burn rate")],
+    "stale": [("stale", w, "en", None) for w in G_WIDTHS],
+    "no-limit": [("no-limit", w, "en", "5-hour") for w in G_WIDTHS],
+    "expanded": [("ready", w, "en", "expand") for w in G_WIDTHS],
+    "partial": [("partial", w, "en", "expand") for w in G_WIDTHS],
+    "drain": [("ready", w, "en", "Drain rate") for w in G_WIDTHS] + [("ready", 1440, "en", "Burn rate")],
+}
+
+
+async def open_fixture_page(browser, url, state, width, lng, view):
+    """A fresh page on the fixture, in `state` at `width`; `view` is pressed in English first, then the language is set."""
+    context = await browser.new_context(
+        viewport=dict(width=width, height=1000), device_scale_factor=1, is_mobile=width < 600,
+        has_touch=width < 600, locale="en-US", timezone_id="UTC", color_scheme="dark", reduced_motion="reduce",
+    )
+    page = await context.new_page()
+
+    async def route_api(route):
+        request_url = route.request.url
+        if "/credentials" in request_url:
+            await route.fulfill(json={"files": []})
+        elif "/prox/inventory" in request_url:
+            await route.fulfill(json={"version": "fixture", "syncedAtMs": NOW, "sources": []})
+        elif "/prox/pools" in request_url:
+            query = parse_qs(urlparse(request_url).query)
+            data = fixture(state)
+            if "window" in query:
+                data["window"] = query["window"][0]
+            if "lookback" in query:
+                data["lookbackHours"] = int(query["lookback"][0])
+            await route.fulfill(json=data)
+        else:
+            await route.fulfill(json={})
+
+    async def local_only(route):
+        await (route.continue_() if route.request.url.startswith(url + "/") else route.abort())
+    await context.route("**/*", local_only)
+    await page.route("**/prox/sources.json", lambda route: route.fulfill(status=404))
+    await page.route("**/v8/management/**", route_api)
+    await page.goto(url, wait_until="networkidle")
+    await page.evaluate("""async () => {
+        const {useAuthStore}=await import('/src/stores/useAuthStore.ts');
+        const {apiClient}=await import('/src/services/api/client.ts');
+        const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage('en');
+        apiClient.setConfig({apiBase:location.origin,managementKey:'visual-fixture-only'});
+        useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
+        location.hash='/quota';
+    }""")
+    await page.locator("article").first.wait_for()
+    if view == "expand":
+        for _ in range(await page.get_by_role("button", name="Expand all").count()):
+            await page.get_by_role("button", name="Expand all").first.click()
+    elif view:
+        await switch_view(page, view)
+    if state == "many":
+        # Closed phone rows list only their low limits; one open row per provider adds the normal ones.
+        for index in range(await page.locator("article").count()):
+            await page.locator("article").nth(index).locator("details:not([open]) > summary").first.click()
+    if lng != "en":
+        await page.evaluate("async (lng) => { const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage(lng); }", lng)
+    await page.evaluate("document.fonts.ready")
+    await page.wait_for_timeout(250)
+    return context, page
+
+
+async def check_track_align(page, state):
+    """G1: within each provider card, the outer tracks of one limit (data-limit-id) share left and right edges
+    within 1px across every visible row, tracks are wide enough, value text is 13px+ and each value fits its slot."""
+    return await page.evaluate("(needMixed) => {" + C1_PRELUDE + r"""
+      const fails = [], groups = new Map(), wide = innerWidth >= 901, minTrack = wide ? 40 : 24;
+      for (const article of document.querySelectorAll('article')) {
+        const provider = (article.className.match(/__(claude|codex)___/) || [])[1] || 'provider';
+        const minimized = article.querySelector('[data-minimized="true"]') || article.matches('[data-minimized="true"]') ? 'min' : 'full';
+        for (const li of article.querySelectorAll('ul[aria-label] > li[data-limit-id]')) {
+          const track = li.querySelector(':scope > [class*="__limitBar___"]');
+          if (!track || !shown(track) || !shown(li)) continue;
+          const r = track.getBoundingClientRect(), key = `${provider}|${minimized}|${li.dataset.limitId}`;
+          const who = (li.closest('details')?.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '').trim();
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push({who, low: li.dataset.low === 'true', empty: track.hasAttribute('data-empty'), left: r.left, right: r.right});
+          if (r.width < minTrack - 0.5) fails.push({key, who, why: `track ${r.width.toFixed(1)}px wide, under ${minTrack}px`});
+          if (r.right > article.getBoundingClientRect().right + 0.5) fails.push({key, who, why: 'track runs past its card'});
+          for (const e of [li.querySelector(':scope > strong'), li.querySelector('[class*="__lowWord___"]')].filter(Boolean)) {
+            if (parseFloat(getComputedStyle(e).fontSize) < 13) fails.push({key, who, why: 'value text under 13px'});
+          }
+          const v = li.querySelector(':scope > strong');
+          if (v) {
+            const range = document.createRange(); range.selectNodeContents(v);
+            const cs = [...range.getClientRects()].filter(q => q.width > 0), vb = v.getBoundingClientRect();
+            const tops = cs.filter((q, i) => cs.findIndex(p => Math.abs(p.top - q.top) < 4) === i);
+            if (tops.length > 1) fails.push({key, who, why: `value on ${tops.length} lines`});
+            if (cs.length && Math.min(...cs.map(q => q.left)) < vb.left - 0.5) fails.push({key, who, why: 'value overflows its slot'});
+          }
+        }
+      }
+      if (!groups.size) fails.push({why: 'no visible tracks to measure'});
+      let mixed = false;
+      for (const [key, tracks] of groups) {
+        const solid = tracks.filter(t => !t.empty), ref = solid[0] || tracks[0];
+        if (solid.some(t => t.low) && solid.some(t => !t.low)) mixed = true;
+        for (const t of tracks) if (Math.abs(t.left - ref.left) > 1 || Math.abs(t.right - ref.right) > 1)
+          fails.push({key, who: t.who, why: `track ${t.left.toFixed(1)}–${t.right.toFixed(1)} vs ${ref.left.toFixed(1)}–${ref.right.toFixed(1)} (${ref.who})`});
+      }
+      if (needMixed && !mixed) fails.push({why: 'no column holds both normal and low rows'});
+      return fails;
+    }""", state == "many")
+
+
+async def check_unavailable_slots(page, required):
+    """G1: an unavailable or missing limit draws a dashed, unfilled track over the same x range as the column's
+    other tracks, and keeps its reason text whole. `required` pages must contain at least one such slot."""
+    return await page.evaluate("(required) => {" + C1_PRELUDE + r"""
+      const fails = [], slots = [...document.querySelectorAll('article ul[aria-label] > li[data-limit-id]')]
+        .filter(li => shown(li) && (li.dataset.missing === 'true' || li.querySelector(':scope > [class*="__limitBar___"][data-empty]')));
+      if (required && !slots.length) fails.push({why: 'no unavailable or missing slot to measure'});
+      for (const li of slots) {
+        const article = li.closest('article'), id = li.dataset.limitId, who = li.closest('details')?.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '';
+        const bar = li.querySelector(':scope > [class*="__limitBar___"]');
+        if (!bar || !shown(bar)) { fails.push({who, id, why: 'no visible empty track'}); continue; }
+        if (getComputedStyle(bar).borderTopStyle !== 'dashed') fails.push({who, id, why: 'empty track is not dashed'});
+        if (bar.children.length) fails.push({who, id, why: 'empty track has a fill'});
+        const ref = [...article.querySelectorAll(`ul[aria-label] > li[data-limit-id="${id}"] > [class*="__limitBar___"]:not([data-empty])`)].find(shown);
+        const b = bar.getBoundingClientRect();
+        if (ref) { const r = ref.getBoundingClientRect(); if (Math.abs(b.left - r.left) > 1 || Math.abs(b.right - r.right) > 1) fails.push({who, id, why: `empty track ${b.left.toFixed(1)}–${b.right.toFixed(1)} vs ${r.left.toFixed(1)}–${r.right.toFixed(1)}`}); }
+        const reason = li.dataset.missing === 'true' ? li.querySelector(':scope > em') : li.querySelector(':scope > strong');
+        if (!reason || !reason.textContent.trim() || !shown(reason)) { fails.push({who, id, why: 'no visible reason or placeholder'}); continue; }
+        const q = reason.getBoundingClientRect(), l = li.getBoundingClientRect();
+        const overlap = q.left < b.right - 0.5 && q.right > b.left + 0.5 && q.top < b.bottom - 0.5 && q.bottom > b.top + 0.5;
+        if (reason.scrollWidth > reason.clientWidth + 1 || q.left < l.left - 1 || q.right > l.right + 1 || overlap) fails.push({who, id, why: 'reason text clipped or runs into the track'});
+      }
+      return fails;
+    }""", required)
+
+
+async def check_combined_controls(page, width):
+    """G2: on the Combined card the chart-view select and the graph toggle follow the width rules (S1 on phones)."""
+    return await page.evaluate("(width) => {" + C1_PRELUDE + r"""
+      const card = document.querySelector('section[class*="__combined___"]'), fails = [];
+      const select = card?.querySelector('select'), toggle = card?.querySelector('button[class*="__graphToggle___"]'), h2 = card?.querySelector('h2');
+      if (!select || !toggle || !h2) return [{why: 'Combined card, select or toggle not found'}];
+      const s = select.getBoundingClientRect(), t = toggle.getBoundingClientRect(), h = h2.getBoundingClientRect(), c = card.getBoundingClientRect(), cs = getComputedStyle(card);
+      const edge = c.right - parseFloat(cs.paddingRight), centre = r => (r.top + r.bottom) / 2;
+      if (width >= 901) {
+        const gap = t.left - s.right;
+        if (Math.abs(t.right - edge) > 2) fails.push({why: `toggle right edge ${(edge - t.right).toFixed(1)}px from the content edge`});
+        if (gap < 0 || gap > 12) fails.push({why: `gap from select to toggle is ${gap.toFixed(1)}px`});
+        if (Math.abs(centre(s) - centre(t)) > 2) fails.push({why: `select and toggle centres differ by ${Math.abs(centre(s) - centre(t)).toFixed(1)}px`});
+      } else if (width <= 640) {
+        if (Math.abs(h.top - t.top) > 4 && Math.abs(centre(h) - centre(t)) > 20) fails.push({why: `heading top ${h.top.toFixed(1)} vs toggle top ${t.top.toFixed(1)}`});
+        if (s.top < Math.max(h.bottom, t.bottom) - 1) fails.push({why: 'select is not below the heading and toggle'});
+      } else {
+        if (s.top < Math.max(h.bottom, t.bottom) - 1) fails.push({why: 'select is not on its own row'});
+        if (Math.abs(s.right - edge) > 2) fails.push({why: `select right edge ${(edge - s.right).toFixed(1)}px from the content edge`});
+      }
+      return fails;
+    }""", width)
+
+
+async def check_rate_headline(page):
+    """G3: in a rate view every headline reads label, then number; the label is one line above the number and
+    "points/h" shares the number's baseline. A withheld headline keeps its word and label and shows no number or unit."""
+    return await page.evaluate("() => {" + C1_PRELUDE + r"""
+      const fails = []; let measured = 0;
+      for (const card of cards()) {
+        const h = card.querySelector('[class*="__headline___"]'), who = card.querySelector('h2')?.textContent;
+        if (!h) { fails.push({who, why: 'card has no headline'}); continue; }
+        if (h.dataset.rate !== 'true') { fails.push({who, why: 'headline is not in the rate layout'}); continue; }
+        const strong = h.querySelector('strong'), label = h.querySelector('[class*="__metricLabel___"]'), unit = strong.querySelector('small');
+        if (!label || !shown(label)) { fails.push({who, why: 'headline has no metric label'}); continue; }
+        if (!unit) {
+          if (/\d|points/.test(strong.textContent)) fails.push({who, why: 'withheld headline shows a number or unit'});
+          if (!strong.textContent.trim()) fails.push({who, why: 'withheld headline has no status word'});
+          continue;
+        }
+        measured++;
+        if (!(label.compareDocumentPosition(strong) & Node.DOCUMENT_POSITION_FOLLOWING)) fails.push({who, why: 'label does not come before the number in the DOM'});
+        const probe = () => { const p = document.createElement('span'); p.style.cssText = 'display:inline-block;width:0;height:0'; return p; };
+        const numberProbe = probe(), unitProbe = probe();
+        strong.insertBefore(numberProbe, unit); unit.appendChild(unitProbe);
+        const drift = Math.abs(numberProbe.getBoundingClientRect().bottom - unitProbe.getBoundingClientRect().bottom);
+        numberProbe.remove(); unitProbe.remove();
+        if (drift > 2) fails.push({who, why: `unit baseline ${drift.toFixed(1)}px off the number's`});
+        const ls = getComputedStyle(label), lh = parseFloat(ls.lineHeight) || parseFloat(ls.fontSize) * 1.2, l = label.getBoundingClientRect();
+        if (l.height > lh * 1.5) fails.push({who, why: `label ${l.height.toFixed(1)}px tall, over 1.5 lines of ${lh.toFixed(1)}px`});
+        if (l.bottom > strong.getBoundingClientRect().top + 0.5) fails.push({who, why: 'label is not above the number'});
+      }
+      if (!measured) fails.push({why: 'no rate headline with a number to measure'});
+      return fails;
+    }""")
+
+
+async def run_g_checks(browser, url, name, state, page, result):
+    """Run the G checks for a case: the rate headline on its own page, then every page of its G_SWEEPS entry."""
+    for key in G_KEYS:
+        result[key] = []
+    if state in ("drain", "burn"):
+        result["rateHeadlineFailures"] += [dict(page="case page", **f) for f in await check_rate_headline(page)]
+    for sweep_state, width, lng, view in G_SWEEPS.get(name, ()):
+        context, sweep = await open_fixture_page(browser, url, sweep_state, width, lng, view)
+        try:
+            tag = f"{sweep_state}/{view or 'remaining'}@{width}/{lng}"
+            result["trackAlignFailures"] += [dict(page=tag, **f) for f in await check_track_align(sweep, sweep_state)]
+            unavailable = sweep_state in ("no-limit", "partial")
+            # A missing slot is drawn from 901px; an unavailable value shows in every opened row.
+            result["unavailableSlotFailures"] += [dict(page=tag, **f) for f in await check_unavailable_slots(
+                sweep, unavailable and (width >= 901 or sweep_state == "partial"))]
+            result["combinedControlsFailures"] += [dict(page=tag, **f) for f in await check_combined_controls(sweep, width)]
+            if view in ("Drain rate", "Burn rate"):
+                result["rateHeadlineFailures"] += [dict(page=tag, **f) for f in await check_rate_headline(sweep)]
+        finally:
+            await context.close()
+
+
 OPTIONS_BUTTON = 'button[aria-controls="pool-view-options"]'
 
 
@@ -1307,6 +1531,7 @@ async def main():
                 results[name]["lowInlineFailures"] = await check_low_inline(page, state)
                 results[name]["forecastRowFailures"] = await check_forecast_row(page, state, width)
                 results[name]["actionAlignFailures"] = await check_action_align(page, state)
+                await run_g_checks(browser, args.url, name, state, page, results[name])
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -1543,7 +1768,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

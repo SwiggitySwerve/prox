@@ -63,6 +63,26 @@ export function CombinedPoolCard({
       </select>
     </label>
   );
+  const headlineContext = (
+    <div className={styles.headlineContext}>
+      <p className={styles.metricLabel}>
+        {mode !== 'remaining'
+          ? t('quota_pool.recorded_rate', {
+              rate: t(`quota_pool.${mode}`),
+              hours: dashboard.lookbackHours,
+            })
+          : t('quota_pool.window_remaining', { window: windowLabel })}
+      </p>
+      {/* Remaining adds its scale on a second line; rates keep their unit beside the number. */}
+      {mode === 'remaining' && total?.series && (
+        <span>
+          {t('quota_pool.of_capacity', {
+            capacity: formatPoolNumber(total.series.capacityPoints, i18n.language),
+          })}
+        </span>
+      )}
+    </div>
+  );
   return (
     <section className={`${styles.pool} ${styles.combined}`} aria-labelledby={`${id}-title`}>
       <div className={styles.graphHeader}>
@@ -84,6 +104,8 @@ export function CombinedPoolCard({
         data-unavailable={headline === null}
         data-rate={mode !== 'remaining'}
       >
+        {/* Rate views read label, then number; Remaining keeps its caption beside the number. */}
+        {mode !== 'remaining' && headlineContext}
         <strong>
           {/* Same as the provider cards: the value slot says the total is missing. */}
           {headline === null ? (
@@ -102,24 +124,7 @@ export function CombinedPoolCard({
             </>
           )}
         </strong>
-        <div className={styles.headlineContext}>
-          <p className={styles.metricLabel}>
-            {mode !== 'remaining'
-              ? t('quota_pool.recorded_rate', {
-                  rate: t(`quota_pool.${mode}`),
-                  hours: dashboard.lookbackHours,
-                })
-              : t('quota_pool.window_remaining', { window: windowLabel })}
-          </p>
-          {/* Remaining adds its scale on a second line; rates keep their unit beside the number. */}
-          {mode === 'remaining' && total?.series && (
-            <span>
-              {t('quota_pool.of_capacity', {
-                capacity: formatPoolNumber(total.series.capacityPoints, i18n.language),
-              })}
-            </span>
-          )}
-        </div>
+        {mode === 'remaining' && headlineContext}
       </div>
       {/* What the selected rate counts, from About these numbers, so the number isn't a guess. */}
       {mode !== 'remaining' && (

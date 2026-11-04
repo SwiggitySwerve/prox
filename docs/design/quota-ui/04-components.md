@@ -78,7 +78,7 @@ At most one [R§3], directly under the page header.
 
 ### Summary: headline
 
-- `type-display` number, then two label lines under it: metric ("Weekly remaining", "Drain rate", "Burn rate") and context ("of 300 points", "last 3h"). The label never sits beside the number, so long numbers never push it.
+- Remaining view: `type-display` number with its two-line caption beside it: metric ("Weekly remaining") and context ("of 300 points"). Drain and Burn views: the one-line label ("Drain rate (3h)") sits above the number, and "points/h" shares the number's baseline. Label then number is also the DOM order, so the label never sits beside the number and long numbers never push it.
 - A thin capacity meter under the headline (Remaining view): remaining / capacity in the provider colour, with a tick at the 20% low threshold.
 - **Withheld total:** `—` in muted display size; label line 1 unchanged; line 2 becomes the reason: "Withheld · 2 of 3 current" (or "Not summed" on the combined card). No meter. The notice explains.
 
