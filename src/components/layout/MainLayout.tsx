@@ -19,8 +19,11 @@ import { PageTransition } from '@/components/common/PageTransition';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { MainRoutes } from '@/router/MainRoutes';
 import { loadPluginSourceInventories } from '@/features/plugins/pluginSourceInventory';
-import { createAuthFilesApi } from '@/services/api/authFiles';
 import { useProviderSources, providerSources } from '@/stores/useProviderSources';
+import {
+  selectSourceFiles,
+  useCredentialInventoryStore,
+} from '@/stores/useCredentialInventoryStore';
 import {
   IconSidebarAuthFiles,
   IconSidebarConfig,
@@ -37,7 +40,7 @@ import {
 } from '@/components/ui/icons';
 import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
 import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore } from '@/stores';
-import { AUTH_FILES_CHANGED_EVENT } from '@/features/authFiles/authFilesEvents';
+import { startCredentialInventory } from '@/features/authFiles/credentialInventoryRuntime';
 import {
   collectPluginResourceEntries,
   PLUGIN_RESOURCES_REFRESH_EVENT,
@@ -238,7 +241,19 @@ export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Remembered across reloads and new windows on this machine.
   const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage('layout.sidebarCollapsed', false);
-  const [authFilesCount, setAuthFilesCount] = useState<number | null>(null);
+  // Credential occurrences across sources, from the one inventory store; unknown until every
+  // source has been read. They do not imply independent quota allowances.
+  const authFilesCount = useCredentialInventoryStore((state) => {
+    if (registry.status !== 'ready' || registry.sources.length === 0) return null;
+    let total = 0;
+    for (const view of registry.sources) {
+      if (!view.session || view.status !== 'ready') return null;
+      const files = selectSourceFiles(state, view.session.owner);
+      if (!files) return null;
+      total += files.length;
+    }
+    return total;
+  });
   const [railTooltip, setRailTooltip] = useState<{
     targetID: string;
     label: string;
@@ -252,7 +267,6 @@ export function MainLayout() {
     () => new Set()
   );
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const authFilesCountRequestRef = useRef(0);
   const railTooltipRef = useRef<HTMLDivElement | null>(null);
   const focusedRailItemRef = useRef<HTMLElement | null>(null);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
@@ -418,52 +432,28 @@ export function MainLayout() {
     );
   }, [registry]);
 
-  const loadAuthFilesCount = useCallback(async () => {
-    const requestID = ++authFilesCountRequestRef.current;
-    if (registry.status !== 'ready') {
-      setAuthFilesCount(null);
-      return;
-    }
-
-    try {
-      const captured = registry.resolution;
-      const inventories = await Promise.all(
-        registry.sources.map(async (view) => {
-          if (!view.session || view.status !== 'ready') throw new Error('Source unavailable');
-          return createAuthFilesApi(view.session).list();
-        })
-      );
-      if (
-        requestID !== authFilesCountRequestRef.current ||
-        providerSources.getSnapshot().resolution !== captured
-      )
-        return;
-      // Counts describe credential occurrences; they do not imply independent quota allowances.
-      setAuthFilesCount(
-        inventories.reduce((count, inventory) => count + inventory.files.length, 0)
-      );
-    } catch {
-      if (requestID !== authFilesCountRequestRef.current) return;
-      setAuthFilesCount(null);
-    }
-  }, [registry]);
+  // The one poller and the browser wiring of the credential inventory live with the app shell.
+  useEffect(() => startCredentialInventory(), []);
+  useEffect(() => {
+    const inventory = useCredentialInventoryStore.getState();
+    if (registry.status === 'ready') void inventory.refresh();
+    else inventory.reset();
+    // Keyed on the resolution: a source's view changing (a version header, say) is not a new
+    // connection and must not refetch everything.
+  }, [registry.status, registry.resolution]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadPluginResources();
-      void loadAuthFilesCount();
     }, 0);
 
     window.addEventListener(PLUGIN_RESOURCES_REFRESH_EVENT, loadPluginResources);
-    window.addEventListener(AUTH_FILES_CHANGED_EVENT, loadAuthFilesCount);
 
     return () => {
-      authFilesCountRequestRef.current += 1;
       window.clearTimeout(timer);
       window.removeEventListener(PLUGIN_RESOURCES_REFRESH_EVENT, loadPluginResources);
-      window.removeEventListener(AUTH_FILES_CHANGED_EVENT, loadAuthFilesCount);
     };
-  }, [apiBase, loadPluginResources, loadAuthFilesCount]);
+  }, [apiBase, loadPluginResources]);
 
   const pluginResourceGroups = pluginResources.reduce<
     Array<{ pluginID: string; pluginTitle: string; entries: PluginResourceEntry[] }>
@@ -688,7 +678,7 @@ export function MainLayout() {
     const results = await Promise.allSettled([
       fetchConfig(true),
       loadPluginResources(),
-      loadAuthFilesCount(),
+      useCredentialInventoryStore.getState().refresh(),
       triggerHeaderRefresh(),
     ]).finally(() => setRefreshingAll(false));
     const rejected = results.find((result) => result.status === 'rejected');

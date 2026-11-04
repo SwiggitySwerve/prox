@@ -11,9 +11,12 @@ import { useSourceLease } from '@/hooks/useSourceLease';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { createAuthFilesApi } from '@/services/api/authFiles';
 import { sourceOwnerKey, type SourceSession } from '@/services/api/sourceSession';
 import { useProviderSources } from '@/stores/useProviderSources';
+import {
+  selectSourceFiles,
+  useCredentialInventoryStore,
+} from '@/stores/useCredentialInventoryStore';
 import { createQuotaStore } from '@/stores/useQuotaStore';
 import { isQuotaSourceCurrent } from './sourceCurrent';
 import { Button } from '@/components/ui/Button';
@@ -103,7 +106,6 @@ function SourceQuotaPage({
     () => createQuotaAdapters(session, useSourceQuotaStore),
     [session, useSourceQuotaStore]
   );
-  const authFilesApi = useMemo(() => createAuthFilesApi(session), [session]);
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
@@ -143,9 +145,11 @@ function SourceQuotaPage({
     setLoading(true);
     setError('');
     try {
-      const data = await authFilesApi.list();
+      const outcome = await useCredentialInventoryStore.getState().refresh();
       if (!isCurrent()) return;
-      setFiles(data?.files || []);
+      const failure = outcome[session.owner.instanceId];
+      if (failure !== null) throw failure ?? new Error(t('notification.refresh_failed'));
+      setFiles(selectSourceFiles(useCredentialInventoryStore.getState(), session.owner) ?? []);
       setFilesGeneration(sessionGeneration);
     } catch (err: unknown) {
       if (!isCurrent()) return;
@@ -154,7 +158,7 @@ function SourceQuotaPage({
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [connectionStatus, sessionGeneration, t, session, authFilesApi, useSourceQuotaStore]);
+  }, [connectionStatus, sessionGeneration, t, session, useSourceQuotaStore]);
 
   useEffect(() => {
     void loadFiles();
@@ -162,6 +166,15 @@ function SourceQuotaPage({
       listRequestRef.current += 1;
     };
   }, [loadFiles, refreshToken]);
+
+  // Commits from the credential inventory (an add or remove anywhere, the poll, another tab) reach
+  // this page without a fetch of its own; a quiet page has no edit of its own to protect.
+  const inventoryFiles = useCredentialInventoryStore((state) =>
+    selectSourceFiles(state, session.owner)
+  );
+  useEffect(() => {
+    if (inventoryFiles && filesGeneration === sessionGeneration) setFiles(inventoryFiles);
+  }, [inventoryFiles, filesGeneration, sessionGeneration]);
 
   /* ---------- 额度缓存 ----------
    * 排在归类/排序之前：「最快恢复优先」要读它算排序键。 */

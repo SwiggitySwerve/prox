@@ -153,7 +153,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
 
   const completeProviderAuth = (provider: string) => {
     const resetAttempt = attempts.current.begin(provider);
-    notifyAuthFilesChanged((destinationOf(provider) ?? session).owner);
+    void notifyAuthFilesChanged((destinationOf(provider) ?? session).owner, { reason: 'add' });
     recordCredentialAdded();
     updateProviderState(provider, {
       url: undefined,

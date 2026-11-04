@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createAnalyticsApi } from '@/services/api/analytics';
 import { apiClient } from '@/services/api/client';
-import { createAuthFilesApi } from '@/services/api/authFiles';
+import { useCredentialInventoryStore, useSourceFiles } from '@/stores/useCredentialInventoryStore';
 import { useProviderSource } from '@/features/providers/ProviderSourceContext';
 import { useAuthStore } from '@/stores';
 import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
@@ -131,7 +131,6 @@ export function useDashboardOverview() {
   const scope = useProviderSource();
   const useConfigStore = scope.configStore;
   const useModelsStore = scope.modelsStore;
-  const authFilesApi = useMemo(() => createAuthFilesApi(scope.session), [scope.session]);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = scope.source.apiBase;
   const config = useConfigStore((state) => state.config);
@@ -149,18 +148,14 @@ export function useDashboardOverview() {
     enabled: connected,
   });
 
-  const [authFiles, setAuthFiles] = useState<AuthFileItem[] | null>(null);
+  // Credential counts come from the one inventory store; this screen lists nothing itself.
+  const authFiles: AuthFileItem[] | null = useSourceFiles(scope.session.owner) ?? null;
 
   const loadAuthFiles = useCallback(async () => {
     if (!connected) return;
-    try {
-      const response = await authFilesApi.list();
-      scope.assertCurrent();
-      setAuthFiles(response.files);
-    } catch {
-      setAuthFiles(null);
-    }
-  }, [connected, authFilesApi, scope]);
+    await useCredentialInventoryStore.getState().refresh();
+    scope.assertCurrent();
+  }, [connected, scope]);
 
   const loadModels = useCallback(async () => {
     if (!connected || !apiBase) return;
@@ -175,9 +170,9 @@ export function useDashboardOverview() {
   useEffect(() => {
     if (!connected) return;
     void fetchConfig().catch(() => undefined);
-    void loadAuthFiles();
+    void useCredentialInventoryStore.getState().ensureLoaded(scope.session.owner);
     void loadModels();
-  }, [connected, fetchConfig, loadAuthFiles, loadModels]);
+  }, [connected, fetchConfig, scope.session.owner, loadModels]);
 
   // Analytics answers per provider (it has no instance filter); this source's providers are
   // the ones its own credentials and API keys belong to.

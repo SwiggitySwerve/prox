@@ -128,7 +128,7 @@ export function SiwcBindDialog({ open, onClose, onViewAuthFiles }: SiwcBindDialo
             setPhase(result.status);
             if (result.status === 'ok') {
               startup.complete();
-              notifyAuthFilesChanged(sourceSession.owner);
+              void notifyAuthFilesChanged(sourceSession.owner);
             }
             return result.status === 'wait';
           },

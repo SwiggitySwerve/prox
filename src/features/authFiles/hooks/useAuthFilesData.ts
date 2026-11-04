@@ -7,6 +7,10 @@ import { getAuthFileRefreshKey } from '@/features/authFiles/manualRefresh';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import { misplacedCredentialOwner } from '@/domain/providerSources/ownership';
 import { providerSources } from '@/stores/useProviderSources';
+import {
+  selectSourceFiles,
+  useCredentialInventoryStore,
+} from '@/stores/useCredentialInventoryStore';
 
 import type { AuthFileItem } from '@/types';
 import { formatFileSize } from '@/utils/format';
@@ -110,11 +114,22 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
   const statusPendingRef = useRef({ revision: -1, keys: new Set<string>() });
   /** 列表请求代号：变更操作会使在途响应过期，防止旧轮询复活已删/已改文件。 */
   const loadRequestIdRef = useRef(0);
+  /** Logical time of the latest local edit; inventory commits requested before it are ignored. */
+  const lastEditRef = useRef(0);
   const invalidateInFlightLoads = useCallback(() => {
     loadRequestIdRef.current += 1;
+    lastEditRef.current = useCredentialInventoryStore.getState().tick();
     setLoading(false);
     setRefreshing(false);
   }, []);
+  // The credential inventory is read once for every screen. Later commits (the poll, another tab,
+  // a sync after an add or remove) arrive here as well, unless a local edit is newer than them.
+  const owner = sourceScope.session.owner;
+  const inventoryFiles = useCredentialInventoryStore((state) => selectSourceFiles(state, owner));
+  const inventoryStartedAt = useCredentialInventoryStore((state) => state.startedAt);
+  useEffect(() => {
+    if (inventoryFiles && inventoryStartedAt >= lastEditRef.current) setFiles(inventoryFiles);
+  }, [inventoryFiles, inventoryStartedAt]);
   const onFilesMutatedRef = useRef(onFilesMutated);
   useEffect(() => {
     onFilesMutatedRef.current = onFilesMutated;
@@ -226,10 +241,13 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
       }
 
       try {
-        const data = await authFilesApi.list();
+        const inventory = useCredentialInventoryStore.getState();
+        const outcome = await inventory.refresh();
         sourceScope.assertCurrent();
         if (!isCurrentRequest()) return; // 已被更新的请求/连接/变更取代
-        setFiles(data?.files || []);
+        const failure = outcome[owner.instanceId];
+        if (failure !== null) throw failure ?? new Error(t('notification.refresh_failed'));
+        setFiles(selectSourceFiles(useCredentialInventoryStore.getState(), owner) ?? []);
         setError('');
       } catch (err: unknown) {
         if (!sourceScope.isCurrent()) return;
@@ -243,7 +261,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         }
       }
     },
-    [authFilesApi, sourceScope, t]
+    [owner, sourceScope, t]
   );
 
   const handleUploadClick = useCallback(() => {
@@ -321,7 +339,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             `${t('auth_files.upload_success')}${suffix}`,
             result.failed.length ? 'warning' : 'success'
           );
-          notifyAuthFilesChanged(sourceScope.session.owner);
+          void notifyAuthFilesChanged(sourceScope.session.owner, { reason: 'add' });
           onFilesMutatedRef.current?.(result.files.length > 0 ? result.files : undefined);
           await loadFiles({ background: true });
           sourceScope.assertCurrent();
@@ -357,8 +375,13 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             const result = await authFilesApi.deleteFile(name);
             sourceScope.assertCurrent();
             showNotification(t('auth_files.delete_success'), 'success');
-            applyDeletedFiles(result.files.length > 0 ? result.files : [name]);
-            if (result.deleted > 0) notifyAuthFilesChanged(sourceScope.session.owner);
+            const deletedNames = result.files.length > 0 ? result.files : [name];
+            applyDeletedFiles(deletedNames);
+            if (result.deleted > 0)
+              void notifyAuthFilesChanged(sourceScope.session.owner, {
+                reason: 'delete',
+                deletedNames,
+              });
           } catch (err: unknown) {
             if (!sourceScope.isCurrent()) return;
             const errorMessage = err instanceof Error ? err.message : '';
@@ -442,7 +465,12 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             const failed = result.failed.length;
 
             applyDeletedFiles(result.files);
-            if (result.deleted > 0) notifyAuthFilesChanged(sourceScope.session.owner);
+            if (result.deleted > 0) {
+              void notifyAuthFilesChanged(sourceScope.session.owner, {
+                reason: 'delete',
+                deletedNames: result.files,
+              });
+            }
 
             if (failed === 0 && (isDisabledOnly || isEnabledOnly)) {
               showNotification(
@@ -557,7 +585,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         if (connectionRevision !== sourceScope.getRevision()) return;
         invalidateInFlightLoads();
         showNotification(t('auth_files.manual_refresh_requested', { name }), 'info');
-        notifyAuthFilesChanged(sourceScope.session.owner);
+        void notifyAuthFilesChanged(sourceScope.session.owner);
         onFilesMutatedRef.current?.([name]);
         await loadFiles({ background: true });
         sourceScope.assertCurrent();
@@ -613,7 +641,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             // Even a timeout can follow partial backend mutations.
             invalidateInFlightLoads();
             onFilesMutatedRef.current?.();
-            notifyAuthFilesChanged(sourceScope.session.owner);
+            void notifyAuthFilesChanged(sourceScope.session.owner);
             await loadFiles({ background: true });
             sourceScope.assertCurrent();
           }
@@ -959,7 +987,12 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             const result = await authFilesApi.deleteFiles(uniqueNames);
             sourceScope.assertCurrent();
             applyDeletedFiles(result.files);
-            if (result.deleted > 0) notifyAuthFilesChanged(sourceScope.session.owner);
+            if (result.deleted > 0) {
+              void notifyAuthFilesChanged(sourceScope.session.owner, {
+                reason: 'delete',
+                deletedNames: result.files,
+              });
+            }
 
             if (result.failed.length === 0) {
               showNotification(

@@ -3,9 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolAccount, PoolProviderId } from '@/domain/quotaPool/types';
 import type { AuthFileItem } from '@/types';
-import { createAuthFilesApi } from '@/services/api/authFiles';
 import { sourceOwnerKey, type SourceSession } from '@/services/api/sourceSession';
 import { useProviderSources } from '@/stores/useProviderSources';
+import { useCredentialInventoryStore, useSourceFiles } from '@/stores/useCredentialInventoryStore';
 import { createQuotaStore } from '@/stores/useQuotaStore';
 import { useSourceLease } from '@/hooks/useSourceLease';
 import { useQuotaActions } from '@/features/quota/hooks/useQuotaActions';
@@ -144,33 +144,22 @@ function SourceResetAction({
 }: Props & { owner: SourceSession; spent: boolean; early: boolean }) {
   const { session } = useSourceLease(owner);
   const { t } = useTranslation();
-  const [file, setFile] = useState<AuthFileItem | null>(null);
-  const [error, setError] = useState(false);
+  // The credential files come from the one inventory store, so a removed or disabled credential
+  // stops offering its reset in the same step every other screen drops it.
+  const files = useSourceFiles(session.owner);
+  const status = useCredentialInventoryStore((state) => state.status);
   useEffect(() => {
-    let active = true;
-    setFile(null);
-    setError(false);
-    void createAuthFilesApi(session)
-      .list()
-      .then((result) => {
-        session.assertCurrent();
-        if (!active) return;
-        const match = findPoolResetFile(
-          result.files,
-          session.owner.instanceId,
-          provider,
-          account.sourceAccountId
-        );
-        if (!match || match.disabled) setError(true);
-        else setFile(match);
-      })
-      .catch(() => {
-        if (active) setError(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [session, provider, account.sourceAccountId]);
+    void useCredentialInventoryStore.getState().ensureLoaded(session.owner);
+  }, [session.owner]);
+  const match = useMemo(
+    () =>
+      files
+        ? findPoolResetFile(files, session.owner.instanceId, provider, account.sourceAccountId)
+        : undefined,
+    [files, session.owner.instanceId, provider, account.sourceAccountId]
+  );
+  const file: AuthFileItem | null = match && !match.disabled ? match : null;
+  const error = files ? !file : status === 'error';
   const fact = { account, name, provider, onRefresh, spent };
   if (!file)
     return (
