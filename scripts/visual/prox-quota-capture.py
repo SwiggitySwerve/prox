@@ -165,6 +165,9 @@ def fixture(state):
                         nextResetGainPoints=None)
             recorded[-1] = dict(recorded[-1], remainingPoints=None, burnPointsPerHour=None,
                                 drainPointsPerHour=None)
+        if state == "long-name":
+            # A name beyond 28ch, beside a (usable) reset chip: the minimized list truncates it with a title.
+            accounts[0]["identifier"] = "a.deliberately.long.credential.name.for.a.shared.workstation@example-corporate.test"
         pools.append(pool)
     if state == "multi-low":
         # One Claude row with several low limits beside a normal weekly value (5-hour and Weekly Opus),
@@ -278,7 +281,7 @@ GEOMETRY = r"""(providedRoot) => {
   const controls=[...root.querySelectorAll('button,select,input,summary,a')].filter(visible).map(e=>{
     const target=e.matches('input[type=checkbox]') ? e.closest('label') : e;
     return {text:(e.getAttribute('aria-label')||e.textContent||e.getAttribute('type')||'').trim().slice(0,100),...rect(target),disabled:e.matches(':disabled')};});
-  const clipped=[...root.querySelectorAll('*')].filter(e=>visible(e)&&e.clientWidth>2&&e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>({tag:e.tagName,class:e.className,client:e.clientWidth,scroll:e.scrollWidth}));
+  const clipped=[...root.querySelectorAll('*')].filter(e=>visible(e)&&e.clientWidth>2&&e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible'&&!(getComputedStyle(e).textOverflow==='ellipsis'&&e.title)).map(e=>({tag:e.tagName,class:e.className,client:e.clientWidth,scroll:e.scrollWidth}));
   // Visible interactive elements whose boxes intersect by more than 2px in both axes (nested pairs excepted).
   const interactive=[...root.querySelectorAll('button,a[href],select,input,summary,[role=button],[role=tab]')].filter(visible);
   const overlaps=[];
@@ -336,7 +339,14 @@ const textRight=node=>{const r=document.createRange();r.selectNodeContents(node)
 # The fixtures that carry no account rows have nothing for the account checks to measure.
 C3_NO_ROSTER = ("empty", "loading", "error")
 # Cases captured with every card minimized, so the wide minimized list is measured.
-MINIMIZED_CASES = ("stale-minimized", "many-low-minimized", "multi-low-minimized")
+MINIMIZED_CASES = (
+    "stale-minimized", "many-low-minimized", "multi-low-minimized",
+    "stale-minimized-1920", "many-low-minimized-1920", "multi-low-minimized-1920",
+    "wide-minimized-1100", "wide-minimized-1280", "wide-minimized-1440", "wide-minimized-1920",
+    "long-minimized-901",
+)
+# Extra pages (fixture state, width, language) the minimized check also runs on, opened fresh.
+MINIMIZED_SWEEPS = {"wide-minimized-1440": [("multi-low", 1440, lng) for lng in ("ru", "vi")]}
 
 
 async def low_colour_failures(page, state):
@@ -512,49 +522,103 @@ async def renewal_caveat_failures(page, context, url, route_api, name, state):
     return out
 
 
-async def minimized_width_failures(page, name):
-    """I5: the minimized wide list spans the card's content, with column edges shared by every row."""
-    if name not in MINIMIZED_CASES:
-        return []
-    return await page.evaluate("() => {" + C3_HELPERS + r"""
+MINIMIZED_PROXIMITY_JS = "() => {" + C3_HELPERS + r"""
       const out=[],cards=[...document.querySelectorAll('article')].filter(a=>a.querySelector('section[class*="__accounts___"] details'));
       if(!cards.length)out.push({why:'no card with account rows'});
+      const same=(xs,tol=1)=>xs.length<2||Math.max(...xs)-Math.min(...xs)<=tol;
+      const R=e=>e.getBoundingClientRect(),over=(a,b)=>a.left<b.right-0.5&&a.right>b.left+0.5&&a.top<b.bottom-0.5&&a.bottom>b.top+0.5;
+      const cols=[];let allHeights=[],lowSeen=0;
       for(const a of cards){
-        const cs=getComputedStyle(a),box=a.getBoundingClientRect(),left=box.left+parseFloat(cs.paddingLeft)+parseFloat(cs.borderLeftWidth),
-          width=box.width-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-parseFloat(cs.borderLeftWidth)-parseFloat(cs.borderRightWidth),
-          card=a.querySelector('h2').textContent,head=[...a.querySelectorAll('[class*="__compactHead___"] > span')].filter(shown),
+        const card=a.querySelector('h2').textContent,cs=getComputedStyle(a),box=R(a),
+          contentW=box.width-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-parseFloat(cs.borderLeftWidth)-parseFloat(cs.borderRightWidth),
+          head=[...a.querySelectorAll('[class*="__compactHead___"] > span')].filter(shown),
           rows=[...a.querySelectorAll('details:not([open])')].filter(shown);
         if(head.length!==3||!rows.length){out.push({card,why:'missing header or rows'});continue;}
-        const chev=rows.map(r=>r.querySelector('summary > svg').getBoundingClientRect().left),
-          vals=rows.map(r=>r.querySelector('summary > strong').getBoundingClientRect().right),
-          valText=rows.map(r=>textRight(r.querySelector('summary > strong'))),
-          lis=rows.flatMap(r=>[...r.querySelectorAll('ul[aria-label="Limits"] li')].filter(shown)),
-          rights=[...valText,...lis.map(li=>textRight(li.querySelector('strong')))],
-          listLeft=Math.min(...chev,head[0].getBoundingClientRect().left),listRight=Math.max(...rights);
-        const same=(xs,tol=1)=>Math.max(...xs)-Math.min(...xs)<=tol;
-        if((listRight-listLeft)/width<0.85)out.push({card,why:'content spans '+((listRight-listLeft)/width).toFixed(2)+' of the card content'});
-        if((Math.min(...valText)-left)/width<0.70)out.push({card,why:'primary value edge at '+((Math.min(...valText)-left)/width).toFixed(2)});
-        if(!same(chev))out.push({card,why:'chevrons are not aligned'});
-        if(!same(vals))out.push({card,why:'primary value edges are not aligned'});
-        if(Math.abs(head[1].getBoundingClientRect().right-vals[0])>1)out.push({card,why:'value header and value edge differ'});
-        if(!lis.length)out.push({card,why:'no other low limit shown'});
-        else{
-          if(!same(lis.map(li=>li.getBoundingClientRect().left)))out.push({card,why:'other-low items are not aligned'});
-          if(Math.abs(head[2].getBoundingClientRect().left-lis[0].getBoundingClientRect().left)>1)out.push({card,why:'other-low header and items differ'});
-          for(const li of lis)if(!li.firstElementChild.textContent.trim()||!/%/.test(li.querySelector('strong').textContent)||!li.querySelector('[class*="__limitWarning___"] svg')||li.querySelector('[class*="__lowWord___"]')?.textContent.trim()!=='Low')out.push({card,why:'other-low item lacks label, value, icon or "Low"'});
-          if(lis.some(li=>li.dataset.counted==='true'))out.push({card,why:'the active window is repeated in other low limits'});
+        const hb=head.map(R);
+        cols.push({card,left:hb[0].left,w0:hb[0].width,w1:hb[1].width,right1:hb[1].right});
+        for(const h of head)if(h.scrollWidth>h.clientWidth+1||R(h).height>20)out.push({card,why:'column header wraps or is clipped: '+h.textContent});
+        const probe=document.createElement('span');probe.style.cssText='position:absolute;visibility:hidden;width:1ch';rows[0].querySelector('summary').appendChild(probe);
+        const ch=R(probe).width;probe.remove();
+        const heights=[],rights=[],valueLefts=[];
+        for(const r of rows){
+          const s=r.querySelector('summary'),nameCell=s.querySelector(':scope > [class*="__accountName___"]'),text=nameCell.querySelector('[class*="__accountText___"]'),
+            chip=nameCell.querySelector('[class*="__accountResetMarker___"]'),strong=s.querySelector(':scope > strong'),limits=s.querySelector(':scope > ul'),
+            label=text.textContent.trim(),rr=R(r),nb=R(nameCell);
+          // Equal heights: a row with no status line and its low limits on one line.
+          const lows=[...s.querySelectorAll(':scope > ul > li[data-low="true"]')].filter(li=>li.dataset.counted!=='true'),shownLows=lows.filter(shown);
+          const oneLine=shownLows.every(li=>Math.abs(R(li).top-R(shownLows[0]).top)<4&&R(li).height<26);
+          if(!shown(s.querySelector('[class*="__accountStatus___"]'))&&oneLine)heights.push(rr.height);
+          // Account track: at most 40ch, left of the value track; items stay inside it.
+          if(nb.width>40*ch+1)out.push({card,label,why:'Account track is '+(nb.width/ch).toFixed(1)+'ch wide'});
+          if(Math.abs(nb.left-hb[0].left)>1)out.push({card,label,why:'Account cell not under its header'});
+          if(Math.abs(R(strong).right-hb[1].right)>1)out.push({card,label,why:'value edge differs from its header'});
+          if(limits&&shown(limits)&&Math.abs(R(limits).left-hb[2].left)>1)out.push({card,label,why:'other-low cell not under its header'});
+          // Text lost: the name may end in an ellipsis only with its full text in a title.
+          if(text.scrollWidth>text.clientWidth+1&&text.title!==label)out.push({card,label,why:'name truncated without a title'});
+          if(text.scrollWidth<=text.clientWidth+1&&text.title)out.push({card,label,why:'title on a name that is not truncated'});
+          if(R(text).width>28*ch+1)out.push({card,label,why:'name wider than 28ch'});
+          // The chip stays on the name's line, whole.
+          const items=[text,chip].filter(Boolean);
+          if(chip){const c=R(chip),t=R(text);if(c.top>t.bottom-2||c.height>26||chip.scrollWidth>chip.clientWidth+1)out.push({card,label,why:'reset chip wraps below the name or is clipped'});}
+          // Proximity (per column): the rightmost Account-cell item to the leftmost value, within the card.
+          const right=Math.max(...items.map(e=>R(e).right));rights.push(right);valueLefts.push(R(strong).left);
+          if(hb[1].left-right<0)out.push({card,label,why:'Account item overlaps the value column'});
+          // Nothing overlaps; the value and every low limit are whole.
+          const parts=[...items,strong,...shownLows].map(R);
+          for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++)if(over(parts[i],parts[j]))out.push({card,label,why:'row items overlap'});
+          if(strong.scrollWidth>strong.clientWidth+1||R(strong).height>24)out.push({card,label,why:'value wraps or is clipped'});
+          if(!/\d/.test(strong.textContent)&&!strong.textContent.trim())out.push({card,label,why:'value is empty'});
+          lowSeen+=shownLows.length;
+          if(lows.length!==shownLows.length)out.push({card,label,why:'a low limit is hidden'});
+          for(const li of shownLows){
+            if(!li.firstElementChild.textContent.trim()||!/%/.test(li.querySelector('strong').textContent)||!li.querySelector('[class*="__limitWarning___"] svg')||!li.querySelector('[class*="__lowWord___"]'))out.push({card,label,why:'low limit lacks label, value, icon or Low word'});
+            const sb=R(li.querySelector('strong'));if(sb.height>24||li.querySelector('strong').scrollWidth>li.querySelector('strong').clientWidth+1)out.push({card,label,why:'low limit value wraps or is clipped'});
+          }
+          const lb=limits&&shown(limits)?R(limits):null;
+          if(lb&&lb.right>R(s).right+1)out.push({card,label,why:'other low limits overflow the row'});
         }
-        for(const r of rows){const chip=r.querySelector('[class*="__accountResetMarker___"]');if(chip&&chip.getBoundingClientRect().right>r.querySelector('summary > strong').getBoundingClientRect().left)out.push({card,why:'reset chip left the Account cell'});}
-        // Opening a row restores every limit and fact across the whole list width.
-        const row=rows[0],before=row.querySelectorAll('ul[aria-label="Limits"] li').length;row.open=true;
-        const grid=row.parentElement.getBoundingClientRect(),opened=row.getBoundingClientRect();
-        const limits=[...row.querySelectorAll('ul[aria-label="Limits"] li')];
-        if(opened.width<grid.width-1)out.push({card,why:'open row does not span the list'});
+        const proximity=Math.min(...valueLefts)-Math.max(...rights);
+        if(proximity>160)out.push({card,why:'rightmost Account item to the leftmost value is '+proximity.toFixed(0)+'px'});
+        if(!same(heights))out.push({card,why:'closed rows differ in height: '+[...new Set(heights.map(h=>h.toFixed(1)))].join(',')});
+        allHeights=allHeights.concat(heights);
+        // Opening a row restores every limit and fact, across the card's content width.
+        const row=rows[0],before=row.querySelectorAll(':scope > summary > ul > li').length;row.open=true;
+        const grid=R(row.parentElement),opened=R(row),section=a.querySelector('section[class*="__accounts___"]'),ss=getComputedStyle(section),
+          inner=contentW-parseFloat(ss.paddingLeft)-parseFloat(ss.paddingRight);
+        if(Math.abs(opened.width-grid.width)>1||Math.abs(opened.width-inner)>1)out.push({card,why:'opened row is '+opened.width.toFixed(1)+'px, card content is '+inner.toFixed(1)});
+        const limits=[...row.querySelectorAll(':scope > summary > ul > li')];
         if(!limits.every(shown)||limits.length!==before||!shown(row.querySelector('[class*="__accountFacts___"]')))out.push({card,why:'open row did not restore its limits and facts'});
         row.open=false;
       }
+      if(cards.length&&!lowSeen)out.push({why:'no low limit to measure'});
+      if(!same(allHeights))out.push({why:'equal-height rows differ across cards'});
+      // Every provider card shares the same column tracks.
+      if(cols.length<2)out.push({why:'fewer than 2 minimized cards to compare'});
+      for(const k of ['left','w0','w1','right1'])if(!same(cols.map(c=>c[k])))out.push({why:'column '+k+' differs across cards: '+cols.map(c=>c[k].toFixed(1)).join(' / ')});
       return out;
-    }""")
+    }"""
+
+
+async def minimized_width_failures(page, name):
+    """I5/C: minimized closed rows are left-aligned and content-sized on tracks shared by every row and card (<=160px from Account to value)."""
+    if name not in MINIMIZED_CASES:
+        return []
+    return await page.evaluate(MINIMIZED_PROXIMITY_JS)
+
+
+async def minimized_sweep_failures(browser, url, name):
+    """The same check on fresh pages in other languages: every card minimized first."""
+    out = []
+    for state, width, lng in MINIMIZED_SWEEPS.get(name, ()):
+        context, page = await open_fixture_page(browser, url, state, width, lng, None)
+        try:
+            for button in await page.locator('button[class*="__graphToggle___"]').all():
+                await button.click()
+            await page.wait_for_timeout(250)
+            out += [dict(page=f"{state}@{width}/{lng}", **f) for f in await page.evaluate(MINIMIZED_PROXIMITY_JS)]
+        finally:
+            await context.close()
+    return out
 
 
 def lum(rgb):
@@ -2061,6 +2125,14 @@ async def main():
         ("stale-minimized", "stale", 1440, 1000),
         ("many-low-minimized", "many-low", 1440, 1000),
         ("multi-low-minimized", "multi-low", 1440, 1000),
+        ("stale-minimized-1920", "stale", 1920, 1280),
+        ("many-low-minimized-1920", "many-low", 1920, 1280),
+        ("multi-low-minimized-1920", "multi-low", 1920, 1280),
+        ("wide-minimized-1100", "multi-low", 1100, 900),
+        ("wide-minimized-1280", "multi-low", 1280, 900),
+        ("wide-minimized-1440", "multi-low", 1440, 1000),
+        ("wide-minimized-1920", "multi-low", 1920, 1280),
+        ("long-minimized-901", "long-name", 901, 900),
     ]
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
@@ -2331,7 +2403,8 @@ async def main():
                 results[name]["staleDimFailures"] = await stale_dim_failures(page, state)
                 results[name]["staleLabelFailures"] = await stale_label_failures(page, state)
                 results[name]["renewalCaveatFailures"] = await renewal_caveat_failures(page, context, args.url, route_api, name, state)
-                results[name]["minimizedWidthFailures"] = await minimized_width_failures(page, name)
+                results[name]["minimizedProximityFailures"] = await minimized_width_failures(page, name)
+                results[name]["minimizedProximityFailures"] += await minimized_sweep_failures(browser, args.url, name)
                 results[name]["toolbarBudgetFailures"] = await check_toolbar_budget(page, name, results[name])
                 results[name]["lowInlineFailures"] = await check_low_inline(page, state)
                 results[name]["forecastRowFailures"] = await check_forecast_row(page, state, width)
@@ -2405,7 +2478,7 @@ async def main():
                 # visual state, so screenshots stay comparable.
                 interaction = {}
                 if name in MINIMIZED_CASES:
-                    # The wide minimized list has its own columns; minimizedWidthFailures measures them.
+                    # The wide minimized list has its own columns; minimizedProximityFailures measures them.
                     pass
                 elif width >= 901:
                     # Table: every limit cell starts exactly under its column heading.
@@ -2430,7 +2503,7 @@ async def main():
                         });
                     })''')
                     assert all(cell['rightOffset'] < 1 and cell['lineOffset'] < 12 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
-                interaction["collapsed_labels_and_values_align"] = "see minimizedWidthFailures" if name in MINIMIZED_CASES else "passed"
+                interaction["collapsed_labels_and_values_align"] = "see minimizedProximityFailures" if name in MINIMIZED_CASES else "passed"
                 if state == "refresh-pending":
                     countdown = page.locator('[class*="__countdown___"]')
                     await countdown.filter(has_text="Auto-refresh in").wait_for(timeout=9000)
@@ -2576,7 +2649,8 @@ async def main():
             pageOverflow=any(r["pageOverflow"] for r in scopes),
             **{key:sum(len(r.get(key, [])) for r in scopes)
                for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures", "inkFailures", "nestingFailures", "hiddenReasonFailures", "overlapFailures",
-                        "lowColourFailures", "staleDimFailures", "staleLabelFailures", "renewalCaveatFailures", "minimizedWidthFailures",
+                        "lowColourFailures", "staleDimFailures", "staleLabelFailures", "renewalCaveatFailures",
+                        "minimizedProximityFailures",
                         "toolbarBudgetFailures", "optionsSummaryFailures", "optionsOverlayFailures"]},
             errors=result["errors"],
         )

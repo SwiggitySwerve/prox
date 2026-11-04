@@ -688,7 +688,9 @@ export function PoolCard({
                   />
                   <span className={styles.accountName}>
                     <span className={styles.accountLabel}>
-                      {accountName(account)}
+                      {/* A minimized wide row truncates the name beyond 28ch; useSharedMinimizedTracks
+                          then gives it a title with the whole name. */}
+                      <span className={styles.accountText}>{accountName(account)}</span>
                       {/* One compact badge beside the name, so the Plan cell holds only the plan. */}
                       {account.resets &&
                         account.resets.available > 0 &&

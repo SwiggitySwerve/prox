@@ -2262,76 +2262,9 @@ $pool-error: #ff5252;
   color: var(--text-secondary);
   font-size: 13px;
 }
-// Minimized wide list: Account | active window remaining | other low limits.
+// Minimized wide list: the C block at the end of this file lays it out.
 .compactHead {
   display: none;
-}
-@media (min-width: 901px) {
-  .pool[data-minimized='true'] {
-    --compact-cols: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
-    .accountGrid {
-      margin: 4px 0 8px;
-      border-block: 1px solid var(--hairline);
-    }
-    .compactHead {
-      display: grid;
-      grid-template-columns: var(--compact-cols);
-      column-gap: 16px;
-      padding: 6px 0;
-      color: var(--text-tertiary);
-      font-size: 12px;
-      letter-spacing: 0.02em;
-      span:first-child {
-        padding-inline-start: 28px;
-      }
-      span:nth-child(2) {
-        text-align: right;
-      }
-    }
-    .account:not([open]) > summary {
-      grid-template-columns: var(--compact-cols);
-      gap: 0 16px;
-      .accountDisclosure {
-        grid-column: 1;
-        grid-row: 1;
-      }
-      > .accountName {
-        grid-column: 1;
-        grid-row: 1;
-        align-self: center;
-        padding-inline-start: 28px;
-      }
-      > .accountStatus {
-        grid-column: 1;
-        grid-row: 2;
-        padding-inline-start: 28px;
-      }
-      > strong {
-        grid-column: 2;
-        grid-row: 1 / span 2;
-        align-self: center;
-        justify-self: end;
-      }
-      > .limits {
-        grid-column: 3;
-        grid-row: 1 / span 2;
-        align-self: center;
-        margin: 0;
-        li[data-counted='true'] {
-          display: none;
-        }
-        li {
-          flex-wrap: wrap;
-          > span:first-child {
-            white-space: normal;
-          }
-        }
-        strong {
-          margin-left: auto;
-        }
-      }
-    }
-  }
 }
 /* C2 */
 // From 641px the options wrapper takes no part in layout: its controls stay toolbar items.
@@ -2678,4 +2611,105 @@ $pool-error: #ff5252;
   color: var(--text-primary);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+/* C */
+// Minimized wide list: Account | active window remaining | other low limits. Closed rows and their
+// header are left-aligned and content-sized; the tracks are measured once for the whole page
+// (useSharedMinimizedTracks) so every row in every card shares them. Opened rows span the card.
+@media (min-width: 901px) {
+  .pool[data-minimized='true'] {
+    --compact-cols: var(--compact-account-track, fit-content(40ch))
+      var(--compact-value-track, minmax(14ch, max-content)) minmax(0, 1fr);
+    .accountGrid {
+      margin: 4px 0 8px;
+      border-block: 1px solid var(--hairline);
+    }
+    .compactHead {
+      display: grid;
+      grid-template-columns: var(--compact-cols);
+      column-gap: 16px;
+      padding: 6px 0;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      span:first-child {
+        padding-inline-start: 28px;
+      }
+      span:nth-child(2) {
+        text-align: right;
+      }
+    }
+    // The name truncates beyond 28ch; its reset chip never wraps below it.
+    .account:not([open]) .accountLabel {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+    .account:not([open]) .accountText {
+      min-width: 0;
+      max-width: 28ch;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account:not([open]) .accountResetMarker {
+      flex: none;
+      margin-left: 0;
+    }
+    .account:not([open]) > summary {
+      grid-template-columns: var(--compact-cols);
+      gap: 0 16px;
+      .accountDisclosure {
+        grid-column: 1;
+        grid-row: 1;
+      }
+      > .accountName {
+        grid-column: 1;
+        grid-row: 1;
+        align-self: center;
+        padding-inline-start: 28px;
+      }
+      // A status line sits under the row and takes no part in sizing the Account column.
+      > .accountStatus {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        padding-inline-start: 28px;
+        contain: inline-size;
+      }
+      > strong {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: center;
+        justify-self: end;
+        white-space: nowrap;
+      }
+      // Other low limits sit inline and wrap only when the card runs out of room.
+      > .limits {
+        grid-column: 3;
+        grid-row: 1;
+        align-self: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 24px;
+        margin: 0;
+        li[data-counted='true'] {
+          display: none;
+        }
+        li {
+          flex: 0 1 auto;
+          min-width: 0;
+          flex-wrap: wrap;
+          > span:first-child {
+            white-space: normal;
+          }
+        }
+        strong {
+          margin-left: auto;
+          white-space: nowrap;
+        }
+      }
+    }
+  }
 }
