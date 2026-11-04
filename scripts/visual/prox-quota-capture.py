@@ -2068,6 +2068,7 @@ async def check_status_chip(page, context, url, route_api, name, state):
             await a_chip_pass(fresh, lng, out)
         finally:
             await fresh.close()
+    return out
 # B phone checks (round b1): account rows at 900px and below, and the phone provider header's chip line. Each has its
 # own JSON key, registered in B_KEYS for the summary and the exit gate. A check that finds nothing to measure fails.
 B_KEYS = (
