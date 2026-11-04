@@ -1,0 +1,10 @@
+[Unit]
+Description=Backstop for CLI-Proxy auth lock file cleanup
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Unit=prox-auth-janitor.service
+
+[Install]
+WantedBy=timers.target

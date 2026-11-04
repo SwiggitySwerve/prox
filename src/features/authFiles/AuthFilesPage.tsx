@@ -58,6 +58,7 @@ import { useThemeStore } from '@/stores';
 import { AuthFilesSourceNav } from '@/features/authFiles/components/AuthFilesSourceNav';
 import { useProviderSources } from '@/stores/useProviderSources';
 import { sourceOwnerKey } from '@/services/api/sourceSession';
+import { useCredentialInventoryStore } from '@/stores/useCredentialInventoryStore';
 import type { SourceView } from '@/services/providerSources/registry';
 import {
   AuthFilesSourceProvider,
@@ -197,6 +198,17 @@ function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: Register
     (names?: string[]) =>
       invalidateAuthFileDerivedCaches(invalidateModels, names, sourceScope.quotaStore),
     [invalidateModels, sourceScope.quotaStore]
+  );
+  // Names that leave the inventory (from any tab, the poll or a local delete) clear this
+  // source's model and quota caches in the same step that publishes the new file list.
+  useEffect(
+    () =>
+      useCredentialInventoryStore.getState().registerInvalidator((owner, names) => {
+        if (sourceOwnerKey(owner) === sourceOwnerKey(sourceScope.session.owner)) {
+          invalidateDerivedCaches(names);
+        }
+      }),
+    [invalidateDerivedCaches, sourceScope.session.owner]
   );
 
   const {

@@ -695,8 +695,10 @@ describe('additive legacy quota attribution', () => {
   test('preserves every row/tuple and single-source results through migration, reopen and repeat', () => {
     const path = join(temporary(), 'quota.sqlite');
     legacyDatabase(path);
-    const before = rawSnapshot(path);
+    // Opening adds the nullable retiredAtMs column; the baseline is taken after that upgrade so
+    // this test keeps proving that attribution itself changes no row.
     let store = open(path);
+    const before = rawSnapshot(path);
     const oldResult = buildDashboard(
       store.listAccounts(),
       store.listSamples(0, NOW),

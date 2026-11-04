@@ -30,6 +30,7 @@ import { parseClaudeUsagePayload, parseCodexUsagePayload } from '../../src/utils
 import { isRecord } from '../../src/utils/helpers';
 import { planFromClaudeProfile, planFromCodexUsage } from './plans';
 import { QuotaStore } from './store';
+import type { InventorySourceState, InventorySourceStatus } from './inventory';
 import { readAccountResets } from './resets';
 import {
   ANTHROPIC_API_ORIGIN,
@@ -39,16 +40,27 @@ import {
   MANUAL_REFRESH_INTERVAL_MS,
   REFRESH_INTERVAL_MS,
   QUOTA_PROVIDERS,
+  type InventoryChange,
   type QuotaSample,
   type QuotaSourceView,
   type StoredAccount,
 } from './types';
 
 const PLAN_REFRESH_MS = 6 * 60 * 60 * 1000;
+/** Inventory-only syncs start at least this far apart, so a burst cannot hammer CLI-Proxy. */
+const SYNC_FLOOR_MS = 1000;
+/**
+ * A read already in flight when the user deletes a credential can see the deletion and retire
+ * (and scrub) the account before the explicit delete sync names it. The names of accounts retired
+ * in the last few minutes stay in memory, never on disk, so that sync can still purge them.
+ */
+const RETIRED_NAME_MEMORY_MS = 10 * 60_000;
 
 interface CollectorDependencies {
   fetcher?: typeof fetch;
   now?: () => number;
+  /** Waits out the sync floor; injected by tests. */
+  sleep?: (ms: number) => Promise<void>;
 }
 type CollectorOptions = CollectorDependencies &
   (
@@ -103,6 +115,9 @@ function inventory(payload: unknown, provider: PoolProviderId, nowMs: number): I
   const seen = new Set<string>();
   for (const file of payload.files) {
     if (!isRecord(file)) throw new Error('Invalid quota inventory');
+    // Only `<name>.json` files are credentials. A listed `.lock` (or any other name) must neither
+    // become an account nor make the whole inventory look malformed and block retirement.
+    if (typeof file.name === 'string' && !file.name.endsWith('.json')) continue;
     const kind = file.provider ?? file.type;
     if (
       !boundedString(kind, 64) ||
@@ -278,6 +293,22 @@ export class QuotaCollector {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private controller: AbortController | null = null;
+  private readonly sleep: (ms: number) => Promise<void>;
+  /** Per source: the last inventory read started, and the newest one whose result was applied. */
+  private readonly inventorySeq = new Map<string, number>();
+  private readonly appliedInventorySeq = new Map<string, number>();
+  private readonly inventoryStates = new Map<string, InventorySourceState>();
+  private syncedAtMs: number | null = null;
+  private syncRunning: Promise<void> | null = null;
+  private syncQueued: { names: Set<string>; promise: Promise<InventoryChange> } | null = null;
+  private lastSyncStartedAtMs: number | null = null;
+  private syncController = new AbortController();
+  private readonly retiredNames = new Map<
+    string,
+    { name: string; sourceId: string; atMs: number }
+  >();
+  /** In-flight polls per account, so removing an account can abort them. */
+  private readonly pollControllers = new Map<string, Set<AbortController>>();
 
   constructor(
     private readonly store: QuotaStore,
@@ -314,6 +345,7 @@ export class QuotaCollector {
     }
     this.fetcher = options.fetcher ?? fetch;
     this.now = options.now ?? Date.now;
+    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.nextRefresh = this.now();
   }
 
@@ -349,6 +381,136 @@ export class QuotaCollector {
       instanceId: source.instanceId!,
       sourceLabel: source.label,
     }));
+  }
+
+  /** Per instance and provider: whether the last inventory read succeeded. */
+  get inventorySources(): InventorySourceStatus[] {
+    return this.collectionSources.flatMap((source) =>
+      source.instanceId === undefined
+        ? []
+        : source.providers.map((provider) => ({
+            instanceId: source.instanceId!,
+            provider,
+            state: this.inventoryStates.get(this.stateKey(source, provider)) ?? 'unavailable',
+          }))
+    );
+  }
+  /** When the last inventory read finished, whether or not it succeeded. */
+  get inventorySyncedAtMs(): number | null {
+    return this.syncedAtMs;
+  }
+
+  /**
+   * Re-reads every source's credential list and applies it, without touching provider usage APIs
+   * and outside the manual-refresh limit. Single flight: a call during a read waits for it and then
+   * gets one fresh read of its own (the read in flight may have started before the caller's
+   * change). Reads start at least a second apart. A failed or malformed read retires nothing.
+   * `deletedNames` are credential file names the user deleted; matching accounts that the fresh
+   * inventory confirms are gone are purged immediately instead of after the grace period.
+   */
+  syncInventory(options: { deletedNames?: readonly string[] } = {}): Promise<InventoryChange> {
+    const names = options.deletedNames ?? [];
+    if (!this.syncRunning) return this.startSync(new Set(names));
+    if (!this.syncQueued) {
+      const queued = {
+        names: new Set<string>(),
+        promise: undefined as unknown as Promise<InventoryChange>,
+      };
+      queued.promise = this.syncRunning.then(() => {
+        this.syncQueued = null;
+        return this.startSync(queued.names);
+      });
+      this.syncQueued = queued;
+    }
+    for (const name of names) this.syncQueued.names.add(name);
+    return this.syncQueued.promise;
+  }
+
+  private startSync(names: ReadonlySet<string>): Promise<InventoryChange> {
+    const run = this.runSync(names);
+    const settled: Promise<void> = run
+      .then(
+        () => undefined,
+        () => undefined
+      )
+      .then(() => {
+        if (this.syncRunning === settled) this.syncRunning = null;
+      });
+    this.syncRunning = settled;
+    return run;
+  }
+
+  private async runSync(names: ReadonlySet<string>): Promise<InventoryChange> {
+    if (this.lastSyncStartedAtMs !== null) {
+      const wait = this.lastSyncStartedAtMs + SYNC_FLOOR_MS - this.now();
+      if (wait > 0) await this.sleep(wait);
+    }
+    this.lastSyncStartedAtMs = this.now();
+    const signal = this.syncController.signal;
+    const change: InventoryChange = { added: [], removed: [], purged: [] };
+    const fresh = new Set<string>();
+    await Promise.all(
+      this.collectionSources.map(async (source) => {
+        const seq = this.startInventoryRead(source);
+        let read: Awaited<ReturnType<QuotaCollector['readInventory']>>;
+        try {
+          read = await this.readInventory(source, signal);
+        } catch {
+          if (!signal.aborted) this.markInventoryUnavailable(source);
+          return;
+        }
+        if (signal.aborted) return;
+        const applied = this.applyInventory(source, read, seq, names);
+        if (!applied) return;
+        fresh.add(source.instanceId ?? source.label);
+        change.added.push(...applied.change.added);
+        change.removed.push(...applied.change.removed);
+        change.purged.push(...applied.change.purged);
+      })
+    );
+    // Accounts an earlier read already retired, whose names are no longer on disk. Purged only
+    // when this sync read their own source fresh, like a purge on the read itself.
+    const nowMs = this.now();
+    const late = [...this.retiredNames]
+      .filter(([, remembered]) => {
+        return (
+          fresh.has(remembered.sourceId) &&
+          names.has(remembered.name) &&
+          nowMs - remembered.atMs <= RETIRED_NAME_MEMORY_MS
+        );
+      })
+      .map(([accountId]) => accountId);
+    if (late.length) {
+      const purged = this.store.purgeRetired(late);
+      for (const accountId of late) this.retiredNames.delete(accountId);
+      this.forget(purged);
+      change.purged.push(...purged);
+    }
+    this.syncedAtMs = this.now();
+    return change;
+  }
+
+  /** Clears every per-account memory of these accounts and aborts their in-flight polls. */
+  forget(accountIds: readonly string[]): void {
+    for (const id of accountIds) {
+      this.accountAttempts.delete(id);
+      this.profileAttempts.delete(id);
+      this.billingAttempts.delete(id);
+      this.latestBilling.delete(id);
+      this.latestWindows.delete(id);
+      this.latestResets.delete(id);
+      this.pollControllers.get(id)?.forEach((controller) => controller.abort());
+      this.pollControllers.delete(id);
+    }
+  }
+
+  /**
+   * One targeted first poll for each newly added account, one after another so a bulk upload
+   * cannot burst the provider's usage endpoint. Separate from the inventory sync, which never
+   * calls a usage API.
+   */
+  async pollAdded(accountIds: readonly string[]): Promise<void> {
+    for (const id of accountIds) await this.refreshAccount(id).catch(() => false);
   }
 
   refresh(): Promise<void> {
@@ -450,6 +612,8 @@ export class QuotaCollector {
     this.timer = null;
     this.controller?.abort();
     this.accountControllers.forEach((controller) => controller.abort());
+    this.syncController.abort();
+    this.syncController = new AbortController();
   }
 
   private schedule(): void {
@@ -494,14 +658,16 @@ export class QuotaCollector {
         });
         if (isRecord(response) && response.status_code === 200) {
           const billing = billingFromClaudeProfile(response.body);
-          if (billing && !signal.aborted) this.latestBilling.set(account.id, billing);
+          if (billing && !signal.aborted && this.store.isLive(account.id)) {
+            this.latestBilling.set(account.id, billing);
+          }
           plan = planFromClaudeProfile(response.body);
         }
       } catch {
         return;
       }
     }
-    if (!plan || signal.aborted) return;
+    if (!plan || signal.aborted || !this.store.isLive(account.id)) return;
     try {
       this.store.recordPlan(account.id, plan, this.now());
     } catch {
@@ -530,7 +696,7 @@ export class QuotaCollector {
       });
       if (!signal.aborted && isRecord(response) && response.status_code === 200) {
         const billing = billingFromCodexSubscription(response.body);
-        if (billing) this.latestBilling.set(accountId, billing);
+        if (billing && this.store.isLive(accountId)) this.latestBilling.set(accountId, billing);
       }
     } catch {
       // Billing is best-effort. Retain the previous reading and the attempt gate.
@@ -585,7 +751,40 @@ export class QuotaCollector {
     return readJson(response.body, MAX_RESPONSE_BYTES, 'Quota response too large');
   }
 
+  /** Polls one account unless it has left its inventory; `forget` aborts the poll mid-flight. */
   private async pollAccount(
+    account: StoredAccount,
+    authIndex: string,
+    source: CollectionSource,
+    key: string,
+    outerSignal: AbortSignal,
+    storedPlans: Map<string, number | null>,
+    chatgptAccountId: string | null
+  ): Promise<boolean> {
+    if (!this.store.isLive(account.id)) return false;
+    const own = new AbortController();
+    const controllers = this.pollControllers.get(account.id) ?? new Set<AbortController>();
+    controllers.add(own);
+    this.pollControllers.set(account.id, controllers);
+    try {
+      return await this.pollLiveAccount(
+        account,
+        authIndex,
+        source,
+        key,
+        AbortSignal.any([outerSignal, own.signal]),
+        storedPlans,
+        chatgptAccountId
+      );
+    } finally {
+      controllers.delete(own);
+      if (!controllers.size && this.pollControllers.get(account.id) === controllers) {
+        this.pollControllers.delete(account.id);
+      }
+    }
+  }
+
+  private async pollLiveAccount(
     account: StoredAccount,
     authIndex: string,
     source: CollectionSource,
@@ -622,7 +821,7 @@ export class QuotaCollector {
       ));
       usageBody = response.body;
     } catch {
-      if (!signal.aborted) {
+      if (!signal.aborted && this.store.isLive(account.id)) {
         console.error(
           `Quota request failed: ${account.provider} ${failureDetail(account.id, upstream)}`
         );
@@ -631,7 +830,9 @@ export class QuotaCollector {
       }
       return false;
     }
-    if (!signal.aborted) {
+    // The account may have left its inventory while the request was in flight. Its rows can be
+    // gone, so writing a sample would fail the whole collection; nothing may be stored for it.
+    if (!signal.aborted && this.store.isLive(account.id)) {
       try {
         this.store.recordSamples(samples);
         this.latestWindows.set(account.id, windows);
@@ -645,7 +846,7 @@ export class QuotaCollector {
         await this.recordCodexBilling(account.id, authIndex, chatgptAccountId, source, key, signal);
       await this.recordPlan(account, authIndex, source, key, signal, usageBody, storedPlans);
     }
-    return !signal.aborted;
+    return !signal.aborted && this.store.isLive(account.id);
   }
 
   private async readInventory(source: CollectionSource, signal: AbortSignal) {
@@ -659,52 +860,128 @@ export class QuotaCollector {
     return { key, groups };
   }
 
+  private stateKey(source: CollectionSource, provider: PoolProviderId): string {
+    return JSON.stringify([source.instanceId ?? source.label, provider]);
+  }
+
+  /**
+   * Numbers each inventory read of a source when it starts. A read whose result arrives after a
+   * newer read's result was applied is stale (it may still list an account the newer read saw
+   * removed) and must not be applied.
+   */
+  private startInventoryRead(source: CollectionSource): number {
+    const id = source.instanceId ?? source.label;
+    const seq = (this.inventorySeq.get(id) ?? 0) + 1;
+    this.inventorySeq.set(id, seq);
+    return seq;
+  }
+
+  private markInventoryUnavailable(source: CollectionSource): void {
+    for (const provider of source.providers) {
+      this.inventoryStates.set(this.stateKey(source, provider), 'unavailable');
+      this.addIssue(source, provider, 'inventory-unavailable');
+    }
+  }
+
+  /**
+   * Records one validated inventory. Returns null when it is stale. Otherwise returns the accounts
+   * to poll and what changed; accounts that left are forgotten here, after their rows are retired
+   * or purged and before anything can poll them again.
+   */
+  private applyInventory(
+    source: CollectionSource,
+    {
+      key,
+      groups,
+    }: { key: string; groups: { provider: PoolProviderId; accounts: InventoryAccount[] }[] },
+    seq: number,
+    deletedNames?: ReadonlySet<string>
+  ): {
+    pending: (InventoryAccount & { source: CollectionSource; key: string })[];
+    change: InventoryChange;
+  } | null {
+    const id = source.instanceId ?? source.label;
+    if (seq < (this.appliedInventorySeq.get(id) ?? 0)) return null;
+    this.appliedInventorySeq.set(id, seq);
+    const pending: (InventoryAccount & { source: CollectionSource; key: string })[] = [];
+    const change: InventoryChange = { added: [], removed: [], purged: [] };
+    const namesBefore = new Map(
+      this.store
+        .listAccounts()
+        .filter((stored) => !stored.retired && stored.instanceId === source.instanceId)
+        .map((stored) => [stored.id, stored.name])
+    );
+    for (const { provider, accounts } of groups) {
+      try {
+        for (const entry of accounts) {
+          if (source.instanceId !== undefined) {
+            entry.account.instanceId = source.instanceId;
+            entry.account.id = this.store.accountIdFor(
+              source.instanceId,
+              provider,
+              entry.authIndex
+            );
+          }
+        }
+        const changed = this.store.recordInventory(
+          provider,
+          accounts.map(({ account }) => account),
+          this.now(),
+          source.instanceId,
+          deletedNames
+        );
+        change.added.push(...changed.added);
+        change.removed.push(...changed.removed);
+        change.purged.push(...changed.purged);
+        this.inventoryStates.set(this.stateKey(source, provider), 'ok');
+        this.currentIssues = this.currentIssues.filter(
+          (issue) =>
+            !(
+              issue.instanceId === source.instanceId &&
+              issue.provider === provider &&
+              issue.code === 'inventory-unavailable'
+            )
+        );
+        pending.push(
+          ...accounts
+            .filter(({ account }) => !account.disabled)
+            .map((entry) => ({ ...entry, source, key }))
+        );
+      } catch {
+        this.inventoryStates.set(this.stateKey(source, provider), 'unavailable');
+        this.addIssue(source, provider, 'inventory-unavailable');
+      }
+    }
+    const nowMs = this.now();
+    for (const [accountId, remembered] of this.retiredNames) {
+      if (nowMs - remembered.atMs > RETIRED_NAME_MEMORY_MS) this.retiredNames.delete(accountId);
+    }
+    for (const accountId of change.added) this.retiredNames.delete(accountId);
+    for (const accountId of change.removed) {
+      const name = namesBefore.get(accountId);
+      if (name !== undefined) this.retiredNames.set(accountId, { name, sourceId: id, atMs: nowMs });
+    }
+    this.forget([...change.removed, ...change.purged]);
+    return { pending, change };
+  }
+
   private async collect(signal: AbortSignal): Promise<void> {
     this.currentIssues = [];
-    this.store.prune(this.now());
+    this.forget(this.store.prune(this.now()));
     const inventories = await Promise.allSettled(
       this.collectionSources.map(async (source) => {
-        let key: string;
-        let groups: { provider: PoolProviderId; accounts: InventoryAccount[] }[];
+        const seq = this.startInventoryRead(source);
+        let read: Awaited<ReturnType<QuotaCollector['readInventory']>>;
         try {
-          ({ key, groups } = await this.readInventory(source, signal));
+          read = await this.readInventory(source, signal);
         } catch {
-          if (!signal.aborted) {
-            for (const provider of source.providers)
-              this.addIssue(source, provider, 'inventory-unavailable');
-          }
+          if (!signal.aborted) this.markInventoryUnavailable(source);
           return [];
+        } finally {
+          this.syncedAtMs = this.now();
         }
         if (signal.aborted) return [];
-        const pending: (InventoryAccount & { source: CollectionSource; key: string })[] = [];
-        for (const { provider, accounts } of groups) {
-          try {
-            for (const entry of accounts) {
-              if (source.instanceId !== undefined) {
-                entry.account.instanceId = source.instanceId;
-                entry.account.id = this.store.accountIdFor(
-                  source.instanceId,
-                  provider,
-                  entry.authIndex
-                );
-              }
-            }
-            this.store.recordInventory(
-              provider,
-              accounts.map(({ account }) => account),
-              this.now(),
-              source.instanceId
-            );
-            pending.push(
-              ...accounts
-                .filter(({ account }) => !account.disabled)
-                .map((entry) => ({ ...entry, source, key }))
-            );
-          } catch {
-            this.addIssue(source, provider, 'inventory-unavailable');
-          }
-        }
-        return pending;
+        return this.applyInventory(source, read, seq)?.pending ?? [];
       })
     );
     const accounts: (InventoryAccount & { source: CollectionSource; key: string })[] = [];

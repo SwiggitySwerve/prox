@@ -36,6 +36,14 @@ Prox history. The script uses the pinned Bun via npm
 exec, so it does not replace a machine's global Bun. Commit first when the image
 revision must identify an exact source tree.
 
+The script also installs and enables the lock janitor: `prox-auth-janitor.path`
+and `.timer` (user units in `~/.config/systemd/user/`) run
+`~/.local/share/prox/prox-auth-janitor.sh` whenever either CLI-Proxy auth
+directory changes, and every 15 minutes. CLI-Proxy deletes a credential's
+`.json` but never its `.json.lock`; the janitor removes only `*.json.lock` files
+that have no `.json` and are over 10 minutes old (a fresh one can belong to a
+write in progress), and never touches a `.json`.
+
 Initial routing setup (operator access on homelab):
 
 ```sh

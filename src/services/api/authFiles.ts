@@ -2,6 +2,7 @@
  * Auth files and OAuth excluded-model API
  */
 
+import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import { apiClient } from './client';
 import { createConfigValueApi, guardConfigConnection } from './configValue';
 import type { ManagementTransport, SourceSession } from './sourceSession';
@@ -506,7 +507,7 @@ export function createAuthFilesApi(session: SourceSession) {
     writes = new Map();
     sourceOauthMapWrites.set(session.owner, writes);
   }
-  return buildAuthFilesApi(
+  const api = buildAuthFilesApi(
     session.management,
     () => {
       const signal = session.signal;
@@ -517,6 +518,16 @@ export function createAuthFilesApi(session: SourceSession) {
     },
     writes
   );
+  return {
+    ...api,
+    // Deleting everything changes membership like any other delete. No names are known here,
+    // so the server only retires the accounts; their rows are purged after the grace period.
+    deleteAll: async () => {
+      const result = await api.deleteAll();
+      await notifyAuthFilesChanged(session.owner, { reason: 'delete' });
+      return result;
+    },
+  };
 }
 
 function buildAuthFilesApi(

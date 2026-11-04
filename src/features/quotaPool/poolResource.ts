@@ -32,12 +32,29 @@ const statusOf = (error: unknown) => {
   return typeof status === 'number' ? status : null;
 };
 
+/** How a pool resource takes part in the credential inventory's single commit. */
+export interface PoolInventoryLink {
+  /** Have the inventory read this query in each refresh; returns the detach function. */
+  attach(key: string, read: (signal: AbortSignal) => Promise<PoolDashboard>): () => void;
+  /** The pool a commit last read for this query, with the revision of that commit. */
+  committed(key: string): { data: PoolDashboard; revision: number } | null;
+  /** Called on every inventory change; `committed` says whether the pool is new. */
+  subscribe(listener: () => void): () => void;
+  /** A read carried this inventory version; the inventory looks again if it is not its own. */
+  noteVersion(version: string): void;
+}
+
 /** Owns transport lifetime only; quota values and refresh policy belong to the server. */
 export function createPoolResource(
   api: ReturnType<typeof createQuotaPoolApi>,
   query: PoolQuery,
-  isCurrent: () => boolean
+  isCurrent: () => boolean,
+  inventory?: PoolInventoryLink
 ) {
+  const key = JSON.stringify(query);
+  let adoptedRevision = -1;
+  let detachInventory: (() => void) | undefined;
+  let unsubscribeCommits: (() => void) | undefined;
   let snapshot = EMPTY;
   let active = false;
   let generation = 0;
@@ -66,6 +83,7 @@ export function createPoolResource(
       const data = await api.get(query, controller.signal);
       if (valid()) {
         publish({ data, error: false, errorStatus: null, loading: false, refreshStatus: null });
+        if (data.inventoryVersion) inventory?.noteVersion(data.inventoryVersion);
         // Collection is asynchronous. Observe its completion promptly instead of leaving
         // a finished job looking busy until the ordinary 15-second dashboard poll.
         // These reads never request another collection and never overlap a pending read.
@@ -74,6 +92,24 @@ export function createPoolResource(
     } catch (error) {
       if (valid()) publish({ error: true, errorStatus: statusOf(error), loading: false });
     }
+  };
+  // The inventory commits this pool together with the credential files. A read still in flight
+  // was requested before that commit and could resurrect an account it removed, so it is dropped.
+  const adopt = () => {
+    const committed = inventory?.committed(key);
+    if (!active || !isCurrent() || !committed || committed.revision === adoptedRevision) return;
+    adoptedRevision = committed.revision;
+    generation += 1;
+    read?.abort();
+    clearTimeout(completionPoll);
+    publish({
+      data: committed.data,
+      error: false,
+      errorStatus: null,
+      loading: false,
+      refreshStatus: null,
+    });
+    if (committed.data.refreshing) completionPoll = setTimeout(() => void reload(), 1_000);
   };
   const refresh = async (accountId?: string) => {
     if (accountId) {
@@ -121,6 +157,10 @@ export function createPoolResource(
       listeners.add(listener);
       if (!active) {
         active = true;
+        if (inventory) {
+          detachInventory = inventory.attach(key, (signal) => api.get(query, signal));
+          unsubscribeCommits = inventory.subscribe(adopt);
+        }
         void reload();
         timer = setInterval(() => {
           // A slow backend must get a chance to finish before the next poll.
@@ -140,6 +180,11 @@ export function createPoolResource(
         if (listeners.size) return;
         active = false;
         generation += 1;
+        detachInventory?.();
+        unsubscribeCommits?.();
+        detachInventory = undefined;
+        unsubscribeCommits = undefined;
+        adoptedRevision = -1;
         read?.abort();
         mutation?.abort();
         targeted.forEach((controller) => controller.abort());

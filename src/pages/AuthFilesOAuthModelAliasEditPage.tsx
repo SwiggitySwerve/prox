@@ -21,10 +21,13 @@ import {
   isOAuthEditorDirty,
 } from '@/features/authFiles/oauthEditorState';
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
+import { useCredentialInventoryStore, useSourceFiles } from '@/stores/useCredentialInventoryStore';
 import { generateId, getErrorMessage } from '@/utils/helpers';
 import styles from '@/features/authFiles/components/OAuthEditor.module.scss';
 
 type AuthFileModelItem = { id: string; display_name?: string; type?: string; owned_by?: string };
+
+const NO_FILES: AuthFileItem[] = [];
 
 type LocationState = { fromAuthFiles?: boolean } | null;
 
@@ -57,7 +60,7 @@ export function AuthFilesOAuthModelAliasEditPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { showConfirmation, showNotification } = useAuthFilesNotifications();
-  const { api: authFilesApi } = useAuthFilesSource();
+  const { api: authFilesApi, session } = useAuthFilesSource();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const disableControls = connectionStatus !== 'connected';
 
@@ -66,7 +69,8 @@ export function AuthFilesOAuthModelAliasEditPage() {
   const [initialProviderKey] = useState(() => normalizeProviderKey(providerFromParams));
 
   const [provider, setProvider] = useState(providerFromParams);
-  const [files, setFiles] = useState<AuthFileItem[]>([]);
+  // Credential files come from the one inventory store, not a list of this page's own.
+  const files: AuthFileItem[] = useSourceFiles(session.owner) ?? NO_FILES;
   const [excluded, setExcluded] = useState<Record<string, string[]>>({});
   const [modelAlias, setModelAlias] = useState<Record<string, OAuthModelAliasEntry[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
@@ -178,17 +182,13 @@ export function AuthFilesOAuthModelAliasEditPage() {
     setModelAliasUnsupported(false);
 
     try {
-      const [filesResult, excludedResult, aliasResult] = await Promise.allSettled([
-        authFilesApi.list(),
+      const [, excludedResult, aliasResult] = await Promise.allSettled([
+        useCredentialInventoryStore.getState().ensureLoaded(session.owner),
         authFilesApi.getOauthExcludedModels(),
         authFilesApi.getOauthModelAlias(),
       ]);
 
       if (requestId !== loadRequestRef.current) return;
-
-      if (filesResult.status === 'fulfilled') {
-        setFiles(filesResult.value?.files ?? []);
-      }
 
       if (excludedResult.status === 'fulfilled') {
         setExcluded(excludedResult.value ?? {});
@@ -220,7 +220,7 @@ export function AuthFilesOAuthModelAliasEditPage() {
         setInitialLoading(false);
       }
     }
-  }, [authFilesApi]);
+  }, [authFilesApi, session.owner]);
 
   useEffect(() => {
     void loadInitialData();

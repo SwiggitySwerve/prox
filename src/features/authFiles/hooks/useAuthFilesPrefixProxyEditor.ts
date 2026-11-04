@@ -768,7 +768,7 @@ export function useAuthFilesPrefixProxyEditor(
       sourceScope.assertCurrent();
       if (!isCurrentEditor()) return;
       onFilesMutated?.([name]);
-      notifyAuthFilesChanged(sourceScope.session.owner);
+      void notifyAuthFilesChanged(sourceScope.session.owner);
       showNotification(t('auth_files.prefix_proxy_saved_success', { name }), 'success');
       await loadFiles();
       sourceScope.assertCurrent();

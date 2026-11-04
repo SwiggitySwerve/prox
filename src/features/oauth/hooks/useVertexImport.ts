@@ -71,7 +71,7 @@ export function useVertexImport(options: {
         authFile: res['auth-file'] ?? res.auth_file,
       };
       setVertex((prev) => ({ ...prev, loading: false, result }));
-      notifyAuthFilesChanged(session.owner);
+      void notifyAuthFilesChanged(session.owner, { reason: 'add' });
       onCredentialAdded();
       if (!isFocused()) showNotification(t('vertex_import.success'), 'success');
     } catch (err: unknown) {

@@ -42,6 +42,23 @@ checks 44px targets and keyboard access to measurement details.
 Phone-filter checks also exercise Enter/Space, preserved selections and draft
 search text, visible active-filter counts, and resizing back to desktop.
 
+## Credential flow
+
+`credentialFlow.browser.ts` runs the real UI against the real prox-history (store,
+collector and routes) and two fake CLI-Proxy instances, started by
+`tests/support/credentialFlowBackend.ts` under Bun (`BUN_BIN` overrides the Bun
+binary; it defaults to `~/.local/bin/bun` when present). `credentialFlowHarness.ts`
+routes the browser to them. Each scenario opens Auth Files, Accounts, Quota
+Management, the Dashboard, an OAuth edit page, AI Providers and Analytics in
+separate tabs of one browser and asserts that every screen shows the same
+credentials: remove, add, an outside change found by the poll, a second tab
+updated through the BroadcastChannel while its poller is paused, a 503 inventory
+that retires nothing, and AI Providers staying identical. Nothing contacts a real
+CLI-Proxy or prox-history, and no credential file is read.
+
+When port 15173 is taken, `PROX_UI_PORT=15191 node node_modules/@playwright/test/cli.js test tests/browser/credentialFlow.browser.ts`
+runs on another one (the Analytics specs hardcode 15173 and need the default).
+
 To capture all Analytics states and measure their screenshots:
 
 ```sh
