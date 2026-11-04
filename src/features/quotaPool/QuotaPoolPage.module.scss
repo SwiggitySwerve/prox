@@ -818,10 +818,10 @@ $pool-error: #ff5252;
 .account:not([open]) .limits small {
   display: none;
 }
-// Phone rows already show the counted limit as the row's value, so a closed row doesn't repeat
-// it; an open row lists every limit the same way, with its bar, value and reset.
+// A compact row (a closed row of a minimized card) shows the counted limit as the row's value, so
+// it doesn't repeat it in the list. Phone rows with blocks list it first (the B block).
 @media (max-width: 900px) {
-  .account:not([open]) .limits li[data-counted='true'] {
+  .account:not([open]):not([data-phone-blocks]) .limits li[data-counted='true'] {
     display: none;
   }
   // The row's value is the limit the page is set to, so it leads: a step larger, named on the
@@ -1884,14 +1884,14 @@ $pool-error: #ff5252;
     margin-left: 0;
   }
 }
-// On a phone a long roster shows one line per account, plus any low limit in the same bar row
-// the short rosters use; the other limits open with the row.
+// On a phone a long roster shows the active window, plus any low limit in the same block the
+// short rosters use; the other limits open with the row.
 @media (max-width: 640px) {
   .pool:not([data-minimized='true']) .accountGrid[data-large='true'] .account:not([open]) .limits {
-    &:not(:has([data-low='true'])) {
+    &:not(:has([data-low='true'], [data-counted='true'])) {
       display: none;
     }
-    li:not([data-low='true']) {
+    li:not([data-low='true'], [data-counted='true']) {
       display: none;
     }
   }
@@ -2411,33 +2411,7 @@ $pool-error: #ff5252;
   }
 }
 
-// Opened rows at 900px and below: the active limit's list item is hidden (the heading already shows
-// its value), and one line under the heading keeps its reset time. Closed rows and wide tables are
-// unchanged.
-@media (min-width: 901px) {
-  .activeReset {
-    display: none;
-  }
-}
 @media (max-width: 900px) {
-  .activeReset {
-    display: none;
-  }
-  .account[open] {
-    > summary > .activeReset {
-      display: block;
-      grid-column: 2 / -1;
-      grid-row: 3;
-      color: var(--text-tertiary);
-      font-size: 13px;
-    }
-    > summary > .limits {
-      grid-row: 4;
-    }
-    .limits li[data-counted='true'] {
-      display: none;
-    }
-  }
   // Panel order here is limits, Manual resets across the full row, Usage, Billing (PoolCard puts
   // the reset section first in the DOM at this width).
   .accountFacts section[data-tone='accent'] {
@@ -2710,6 +2684,148 @@ $pool-error: #ff5252;
           white-space: nowrap;
         }
       }
+    }
+  }
+}
+/* B */
+// Phone account rows (900px and below). The header holds the chevron, name, chip and plan. The
+// limits follow as blocks, the active window first: one line (label left, value right) over its
+// bar, and a limit's reset line directly under its bar. The list takes no box of its own, so the
+// stale line sits directly under the active block, and every block shares one value column, as the
+// bars always did. A closed row of a minimized card keeps its compact list (no data-phone-blocks).
+.unavailableWord {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.limitBar[data-empty] {
+  display: none;
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  // Rows without blocks keep label | bar | value on one line.
+  .limits li strong {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .limits li .limitBar {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+@media (max-width: 900px) {
+  .account[data-phone-blocks] {
+    > summary {
+      grid-template-columns: 20px minmax(0, 1fr) minmax(4.6em, max-content);
+      row-gap: 3px;
+      padding-block: 4px;
+      > strong {
+        display: none;
+      }
+      > .accountName {
+        grid-column: 2 / -1;
+      }
+      > .accountStatus {
+        grid-row: 3;
+      }
+      > .limits {
+        display: contents;
+        > li {
+          grid-column: 2 / -1;
+          grid-template-columns: subgrid;
+          row-gap: 2px;
+          // The label may run under the shared value column (its own value is short) but leaves
+          // room for its value ("Low" value: icon, word and figure), and wraps only where a narrow
+          // card needs it to.
+          > span:first-child {
+            grid-area: 1 / 1 / 2 / -1;
+            max-width: calc(100% - 3.4em - 8px);
+            line-height: 1.35;
+            white-space: normal;
+          }
+          &[data-low='true'] > span:first-child {
+            max-width: calc(100% - 7.4em - 8px);
+          }
+          > strong {
+            grid-area: 1 / 2;
+          }
+          // The bar keeps the length it had before blocks: the list width less the value column.
+          > .limitBar {
+            grid-area: 2 / 1;
+          }
+          > small {
+            grid-area: 3 / 1 / 4 / -1;
+            color: var(--text-tertiary);
+            font-size: 13px;
+          }
+          // The active value spans both columns, so a wide "Low" value never widens the shared column
+          // and shortens the other limits' bars.
+          &[data-counted='true'] {
+            grid-row: 2;
+            > strong {
+              grid-column: 1 / -1;
+              justify-self: end;
+            }
+          }
+          // A missing or unlimited active window keeps its reason, with no track.
+          &[data-missing='true'][data-counted='true'] {
+            display: grid;
+            grid-template-columns: max-content minmax(0, 1fr);
+            column-gap: 8px;
+            > span:first-child {
+              grid-area: 1 / 1;
+              max-width: none;
+              color: var(--text-secondary);
+              white-space: nowrap;
+            }
+            > em {
+              grid-area: 1 / 2;
+              color: var(--text-secondary);
+              font-size: 14px;
+              font-style: normal;
+              text-align: right;
+            }
+          }
+        }
+      }
+    }
+    // The block says an unavailable window; the status line doesn't repeat it.
+    &[data-status='error'] .accountStatus,
+    &[data-status='missing-window'] .accountStatus {
+      display: none;
+    }
+    .limitDash {
+      display: none;
+    }
+    .unavailableWord {
+      position: static;
+      width: auto;
+      height: auto;
+      overflow: visible;
+      clip-path: none;
+      color: var(--text-secondary);
+    }
+    .limitBar[data-empty] {
+      display: block;
+      border: 1px dashed var(--text-tertiary);
+      background: transparent;
+    }
+  }
+}
+
+// Phone provider header (640px and below): title, count and chip share a line while every card's fits;
+// when any card's doesn't, the page sets data-chip-line (usePhoneChipLine) and every card's chip takes
+// its own second line, so a page never mixes the two. The action row stays as shipped.
+@media (max-width: 640px) {
+  .pools[data-chip-line] .poolTitle {
+    display: grid;
+    grid-template-columns: auto minmax(0, auto) minmax(0, 1fr);
+    align-items: center;
+    .badge {
+      grid-column: 1 / -1;
+      justify-self: start;
     }
   }
 }

@@ -250,14 +250,38 @@ export function PoolCard({
         onRefresh={onRefresh}
       />
     );
-  const activeResetLine = (account: (typeof pool.accounts)[number]) => {
-    const resetAtMs = account.windows.find((limit) => limit.id === countedLimitId)?.resetAtMs;
-    return resetAtMs == null ? null : (
-      <small className={styles.activeReset}>
-        {windowLabel} · {t('quota_pool.limit_resets', { date: date(resetAtMs) })}
-      </small>
-    );
-  };
+  // At 900px and below a row reads as blocks: the active window leads the limit list instead of
+  // being the bold figure in the header. A closed row of a minimized card keeps its compact list,
+  // and an account that reports no windows (or a pool with no column for the active one) keeps the figure.
+  const phoneBlocks = (account: (typeof pool.accounts)[number]) =>
+    balanceHasColumn && account.windows.length > 0 && (!minimized || openAccounts.has(account.id));
+  const missingLimit = (
+    account: (typeof pool.accounts)[number],
+    column: (typeof limitColumns)[number]
+  ) => (
+    <li
+      key={`missing-${column.id}`}
+      data-limit-id={column.id}
+      data-missing="true"
+      data-counted={column.id === countedLimitId || undefined}
+      data-low="false"
+      style={
+        {
+          '--col': limitColumns.findIndex((other) => other.id === column.id) + 1,
+        } as CSSProperties
+      }
+    >
+      <span>{limitLabel(column)}</span>
+      {/* The reason fills the cell, so the column still says why it is empty. */}
+      <em>
+        {account.noFiveHourLimit && column.id === 'five-hour'
+          ? t('quota_pool.no_window_limit', {
+              window: t('quota_pool.five_hour'),
+            })
+          : t('quota_pool.not_reported')}
+      </em>
+    </li>
+  );
   // Every account counts, not only those shown, so search, filters and paging never hide the caveat.
   const hasEstimatedRenewal = pool.accounts.some((account) =>
     billingFacts(account.billing ?? null, dashboard.nowMs).some(
@@ -677,6 +701,7 @@ export function PoolCard({
                 key={account.id}
                 className={styles.account}
                 data-status={account.status}
+                data-phone-blocks={phoneBlocks(account) || undefined}
                 open={openAccounts.has(account.id)}
                 onToggle={(event) => setAccountOpen(account.id, event.currentTarget.open)}
               >
@@ -753,73 +778,75 @@ export function PoolCard({
                       <span className={styles.valueCaption}>{windowLabel}</span>
                     )}
                   </strong>
-                  {/* Open narrow rows hide the active limit's list item (the heading shows its value);
-                      this line keeps its reset time. */}
-                  {activeResetLine(account)}
                   {account.windows.length > 0 && (
                     <ul className={styles.limits} aria-label={t('quota_pool.limits')}>
-                      {account.windows.map((limit) => (
-                        <li
-                          key={limit.id}
-                          data-limit-id={limit.id}
-                          data-low={isLowQuota(limit.remainingPercent)}
-                          data-counted={limit.id === countedLimitId || undefined}
-                          style={
-                            {
-                              '--col':
-                                limitColumns.findIndex((column) => column.id === limit.id) + 1,
-                            } as CSSProperties
-                          }
-                        >
-                          <span>{limitLabel(limit)}</span>
-                          {/* No track for a missing value, so it can't read as 0%. */}
-                          {limit.remainingPercent !== null && (
-                            <span className={styles.limitBar} aria-hidden="true">
-                              <span style={{ width: `${limit.remainingPercent}%` }} />
-                            </span>
-                          )}
-                          <strong>
-                            {isLowQuota(limit.remainingPercent) && lowMark}
-                            {limit.remainingPercent === null
-                              ? '—'
-                              : percent(limit.remainingPercent)}
-                          </strong>
-                          {limit.resetAtMs !== null && (
-                            <small>
-                              {t('quota_pool.limit_resets', { date: date(limit.resetAtMs) })}
-                            </small>
-                          )}
-                        </li>
-                      ))}
-                      {/* Wide screens keep one column per limit, so a limit this account lacks is a visible gap. */}
+                      {/* Wide screens keep one column per limit, so a limit this account lacks is a visible gap.
+                          Phones show only the active window's gap, as its block, ahead of the other limits. */}
                       {limitColumns
                         .filter(
-                          (column) => !account.windows.some((limit) => limit.id === column.id)
+                          (column) =>
+                            column.id === countedLimitId &&
+                            !account.windows.some((limit) => limit.id === column.id)
                         )
-                        .map((column) => (
+                        .map((column) => missingLimit(account, column))}
+                      {[...account.windows]
+                        .sort(
+                          (a, b) =>
+                            Number(b.id === countedLimitId) - Number(a.id === countedLimitId)
+                        )
+                        .map((limit) => (
                           <li
-                            key={`missing-${column.id}`}
-                            data-limit-id={column.id}
-                            data-missing="true"
-                            data-low="false"
+                            key={limit.id}
+                            data-limit-id={limit.id}
+                            data-low={isLowQuota(limit.remainingPercent)}
+                            data-counted={limit.id === countedLimitId || undefined}
                             style={
                               {
                                 '--col':
-                                  limitColumns.findIndex((other) => other.id === column.id) + 1,
+                                  limitColumns.findIndex((column) => column.id === limit.id) + 1,
                               } as CSSProperties
                             }
                           >
-                            <span>{limitLabel(column)}</span>
-                            {/* The reason fills the cell, so the column still says why it is empty. */}
-                            <em>
-                              {account.noFiveHourLimit && column.id === 'five-hour'
-                                ? t('quota_pool.no_window_limit', {
-                                    window: t('quota_pool.five_hour'),
-                                  })
-                                : t('quota_pool.not_reported')}
-                            </em>
+                            <span>{limitLabel(limit)}</span>
+                            <strong>
+                              {isLowQuota(limit.remainingPercent) && lowMark}
+                              {limit.remainingPercent === null ? (
+                                <>
+                                  <span className={styles.limitDash} aria-hidden="true">
+                                    —
+                                  </span>
+                                  <span className={styles.unavailableWord}>
+                                    {t('quota_pool.value_unavailable')}
+                                  </span>
+                                </>
+                              ) : (
+                                percent(limit.remainingPercent)
+                              )}
+                            </strong>
+                            {/* A missing value gets an empty dashed track (phones), so it can't read as 0%. */}
+                            <span
+                              className={styles.limitBar}
+                              data-empty={limit.remainingPercent === null || undefined}
+                              aria-hidden="true"
+                            >
+                              {limit.remainingPercent !== null && (
+                                <span style={{ width: `${limit.remainingPercent}%` }} />
+                              )}
+                            </span>
+                            {limit.resetAtMs !== null && (
+                              <small>
+                                {t('quota_pool.limit_resets', { date: date(limit.resetAtMs) })}
+                              </small>
+                            )}
                           </li>
                         ))}
+                      {limitColumns
+                        .filter(
+                          (column) =>
+                            column.id !== countedLimitId &&
+                            !account.windows.some((limit) => limit.id === column.id)
+                        )
+                        .map((column) => missingLimit(account, column))}
                     </ul>
                   )}
                 </summary>

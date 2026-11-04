@@ -889,27 +889,39 @@ async def check_toggle_consistency(page, state, width):
 
 
 async def check_phone_header(page, state, width):
-    """I4 (H1): at 390 a provider card's top to the top of its headline block (label included) is at most
-    112px when the title, count and chip share one line (tops within 4px), otherwise 148px. The action
-    pills sit on their own row between the two, and the headline starts below them."""
+    """I4 (H1, page-wide since wave 3): at 390 the page makes one choice. If every provider card's title, count
+    and chip fit on one line, every card keeps them inline (tops within 4px) and a card's top to the top of its
+    headline block (label included) is at most 112px. Otherwise every card's chip sits on its own second line
+    under the title and count (148px). The action pills sit on their own row between the two, and the headline
+    starts below them."""
     if width != 390:
         return []
     return await page.evaluate("(cardless) => {" + C1_PRELUDE + r"""
       const fails = [], articles = [...document.querySelectorAll('article')];
       if (!cardless && !articles.length) fails.push({why: 'no provider cards found'});
-      for (const a of articles) {
-        const card = a.querySelector('h2')?.textContent, headline = a.querySelector('[class*="__headline___"]');
-        const title = a.querySelector('h2'), count = a.querySelector('[class*="__poolMeta___"] > span:first-child'), chip = a.querySelector('[class*="__badge___"]');
+      const top = e => e.getBoundingClientRect().top;
+      const textWidth = e => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
+      const parts = a => ({a, card: a.querySelector('h2')?.textContent, headline: a.querySelector('[class*="__headline___"]'), title: a.querySelector('h2'),
+        count: a.querySelector('[class*="__poolMeta___"] > span:first-child'), chip: a.querySelector('[class*="__badge___"]')});
+      const measured = articles.map(parts);
+      // Whether one card's mark, title, count, chip and gaps fit its line (the chip alone may wrap inside its own box).
+      const fit = m => {
+        const cs = getComputedStyle(m.a), inner = m.a.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+        return {inner, need: 20 + textWidth(m.title) + textWidth(m.count) + m.chip.getBoundingClientRect().width + 3 * 8};
+      };
+      const whole = measured.filter(m => m.headline && m.title && m.count && m.chip);
+      const allFit = whole.every(m => { const f = fit(m); return f.need <= f.inner; });
+      for (const m of measured) {
+        const {a, card, headline, title, count, chip} = m;
         if (!headline || !title || !count || !chip) { fails.push({card, why: 'card lacks a headline, title, count or chip'}); continue; }
-        const top = e => e.getBoundingClientRect().top, tops = [title, count, chip].map(top);
-        const oneLine = Math.max(...tops) - Math.min(...tops) <= 4, limit = oneLine ? 112 : 148;
-        // Wrapping is allowed only when the three genuinely don't fit one line (mark, title, count, chip and gaps).
-        const cs = getComputedStyle(a), inner = a.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
-        const textWidth = e => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
-        const need = 20 + textWidth(title) + textWidth(count) + chip.getBoundingClientRect().width + 3 * 8;
-        if (!oneLine && need <= inner) fails.push({card, why: `title, count and chip fit on one line (${need.toFixed(0)} of ${inner.toFixed(0)}px) but wrap`});
+        const tops = [title, count, chip].map(top), oneLine = Math.max(...tops) - Math.min(...tops) <= 4, limit = allFit ? 112 : 148;
+        if (allFit && !oneLine) { const f = fit(m); fails.push({card, why: `every card's title, count and chip fit one line (${f.need.toFixed(0)} of ${f.inner.toFixed(0)}px here) but this card wraps`}); }
+        if (!allFit) {
+          if (top(chip) < Math.max(title.getBoundingClientRect().bottom, count.getBoundingClientRect().bottom) - 2) fails.push({card, why: 'a card does not fit one line, yet this chip is not on its own second line'});
+          if (Math.abs(top(count) - top(title)) > 4) fails.push({card, why: 'the count left the title line'});
+        }
         const d = top(headline) - top(a);
-        if (d > limit) fails.push({card, why: `headline block starts ${d.toFixed(0)}px below the card top (limit ${limit}, title/count/chip ${oneLine ? 'on one line' : 'wrapped'})`});
+        if (d > limit) fails.push({card, why: `headline block starts ${d.toFixed(0)}px below the card top (limit ${limit}, ${allFit ? 'every card inline' : 'chips on a second line'})`});
         const pills = actions(a);
         if (!pills.length) fails.push({card, why: 'card has no visible action pills'});
         const bottom = Math.max(...pills.map(p => p.getBoundingClientRect().bottom));
@@ -1680,38 +1692,33 @@ async def h_expand_all(page):
 
 
 async def check_expanded_duplicates(page, state, width):
-    """H2: in an opened row at 900px and below, the active window is not listed twice. No visible
-    li[data-limit-id=<active>]; one "{Window} · Resets …" line under the heading exactly when the limit has a reset
-    time; every other limit keeps its value, bar and reset. Run at 390 and 820 in the Weekly and 5-hour views."""
+    """H2 (rewritten in wave 3): in an opened row at 900px and below, the active window is listed once, as the first
+    block, with its own value, bar and reset; the header has no bold figure and no "{Window} · Resets" line; every
+    other limit keeps its value, bar and reset. Run at 390 and 820 in the Weekly and 5-hour views."""
     if width > 900 or state not in ("expanded", "partial"):
         return []
     measure = "(view) => {" + H_PRELUDE + r"""
       const fails = [], rows = [...document.querySelectorAll('article details[open]')];
       if (!rows.length) return [{why: 'no open row to measure'}];
-      let others = 0, lines = 0;
+      let others = 0;
       for (const row of rows) {
         const article = row.closest('article'), active = activeId(article, view), summary = row.querySelector('summary');
         const who = (row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '') + ' / ' + view;
         const items = [...row.querySelectorAll('ul[aria-label="Limits"] > li')];
         const activeItem = items.find(li => li.dataset.limitId === active);
         if (!activeItem) { fails.push({who, why: 'no list item carries data-limit-id for the active window'}); continue; }
-        if (items.some(li => li.dataset.limitId === active && shown(li))) fails.push({who, why: 'the active window is still a visible list item'});
-        const reset = !!activeItem?.querySelector('small'), found = [...row.querySelectorAll('[class*="__activeReset___"]')].filter(shown);
-        if (found.length !== (reset ? 1 : 0)) fails.push({who, why: `expected ${reset ? 1 : 0} reset line(s), found ${found.length}`});
-        for (const line of found) {
-          lines++;
-          const label = view === 'five-hour' ? '5-hour' : 'Weekly', fs = parseFloat(getComputedStyle(line).fontSize);
-          if (!new RegExp('^' + label + ' · Resets .+').test(line.textContent.trim())) fails.push({who, why: 'reset line reads "' + line.textContent.trim() + '"'});
-          const l = line.getBoundingClientRect(), name = row.querySelector('[class*="__accountName___"]').getBoundingClientRect(), value = summary.querySelector(':scope > strong').getBoundingClientRect();
-          if (Math.abs(l.left - name.left) > 2 || l.right < value.right - 2) fails.push({who, why: 'the reset line does not span the name and value columns', line: box(line)});
-          if (l.top < Math.max(name.bottom, value.bottom) - 1) fails.push({who, why: 'the reset line is not under the heading'});
-          if (l.height > fs * 1.8) fails.push({who, why: 'the reset line wraps'});
-          const first = items.filter(shown)[0];
-          if (first && l.bottom > first.getBoundingClientRect().top + 1) fails.push({who, why: 'the reset line is not above the limit list'});
-        }
+        // Wave 3: the active window is listed once, as the first block (value, bar and reset included), and the
+        // header neither repeats it as a bold figure nor carries a "{window} · Resets" line.
+        const listed = items.filter(li => li.dataset.limitId === active && shown(li));
+        if (listed.length !== 1) fails.push({who, why: `the active window is listed ${listed.length} times, expected once`});
+        const firstBlock = items.filter(shown).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
+        if (firstBlock !== activeItem) fails.push({who, why: 'the active window is not the first block'});
+        const small = activeItem.querySelector('small');
+        if (small && !shown(small)) fails.push({who, why: 'the active window lost its reset line'});
         const heading = summary.querySelector(':scope > strong');
-        if (!shown(heading) || !/%|—/.test(heading.textContent)) fails.push({who, why: 'the heading lost its value'});
-        if (heading.dataset.low === 'true' && (!heading.querySelector('[class*="__lowWord___"]') || !heading.querySelector('[class*="__limitWarning___"]'))) fails.push({who, why: 'the low heading lost its word or icon'});
+        if (shown(heading)) fails.push({who, why: 'the bold header figure is still shown'});
+        if ([...summary.children].some(c => c.tagName !== 'UL' && shown(c) && / · Resets /.test(c.textContent))) fails.push({who, why: 'the header still carries a "{window} · Resets" line'});
+        if (!shown(activeItem.querySelector(':scope > strong, :scope > em'))) fails.push({who, why: 'the active block lost its value or reason'});
         for (const li of items.filter(li => li.dataset.limitId !== active && !li.dataset.missing)) {
           others++;
           const v = li.querySelector(':scope > strong'), empty = /^—$/.test(v.textContent.trim());
@@ -2061,6 +2068,143 @@ async def check_status_chip(page, context, url, route_api, name, state):
             await a_chip_pass(fresh, lng, out)
         finally:
             await fresh.close()
+# B phone checks (round b1): account rows at 900px and below, and the phone provider header's chip line. Each has its
+# own JSON key, registered in B_KEYS for the summary and the exit gate. A check that finds nothing to measure fails.
+B_KEYS = (
+    "phoneRowBlockFailures",
+    "phoneHeaderConsistencyFailures",
+)
+# case -> views measured. no-limit-narrow is a 5-hour page (the Ultra account has no 5-hour limit).
+B_ROW_VIEWS = {
+    "narrow": ("weekly", "five-hour"), "narrow-320": ("weekly", "five-hour"), "tablet": ("weekly", "five-hour"),
+    "many-narrow": ("weekly", "five-hour"), "partial-narrow": ("weekly", "five-hour"), "stale-narrow": ("weekly", "five-hour"),
+    "long-narrow": ("weekly", "five-hour"), "no-limit-narrow": ("five-hour",),
+}
+# (case, view) -> the exception that page must show at least once, so a check can't pass by measuring none of it.
+B_ROW_EXPECT = {("partial-narrow", "weekly"): "unavailable", ("long-narrow", "weekly"): "unavailable",
+                ("no-limit-narrow", "five-hour"): "missing", ("stale-narrow", "weekly"): "stale", ("stale-narrow", "five-hour"): "stale"}
+B_HEADER_CASES = ("narrow", "narrow-320", "many-narrow", "partial-narrow", "stale-narrow", "collecting-narrow")
+B_ROW_JS = "(args) => { const [view, isOpen, width] = args;" + H_PRELUDE + r"""
+  const fails = [], stats = {rows: 0, unavailable: 0, missing: 0, stale: 0};
+  const win = view === 'five-hour' ? '5-hour' : 'Weekly', pct = /\d+(\.\d+)?%/;
+  const smalls = [];
+  for (const row of [...document.querySelectorAll('article details')].filter(shown)) {
+    const article = row.closest('article'), active = activeId(article, view), summary = row.querySelector(':scope > summary');
+    const who = (row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '?') + ' / ' + view + (isOpen ? ' open' : ' closed');
+    const list = summary.querySelector(':scope > ul[aria-label="Limits"]'), r = e => e.getBoundingClientRect();
+    const items = list ? [...list.children].filter(shown) : [];
+    stats.rows++;
+    // The header keeps the chevron, name, chip and plan: no figure.
+    for (const c of summary.children) if (c !== list && shown(c) && pct.test(c.textContent)) fails.push({who, why: 'the row header shows a percentage', text: c.textContent.trim().slice(0, 40)});
+    const activeItem = items.find(li => li.dataset.limitId === active);
+    if (!activeItem) { fails.push({who, why: 'no block for the active window'}); continue; }
+    const byTop = [...items].sort((a, b) => r(a).top - r(b).top);
+    const label = li => li.querySelector(':scope > span:first-child'), value = li => li.querySelector(':scope > strong, :scope > em'), bar = li => li.querySelector(':scope > [class*="__limitBar___"]');
+    if (byTop[0] !== activeItem) fails.push({who, why: 'the active window is not the first block'});
+    if (label(byTop[0]).textContent.trim() !== win + ' remaining') fails.push({who, why: 'the first block reads "' + label(byTop[0]).textContent.trim() + '"'});
+    for (const li of items) {
+      const l = r(label(li)), v = r(value(li)), b = bar(li) && shown(bar(li)) ? bar(li) : null, id = li.dataset.limitId, at = {who, limit: id};
+      if (v.left < l.left + 1) fails.push({...at, why: 'the value is not right of its label'});
+      if (v.top > l.bottom - 2) fails.push({...at, why: 'the value is on a line below its label'});
+      if (b && r(b).top < Math.max(l.bottom, v.bottom) - 1) fails.push({...at, why: 'the bar is not under its label and value'});
+      const small = li.querySelector(':scope > small');
+      if (small && shown(small)) {
+        if (!b || b.nextElementSibling !== small) fails.push({...at, why: 'the reset line is not the next sibling of its own bar'});
+        else if (r(small).top < r(b).bottom - 1 || r(small).top - r(b).bottom > 12) fails.push({...at, why: 'the reset line is not directly under its bar'});
+        smalls.push({who, limit: id, size: getComputedStyle(small).fontSize, color: getComputedStyle(small).color});
+      } else if (small && isOpen) fails.push({...at, why: 'an opened row hides a limit\'s reset line'});
+    }
+    // The active window's exceptions keep their reason and never invent a value or a filled bar.
+    const ev = value(activeItem), eb = bar(activeItem), filled = eb && eb.querySelector(':scope > span');
+    const status = summary.querySelector('[class*="__accountStatus___"]');
+    if (activeItem.dataset.missing) {
+      stats.missing++;
+      if (!ev.textContent.trim() || pct.test(ev.textContent) || (eb && shown(eb))) fails.push({who, why: 'a missing or unlimited window shows no plain reason, or a percentage or bar', text: ev.textContent.trim()});
+    } else if (activeItem.querySelector('[class*="__unavailableWord___"]') && shown(activeItem.querySelector('[class*="__unavailableWord___"]'))) {
+      stats.unavailable++;
+      if (ev.textContent.replace('—', '').trim() !== 'Unavailable') fails.push({who, why: 'the unavailable block reads "' + ev.textContent.trim() + '"'});
+      if (!eb || !shown(eb) || filled || getComputedStyle(eb).borderTopStyle !== 'dashed') fails.push({who, why: 'the unavailable block lacks its empty dashed track'});
+      if (status && shown(status) && /unavailable/i.test(status.textContent)) fails.push({who, why: 'a separate "quota unavailable" line remains', text: status.textContent.trim()});
+    } else if (!pct.test(ev.textContent) || !eb || !shown(eb) || !(filled && r(filled).width > 0)) fails.push({who, why: 'a numeric window lacks its value or filled bar', text: ev.textContent.trim()});
+    // Stale: the line sits directly under the active block (and above the next one).
+    if (row.dataset.status === 'stale') {
+      stats.stale++;
+      if (!status || !shown(status)) fails.push({who, why: 'a stale row shows no status line'});
+      else {
+        const gap = r(status).top - r(activeItem).bottom, next = byTop[1];
+        if (gap < -1 || gap > 16) fails.push({who, why: `the stale line is ${gap.toFixed(0)}px from the active block, not directly under it`});
+        if (next && r(next).top < r(status).bottom - 1) fails.push({who, why: 'the stale line is not above the next block'});
+      }
+    }
+    // Closed rows at 390 stay compact: 110px with one block, 150px with two or three; a stale line adds its own height.
+    if (!isOpen && width === 390) {
+      const budget = items.length <= 1 ? 110 : 150, extra = row.dataset.status === 'stale' && status ? r(status).height + 6 : 0, h = r(row).height;
+      if (h > budget + extra) fails.push({who, why: `closed row is ${h.toFixed(0)}px tall with ${items.length} block(s) (limit ${budget + extra})`});
+    }
+  }
+  if (!stats.rows) fails.push({why: 'no account row to measure'});
+  const first = smalls[0];
+  for (const s of smalls) if (s.size !== first.size || s.color !== first.color) fails.push({who: s.who, limit: s.limit, why: `reset line type ${s.size} ${s.color} differs from ${first.size} ${first.color}`});
+  if (isOpen && !smalls.length) fails.push({why: 'no reset line to measure in the opened rows'});
+  return {fails, stats};
+}"""
+
+
+async def check_phone_row_blocks(page, name, state, width):
+    """B1: at 900px and below, closed and opened rows list the active window as the first block ("{window} remaining",
+    label left, value right, bar beneath, its reset line the bar's next sibling); the row header carries no
+    percentage; reset lines share one style; closed rows stay compact at 390; unavailable, missing and unlimited
+    windows and stale lines behave as specified. Weekly and 5-hour views where they exist."""
+    views = B_ROW_VIEWS.get(name)
+    if not views:
+        return []
+    labels = {"weekly": "Weekly", "five-hour": "5-hour"}
+    start = "five-hour" if state == "no-limit" else "weekly"
+    out, seen = [], {}
+    for view in views:
+        if view != start:
+            await switch_view(page, labels[view])
+            await page.locator("article").first.wait_for()
+            await page.wait_for_timeout(400)
+        for opened in (False, True):
+            if opened:
+                await h_expand_all(page)
+            result = await page.evaluate(B_ROW_JS, [view, opened, width])
+            out += [dict(view=view, open=opened, **f) for f in result["fails"]]
+            for key, n in result["stats"].items():
+                seen[(view, key)] = seen.get((view, key), 0) + n
+        for _ in range(await page.get_by_role("button", name="Collapse all").count()):
+            await page.get_by_role("button", name="Collapse all").first.click()
+    for (case, view), kind in B_ROW_EXPECT.items():
+        if case == name and view in views and not seen.get((view, kind)):
+            out.append(dict(view=view, why=f"no {kind} block to measure in this case"))
+    if start != views[-1]:
+        await switch_view(page, labels[start])
+        await page.locator("article").first.wait_for()
+        await page.wait_for_timeout(400)
+    return out
+
+
+async def check_header_consistency(browser, url, page, name, state, width):
+    """B2: every provider card's chip sits the same distance below its title (within 4px) on a page; fewer than two
+    cards fail. Runs on the case's page, and on ru and vi pages for `narrow`."""
+    if name not in B_HEADER_CASES:
+        return []
+    measure = """() => {
+      const cards = [...document.querySelectorAll('article')], out = [];
+      if (cards.length < 2) return [{why: 'fewer than 2 provider cards (' + cards.length + ')'}];
+      const offsets = cards.map(a => ({card: a.querySelector('h2').textContent, d: a.querySelector('[class*="__badge___"]').getBoundingClientRect().top - a.querySelector('h2').getBoundingClientRect().top}));
+      if (Math.max(...offsets.map(o => o.d)) - Math.min(...offsets.map(o => o.d)) > 4) out.push({why: 'chip tops differ relative to their titles', offsets: offsets.map(o => [o.card, Math.round(o.d)])});
+      return out;
+    }"""
+    out = [dict(page="case page", **f) for f in await page.evaluate(measure)]
+    if name == "narrow":
+        for lng in ("ru", "vi"):
+            context, sweep = await open_fixture_page(browser, url, state, width, lng, None)
+            try:
+                out += [dict(page=f"{state}@{width}/{lng}", **f) for f in await sweep.evaluate(measure)]
+            finally:
+                await context.close()
     return out
 
 
@@ -2413,6 +2557,8 @@ async def main():
                 results[name]["phonePanelOrderFailures"] = await check_panel_order(page, state, width)
                 results[name]["skeletonShapeFailures"] = await check_skeleton_shape(browser, args.url, page, name, state, width)
                 results[name]["expandedDuplicateFailures"] = await check_expanded_duplicates(page, state, width)
+                results[name]["phoneRowBlockFailures"] = await check_phone_row_blocks(page, name, state, width)
+                results[name]["phoneHeaderConsistencyFailures"] = await check_header_consistency(browser, args.url, page, name, state, width)
                 results[name]["rosterCountFailures"] = await check_roster_count(context, args.url, route_api, name, state)
                 results[name]["filterChipFailures"] = await check_filter_chip(context, args.url, route_api, name, state)
                 results[name]["rosterToolbarFailures"] = await check_roster_toolbar(context, args.url, route_api, name, state)
@@ -2491,12 +2637,13 @@ async def main():
                     })''')
                     assert all(cell['offset'] < 1 for cell in alignment), f"Limits not under their headings: {alignment}"
                 else:
-                    # Stacked: label | bar | value rows; every value ends on the list's right edge.
+                    # Stacked: a block is label and value on one line over its bar; every value ends on the row's
+                    # content edge (a block row's list takes no box of its own, so the edge is the summary's).
                     alignment = await page.locator('article details:not([open]) ul[aria-label="Limits"]').evaluate_all('''lists => lists.flatMap(list => {
-                        const edge = list.getBoundingClientRect().right;
+                        const summary = list.parentElement, edge = summary.getBoundingClientRect().right - parseFloat(getComputedStyle(summary).paddingRight);
                         return [...list.children].filter(li => li.checkVisibility()).map(li => {
                             const label = li.querySelector(':scope > span').getBoundingClientRect();
-                            const value = li.querySelector(':scope > strong').getBoundingClientRect();
+                            const value = li.querySelector(':scope > strong, :scope > em').getBoundingClientRect();
                             // Phones put the label on its own single line above its bar and value; wide rows share one line.
                             const above = value.top >= label.bottom - 2;
                             return {rightOffset:Math.abs(edge-value.right), lineOffset:above ? (label.height < 24 ? 0 : 99) : Math.abs(label.top-value.top)};
@@ -2655,7 +2802,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():
