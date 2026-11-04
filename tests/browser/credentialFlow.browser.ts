@@ -140,7 +140,8 @@ const live = async (flow: CredentialFlow) =>
     .map((a) => a.name)
     .sort();
 
-test.beforeEach(({}, testInfo) => testInfo.setTimeout(150_000));
+// Seven tabs of the real app per scenario, the first of them cold-compiling its routes.
+test.describe.configure({ timeout: 150_000 });
 
 test('remove: every screen updates at once, the same-email credential on the other provider stays, Analytics is unchanged', async ({
   flow,
