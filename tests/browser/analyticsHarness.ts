@@ -76,6 +76,18 @@ export class AnalyticsHarness {
       if (request.method() === 'GET') {
         if (path === '/config') return reply(config);
         if (path === '/prox/pools') return reply({ error: 'Synthetic pool not collected' }, 503);
+        if (path === '/prox/inventory') {
+          // The credential inventory poller: a stable membership version, 304 once it is held.
+          const version = 'a'.repeat(16);
+          if (request.headers()['if-none-match'] === `"${version}"`) {
+            return route.fulfill({ status: 304, headers: { ETag: `"${version}"` } });
+          }
+          return route.fulfill({
+            status: 200,
+            json: { version, syncedAtMs: 0, sources: [] },
+            headers: { ETag: `"${version}"`, 'X-CPA-Version': 'v8.0.44' },
+          });
+        }
         if (path === '/auth-files') return reply({ files: [] });
         if (path === '/credentials') return reply({ files: this.credentials });
         if (path === '/config/access/api-keys') return reply(['synthetic-client-key']);
