@@ -490,6 +490,142 @@ def measure(path, geo, touch):
     )
 
 
+# C1 card-header checks. Each has its own JSON key; every key is registered in C1_KEYS, which feeds the summary
+# and so the --assert-compact gate. A check that finds nothing to measure where it applies fails.
+C1_KEYS = ("factWrapFailures", "headerActionLabelFailures", "toggleConsistencyFailures",
+           "phoneHeaderFailures", "actionNameFailures", "headerOrderFailures")
+C1_FACT_WIDTHS = (390, 820, 1100, 1280, 1440, 1920)
+C1_CARDLESS = ("empty", "loading", "error")
+C1_PRELUDE = r"""
+const shown = e => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && e.checkVisibility({checkVisibilityCSS: true}); };
+const cards = () => [...document.querySelectorAll('article, section[class*="__combined___"]')];
+const actions = card => [...card.querySelectorAll('[class*="__reorder___"] button')].filter(shown);
+const box = e => { const b = e.getBoundingClientRect(); return {x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height)}; };
+const name = e => (e.getAttribute('aria-label') || '').trim();
+"""
+
+
+async def check_fact_wrap(page, state, width):
+    """I1: at 390/820/1100/1280/1440/1920 no Now/Forecast fact label, value or caption wraps, clips or shrinks."""
+    if width not in C1_FACT_WIDTHS:
+        return []
+    return await page.evaluate("(cardless) => {" + C1_PRELUDE + r"""
+      const fails = [];
+      const lh = s => { const v = parseFloat(s.lineHeight); return Number.isNaN(v) ? parseFloat(s.fontSize) * 1.2 : v; };
+      const facts = [...document.querySelectorAll('article [class*="__statsBlock___"] :is(dt, dd, small)')];
+      if (!cardless && !facts.length) fails.push({why: 'no Now/Forecast facts found'});
+      for (const e of facts) {
+        const s = getComputedStyle(e), line = lh(s), r = e.getBoundingClientRect(), why = [];
+        // Each element is measured on its own: a caption line is the small, never the dd that wraps it.
+        const range = document.createRange(); range.selectNodeContents(e);
+        const tops = [];
+        for (const q of range.getClientRects()) if (q.width > 0 && !tops.some(t => Math.abs(t - q.top) < line / 2)) tops.push(q.top);
+        if (!shown(e) || !e.checkVisibility({checkOpacity: true})) why.push('hidden');
+        if (r.height > line * 1.5) why.push(`taller than 1.5 lines (${r.height.toFixed(1)} vs ${line.toFixed(1)})`);
+        if (tops.length > 1) why.push(`wraps onto ${tops.length} lines`);
+        if (s.textOverflow === 'ellipsis') why.push('ellipsis');
+        if (s.display !== 'inline' && e.scrollWidth > e.clientWidth + 1) why.push('clipped or overflowing its box');
+        if (parseFloat(s.fontSize) < 12) why.push('type below 12px');
+        if (why.length) fails.push({tag: e.tagName, text: e.textContent.trim().slice(0, 60), why, ...box(e)});
+      }
+      return fails;
+    }""", state in C1_CARDLESS)
+
+
+async def check_header_action_labels(page, state, width):
+    """I2: every visible graph-size or move button, open and minimized, shows its text whole."""
+    measure_js = "(cardless) => {" + C1_PRELUDE + r"""
+      const fails = [];
+      const all = cards();
+      if (!cardless && !all.length) fails.push({why: 'no cards found'});
+      for (const card of all) {
+        const buttons = actions(card);
+        if (!buttons.length) fails.push({why: 'card has no visible action', card: card.querySelector('h2')?.textContent});
+        for (const b of buttons) {
+          const text = b.innerText.trim(), why = [];
+          if (!text) why.push('no visible text');
+          if (b.scrollWidth > b.clientWidth) why.push(`scrollWidth ${b.scrollWidth} > clientWidth ${b.clientWidth}`);
+          for (const e of [b, ...b.querySelectorAll('*')]) if (getComputedStyle(e).textOverflow === 'ellipsis') why.push('text-overflow: ellipsis');
+          if (why.length) fails.push({text: text || name(b), why, ...box(b)});
+        }
+      }
+      return fails;
+    }"""
+    cardless = state in C1_CARDLESS
+    fails = [dict(phase="open", **f) for f in await page.evaluate(measure_js, cardless)]
+    toggles = page.locator('button[class*="__graphToggle___"]:visible')
+    count = await toggles.count()
+    for i in range(count):
+        await toggles.nth(i).click()
+    fails += [dict(phase="minimized", **f) for f in await page.evaluate(measure_js, cardless)]
+    for i in range(count):
+        await toggles.nth(i).click()
+    return fails
+
+
+async def check_toggle_consistency(page, state, width):
+    """I3: the graph-size button has one height, font size and radius on every card."""
+    readings = await page.evaluate("() => {" + C1_PRELUDE + r"""
+      return [...document.querySelectorAll('button[class*="__graphToggle___"]')].filter(shown).map(b => {
+        const s = getComputedStyle(b);
+        return {card: b.closest('article, section')?.querySelector('h2')?.textContent, h: b.getBoundingClientRect().height, font: s.fontSize, radius: s.borderTopLeftRadius};
+      });
+    }""")
+    if not readings:
+        return [] if state in C1_CARDLESS else [dict(why="no graph-size buttons found")]
+    first = readings[0]
+    return [dict(why="differs from the first card's button", first=first, **r) for r in readings[1:]
+            if abs(r["h"] - first["h"]) > 0.5 or r["font"] != first["font"] or r["radius"] != first["radius"]]
+
+
+async def check_phone_header(page, state, width):
+    """I4: at 390 a provider card's top to its headline number's top is at most 150px."""
+    if width != 390:
+        return []
+    return await page.evaluate("(cardless) => {" + C1_PRELUDE + r"""
+      const fails = [], articles = [...document.querySelectorAll('article')];
+      if (!cardless && !articles.length) fails.push({why: 'no provider cards found'});
+      for (const a of articles) {
+        const n = a.querySelector('[class*="__headline___"] strong');
+        if (!n) { fails.push({why: 'card has no headline number'}); continue; }
+        const d = n.getBoundingClientRect().top - a.getBoundingClientRect().top;
+        if (d > 150) fails.push({card: a.querySelector('h2')?.textContent, why: `headline number starts ${d.toFixed(0)}px below the card top`});
+      }
+      return fails;
+    }""", state in C1_CARDLESS)
+
+
+async def check_action_names(page, state, width):
+    """I5: each action's accessible name starts with its visible text."""
+    return await page.evaluate("(cardless) => {" + C1_PRELUDE + r"""
+      const fails = [], all = cards();
+      if (!cardless && !all.length) fails.push({why: 'no cards found'});
+      for (const card of all) for (const b of actions(card)) {
+        const text = b.innerText.trim(), label = name(b);
+        if (!text || !label.toLowerCase().startsWith(text.toLowerCase())) fails.push({text, name: label, why: 'accessible name does not start with the visible text'});
+      }
+      return fails;
+    }""", state in C1_CARDLESS)
+
+
+async def check_header_order(page, state, width):
+    """I6: no headline number sits on the same visual row as an action button."""
+    return await page.evaluate("(cardless) => {" + C1_PRELUDE + r"""
+      const fails = [], all = cards();
+      if (!cardless && !all.length) fails.push({why: 'no cards found'});
+      for (const card of all) {
+        const n = card.querySelector('[class*="__headline___"] strong');
+        if (!n || !shown(n)) { fails.push({card: card.querySelector('h2')?.textContent, why: 'card has no visible headline number'}); continue; }
+        const q = n.getBoundingClientRect();
+        for (const b of actions(card)) {
+          const r = b.getBoundingClientRect();
+          if (q.top < r.bottom && q.bottom > r.top) fails.push({card: card.querySelector('h2')?.textContent, action: b.innerText.trim(), why: 'headline number shares a row with an action'});
+        }
+      }
+      return fails;
+    }""", state in C1_CARDLESS)
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", required=True)
@@ -541,6 +677,9 @@ async def main():
         ("stacked-wide", "stacked", 1920, 1280),
         ("stacked-narrow", "stacked", 390, 844),
         ("stacked-unavailable", "stacked-unavailable", 1440, 1000),
+        ("tablet", "ready", 820, 1000),
+        ("laptop-1100", "ready", 1100, 900),
+        ("narrow-320", "ready", 320, 700),
     ]
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
@@ -805,6 +944,12 @@ async def main():
                     errors=errors,
                     **measure(path, geo, width < 600),
                 )
+                results[name]["factWrapFailures"] = await check_fact_wrap(page, state, width)
+                results[name]["toggleConsistencyFailures"] = await check_toggle_consistency(page, state, width)
+                results[name]["phoneHeaderFailures"] = await check_phone_header(page, state, width)
+                results[name]["actionNameFailures"] = await check_action_names(page, state, width)
+                results[name]["headerOrderFailures"] = await check_header_order(page, state, width)
+                results[name]["headerActionLabelFailures"] = await check_header_action_labels(page, state, width)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -914,10 +1059,13 @@ async def main():
                     corner = page.locator('article [class*="__reorder___"]').first
                     geometry = await corner.locator('button').evaluate_all("nodes=>nodes.filter(n=>n.checkVisibility()).map(n=>{const r=n.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height,text:n.innerText}})")
                     # An impossible move isn't drawn, so the first card shows its toggle and Move down only.
-                    assert len(geometry)==2 and all(abs(c['y']-geometry[0]['y'])<1 for c in geometry), geometry
-                    # Cards name each action beside its icon from 1600px up; narrower ones stay icon-only.
-                    assert (geometry[0]['text']!='')==(width>=1600)
-                    if width>=1600: assert all(c['h']<=28 for c in geometry)
+                    # They share one row from 360px up; a 320px card is too narrow for two pills, so they wrap, left-aligned.
+                    assert len(geometry)==2, geometry
+                    if width>=360: assert all(abs(c['y']-geometry[0]['y'])<1 for c in geometry), geometry
+                    else: assert all(abs(c['x']-geometry[0]['x'])<1 for c in geometry), geometry
+                    # Every action names itself beside its icon at every width: 32px tall, 44px on touch.
+                    assert all(c['text'].strip() for c in geometry), geometry
+                    assert all(abs(c['h']-(44 if width<600 else 32))<1 for c in geometry), geometry
                     interaction["subtle_icons_aligned_beside_reorder"] = "passed"
                     view = page.get_by_role('combobox',name='Chart view',exact=True)
                     await view.select_option('stacked')
@@ -1028,6 +1176,8 @@ async def main():
                for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures", "inkFailures", "nestingFailures", "hiddenReasonFailures", "overlapFailures"]},
             errors=result["errors"],
         )
+    for name, result in results.items():
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():
