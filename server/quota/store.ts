@@ -359,6 +359,19 @@ export class QuotaStore {
     for (const id of accountIds) remove.run(id);
   }
 
+  /** Purge accounts that are already retired. A live account is never touched. Returns the ids. */
+  purgeRetired(accountIds: readonly string[]): string[] {
+    let purged: string[] = [];
+    this.db.transaction(() => {
+      const retired = this.db.query<{ id: string }, [string]>(
+        'SELECT id FROM quota_accounts WHERE id = ? AND retired = 1'
+      );
+      purged = accountIds.filter((id) => Boolean(retired.get(id)));
+      this.purgeInTransaction(purged);
+    })();
+    return purged;
+  }
+
   /** True while the account exists and is in its inventory. */
   isLive(accountId: string): boolean {
     return Boolean(
