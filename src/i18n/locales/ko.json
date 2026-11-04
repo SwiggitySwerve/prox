@@ -2421,6 +2421,7 @@
     "sort_lowest": "한도 잔여 낮은 순",
     "accounts_shown": "{{shown}} / {{total}} 표시",
     "accounts_shown_match": "{{shown}} / {{total}} 표시 · {{count}}개 일치",
+    "accounts_match_only": "{{count}} / {{total}} 일치",
     "accounts_low_on": "한도 20% 미만 {{count}}개만 표시 중",
     "accounts_low": "한도 20% 미만 {{count}}개 보기",
     "show_more_accounts": "{{count}}개 더 보기",

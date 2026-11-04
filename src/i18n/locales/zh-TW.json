@@ -2447,6 +2447,7 @@
     "sort_lowest": "限額剩餘最低優先",
     "accounts_shown": "顯示 {{shown}} / {{total}}",
     "accounts_shown_match": "顯示 {{shown}} / {{total}} · {{count}} 個符合",
+    "accounts_match_only": "符合 {{count}} / {{total}}",
     "accounts_low_on": "正在篩選 {{count}} 個限額低於 20% 的帳號",
     "accounts_low": "顯示 {{count}} 個限額低於 20% 的帳號",
     "show_more_accounts": "再顯示 {{count}} 個",

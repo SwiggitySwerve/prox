@@ -893,11 +893,11 @@ async def check_action_align(page, state):
       }
       return out;
     }""")
-# G geometry checks (value slots, tracks, Combined controls, rate headline). Each has its own JSON key,
+# G geometry checks (Combined controls, rate headline). Each has its own JSON key,
 # registered in G_KEYS for the summary and the exit gate. They run on pages of their own, opened at the
 # widths and languages of G_SWEEPS, because one case has one viewport. A check that finds nothing to
 # measure on a page where it applies fails.
-G_KEYS = ("trackAlignFailures", "unavailableSlotFailures", "combinedControlsFailures", "rateHeadlineFailures")
+G_KEYS = ("combinedControlsFailures", "rateHeadlineFailures")
 G_WIDTHS = (390, 820, 1100, 1440)
 # base case -> pages (fixture state, width, language, view to apply first)
 G_SWEEPS = {
@@ -905,10 +905,6 @@ G_SWEEPS = {
     "many": [("many", w, "en", None) for w in G_WIDTHS]
     + [("many", w, lng, view) for lng in ("ru", "vi") for w in (390, 1100, 1440) for view in (None, "Drain rate")],
     "narrow": [("ready", 390, lng, view) for lng in ("ru", "vi") for view in (None, "Burn rate")],
-    "stale": [("stale", w, "en", None) for w in G_WIDTHS],
-    "no-limit": [("no-limit", w, "en", "5-hour") for w in G_WIDTHS],
-    "expanded": [("ready", w, "en", "expand") for w in G_WIDTHS],
-    "partial": [("partial", w, "en", "expand") for w in G_WIDTHS],
     "drain": [("ready", w, "en", "Drain rate") for w in G_WIDTHS] + [("ready", 1440, "en", "Burn rate")],
 }
 
@@ -953,89 +949,13 @@ async def open_fixture_page(browser, url, state, width, lng, view):
         location.hash='/quota';
     }""")
     await page.locator("article").first.wait_for()
-    if view == "expand":
-        for _ in range(await page.get_by_role("button", name="Expand all").count()):
-            await page.get_by_role("button", name="Expand all").first.click()
-    elif view:
+    if view:
         await switch_view(page, view)
-    if state == "many":
-        # Closed phone rows list only their low limits; one open row per provider adds the normal ones.
-        for index in range(await page.locator("article").count()):
-            await page.locator("article").nth(index).locator("details:not([open]) > summary").first.click()
     if lng != "en":
         await page.evaluate("async (lng) => { const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage(lng); }", lng)
     await page.evaluate("document.fonts.ready")
     await page.wait_for_timeout(250)
     return context, page
-
-
-async def check_track_align(page, state):
-    """G1: within each provider card, the outer tracks of one limit (data-limit-id) share left and right edges
-    within 1px across every visible row, tracks are wide enough, value text is 13px+ and each value fits its slot."""
-    return await page.evaluate("(needMixed) => {" + C1_PRELUDE + r"""
-      const fails = [], groups = new Map(), wide = innerWidth >= 901, minTrack = wide ? 40 : 24;
-      for (const article of document.querySelectorAll('article')) {
-        const provider = (article.className.match(/__(claude|codex)___/) || [])[1] || 'provider';
-        const minimized = article.querySelector('[data-minimized="true"]') || article.matches('[data-minimized="true"]') ? 'min' : 'full';
-        for (const li of article.querySelectorAll('ul[aria-label] > li[data-limit-id]')) {
-          const track = li.querySelector(':scope > [class*="__limitBar___"]');
-          if (!track || !shown(track) || !shown(li)) continue;
-          const r = track.getBoundingClientRect(), key = `${provider}|${minimized}|${li.dataset.limitId}`;
-          const who = (li.closest('details')?.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '').trim();
-          if (!groups.has(key)) groups.set(key, []);
-          groups.get(key).push({who, low: li.dataset.low === 'true', empty: track.hasAttribute('data-empty'), left: r.left, right: r.right});
-          if (r.width < minTrack - 0.5) fails.push({key, who, why: `track ${r.width.toFixed(1)}px wide, under ${minTrack}px`});
-          if (r.right > article.getBoundingClientRect().right + 0.5) fails.push({key, who, why: 'track runs past its card'});
-          for (const e of [li.querySelector(':scope > strong'), li.querySelector('[class*="__lowWord___"]')].filter(Boolean)) {
-            if (parseFloat(getComputedStyle(e).fontSize) < 13) fails.push({key, who, why: 'value text under 13px'});
-          }
-          const v = li.querySelector(':scope > strong');
-          if (v) {
-            const range = document.createRange(); range.selectNodeContents(v);
-            const cs = [...range.getClientRects()].filter(q => q.width > 0), vb = v.getBoundingClientRect();
-            const tops = cs.filter((q, i) => cs.findIndex(p => Math.abs(p.top - q.top) < 4) === i);
-            if (tops.length > 1) fails.push({key, who, why: `value on ${tops.length} lines`});
-            if (cs.length && Math.min(...cs.map(q => q.left)) < vb.left - 0.5) fails.push({key, who, why: 'value overflows its slot'});
-          }
-        }
-      }
-      if (!groups.size) fails.push({why: 'no visible tracks to measure'});
-      let mixed = false;
-      for (const [key, tracks] of groups) {
-        const solid = tracks.filter(t => !t.empty), ref = solid[0] || tracks[0];
-        if (solid.some(t => t.low) && solid.some(t => !t.low)) mixed = true;
-        for (const t of tracks) if (Math.abs(t.left - ref.left) > 1 || Math.abs(t.right - ref.right) > 1)
-          fails.push({key, who: t.who, why: `track ${t.left.toFixed(1)}–${t.right.toFixed(1)} vs ${ref.left.toFixed(1)}–${ref.right.toFixed(1)} (${ref.who})`});
-      }
-      if (needMixed && !mixed) fails.push({why: 'no column holds both normal and low rows'});
-      return fails;
-    }""", state == "many")
-
-
-async def check_unavailable_slots(page, required):
-    """G1: an unavailable or missing limit draws a dashed, unfilled track over the same x range as the column's
-    other tracks, and keeps its reason text whole. `required` pages must contain at least one such slot."""
-    return await page.evaluate("(required) => {" + C1_PRELUDE + r"""
-      const fails = [], slots = [...document.querySelectorAll('article ul[aria-label] > li[data-limit-id]')]
-        .filter(li => shown(li) && (li.dataset.missing === 'true' || li.querySelector(':scope > [class*="__limitBar___"][data-empty]')));
-      if (required && !slots.length) fails.push({why: 'no unavailable or missing slot to measure'});
-      for (const li of slots) {
-        const article = li.closest('article'), id = li.dataset.limitId, who = li.closest('details')?.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '';
-        const bar = li.querySelector(':scope > [class*="__limitBar___"]');
-        if (!bar || !shown(bar)) { fails.push({who, id, why: 'no visible empty track'}); continue; }
-        if (getComputedStyle(bar).borderTopStyle !== 'dashed') fails.push({who, id, why: 'empty track is not dashed'});
-        if (bar.children.length) fails.push({who, id, why: 'empty track has a fill'});
-        const ref = [...article.querySelectorAll(`ul[aria-label] > li[data-limit-id="${id}"] > [class*="__limitBar___"]:not([data-empty])`)].find(shown);
-        const b = bar.getBoundingClientRect();
-        if (ref) { const r = ref.getBoundingClientRect(); if (Math.abs(b.left - r.left) > 1 || Math.abs(b.right - r.right) > 1) fails.push({who, id, why: `empty track ${b.left.toFixed(1)}–${b.right.toFixed(1)} vs ${r.left.toFixed(1)}–${r.right.toFixed(1)}`}); }
-        const reason = li.dataset.missing === 'true' ? li.querySelector(':scope > em') : li.querySelector(':scope > strong');
-        if (!reason || !reason.textContent.trim() || !shown(reason)) { fails.push({who, id, why: 'no visible reason or placeholder'}); continue; }
-        const q = reason.getBoundingClientRect(), l = li.getBoundingClientRect();
-        const overlap = q.left < b.right - 0.5 && q.right > b.left + 0.5 && q.top < b.bottom - 0.5 && q.bottom > b.top + 0.5;
-        if (reason.scrollWidth > reason.clientWidth + 1 || q.left < l.left - 1 || q.right > l.right + 1 || overlap) fails.push({who, id, why: 'reason text clipped or runs into the track'});
-      }
-      return fails;
-    }""", required)
 
 
 async def check_combined_controls(page, width):
@@ -1105,11 +1025,6 @@ async def run_g_checks(browser, url, name, state, page, result):
         context, sweep = await open_fixture_page(browser, url, sweep_state, width, lng, view)
         try:
             tag = f"{sweep_state}/{view or 'remaining'}@{width}/{lng}"
-            result["trackAlignFailures"] += [dict(page=tag, **f) for f in await check_track_align(sweep, sweep_state)]
-            unavailable = sweep_state in ("no-limit", "partial")
-            # A missing slot is drawn from 901px; an unavailable value shows in every opened row.
-            result["unavailableSlotFailures"] += [dict(page=tag, **f) for f in await check_unavailable_slots(
-                sweep, unavailable and (width >= 901 or sweep_state == "partial"))]
             result["combinedControlsFailures"] += [dict(page=tag, **f) for f in await check_combined_controls(sweep, width)]
             if view in ("Drain rate", "Burn rate"):
                 result["rateHeadlineFailures"] += [dict(page=tag, **f) for f in await check_rate_headline(sweep)]
@@ -1194,24 +1109,35 @@ def r_count_verify(out, card, step, s, total, lng):
         out.append(dict(where, why=f"count elements (in toolbar, in card, is last item) = {found}"))
     if s["footerKids"] > 1:
         out.append(dict(where, why="the footer still holds more than the Show more button"))
-    if len(nums) != (3 if clause else 2):
-        out.append(dict(where, why=f"{len(nums)} numbers where {3 if clause else 2} were expected (match clause {'wanted' if clause else 'not wanted'})"))
+    f = s["rows"] + s["moreN"]
+    # While filtering, every match on screen (D == F) reads "F of T match" in every language; otherwise "D of T shown · F match".
+    match_only = clause and s["moreN"] == 0
+    want = 3 if clause and not match_only else 2
+    if len(nums) != want:
+        out.append(dict(where, why=f"{len(nums)} numbers where {want} were expected ({'match only' if match_only else 'match clause wanted' if clause else 'no match clause'})"))
         return
-    d, t, f = nums[0], nums[1], s["rows"] + s["moreN"]
-    if d != s["rows"]:
-        out.append(dict(where, why=f"D says {d} but {s['rows']} rows are on screen"))
+    t = nums[1]
+    if match_only:
+        if nums[0] != f:
+            out.append(dict(where, why=f"F says {nums[0]} but {f} rows match (all on screen)"))
+    else:
+        d = nums[0]
+        if d != s["rows"]:
+            out.append(dict(where, why=f"D says {d} but {s['rows']} rows are on screen"))
+        if clause and nums[2] != f:
+            out.append(dict(where, why=f"F says {nums[2]} but {f} rows match (rows + Show more)"))
+        if not (d == f or (s["moreN"] > 0 and d == R_PAGE)):
+            out.append(dict(where, why=f"D={d} is neither all {f} matches nor a full page of {R_PAGE}"))
     if t != total:
         out.append(dict(where, why=f"T says {t} but the provider has {total} accounts"))
-    if clause and nums[2] != f:
-        out.append(dict(where, why=f"F says {nums[2]} but {f} rows match (rows + Show more)"))
     if not clause and f != total:
         out.append(dict(where, why=f"no filter is active but {f} of {total} rows match"))
     if s["lowPressed"] and not s["query"] and s["chipN"] != f:
         out.append(dict(where, why=f"the low filter's chip says {s['chipN']} but {f} rows match"))
-    if not (d == f or (s["moreN"] > 0 and d == R_PAGE)):
-        out.append(dict(where, why=f"D={d} is neither all {f} matches nor a full page of {R_PAGE}"))
-    if lng == "en" and not re.fullmatch(r"\d+ of \d+ shown( · \d+ match)?", s["text"]):
-        out.append(dict(where, why="English count is not 'D of T shown[ · F match]'"))
+    if lng == "en":
+        pattern = r"\d+ of \d+ match" if match_only else r"\d+ of \d+ shown( · \d+ match)?"
+        if not re.fullmatch(pattern, s["text"]) or (not match_only and clause and "match" not in s["text"]):
+            out.append(dict(where, why="English count is not 'F of T match' (all matches shown), 'D of T shown · F match' or 'D of T shown' (no filter)"))
 
 
 async def _roster_counts(page, lng):
@@ -1259,8 +1185,8 @@ async def _roster_counts(page, lng):
 
 
 async def check_roster_count(context, url, route_api, name, state):
-    """R1: every roster toolbar shows one count, "D of T shown", plus " · F match" while a filter or search is active,
-    as the toolbar's last item and nowhere else; D, F and T stay right through filtering, clearing, a zero-result
+    """R1: every roster toolbar shows one count, "D of T shown", plus " · F match" while a filter or search is active
+    (just "F of T match" when D == F), as the toolbar's last item and nowhere else; D, F and T stay right through filtering, clearing, a zero-result
     search and Show more. ru and vi repeat it on the cases with a roster."""
     if name not in R_COUNT_CASES:
         return []

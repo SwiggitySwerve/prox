@@ -2421,6 +2421,7 @@
     "sort_lowest": "Lowest limit remaining first",
     "accounts_shown": "{{shown}} of {{total}} shown",
     "accounts_shown_match": "{{shown}} of {{total}} shown · {{count}} match",
+    "accounts_match_only": "{{count}} of {{total}} match",
     "accounts_low_on": "Filtering to {{count}} with a limit below 20%",
     "accounts_low": "Show {{count}} with a limit below 20%",
     "show_more_accounts": "Show {{count}} more",

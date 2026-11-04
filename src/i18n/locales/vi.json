@@ -2427,6 +2427,7 @@
     "sort_lowest": "Hạn mức còn lại thấp nhất trước",
     "accounts_shown": "Hiển thị {{shown}} / {{total}}",
     "accounts_shown_match": "Hiển thị {{shown}} / {{total}} · {{count}} khớp",
+    "accounts_match_only": "Khớp {{count}} / {{total}}",
     "accounts_low_on": "Đang lọc {{count}} có hạn mức dưới 20%",
     "accounts_low": "Hiện {{count}} có hạn mức dưới 20%",
     "show_more_accounts": "Hiện thêm {{count}}",

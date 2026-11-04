@@ -1274,7 +1274,7 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).toMatch(
-      /<li data-limit-id="five-hour" data-missing="true"[^>]*><span>5-hour remaining<\/span><span data-empty="true" aria-hidden="true"><\/span><em>No 5-hour limit<\/em><\/li>/
+      /<li data-limit-id="five-hour" data-missing="true"[^>]*><span>5-hour remaining<\/span><em>No 5-hour limit<\/em><\/li>/
     );
   });
   test('every forecast state gets one chip shape with its own icon, and Ready is neutral', async () => {

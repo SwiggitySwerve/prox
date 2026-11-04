@@ -23,7 +23,7 @@ ACCOUNTS                                                          2 of 3 current
 - One row under the section heading [R§4: ≤ 5 toolbar actions]: search, sort, filter chip(s), then the count as the toolbar's last item. From 641px it is one wrapping row; at 640px and below search, sort, each chip and the count take a full-width row each, in that order, with 44px targets. Expand all sits in the section heading.
 - Scoped labels: "Search Claude accounts"; sort options "Name A–Z" (default: stable across the 15s reloads, honest; the server order is sha256-id order) and "Lowest limit first" (accounts with no data first, then lowest percent, then name) [R§4: one column sorted by default; council decision 4b].
 - Filter chip: a toggle labelled with its rule. Off = outline with the warning icon, "Show 40 with a limit below 20%". On = "Filtering to 40 with a limit below 20%", `aria-pressed="true"`, a leading check, the page's selected-segment fill (clearly lighter than off, ΔE ≥ 12) and a border that reads 3:1 against the card [R§4: chips]. The affected chip keeps "Affected (N)" and takes the same filled style. The red stays on the low values' icon and bar.
-- Search filters live, resets paging to the first page, and the count reads "12 of 120 shown · 12 match".
+- Search filters live, resets paging to the first page, and the count reads "12 of 120 shown · 12 match", or "12 of 120 match" when every match is on screen.
 - "Expand all" appears only when the list shows ≤ 25 rows and is never on by default [R§4].
 - On rosters over 25 rows, the toolbar and the column header are sticky within the card while the list scrolls past.
 
@@ -32,7 +32,7 @@ ACCOUNTS                                                          2 of 3 current
 - Real table semantics; every column has a header in one style: Account, Plan, then each limit [R§4]. The counted limit's header carries a second line, "Counts toward total" in `type-label` (text, not a dot or weight).
 - Column tracks are shared by every provider table on the page (a limit an account lacks leaves an empty track), so Claude and Codex columns line up.
 - Plan always reads "Pro · 100 points".
-- Limit cell: value right-aligned with tabular figures, then the bar [R§4]. Every limit column has a fixed value slot wide enough for "⚠ Low 100.0%", so all tracks in a column start and end at the same x. Empty cells use one pattern: muted reason text ("Unavailable", "No 5-hour limit") in the value slot, beside a dashed empty track at that same x range; never a filled 0% bar.
+- Limit cell: value right-aligned with tabular figures, then the bar [R§4]. Empty cells use one pattern: muted text ("Unavailable", "No 5-hour limit") over a dashed empty track.
 - Low (< 20%): neutral value, a critical ⚠ icon (`aria-hidden`) beside the visible word "Low" (`quota_pool.limit_low`, `--text-secondary`, weight 600, never red), critical fill; the track stays neutral. The visible word is the accessible text, so nothing reads "Low Low" (S5).
 - Row: 40/48px; the whole summary row is the toggle (a button with `aria-expanded`); chevron 16px in a 32px cell, centred on the first text line.
 
@@ -69,4 +69,4 @@ On the Quota Management page each estimated renewal reads "Estimated · from sta
 
 ## Paging
 
-- 25 rows, then "Show 25 more". The count lives in the toolbar only, never in the footer [R§4: X of Y viewed]: "25 of 120 shown" (D of T), plus " · 40 match" (F) while a filter or search is active. D = rows on screen, F = rows matching the filter or search, T = all accounts in the provider. Rosters with no toolbar (8 or fewer accounts, and not affected-only) show no count.
+- 25 rows, then "Show 25 more". The count lives in the toolbar only, never in the footer [R§4: X of Y viewed]: "25 of 120 shown" (D of T), plus " · 40 match" (F) while a filter or search is active. When D = F it reads "F of T match" instead ("40 of 120 match"). D = rows on screen, F = rows matching the filter or search, T = all accounts in the provider. Rosters with no toolbar (8 or fewer accounts, and not affected-only) show no count.

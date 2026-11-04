@@ -789,9 +789,8 @@ $pool-error: #ff5252;
   grid-column: 2 / -1;
   grid-row: 3;
   display: grid;
-  // The value column is a fixed slot (--limit-slot, see the G block) wide enough for "Low" with its
-  // icon and value, so every row's bar starts and ends at the same x.
-  grid-template-columns: minmax(0, 7.5em) minmax(24px, 1fr) var(--limit-slot);
+  // The value column grows to fit a low value's icon, word and percentage; the bar gives way.
+  grid-template-columns: 7.5em minmax(24px, 1fr) minmax(4.6em, max-content);
   gap: 6px 10px;
   margin: 6px 0 2px;
   padding: 0;
@@ -1665,7 +1664,7 @@ $pool-error: #ff5252;
     // Sized from the viewport, not the table, so every provider's limit columns start at the
     // same x whatever its number of limits.
     // Wide enough for an address plus its reset badge on one line.
-    --name-track: clamp(120px, min(18vw, 82vw - 868px), 330px);
+    --name-track: clamp(160px, 18vw, 330px);
     --plan-track: clamp(110px, 10vw, 140px);
     .accountHead,
     .account > summary {
@@ -1678,7 +1677,7 @@ $pool-error: #ff5252;
         repeat(
           var(--limit-cols),
           minmax(
-            var(--limit-cell),
+            104px,
             calc((100% - 20px - var(--name-track) - var(--plan-track) - 128px - 96px) / 3)
           )
         )
@@ -1743,7 +1742,7 @@ $pool-error: #ff5252;
           grid-column: calc(var(--col) + 3);
           grid-row: 1;
           display: grid;
-          grid-template-columns: var(--limit-slot) minmax(var(--limit-track-min), 1fr);
+          grid-template-columns: 3.6em minmax(24px, 1fr);
           align-items: center;
           gap: 0 10px;
           strong {
@@ -1762,12 +1761,11 @@ $pool-error: #ff5252;
             white-space: nowrap;
           }
           &[data-missing='true'] em {
-            grid-column: 1;
+            grid-column: 1 / -1;
             grid-row: 1;
             color: var(--text-tertiary);
             font-size: 13px;
             font-style: normal;
-            text-align: right;
           }
           > span:first-child {
             position: absolute;
@@ -1801,10 +1799,7 @@ $pool-error: #ff5252;
           20px var(--name-track) var(--plan-track)
           repeat(
             var(--limit-cols),
-            minmax(
-              var(--limit-cell),
-              calc((100% - 20px - var(--name-track) - var(--plan-track) - 80px) / 3)
-            )
+            minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 80px) / 3))
           );
       }
       .accountHead span:last-child {
@@ -2214,11 +2209,21 @@ $pool-error: #ff5252;
   }
 }
 
+// Phone limit rows put each label on its own line, so the 7.5em label column only widened the grid
+// past a 320px card and clipped the values ("62." for "62.8%"). The bar still spans the same width
+// wherever the card is wider. (Accounts are C3's: drop this if C3 reworks the grid.)
+@media (max-width: 640px) {
+  .limits {
+    grid-template-columns: 4em minmax(24px, 1fr) minmax(4.6em, max-content);
+  }
+}
+
 // At 1100px the account table's tracks (name 18vw = 198px, 16px gaps) left its columns 30px wider
-// than the grid, clipping it (found by the new laptop-1100 case). 12px gaps fit; the G block also
-// moves Plan under the name here and sizes the name track.
+// than the grid, clipping it (found by the new laptop-1100 case). The name track's 160px floor and
+// 12px gaps fit. (Accounts are C3's: drop this if C3 reworks the tracks.)
 @media (min-width: 901px) and (max-width: 1199px) {
   .pool:not([data-minimized='true']) {
+    --name-track: 160px;
     .accountHead,
     .account > summary {
       column-gap: 12px;
@@ -2240,7 +2245,7 @@ $pool-error: #ff5252;
   font-weight: 600;
 }
 // The icon, "Low" and the value stay on one line in every layout. A short column gives up bar
-// width, never text.
+// width (see the P1 block), never text.
 .limits li[data-low='true'] strong {
   white-space: nowrap;
 }
@@ -2388,6 +2393,14 @@ $pool-error: #ff5252;
   }
 }
 /* P1 */
+// Table cells: a low value is wider than the 3.6em value column, so its cell sizes the column to
+// the icon, word and percentage and leaves the bar whatever remains.
+@media (min-width: 901px) {
+  .pool:not([data-minimized='true']) .account > summary > .limits li[data-low='true'] {
+    grid-template-columns: max-content minmax(8px, 1fr);
+    column-gap: 6px;
+  }
+}
 // Phone Options button: a trailing chevron-down that flips while the overlay is open, like the
 // app's other disclosure controls (Collapsible, Select).
 .optionsChevron {
@@ -2403,20 +2416,24 @@ $pool-error: #ff5252;
     transition: none;
   }
 }
+// 901-1199px, balance-less tables: 8px column gaps (instead of 12px) and a matching 56px reserve in
+// the limit tracks (5 gaps of 8px plus 16px of slack, so the last header label still fits) give a
+// low cell room for its icon, word and percentage and still a visible bar.
+@media (min-width: 901px) and (max-width: 1199px) {
+  .pool:not([data-minimized='true']) [data-balance-column='false'] {
+    .accountHead,
+    .account > summary {
+      column-gap: 8px;
+      grid-template-columns:
+        20px var(--name-track) var(--plan-track)
+        repeat(
+          var(--limit-cols),
+          minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 56px) / 3))
+        );
+    }
+  }
+}
 /* G */
-// Value slot and tracks. Every limit column has a fixed value slot that holds "⚠ Low 100.0%" in the
-// widest locale, so a normal row's track and a low row's track start and end at the same x.
-.pool {
-  --limit-slot: 112px;
-  --limit-track-min: 40px;
-  --limit-cell: calc(var(--limit-slot) + 10px + var(--limit-track-min));
-}
-// An unavailable or missing limit draws an empty dashed track over the same x range, never a 0% fill.
-.limitBar[data-empty] {
-  box-sizing: border-box;
-  border: 1px dashed var(--text-tertiary);
-  background: transparent;
-}
 // Rate views: the label sits on one line above the number, whose unit shares its baseline.
 .headline[data-rate='true'] {
   flex-direction: column;
@@ -2431,53 +2448,6 @@ $pool-error: #ff5252;
   }
   .combinedOptions + .reorder {
     margin-left: 0;
-  }
-}
-// 901-1199px: Plan sits under the account name (03-page-layout, Medium tier), which frees its column
-// for the limit cells. The name track takes what is left of them.
-@media (min-width: 901px) and (max-width: 1199px) {
-  .pool:not([data-minimized='true']) {
-    --name-track: clamp(104px, calc(100vw - 940px), 160px);
-    .accountHead,
-    .account > summary {
-      grid-template-columns:
-        20px var(--name-track)
-        repeat(
-          var(--limit-cols),
-          minmax(
-            var(--limit-cell),
-            calc((100% - 20px - var(--name-track) - 128px - 60px) / 3)
-          )
-        )
-        128px;
-    }
-    [data-balance-column='false'] {
-      .accountHead,
-      .account > summary {
-        grid-template-columns:
-          20px var(--name-track)
-          repeat(
-            var(--limit-cols),
-            minmax(var(--limit-cell), calc((100% - 20px - var(--name-track) - 48px) / 3))
-          );
-      }
-    }
-    .accountHead span:nth-child(3) {
-      display: none;
-    }
-    .account > summary {
-      .accountPlan {
-        grid-column: 2;
-        grid-row: 2;
-      }
-      > .accountStatus {
-        grid-column: 2 / -1;
-        grid-row: 3;
-      }
-      > .limits li {
-        grid-column: calc(var(--col) + 2);
-      }
-    }
   }
 }
 // Phones: the heading and the toggle keep one row, so a long heading wraps inside its cell and never

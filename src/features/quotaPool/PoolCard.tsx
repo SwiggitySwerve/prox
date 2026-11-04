@@ -599,11 +599,14 @@ export function PoolCard({
                 })}
               </button>
             )}
-            {/* Always the last item: rows on screen of all accounts, plus the matches while filtering. */}
+            {/* Always the last item: rows on screen of all accounts, plus the matches while filtering.
+                When every match is on screen, "shown" and "match" are the same number, so it says it once. */}
             <span className={styles.rosterCount} role="status">
               {t(
                 query || lowOnly || affectedOnly
-                  ? 'quota_pool.accounts_shown_match'
+                  ? pageAccounts.length === visibleAccounts.length
+                    ? 'quota_pool.accounts_match_only'
+                    : 'quota_pool.accounts_shown_match'
                   : 'quota_pool.accounts_shown',
                 {
                   shown: pageAccounts.length,
@@ -751,16 +754,12 @@ export function PoolCard({
                           }
                         >
                           <span>{limitLabel(limit)}</span>
-                          {/* A missing value gets a dashed empty track, so it can't read as 0%. */}
-                          <span
-                            className={styles.limitBar}
-                            data-empty={limit.remainingPercent === null || undefined}
-                            aria-hidden="true"
-                          >
-                            {limit.remainingPercent !== null && (
+                          {/* No track for a missing value, so it can't read as 0%. */}
+                          {limit.remainingPercent !== null && (
+                            <span className={styles.limitBar} aria-hidden="true">
                               <span style={{ width: `${limit.remainingPercent}%` }} />
-                            )}
-                          </span>
+                            </span>
+                          )}
                           <strong>
                             {isLowQuota(limit.remainingPercent) && lowMark}
                             {limit.remainingPercent === null
@@ -793,8 +792,7 @@ export function PoolCard({
                             }
                           >
                             <span>{limitLabel(column)}</span>
-                            <span className={styles.limitBar} data-empty aria-hidden="true" />
-                            {/* The reason sits in the value slot, so the column still says why it is empty. */}
+                            {/* The reason fills the cell, so the column still says why it is empty. */}
                             <em>
                               {account.noFiveHourLimit && column.id === 'five-hour'
                                 ? t('quota_pool.no_window_limit', {

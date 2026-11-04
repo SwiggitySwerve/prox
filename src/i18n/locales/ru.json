@@ -2414,6 +2414,7 @@
     "sort_lowest": "Сначала меньший остаток лимита",
     "accounts_shown": "Показано {{shown}} из {{total}}",
     "accounts_shown_match": "Показано {{shown}} из {{total}} · совпадений: {{count}}",
+    "accounts_match_only": "Совпадений: {{count}} из {{total}}",
     "accounts_low_on": "Показаны только с лимитом ниже 20%: {{count}}",
     "accounts_low": "Показать с лимитом ниже 20%: {{count}}",
     "show_more_accounts": "Показать ещё {{count}}",
