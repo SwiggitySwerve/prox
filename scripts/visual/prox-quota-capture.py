@@ -165,6 +165,13 @@ def fixture(state):
             recorded[-1] = dict(recorded[-1], remainingPoints=None, burnPointsPerHour=None,
                                 drainPointsPerHour=None)
         pools.append(pool)
+    if state == "multi-low":
+        # One Claude row with several low limits beside a normal weekly value (5-hour and Weekly Opus),
+        # and one whose own weekly value is low as well.
+        first, third = pools[0]["accounts"][0], pools[0]["accounts"][2]
+        first["windows"] = [dict(w, remainingPercent={"five-hour": 9, "seven-day-opus": 12}.get(w["id"], w["remainingPercent"])) for w in first["windows"]]
+        third.update(remainingPercent=11)
+        third["windows"] = [dict(w, remainingPercent=11) if w["id"] == "seven-day" else w for w in third["windows"]]
     if state in ("ultra", "no-limit"):
         # Anthropic removed the 5-hour limit for verified Ultra accounts (2026-10-30): the third
         # Claude account is Ultra and reports no 5-hour window; the 5-hour pool leaves it out.
@@ -313,6 +320,177 @@ GEOMETRY = r"""(providedRoot) => {
     return {kind:kindOf(e),provider,low:!!e.closest('[data-low="true"]'),...rect(e)};});
   return {marks,pageWidth:providedRoot?root.clientWidth:document.documentElement.clientWidth,pageScrollWidth:providedRoot?root.scrollWidth:document.documentElement.scrollWidth,controls,clipped,overlaps,text,charts,guides};
 }"""
+
+
+# Shared by the C3 checks: colours, effective opacity and the rows that count as low or stale.
+C3_HELPERS = r"""
+const rgb=c=>{const n=c.match(/[\d.]+/g).slice(0,3).map(Number);return c.startsWith('color(')?n.map(v=>Math.round(v*255)):n;};
+const isRed=c=>{const [r,g,b]=rgb(c).map(v=>v/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx-mn<0.3||mx<0.5)return false;
+  const h=mx===r?(60*((g-b)/(mx-mn))+360)%360:mx===g?60*((b-r)/(mx-mn))+120:60*((r-g)/(mx-mn))+240;return h>=345||h<=15;};
+const opacity=e=>{let o=1;for(let n=e;n&&n.nodeType===1;n=n.parentElement)o*=parseFloat(getComputedStyle(n).opacity);return o;};
+const shown=e=>e.checkVisibility({checkVisibilityCSS:true});
+const textNodeWith=(root,re)=>{const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(w.nextNode())if(re.test(w.currentNode.textContent))return w.currentNode;return null;};
+const textRight=node=>{const r=document.createRange();r.selectNodeContents(node);return Math.max(...[...r.getClientRects()].map(b=>b.right));};
+"""
+# The fixtures that carry no account rows have nothing for the account checks to measure.
+C3_NO_ROSTER = ("empty", "loading", "error")
+# Cases captured with every card minimized, so the wide minimized list is measured.
+MINIMIZED_CASES = ("stale-minimized", "many-low-minimized", "multi-low-minimized")
+
+
+async def low_colour_failures(page, state):
+    """I1: a low value keeps the normal value colour; its own red icon and visible "Low" carry it."""
+    if state in C3_NO_ROSTER:
+        return []
+    found = await page.evaluate("() => {" + C3_HELPERS + r"""
+      const out=[],values=[...document.querySelectorAll('article details > summary > strong[data-low="true"], article ul[aria-label="Limits"] li[data-low="true"] > strong')].filter(shown);
+      if(!values.length)out.push({why:'no visible low value in a case that has a roster'});
+      for(const e of values){
+        const where=(e.closest('details').querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent||'')+' '+(e.parentElement.tagName==='LI'?e.parentElement.firstElementChild.textContent:'row value');
+        const pct=textNodeWith(e,/%/),icons=[...e.querySelectorAll('[class*="__limitWarning___"]')].filter(shown),words=[...e.querySelectorAll('[class*="__lowWord___"]')].filter(shown);
+        if(!pct)out.push({where,why:'no percentage text'});
+        else if(isRed(getComputedStyle(pct.parentElement).color))out.push({where,why:'percentage is in the critical red'});
+        if(icons.length!==1||!isRed(getComputedStyle(icons[0]).color)||icons[0].getAttribute('aria-hidden')!=='true')out.push({where,why:'needs exactly one aria-hidden red icon',icons:icons.length});
+        if(words.length!==1||words[0].textContent.trim()!=='Low')out.push({where,why:'needs exactly one visible "Low"',words:words.length});
+        else if(isRed(getComputedStyle(words[0]).color)||getComputedStyle(words[0]).fontWeight!=='600')out.push({where,why:'"Low" must be neutral and weight 600'});
+        if(e.querySelector('[class*="__srOnly___"]')||(e.textContent.match(/Low/g)||[]).length!==1)out.push({where,why:'"Low" is announced more than once'});
+        const bar=e.parentElement.querySelector('[class*="__limitBar___"] > span');
+        if(bar&&shown(bar)&&!isRed(getComputedStyle(bar).backgroundColor))out.push({where,why:'low bar fill is not red'});
+      }
+      return out;
+    }""")
+    return found
+
+
+async def stale_dim_failures(page, state):
+    """I2: stale values and bars match current rows in colour and effective opacity."""
+    if state != "stale":
+        return []
+    return await page.evaluate("() => {" + C3_HELPERS + r"""
+      const out=[],seen=(row)=>[...row.querySelectorAll(':scope > summary > strong, :scope ul[aria-label="Limits"] li > strong')].filter(shown).map(e=>({kind:'value',e}))
+        .concat([...row.querySelectorAll('[class*="__limitBar___"] > span')].filter(shown).map(e=>({kind:'bar'+(e.closest('li').dataset.low==='true'?'-low':''),e})));
+      for(const article of document.querySelectorAll('article')){
+        const rows=[...article.querySelectorAll('details[data-status]')],stale=rows.filter(r=>r.dataset.status==='stale'),current=rows.filter(r=>r.dataset.status==='ok');
+        const colour=(x)=>getComputedStyle(x.e)[x.kind==='value'?'color':'backgroundColor'];
+        const ref={};for(const r of current)for(const x of seen(r))(ref[x.kind]??=new Set()).add(colour(x));
+        for(const r of stale)for(const x of seen(r)){
+          const name=r.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent+' '+x.kind;
+          if(Math.abs(opacity(x.e)-1)>0.001)out.push({where:name,why:'effective opacity is '+opacity(x.e)});
+          if(ref[x.kind]&&!ref[x.kind].has(colour(x)))out.push({where:name,why:'colour '+colour(x)+' differs from current rows '+[...ref[x.kind]]});
+        }
+        if(article.querySelector('h2')&&!stale.length&&/claude/i.test(article.querySelector('h2').textContent))out.push({why:'no stale row to measure in the Claude card'});
+      }
+      return out;
+    }""")
+
+
+async def stale_label_failures(page, state):
+    """I3: every stale row shows the amber "Stale" word, a clock icon and its timestamp on one line."""
+    if state != "stale":
+        return []
+    return await page.evaluate("() => {" + C3_HELPERS + r"""
+      const out=[],rows=[...document.querySelectorAll('article details[data-status="stale"]')];
+      if(!rows.length)out.push({why:'no stale row'});
+      for(const row of rows){
+        const where=row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent,status=row.querySelector('[class*="__accountStatus___"]');
+        if(!status||!shown(status)){out.push({where,why:'status line is not visible'});continue;}
+        const icon=status.querySelector('svg'),size=parseFloat(getComputedStyle(status).fontSize),box=status.getBoundingClientRect(),summary=row.querySelector('summary').getBoundingClientRect();
+        if(!/^Stale\b/.test(status.textContent.trim()))out.push({where,why:'status does not start with "Stale"'});
+        if(!icon||icon.getAttribute('aria-hidden')!=='true'||!shown(icon)||!icon.matches('[class*="__staleIcon___"]'))out.push({where,why:'no visible aria-hidden clock icon'});
+        if(!/\d{1,2}:\d{2}/.test(status.textContent))out.push({where,why:'no timestamp'});
+        if(box.height>size*1.8)out.push({where,why:'status wraps onto '+Math.round(box.height/size)+' lines'});
+        if(status.scrollWidth>status.clientWidth+1||textRight(status)>summary.right+1)out.push({where,why:'status overflows its row'});
+      }
+      return out;
+    }""")
+
+
+async def renewal_caveat_failures(page, state, width):
+    """I4: one caveat in each Accounts section with an estimated renewal, none elsewhere; short basis on one line."""
+    if state in C3_NO_ROSTER:
+        return []
+    caveat = '[class*="__renewalCaveat___"]'
+    measure_once = "() => {" + C3_HELPERS + r"""
+      const out=[],text="Renewal dates are estimated from each plan's start date; annual plans differ.";
+      for(const article of document.querySelectorAll('article')){
+        const section=article.querySelector('section[class*="__accounts___"]');
+        // Fixture: every Claude account's renewal is estimated from its start date; Codex reports its dates.
+        const want=/claude/i.test(article.querySelector('h2').textContent)?1:0,got=[...section.querySelectorAll('""" + caveat + r"""')];
+        if(got.length!==want)out.push({why:'expected '+want+' caveat(s), found '+got.length,card:article.querySelector('h2').textContent});
+        for(const c of got){
+          if(c.textContent.trim()!==text||!shown(c))out.push({why:'caveat text or visibility is wrong'});
+          if(c.previousElementSibling?.tagName!=='H3')out.push({why:'caveat is not directly under the Accounts header'});
+        }
+        const mentions=(section.innerText.match(/annual plans differ/gi)||[]).length;
+        if(mentions!==want)out.push({why:'"annual plans differ" appears '+mentions+' times, expected '+want});
+      }
+      const outside=[...document.querySelectorAll('""" + caveat + r"""')].filter(c=>!c.closest('section[class*="__accounts___"]'));
+      if(outside.length)out.push({why:'caveat outside an Accounts section'});
+      return out;
+    }"""
+    out = await page.evaluate(measure_once)
+    # Search, filter and paging never hide it: a search with no match leaves the same caveat.
+    search = page.get_by_role("searchbox", name="Search accounts").first
+    if await search.count():
+        original = await search.input_value()
+        await search.fill("zzzz-no-match")
+        out += [dict(f, during="no-match search") for f in await page.evaluate(measure_once)]
+        await search.fill(original)
+    if state == "expanded":
+        out += await page.evaluate("() => {" + C3_HELPERS + r"""
+          const out=[],basis=[...document.querySelectorAll('[class*="__detail___"]')].filter(e=>/^Estimated/.test(e.textContent.trim()));
+          if(!basis.length)out.push({why:'no displayed estimated renewal to measure'});
+          for(const e of basis){const fs=parseFloat(getComputedStyle(e).fontSize);
+            if(e.textContent.trim()!=='Estimated · from start date')out.push({why:'basis reads "'+e.textContent.trim()+'"'});
+            if(e.getBoundingClientRect().height>fs*1.8||e.scrollWidth>e.clientWidth+1)out.push({why:'basis wraps or is clipped'});}
+          return out;
+        }""")
+    return out
+
+
+async def minimized_width_failures(page, name):
+    """I5: the minimized wide list spans the card's content, with column edges shared by every row."""
+    if name not in MINIMIZED_CASES:
+        return []
+    return await page.evaluate("() => {" + C3_HELPERS + r"""
+      const out=[],cards=[...document.querySelectorAll('article')].filter(a=>a.querySelector('section[class*="__accounts___"] details'));
+      if(!cards.length)out.push({why:'no card with account rows'});
+      for(const a of cards){
+        const cs=getComputedStyle(a),box=a.getBoundingClientRect(),left=box.left+parseFloat(cs.paddingLeft)+parseFloat(cs.borderLeftWidth),
+          width=box.width-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-parseFloat(cs.borderLeftWidth)-parseFloat(cs.borderRightWidth),
+          card=a.querySelector('h2').textContent,head=[...a.querySelectorAll('[class*="__compactHead___"] > span')].filter(shown),
+          rows=[...a.querySelectorAll('details:not([open])')].filter(shown);
+        if(head.length!==3||!rows.length){out.push({card,why:'missing header or rows'});continue;}
+        const chev=rows.map(r=>r.querySelector('summary > svg').getBoundingClientRect().left),
+          vals=rows.map(r=>r.querySelector('summary > strong').getBoundingClientRect().right),
+          valText=rows.map(r=>textRight(r.querySelector('summary > strong'))),
+          lis=rows.flatMap(r=>[...r.querySelectorAll('ul[aria-label="Limits"] li')].filter(shown)),
+          rights=[...valText,...lis.map(li=>textRight(li.querySelector('strong')))],
+          listLeft=Math.min(...chev,head[0].getBoundingClientRect().left),listRight=Math.max(...rights);
+        const same=(xs,tol=1)=>Math.max(...xs)-Math.min(...xs)<=tol;
+        if((listRight-listLeft)/width<0.85)out.push({card,why:'content spans '+((listRight-listLeft)/width).toFixed(2)+' of the card content'});
+        if((Math.min(...valText)-left)/width<0.70)out.push({card,why:'primary value edge at '+((Math.min(...valText)-left)/width).toFixed(2)});
+        if(!same(chev))out.push({card,why:'chevrons are not aligned'});
+        if(!same(vals))out.push({card,why:'primary value edges are not aligned'});
+        if(Math.abs(head[1].getBoundingClientRect().right-vals[0])>1)out.push({card,why:'value header and value edge differ'});
+        if(!lis.length)out.push({card,why:'no other low limit shown'});
+        else{
+          if(!same(lis.map(li=>li.getBoundingClientRect().left)))out.push({card,why:'other-low items are not aligned'});
+          if(Math.abs(head[2].getBoundingClientRect().left-lis[0].getBoundingClientRect().left)>1)out.push({card,why:'other-low header and items differ'});
+          for(const li of lis)if(!li.firstElementChild.textContent.trim()||!/%/.test(li.querySelector('strong').textContent)||!li.querySelector('[class*="__limitWarning___"] svg')||li.querySelector('[class*="__lowWord___"]')?.textContent.trim()!=='Low')out.push({card,why:'other-low item lacks label, value, icon or "Low"'});
+          if(lis.some(li=>li.dataset.counted==='true'))out.push({card,why:'the active window is repeated in other low limits'});
+        }
+        for(const r of rows){const chip=r.querySelector('[class*="__accountResetMarker___"]');if(chip&&chip.getBoundingClientRect().right>r.querySelector('summary > strong').getBoundingClientRect().left)out.push({card,why:'reset chip left the Account cell'});}
+        // Opening a row restores every limit and fact across the whole list width.
+        const row=rows[0],before=row.querySelectorAll('ul[aria-label="Limits"] li').length;row.open=true;
+        const grid=row.parentElement.getBoundingClientRect(),opened=row.getBoundingClientRect();
+        const limits=[...row.querySelectorAll('ul[aria-label="Limits"] li')];
+        if(opened.width<grid.width-1)out.push({card,why:'open row does not span the list'});
+        if(!limits.every(shown)||limits.length!==before||!shown(row.querySelector('[class*="__accountFacts___"]')))out.push({card,why:'open row did not restore its limits and facts'});
+        row.open=false;
+      }
+      return out;
+    }""")
 
 
 def lum(rgb):
@@ -680,6 +858,9 @@ async def main():
         ("tablet", "ready", 820, 1000),
         ("laptop-1100", "ready", 1100, 900),
         ("narrow-320", "ready", 320, 700),
+        ("stale-minimized", "stale", 1440, 1000),
+        ("many-low-minimized", "many-low", 1440, 1000),
+        ("multi-low-minimized", "multi-low", 1440, 1000),
     ]
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
@@ -909,7 +1090,7 @@ async def main():
                     await page.locator('details[class*="__forecast___"]').evaluate_all(
                         "(nodes)=>nodes.forEach(n=>n.open=true)"
                     )
-                if args.minimize_cards:
+                if args.minimize_cards or name in MINIMIZED_CASES:
                     for button in await page.locator('button[class*="__graphToggle___"]').all():
                         await button.click()
                 await page.evaluate("document.fonts.ready")
@@ -950,6 +1131,11 @@ async def main():
                 results[name]["actionNameFailures"] = await check_action_names(page, state, width)
                 results[name]["headerOrderFailures"] = await check_header_order(page, state, width)
                 results[name]["headerActionLabelFailures"] = await check_header_action_labels(page, state, width)
+                results[name]["lowColourFailures"] = await low_colour_failures(page, state)
+                results[name]["staleDimFailures"] = await stale_dim_failures(page, state)
+                results[name]["staleLabelFailures"] = await stale_label_failures(page, state)
+                results[name]["renewalCaveatFailures"] = await renewal_caveat_failures(page, state, width)
+                results[name]["minimizedWidthFailures"] = await minimized_width_failures(page, name)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -981,7 +1167,9 @@ async def main():
                             for provider_index, section in enumerate(await page.locator('article section[class*="__accounts___"]').all()):
                                 closed=section.locator('details:not([open])')
                                 for row in await closed.all():
-                                    assert await row.locator('ul[aria-label="Limits"] li').evaluate_all("nodes=>nodes.every(n=>n.checkVisibility()===(n.dataset.low==='true'))")
+                                    # A closed minimized row shows its low limits; from 901px the active window's own value
+                                    # sits in the primary column, so that limit isn't repeated among the other low limits.
+                                    assert await row.locator('ul[aria-label="Limits"] li').evaluate_all("(nodes,wide)=>nodes.every(n=>n.checkVisibility()===(n.dataset.low==='true'&&!(wide&&n.dataset.counted==='true')))", width >= 901)
                                     status=row.locator('[class*="__accountStatus___"]')
                                     if await row.get_attribute('data-status') != 'ok': assert await status.is_visible()
                                 if await closed.count():
@@ -1007,7 +1195,10 @@ async def main():
                 # Exercise chart keyboard inspection after capturing the fixed
                 # visual state, so screenshots stay comparable.
                 interaction = {}
-                if width >= 901:
+                if name in MINIMIZED_CASES:
+                    # The wide minimized list has its own columns; minimizedWidthFailures measures them.
+                    pass
+                elif width >= 901:
                     # Table: every limit cell starts exactly under its column heading.
                     alignment = await page.locator('article section[class*="__accounts___"]').evaluate_all('''sections => sections.flatMap(section => {
                         const heads = [...section.querySelectorAll('[class*="__accountHead___"] > span')];
@@ -1030,7 +1221,7 @@ async def main():
                         });
                     })''')
                     assert all(cell['rightOffset'] < 1 and cell['lineOffset'] < 12 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
-                interaction["collapsed_labels_and_values_align"] = "passed"
+                interaction["collapsed_labels_and_values_align"] = "see minimizedWidthFailures" if name in MINIMIZED_CASES else "passed"
                 if state == "refresh-pending":
                     countdown = page.locator('[class*="__countdown___"]')
                     await countdown.filter(has_text="Auto-refresh in").wait_for(timeout=9000)
@@ -1173,7 +1364,8 @@ async def main():
         summary[name] = dict(
             pageOverflow=any(r["pageOverflow"] for r in scopes),
             **{key:sum(len(r.get(key, [])) for r in scopes)
-               for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures", "inkFailures", "nestingFailures", "hiddenReasonFailures", "overlapFailures"]},
+               for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures", "inkFailures", "nestingFailures", "hiddenReasonFailures", "overlapFailures",
+                        "lowColourFailures", "staleDimFailures", "staleLabelFailures", "renewalCaveatFailures", "minimizedWidthFailures"]},
             errors=result["errors"],
         )
     for name, result in results.items():
@@ -1184,18 +1376,22 @@ async def main():
             expected = baseline[name]["accountSections"]
             actual = result["accountSections"]
             assert len(actual) == len(expected), f"{name}: provider sections changed"
+            # Waived from 901px: the minimized list is a new grid (header row, value and other-low columns),
+            # so its heights and the low-limit alignment under the balance no longer match the old stack.
+            # Identity, balance and the warnings' label and value are still compared at every width.
+            wide = result["viewport"][0] >= 901
             for section, before in zip(actual, expected):
-                assert section["height"] <= before["height"] + 0.5, f"{name}: account section grew"
+                assert wide or section["height"] <= before["height"] + 0.5, f"{name}: account section grew"
                 assert len(section["rows"]) == len(before["rows"]), f"{name}: account count changed"
                 for row, old in zip(section["rows"], before["rows"]):
                     assert row["name"] == old["name"] and row["balance"] == old["balance"], f"{name}: identity or balance changed"
-                    assert row["height"] <= old["height"] + 0.5, f"{name}: account row grew"
-                    assert row["nameHeight"] <= old["nameHeight"] + 0.5, f"{name}: name gained a line"
+                    assert wide or row["height"] <= old["height"] + 0.5, f"{name}: account row grew"
+                    assert wide or row["nameHeight"] <= old["nameHeight"] + 0.5, f"{name}: name gained a line"
                     assert len(row["warnings"]) == len(old["warnings"]), f"{name}: warnings changed"
                     for warning, prior in zip(row["warnings"], old["warnings"]):
                         assert warning["label"] == prior["label"] and warning["value"] == prior["value"], f"{name}: warning meaning changed"
-                        assert warning["height"] <= prior["height"] + 0.5, f"{name}: warning gained a line"
-                        assert abs(warning["valueRight"] - row["balanceRight"]) <= 0.5, f"{name}: warning no longer aligns with its account balance"
+                        assert wide or warning["height"] <= prior["height"] + 0.5, f"{name}: warning gained a line"
+                        assert wide or abs(warning["valueRight"] - row["balanceRight"]) <= 0.5, f"{name}: warning no longer aligns with its account balance"
                 result["compactBaseline"] = args.compact_baseline
         saved.write_text(json.dumps(results, indent=2) + "\n")
     (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")

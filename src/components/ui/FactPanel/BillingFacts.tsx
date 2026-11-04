@@ -12,9 +12,12 @@ export function BillingFacts({
   nowMs,
   formatDate,
   fallback,
+  basisOverrides,
 }: {
   billing: AccountBilling | null;
   fallback?: BillingExpiryFallback;
+  /** A host's own wording for an estimate basis, by basis key; other hosts keep the default. */
+  basisOverrides?: Record<string, string>;
   nowMs: number;
   formatDate: (value: number) => string;
 }) {
@@ -37,7 +40,7 @@ export function BillingFacts({
           label={label}
           state="estimated"
           value={formatDate(fact.value)}
-          basis={t(`quota_pool.${fact.basisKey}`)}
+          basis={t(`quota_pool.${basisOverrides?.[fact.basisKey] ?? fact.basisKey}`)}
         />
       );
     return (

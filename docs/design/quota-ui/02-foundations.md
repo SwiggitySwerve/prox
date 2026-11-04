@@ -57,7 +57,7 @@ Six styles. Nothing else. Line height is size + 4–6px [R§11].
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | --------------------- |
 | Claude series                          | `--claude-color` coral #ed9877                                                                                                                                     | provider mark                                   | status                |
 | Codex series                           | `--codex-color` blue #83adff                                                                                                                                       | provider mark                                   | status, focus, info   |
-| Critical: low quota, request failed    | new `--critical-color` #ff4d6d (crimson; ΔE 42.6 from Claude coral, 5.9:1). The app's `--error-color` #f2766b is only ΔE 19.6 from coral, so it can't be used here | `alert-triangle` (low), `x-circle` (failed)     | partial or stale data |
+| Critical: low quota, request failed    | new `--critical-color` #ff4d6d (crimson; ΔE 42.6 from Claude coral, 5.9:1). The app's `--error-color` #f2766b is only ΔE 19.6 from coral, so it can't be used here | `alert-triangle` plus the visible word "Low" (low; the number stays neutral), `x-circle` (failed) | partial or stale data |
 | Payment overdue                        | `--critical-color`                                                                                                                                                 | `alert-triangle` plus visible “Payment overdue” | provider identity     |
 | Warning: partial data                  | `--warning-color` amber                                                                                                                                            | `circle-half` (◐)                               | saved data            |
 | Warning: stale data                    | `--warning-color` amber                                                                                                                                            | `clock` (◷)                                     | saved data            |
@@ -69,9 +69,9 @@ Six styles. Nothing else. Line height is size + 4–6px [R§11].
 - "Ready" has no colour: when a card's forecast is ready, no status chip is shown (the slot is reserved so nothing moves).
 - Notice fill = the tone colour mixed 10% into `--bg-primary`, with a 3px left rule in the tone colour.
 
-### Dimming (stale rows)
+### Stale rows (no dimming)
 
-Stale values use `--text-quaternary`. Stale bars are drawn at the lowest mix with the card that keeps ≥ 3:1 against the track [R§10]: provider colours at 70% (3.8:1), critical red at 85%. Icons stay full strength.
+Stale values and bars use the normal colour and opacity, including every ancestor's. Staleness shows through the amber "Stale" word, a clock icon and the timestamp on one line (S6).
 
 ## Shape
 

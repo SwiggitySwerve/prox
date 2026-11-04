@@ -33,7 +33,7 @@ State is computed once, in the view models (`11-architecture.md`). Each componen
 | Row | Account cell | Limit cells | Notes |
 |---|---|---|---|
 | ok | name · plan | value + bar | — |
-| stale | name · plan · "◷ Stale since 11:00 AM" (amber) | values in `--text-quaternary`; bars at the 3:1 dim mix (`02-foundations.md`) | the whole row dims; a low value keeps its ⚠ icon |
+| stale | name · plan · "◷ Stale since 11:00 AM" (amber) | values and bars at the normal colour and opacity (`02-foundations.md`, S6) | nothing dims; the amber "Stale" word, clock icon and timestamp mark it |
 | unavailable (error / missing window) | name · plan | the affected cell: "Unavailable" in muted text over a dashed empty track, sr text "Weekly limit unavailable" | no separate status line |
 | no limit | name · plan | "No 5-hour limit" in muted text over a dashed empty track | one empty-cell pattern for both |
 | disabled | not listed | — | — |

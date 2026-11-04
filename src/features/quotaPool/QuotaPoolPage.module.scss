@@ -748,15 +748,8 @@ $pool-error: #ff5252;
       color: var(--warning-text);
     }
   }
-  &[data-status='stale'] strong small {
-    color: var(--warning-text);
-  }
-  // A stale reading is still shown, in muted text, so it doesn't pass for a current one.
-  // Low values stay red, and bars keep full strength: meaningful graphics need 3:1.
-  &[data-status='stale'] > summary > strong:not([data-low]),
-  &[data-status='stale'] .limits li:not([data-low='true']) strong {
-    color: var(--text-quaternary); // #888 on the card is 5.2:1
-  }
+  // A stale reading keeps the normal value colour and opacity; the amber "Stale" word, its clock
+  // icon and the timestamp in .accountStatus say it is old.
   // Wide tables tint an open row; phones keep dividers only, so no box sits in the card.
   @media (min-width: 901px) {
     &[open] {
@@ -787,9 +780,6 @@ $pool-error: #ff5252;
   font-size: 14px;
   grid-column: 2 / -1;
   grid-row: 2;
-}
-.account > summary > strong[data-low='true'] {
-  color: $pool-error;
 }
 .account[data-status='ok'] .accountStatus {
   display: none;
@@ -828,13 +818,9 @@ $pool-error: #ff5252;
     color: var(--text-tertiary);
     font-size: 11px;
   }
-  li[data-low='true'] {
-    strong {
-      color: $pool-error;
-    }
-    .limitBar > span {
-      background: $pool-error;
-    }
+  // Low keeps the value colour neutral: the red icon and bar plus the visible "Low" word carry it.
+  li[data-low='true'] .limitBar > span {
+    background: $pool-error;
   }
 }
 // Collapsed accounts keep the same rows; the reset line waits for the row to open.
@@ -1528,7 +1514,10 @@ $pool-error: #ff5252;
     gap: 0 var(--compact-account-gap);
   }
   .account:not([open]) {
-    max-inline-size: var(--compact-account-width);
+    // Phones and tablets keep a bounded row; from 901px the list spans the card (C3 block).
+    @media (max-width: 900px) {
+      max-inline-size: var(--compact-account-width);
+    }
     .accountPlan {
       display: none;
     }
@@ -1550,24 +1539,6 @@ $pool-error: #ff5252;
     .account:not([open]) > summary {
       min-height: 44px;
     }
-  }
-}
-
-.accountBalanceLabel {
-  margin-left: 6px;
-  font-weight: 400;
-  white-space: nowrap;
-}
-// Wide tables name the balance in their own column header; phones name it under each row's
-// value, so neither repeats it in the heading. A minimized wide card has neither, so keeps it.
-@media (min-width: 901px) {
-  .pool:not([data-minimized='true']) .accountBalanceLabel {
-    display: none;
-  }
-}
-@media (max-width: 900px) {
-  .accountBalanceLabel {
-    display: none;
   }
 }
 
@@ -1670,9 +1641,6 @@ $pool-error: #ff5252;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 4px 8px;
-  }
-  .accountBalanceLabel {
-    font-size: 13px;
   }
   .page .expandAccounts {
     margin-right: 0;
@@ -2264,6 +2232,121 @@ $pool-error: #ff5252;
     .accountHead,
     .account > summary {
       column-gap: 12px;
+/* C3 */
+// Low: the value keeps its normal colour; the red icon and bar and the visible word carry it.
+.lowMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.lowWord {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+// Narrow value cells (table columns, phone bars) stack the mark over the value.
+.limits li[data-low='true'] strong {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+// A minimized row's low items have a line of their own, so the mark stays beside the value.
+.pool[data-minimized='true'] .account:not([open]) .limits li[data-low='true'] strong {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+// Stale: amber word, clock icon and timestamp share one line.
+.account[data-status='stale'] .accountStatus {
+  white-space: nowrap;
+}
+// A phone row has no room beside the chevron for the whole line, so it starts at the row's edge.
+@media (max-width: 640px) {
+  .account[data-status='stale'] .accountStatus {
+    grid-column: 1 / -1;
+    font-size: 13px;
+  }
+}
+.staleIcon {
+  margin-inline-end: 4px;
+  vertical-align: -2px;
+}
+// One caveat per provider Accounts section, directly under its header.
+.renewalCaveat {
+  margin: 0;
+  padding: 0 0 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+// Minimized wide list: Account | active window remaining | other low limits.
+.compactHead {
+  display: none;
+}
+@media (min-width: 901px) {
+  .pool[data-minimized='true'] {
+    --compact-cols: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    .accountGrid {
+      margin: 4px 0 8px;
+      border-block: 1px solid var(--hairline);
+    }
+    .compactHead {
+      display: grid;
+      grid-template-columns: var(--compact-cols);
+      column-gap: 16px;
+      padding: 6px 0;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      span:first-child {
+        padding-inline-start: 28px;
+      }
+      span:nth-child(2) {
+        text-align: right;
+      }
+    }
+    .account:not([open]) > summary {
+      grid-template-columns: var(--compact-cols);
+      gap: 0 16px;
+      .accountDisclosure {
+        grid-column: 1;
+        grid-row: 1;
+      }
+      > .accountName {
+        grid-column: 1;
+        grid-row: 1;
+        align-self: center;
+        padding-inline-start: 28px;
+      }
+      > .accountStatus {
+        grid-column: 1;
+        grid-row: 2;
+        padding-inline-start: 28px;
+      }
+      > strong {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        align-self: center;
+        justify-self: end;
+      }
+      > .limits {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        align-self: center;
+        margin: 0;
+        li[data-counted='true'] {
+          display: none;
+        }
+        li {
+          flex-wrap: wrap;
+          > span:first-child {
+            white-space: normal;
+          }
+        }
+        strong {
+          margin-left: auto;
+        }
+      }
     }
   }
 }

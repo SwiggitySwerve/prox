@@ -1,5 +1,6 @@
 import { Fact, FactPanel, FactSection } from '@/components/ui/FactPanel';
 import { BillingFacts } from '@/components/ui/FactPanel/BillingFacts';
+import { billingFacts } from '@/domain/accountBilling';
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -32,6 +33,8 @@ import styles from './QuotaPoolPage.module.scss';
 const ROSTER_CONTROLS_MIN = 8;
 /** Rows shown before "Show all", so a long roster doesn't bury the next pool. */
 const ROSTER_PAGE = 25;
+/** This page says only "from start date" beside each estimate; one caveat per Accounts section carries the rest. */
+const ESTIMATE_BASIS_OVERRIDES = { billing_estimate_basis: 'billing_estimate_from_start' };
 const CHIP_ICONS: Record<PoolChipIcon, typeof IconCheck> = {
   check: IconCheck,
   partial: IconCircleHalf,
@@ -84,6 +87,16 @@ export function PoolCard({
   const number = (value: number | null) => formatPoolNumber(value, i18n.language);
   const percent = (value: number) => formatPoolPercent(value, i18n.language);
   const date = (value: number | null) => formatPoolDate(value, i18n.language);
+  // The visible word is the accessible text; the red icon and bar carry the colour. Meaning never
+  // rests on colour alone, and the percentage keeps the normal value colour.
+  const lowMark = (
+    <span className={styles.lowMark}>
+      <span className={styles.limitWarning} aria-hidden="true">
+        <IconAlertTriangle size={14} aria-hidden="true" />
+      </span>
+      <span className={styles.lowWord}>{t('quota_pool.limit_low')}</span>
+    </span>
+  );
   const forecastDate = (value: number | null, available = pool.forecastState === 'ready') =>
     value === null ? (
       available ? (
@@ -193,6 +206,12 @@ export function PoolCard({
         ? 'seven-day'
         : 'weekly';
   const balanceHasColumn = limitColumns.some((column) => column.id === countedLimitId);
+  // Every account counts, not only those shown, so search, filters and paging never hide the caveat.
+  const hasEstimatedRenewal = pool.accounts.some((account) =>
+    billingFacts(account.billing ?? null, dashboard.nowMs).some(
+      (fact) => fact.state === 'estimated' && fact.labelKey === 'billing_renews'
+    )
+  );
   const pageAccounts = showAll ? visibleAccounts : visibleAccounts.slice(0, ROSTER_PAGE);
   const noLimitCount =
     dashboard.window === 'five-hour'
@@ -405,9 +424,6 @@ export function PoolCard({
           <span className={styles.accountsHeading}>
             <span>
               <b className={styles.accountHeadingLabel}>{t('quota_pool.accounts')}</b>
-              <span className={styles.accountBalanceLabel}>
-                · {t('quota_pool.account_remaining', { window: windowLabel })}
-              </span>
             </span>
             {/* Reset facts and data-reporting facts are separate lines of small label/value items. */}
             {resetTotals.available > 0 && (
@@ -474,6 +490,9 @@ export function PoolCard({
             </button>
           )}
         </h3>
+        {hasEstimatedRenewal && (
+          <p className={styles.renewalCaveat}>{t('quota_pool.billing_estimate_caveat')}</p>
+        )}
         {(showRosterControls || affectedOnly) && (
           <div className={styles.rosterTools}>
             {showRosterControls && (
@@ -549,6 +568,14 @@ export function PoolCard({
           data-balance-column={!balanceHasColumn}
           style={{ '--limit-cols': Math.max(1, limitColumns.length) } as CSSProperties}
         >
+          {/* A minimized wide card lists the active window's remaining quota, then any other low limit. */}
+          {minimized && visibleAccounts.length > 0 && (
+            <div className={styles.compactHead} aria-hidden="true">
+              <span>{t('quota_pool.account_column')}</span>
+              <span>{t('quota_pool.account_remaining', { window: windowLabel })}</span>
+              <span>{t('quota_pool.other_low_limits')}</span>
+            </div>
+          )}
           {visibleAccounts.length > 0 && (
             <div className={styles.accountHead} aria-hidden="true">
               <span />
@@ -622,6 +649,7 @@ export function PoolCard({
                   <span className={styles.accountStatus}>
                     {account.status === 'stale' ? (
                       <>
+                        <IconClock className={styles.staleIcon} size={14} aria-hidden="true" />
                         {t('quota_pool.account_status.stale')} · {t('quota_pool.observed')}{' '}
                         <span className={styles.nowrap}>{date(account.observedAtMs)}</span>
                       </>
@@ -635,12 +663,7 @@ export function PoolCard({
                   </span>
                   <strong data-low={isLowQuota(account.remainingPercent) || undefined}>
                     <span className={styles.valueAmount}>
-                      {isLowQuota(account.remainingPercent) && (
-                        <>
-                          <IconAlertTriangle size={14} aria-hidden="true" />
-                          <span className={styles.srOnly}>{t('quota_pool.limit_low')}</span>
-                        </>
-                      )}
+                      {isLowQuota(account.remainingPercent) && lowMark}
                       {/* An account without this limit says so in the value slot, once. */}
                       {account.status === 'no-limit' ? (
                         <span className={styles.noLimitValue}>
@@ -679,17 +702,7 @@ export function PoolCard({
                             </span>
                           )}
                           <strong>
-                            {isLowQuota(limit.remainingPercent) && (
-                              <>
-                                <span
-                                  className={styles.limitWarning}
-                                  title={t('quota_pool.limit_low')}
-                                >
-                                  <IconAlertTriangle size={14} aria-hidden="true" />
-                                </span>
-                                <span className={styles.srOnly}>{t('quota_pool.limit_low')}</span>
-                              </>
-                            )}
+                            {isLowQuota(limit.remainingPercent) && lowMark}
                             {limit.remainingPercent === null
                               ? '—'
                               : percent(limit.remainingPercent)}
@@ -785,6 +798,7 @@ export function PoolCard({
                         billing={account.billing ?? null}
                         nowMs={dashboard.nowMs}
                         formatDate={date}
+                        basisOverrides={ESTIMATE_BASIS_OVERRIDES}
                       />
                     </FactSection>
                     {openAccounts.has(account.id) && (
