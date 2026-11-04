@@ -10,6 +10,8 @@ export interface StoredAccount {
   email: string | null;
   disabled: boolean;
   retired: boolean;
+  /** When the account left its inventory; absent while active. Its rows are purged after 24 h. */
+  retiredAtMs?: number;
   lastSeenAtMs: number;
   lastErrorAtMs: number | null;
   /** Latest plan the provider reported, e.g. "promax" or "default_claude_max_20x". */
@@ -20,6 +22,18 @@ export interface StoredAccount {
 }
 
 export const QUOTA_PROVIDERS: readonly PoolProviderId[] = Object.freeze(['claude', 'codex']);
+
+/** Stored in place of a retired account's file name; its email is cleared. */
+export const RETIRED_ACCOUNT_NAME = 'retired';
+/** Retired accounts that were not deleted by name keep their (anonymous) rows this long. */
+export const RETIRED_GRACE_MS = 24 * 60 * 60 * 1000;
+
+/** Accounts that changed membership in one inventory write; ids only, never names. */
+export interface InventoryChange {
+  added: string[];
+  removed: string[];
+  purged: string[];
+}
 
 export interface QuotaSourceView {
   instanceId: string;

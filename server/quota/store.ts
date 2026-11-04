@@ -2,22 +2,33 @@ import { Database } from 'bun:sqlite';
 import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { PoolProviderId, PoolWindow } from '../../src/domain/quotaPool/types';
-import { DAY_MS, type QuotaSample, type StoredAccount } from './types';
+import {
+  DAY_MS,
+  RETIRED_ACCOUNT_NAME,
+  RETIRED_GRACE_MS,
+  type InventoryChange,
+  type QuotaSample,
+  type StoredAccount,
+} from './types';
 import { legacyAccountId, sourceAccountId, type LegacySourceMapping } from './identity';
 
 type AccountRow = Omit<
   StoredAccount,
-  'disabled' | 'retired' | 'instanceId' | 'plan' | 'planObservedAtMs'
+  'disabled' | 'retired' | 'retiredAtMs' | 'instanceId' | 'plan' | 'planObservedAtMs'
 > & {
   disabled: number;
   retired: number;
+  retiredAtMs: number | null;
 };
 
 /** Owns durable account metadata and normalized quota observations; never stores credentials. */
 export class QuotaStore {
   private readonly db: Database;
 
-  constructor(databasePath: string) {
+  constructor(
+    databasePath: string,
+    private readonly now: () => number = Date.now
+  ) {
     if (databasePath !== ':memory:') {
       const path = resolve(databasePath);
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
@@ -70,6 +81,23 @@ export class QuotaStore {
         observedAtMs INTEGER NOT NULL
       );
     `);
+    this.db
+      .transaction(() => {
+        const columns = this.db
+          .query<{ name: string }, []>('PRAGMA table_info(quota_accounts)')
+          .all();
+        if (!columns.some((column) => column.name === 'retiredAtMs')) {
+          this.db.exec('ALTER TABLE quota_accounts ADD COLUMN retiredAtMs INTEGER');
+        }
+        // Accounts retired before this column existed scrub now and purge after the grace period.
+        this.db
+          .query(
+            `UPDATE quota_accounts SET email = NULL, name = ?, retiredAtMs = COALESCE(retiredAtMs, ?)
+             WHERE retired = 1`
+          )
+          .run(RETIRED_ACCOUNT_NAME, this.now());
+      })
+      .immediate();
   }
 
   listAccounts(): StoredAccount[] {
@@ -92,8 +120,9 @@ export class QuotaStore {
       `
       )
       .all()
-      .map(({ instanceId, sourceAccountId, plan, planObservedAtMs, ...row }) => ({
+      .map(({ instanceId, sourceAccountId, plan, planObservedAtMs, retiredAtMs, ...row }) => ({
         ...row,
+        ...(retiredAtMs === null ? {} : { retiredAtMs }),
         ...(instanceId === null ? {} : { instanceId }),
         ...(sourceAccountId === null ? {} : { sourceAccountId }),
         ...(plan === null || planObservedAtMs === null ? {} : { plan, planObservedAtMs }),
@@ -209,13 +238,19 @@ export class QuotaStore {
 
   /** Call only with a validated, complete inventory for this instance/provider.
    * Omitting instanceId supports legacy fixtures and touches only unresolved rows.
+   *
+   * Accounts absent from it are retired in the same transaction: email and name are scrubbed
+   * and `retiredAtMs` is stamped once. Absent accounts whose file name is in `deletedNames`
+   * (the user deleted them by name and this inventory confirms they are gone) are purged now;
+   * the name is matched before the scrub removes it. Returns the ids that changed.
    */
   recordInventory(
     provider: PoolProviderId,
     accounts: StoredAccount[],
     nowMs: number,
-    instanceId?: string
-  ): void {
+    instanceId?: string,
+    deletedNames?: ReadonlySet<string>
+  ): InventoryChange {
     const ids = new Set<string>();
     for (const account of accounts) {
       if (
@@ -227,11 +262,12 @@ export class QuotaStore {
       }
       ids.add(account.id);
     }
+    const change: InventoryChange = { added: [], removed: [], purged: [] };
     this.db.transaction(() => {
-      this.db
-        .query(
+      const scoped = this.db
+        .query<{ id: string; name: string; retired: number; retiredAtMs: number | null }, string[]>(
           `
-        UPDATE quota_accounts SET retired = 1 WHERE provider = ? AND
+        SELECT id, name, retired, retiredAtMs FROM quota_accounts WHERE provider = ? AND
         ${
           instanceId === undefined
             ? 'NOT EXISTS (SELECT 1 FROM quota_account_sources WHERE accountId = id)'
@@ -239,12 +275,12 @@ export class QuotaStore {
         }
       `
         )
-        .run(...(instanceId === undefined ? [provider] : [provider, instanceId]));
+        .all(...(instanceId === undefined ? [provider] : [provider, instanceId]));
       const existing = this.db.query<
-        { provider: PoolProviderId; instanceId: string | null },
+        { provider: PoolProviderId; instanceId: string | null; retired: number },
         [string]
       >(`
-        SELECT a.provider, s.instanceId FROM quota_accounts a
+        SELECT a.provider, a.retired, s.instanceId FROM quota_accounts a
         LEFT JOIN quota_account_sources s ON s.accountId = a.id WHERE a.id = ?
       `);
       const upsert = this.db.query(`
@@ -252,10 +288,12 @@ export class QuotaStore {
           (id, provider, name, email, disabled, retired, lastSeenAtMs, lastErrorAtMs)
         VALUES (?, ?, ?, ?, ?, 0, ?, ?)
         ON CONFLICT(id) DO UPDATE SET name = excluded.name, email = excluded.email,
-          disabled = excluded.disabled, retired = 0, lastSeenAtMs = excluded.lastSeenAtMs
+          disabled = excluded.disabled, retired = 0, retiredAtMs = NULL,
+          lastSeenAtMs = excluded.lastSeenAtMs
       `);
       for (const account of accounts) {
         const previous = existing.get(account.id);
+        if (!previous || previous.retired === 1) change.added.push(account.id);
         if (
           previous &&
           (previous.provider !== provider || (previous.instanceId ?? undefined) !== instanceId)
@@ -289,7 +327,47 @@ export class QuotaStore {
             .run(account.id, instanceId, account.id);
         }
       }
+      const retire = this.db.query(
+        'UPDATE quota_accounts SET retired = 1, email = NULL, name = ?, retiredAtMs = ? WHERE id = ?'
+      );
+      const stamp = this.db.query('UPDATE quota_accounts SET retiredAtMs = ? WHERE id = ?');
+      for (const row of scoped) {
+        if (ids.has(row.id)) continue;
+        if (row.retired === 0) {
+          if (deletedNames?.has(row.name)) {
+            this.purgeInTransaction([row.id]);
+            change.purged.push(row.id);
+          } else {
+            retire.run(RETIRED_ACCOUNT_NAME, nowMs, row.id);
+            change.removed.push(row.id);
+          }
+        } else if (row.retiredAtMs === null) {
+          stamp.run(nowMs, row.id);
+        }
+      }
     })();
+    return change;
+  }
+
+  /** Remove accounts and everything referencing them. Children first: foreign keys are ON. */
+  private purgeInTransaction(accountIds: readonly string[]): void {
+    for (const table of ['quota_samples', 'quota_account_plans', 'quota_account_sources']) {
+      const remove = this.db.query(`DELETE FROM ${table} WHERE accountId = ?`);
+      for (const id of accountIds) remove.run(id);
+    }
+    const remove = this.db.query('DELETE FROM quota_accounts WHERE id = ?');
+    for (const id of accountIds) remove.run(id);
+  }
+
+  /** True while the account exists and is in its inventory. */
+  isLive(accountId: string): boolean {
+    return Boolean(
+      this.db
+        .query<{ live: number }, [string]>(
+          'SELECT 1 AS live FROM quota_accounts WHERE id = ? AND retired = 0'
+        )
+        .get(accountId)
+    );
   }
 
   recordSamples(samples: QuotaSample[]): void {
@@ -339,8 +417,20 @@ export class QuotaStore {
     this.db.query('UPDATE quota_accounts SET lastErrorAtMs = ? WHERE id = ?').run(nowMs, id);
   }
 
-  prune(nowMs: number): void {
-    this.db.query('DELETE FROM quota_samples WHERE observedAtMs < ?').run(nowMs - 30 * DAY_MS);
+  /** Drops old samples and purges accounts retired for the whole grace period; returns their ids. */
+  prune(nowMs: number): string[] {
+    let purged: string[] = [];
+    this.db.transaction(() => {
+      this.db.query('DELETE FROM quota_samples WHERE observedAtMs < ?').run(nowMs - 30 * DAY_MS);
+      purged = this.db
+        .query<{ id: string }, [number]>(
+          'SELECT id FROM quota_accounts WHERE retired = 1 AND retiredAtMs <= ?'
+        )
+        .all(nowMs - RETIRED_GRACE_MS)
+        .map(({ id }) => id);
+      this.purgeInTransaction(purged);
+    })();
+    return purged;
   }
 
   close(): void {
