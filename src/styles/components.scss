@@ -340,6 +340,21 @@ textarea {
   }
 }
 
+.modal-pill {
+  .btn {
+    border-radius: $radius-full;
+  }
+  // Touch screens get a 44px close button; the icon keeps its size.
+  @media (pointer: coarse) {
+    .modal-close-floating {
+      top: 8px;
+      right: 8px;
+      width: 44px;
+      height: 44px;
+    }
+  }
+}
+
 .modal-header {
   display: flex;
   align-items: center;

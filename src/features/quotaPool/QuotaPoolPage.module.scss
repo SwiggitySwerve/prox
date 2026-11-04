@@ -451,7 +451,8 @@ $pool-error: #ff5252;
 // A withheld total is a muted word a step below the number size, so it reads as a status.
 .unavailableValue {
   color: var(--text-secondary);
-  font-size: 28px;
+  font-size: 24px;
+  font-weight: 500;
   letter-spacing: -0.02em;
 }
 .headlineContext {
@@ -722,6 +723,28 @@ $pool-error: #ff5252;
 .accounts > h3 span {
   color: var(--text-tertiary);
 }
+// Reset facts and data-reporting facts each get a line of small label/value items.
+.accountsHeading {
+  display: grid;
+  gap: 2px;
+}
+.accountSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+  font-size: 13px;
+  font-weight: 400;
+  > span {
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  b {
+    margin-left: 4px;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+}
 .page .expandAccounts {
   margin-left: auto;
   padding: 4px 12px;
@@ -837,7 +860,7 @@ $pool-error: #ff5252;
   grid-column: 2 / -1;
   grid-row: 3;
   display: grid;
-  grid-template-columns: 6.5em minmax(40px, 1fr) 4.6em;
+  grid-template-columns: 7.5em minmax(40px, 1fr) 4.6em;
   gap: 6px 10px;
   margin: 6px 0 2px;
   padding: 0;
@@ -1590,6 +1613,9 @@ $pool-error: #ff5252;
   h2 {
     font-size: 16px;
     padding-right: 36px;
+    @media (max-width: 900px) {
+      padding-right: 0;
+    }
   }
 }
 .combinedOptions select {
@@ -1610,7 +1636,7 @@ $pool-error: #ff5252;
   @media (max-width: 640px) {
     order: 3;
     flex-basis: 100%;
-    margin: 4px 0 0;
+    margin: 8px 0 0;
   }
   select {
     font-size: 13px;
@@ -1688,31 +1714,8 @@ $pool-error: #ff5252;
       min-height: 44px;
     }
   }
-  @media (min-width: 1200px) {
-    .accountGrid:not(:has(.account[open])) {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      max-inline-size: calc(3 * var(--compact-account-width) + 2 * var(--compact-account-gap));
-    }
-  }
 }
 
-// Coverage is a status beside the heading: quieter than the heading, and not a control.
-.accountCoverage {
-  display: inline-block;
-  margin-left: 10px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 400;
-  white-space: nowrap;
-}
-@media (min-width: 641px) {
-  .accountCoverage + .accountCoverage {
-    margin-left: 4px;
-    &::before {
-      content: '· ';
-    }
-  }
-}
 .accountBalanceLabel {
   margin-left: 6px;
   font-weight: 400;
@@ -1765,6 +1768,25 @@ $pool-error: #ff5252;
   gap: 6px;
   white-space: nowrap;
 }
+// Phone labels say "remaining", so they may wrap inside their column instead of running into the bar.
+@media (max-width: 900px) {
+  .limits li > span:first-child {
+    white-space: normal;
+  }
+}
+// Phones: each limit's label takes its own line above its bar and value, so it never wraps.
+@media (max-width: 640px) {
+  .limits li > span:first-child {
+    grid-area: 1 / 1 / 2 / -1;
+    white-space: nowrap;
+  }
+  .limits li .limitBar {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+  .limits li strong {
+    grid-area: 2 / 3;
+  }
+}
 .limitWarning {
   display: inline-flex;
   flex-shrink: 0;
@@ -1787,8 +1809,6 @@ $pool-error: #ff5252;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin: 2px 0;
-  border-inline-start: 2px solid var(--text-quaternary);
-  padding-inline-start: 6px;
   gap: 2px;
   &:not(:has([data-low='true'])) {
     display: none;
@@ -1814,11 +1834,6 @@ $pool-error: #ff5252;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 4px 8px;
   }
-  .accountCoverage {
-    display: block;
-    width: fit-content;
-    margin: 4px 0 0;
-  }
   .accountBalanceLabel {
     font-size: 13px;
   }
@@ -1839,10 +1854,10 @@ $pool-error: #ff5252;
   }
 }
 
-// A move that can't happen (first card up, last card down) stays in its slot, dimmed, so every card's controls line up.
-// A move that can't happen keeps its slot, so the corner controls still line up, but isn't drawn.
+// A move that can't happen (first card up, last card down) isn't drawn and gives up its slot, so
+// the remaining controls sit against the card's right edge on every card.
 .reorder button:disabled {
-  visibility: hidden;
+  display: none;
 }
 
 // Wide screens: one heading row, then one line per account with a column per limit.
@@ -2234,4 +2249,48 @@ $pool-error: #ff5252;
 .pools > .emptyNotice h2,
 .errorNotice h2 {
   font-size: 17px;
+}
+
+// A definition of the selected rate, as the Combined usage summary's note.
+.rateDefinition {
+  margin: 4px 0 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+// The card's corner controls name their action beside the icon only where the header has the
+// room (1600px and up); narrower screens keep icon-only buttons with their aria-label.
+.actionLabel {
+  display: none;
+}
+@media (min-width: 1600px) {
+  .poolHeader {
+    padding-right: 290px;
+  }
+  .combinedOptions {
+    margin-right: 170px;
+  }
+  .reorder button:not(:disabled) {
+    width: auto;
+    gap: 6px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  .actionLabel {
+    display: inline;
+  }
+}
+@media (min-width: 1600px) and (pointer: coarse) {
+  .reorder button {
+    min-height: 44px;
+  }
+}
+
+// The drawer's Use reset is a pill like every other action here; the page's button reset
+// would otherwise round it as a rectangle.
+.page .accountFacts button {
+  border-radius: 999px;
 }

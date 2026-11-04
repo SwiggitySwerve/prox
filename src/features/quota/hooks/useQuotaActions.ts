@@ -92,6 +92,7 @@ export function useQuotaActions(
         variant: 'danger' | 'primary';
         title?: string;
         name?: string;
+        pill?: boolean;
       }
     ) => {
       const resetQuotaFn = adapter.resetQuota;
@@ -107,6 +108,7 @@ export function useQuotaActions(
         message: prompt?.message ?? t('codex_quota.reset_confirm_message', { name: file.name }),
         confirmText: prompt?.confirmText ?? t('codex_quota.reset_confirm_button'),
         variant: prompt?.variant ?? 'primary',
+        pill: prompt?.pill,
         onConfirm: async () => {
           if (
             !isQuotaSourceCurrent(session) ||

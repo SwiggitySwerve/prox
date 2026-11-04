@@ -278,6 +278,7 @@ function CodexResetAction({
           title: t(early ? 'quota_pool.reset_early_title' : 'quota_pool.reset_confirm_title'),
           confirmText: t('quota_pool.use_reset'),
           variant: early ? 'danger' : 'primary',
+          pill: true,
           message: early ? (
             <div className={styles.resetDialog}>
               <p>{t('quota_pool.reset_early_intro', { name })}</p>

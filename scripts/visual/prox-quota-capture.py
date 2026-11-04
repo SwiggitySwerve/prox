@@ -271,6 +271,16 @@ GEOMETRY = r"""(providedRoot) => {
     const target=e.matches('input[type=checkbox]') ? e.closest('label') : e;
     return {text:(e.getAttribute('aria-label')||e.textContent||e.getAttribute('type')||'').trim().slice(0,100),...rect(target),disabled:e.matches(':disabled')};});
   const clipped=[...root.querySelectorAll('*')].filter(e=>visible(e)&&e.clientWidth>2&&e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>({tag:e.tagName,class:e.className,client:e.clientWidth,scroll:e.scrollWidth}));
+  // Visible interactive elements whose boxes intersect by more than 2px in both axes (nested pairs excepted).
+  const interactive=[...root.querySelectorAll('button,a[href],select,input,summary,[role=button],[role=tab]')].filter(visible);
+  const overlaps=[];
+  for(let i=0;i<interactive.length;i++)for(let j=i+1;j<interactive.length;j++){
+    const a=interactive[i],b=interactive[j];
+    if(a.contains(b)||b.contains(a))continue;
+    const p=a.getBoundingClientRect(),q=b.getBoundingClientRect();
+    const dx=Math.min(p.right,q.right)-Math.max(p.left,q.left),dy=Math.min(p.bottom,q.bottom)-Math.max(p.top,q.top);
+    if(dx>2&&dy>2){const name=e=>(e.getAttribute('aria-label')||e.textContent||e.tagName).trim().slice(0,40);overlaps.push({a:name(a),b:name(b),dx:Math.round(dx),dy:Math.round(dy)});}
+  }
   // Sample each painted text run, including nested names, balances and warnings.
   // Parent boxes can contain several colours and incorrectly credit a dim label
   // with the contrast of a brighter child.
@@ -301,7 +311,7 @@ GEOMETRY = r"""(providedRoot) => {
   const marks=[...root.querySelectorAll('[class*="__errorIcon___"],[class*="__limitWarning___"],[class*="__limitBar___"] > span')].filter(visible).map(e=>{
     const article=e.closest('article');const provider=article&&/__claude___/.test(article.className)?'claude':article&&/__codex___/.test(article.className)?'codex':null;
     return {kind:kindOf(e),provider,low:!!e.closest('[data-low="true"]'),...rect(e)};});
-  return {marks,pageWidth:providedRoot?root.clientWidth:document.documentElement.clientWidth,pageScrollWidth:providedRoot?root.scrollWidth:document.documentElement.scrollWidth,controls,clipped,text,charts,guides};
+  return {marks,pageWidth:providedRoot?root.clientWidth:document.documentElement.clientWidth,pageScrollWidth:providedRoot?root.scrollWidth:document.documentElement.scrollWidth,controls,clipped,overlaps,text,charts,guides};
 }"""
 
 
@@ -476,6 +486,7 @@ def measure(path, geo, touch):
         nestingFailures=[geo["grouping"]["nesting"]] if geo["grouping"]["nesting"]["fails"] else [],
         hiddenReasonFailures=geo["grouping"]["hiddenReason"],
         pageOverflow=geo["pageScrollWidth"] > geo["pageWidth"],
+        overlapFailures=geo["overlaps"],
     )
 
 
@@ -577,6 +588,10 @@ async def main():
                         credential_reads.append(url)
                         await route.fulfill(json={"files": [dict(name=f"fixture-{provider}.json", type=provider, auth_index=f"fixture-{provider}-0", disabled=False) for provider in ("claude", "codex")]})
                         return
+                    if "/prox/inventory" in url:
+                        # One fixed version, so the five-second inventory poll never refetches mid-capture.
+                        await route.fulfill(json={"version": "fixture", "syncedAtMs": NOW, "sources": []})
+                        return
                     if "/prox/pools" in url:
                         if state == "loading":
                             await asyncio.sleep(20)
@@ -651,7 +666,6 @@ async def main():
                 else:
                     await page.locator("article").first.wait_for()
                 if name == "reset-confirm":
-                    credentials_before_disclosure = len(credential_reads)
                     codex = page.locator('article[class*="__codex___"]')
                     row = codex.locator('details[class*="__account___"]').filter(has_text="Resets 2").first
                     await row.locator("summary").click()
@@ -663,7 +677,8 @@ async def main():
                     await page.screenshot(path=str(out / "reset-confirm-dialog.png"), full_page=True, animations="disabled")
                     await dialog.get_by_role("button", name="Cancel", exact=True).click()
                     await dialog.wait_for(state="hidden")
-                    assert len(credential_reads) > credentials_before_disclosure, "Expanded row must resolve its source credential"
+                    # The shared credential inventory loads once with the page; the row reads it from there.
+                    assert credential_reads, "Expanded row must resolve its source credential"
                     assert not reset_spends, "Cancel must never consume a credit or claim a grant"
                     claude_row = page.locator('article[class*="__claude___"] details[class*="__account___"]').first
                     await claude_row.locator("summary").click()
@@ -700,7 +715,7 @@ async def main():
                 if state == "many-lowest":
                     await page.get_by_role("combobox", name="Sort accounts").first.select_option("lowest")
                 if state == "many-low":
-                    await page.get_by_role("button", name="40 under 20%").first.click()
+                    await page.get_by_role("button", name="40 with a limit below 20%").first.click()
                 if state == "deep-link":
                     # The address holds the view: a link opens it, and changing the view rewrites
                     # the address with only the non-default keys.
@@ -864,7 +879,9 @@ async def main():
                         return [...list.children].filter(li => li.checkVisibility()).map(li => {
                             const label = li.querySelector(':scope > span').getBoundingClientRect();
                             const value = li.querySelector(':scope > strong').getBoundingClientRect();
-                            return {rightOffset:Math.abs(edge-value.right), lineOffset:Math.abs(label.top-value.top)};
+                            // Phones put the label on its own single line above its bar and value; wide rows share one line.
+                            const above = value.top >= label.bottom - 2;
+                            return {rightOffset:Math.abs(edge-value.right), lineOffset:above ? (label.height < 24 ? 0 : 99) : Math.abs(label.top-value.top)};
                         });
                     })''')
                     assert all(cell['rightOffset'] < 1 and cell['lineOffset'] < 12 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
@@ -895,10 +912,12 @@ async def main():
                     assert await page.locator('article details').count() == 5
                     interaction["combined_top_and_all_graphs_minimize"] = "passed"
                     corner = page.locator('article [class*="__reorder___"]').first
-                    geometry = await corner.locator('button').evaluate_all("nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height,text:n.textContent}})")
-                    assert len(geometry)==3 and all(abs(c['y']-geometry[0]['y'])<1 for c in geometry)
-                    assert geometry[0]['text']==''
-                    if width>900: assert all(c['w']<=28 and c['h']<=28 for c in geometry)
+                    geometry = await corner.locator('button').evaluate_all("nodes=>nodes.filter(n=>n.checkVisibility()).map(n=>{const r=n.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height,text:n.innerText}})")
+                    # An impossible move isn't drawn, so the first card shows its toggle and Move down only.
+                    assert len(geometry)==2 and all(abs(c['y']-geometry[0]['y'])<1 for c in geometry), geometry
+                    # Cards name each action beside its icon from 1600px up; narrower ones stay icon-only.
+                    assert (geometry[0]['text']!='')==(width>=1600)
+                    if width>=1600: assert all(c['h']<=28 for c in geometry)
                     interaction["subtle_icons_aligned_beside_reorder"] = "passed"
                     view = page.get_by_role('combobox',name='Chart view',exact=True)
                     await view.select_option('stacked')
@@ -955,12 +974,12 @@ async def main():
                 if name == "wide":
                     titles = lambda: page.locator("article h2").all_inner_texts()
                     first = (await titles())[0]
-                    await page.get_by_role("button", name=f"Move {first.split(' ')[0]} down").click()
+                    await page.get_by_role("button", name=f"Move down ({first.split(' ')[0]})").click()
                     moved = await titles()
                     assert moved[1] == first and moved[0] != first, "Move down must swap the first two pools"
                     stored_order = await page.evaluate("localStorage.getItem('prox-pool-order')")
                     assert stored_order and "codex" in stored_order.split("claude")[0], "The new order must be saved"
-                    await page.get_by_role("button", name=f"Move {first.split(' ')[0]} up").click()
+                    await page.get_by_role("button", name=f"Move up ({first.split(' ')[0]})").click()
                     assert (await titles())[0] == first
                     interaction["pool_reorder_persists"] = "passed"
                 if state == "expanded":
@@ -1006,7 +1025,7 @@ async def main():
         summary[name] = dict(
             pageOverflow=any(r["pageOverflow"] for r in scopes),
             **{key:sum(len(r.get(key, [])) for r in scopes)
-               for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures", "inkFailures", "nestingFailures", "hiddenReasonFailures"]},
+               for key in ["clipped", "targetFailures", "contrastFailures", "semanticFailures", "guideFailures", "inkFailures", "nestingFailures", "hiddenReasonFailures", "overlapFailures"]},
             errors=result["errors"],
         )
     if args.compact_baseline:

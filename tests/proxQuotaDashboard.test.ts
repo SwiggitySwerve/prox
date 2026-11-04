@@ -750,8 +750,9 @@ describe('stacked chart geometry', () => {
     expect(markup.match(/data-stack-band="recorded"/g) ?? []).toHaveLength(2);
     expect(markup).toContain('Codex ·');
     // Only projected moments are tagged; a recorded reading needs no label.
-    // A value and its unit never split across a wrapped readout line.
-    expect(markup).toContain('30\u00a0points');
+    // The latest reading names only its moment: the provider cards show each value.
+    expect(markup).toMatch(/Latest reading · [^<]*<\//);
+    expect(markup).not.toContain('30\u00a0points');
     expect(markup).not.toContain('· Recorded');
     expect(markup).not.toContain('data-series="total"');
   });
@@ -782,14 +783,14 @@ describe('stacked chart geometry', () => {
     const long = render(10);
     expect(long).toContain('type="search"');
     expect(long).toContain('aria-label="Search accounts"');
-    expect(long).toContain('Lowest limit first');
-    expect(long).toContain('1 under 20%');
+    expect(long).toContain('Lowest limit remaining first');
+    expect(long).toContain('1 with a limit below 20%');
     // The count is a toggle that filters the roster to accounts with a low limit.
-    expect(long).toMatch(/<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?1 under 20%/);
+    expect(long).toMatch(/<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?1 with a limit below 20%/);
     expect(long).toContain('data-large="true"');
     const short = render(3);
     expect(short).not.toContain('type="search"');
-    expect(short).not.toContain('Lowest limit first');
+    expect(short).not.toContain('Lowest limit remaining first');
   });
   test('rosters default to name order; lowest-first puts accounts without data first', async () => {
     await i18n.changeLanguage('en');
@@ -868,7 +869,9 @@ describe('stacked chart geometry', () => {
     const markup = renderToStaticMarkup(
       createElement(PoolComparisonChart, { pools: [a, b], dashboard, mode: 'remaining' })
     );
-    expect(markup).toMatch(/Claude: 20 · Codex: 30\u00a0points/);
+    // The latest reading names only its moment; the provider cards carry the values.
+    expect(markup).toMatch(/Latest reading · [^<]*<\//);
+    expect(markup).not.toContain('Claude:');
     expect(markup).not.toContain('· Recorded');
     // Each provider named in the readout gets its own marker at that moment.
     expect(markup.match(/r="5" fill="var\(--pool-accent\)"/g)).toHaveLength(2);
@@ -887,7 +890,7 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).toContain('Weekly quota remaining');
-    expect(markup).toContain('Forecast: Ready');
+    expect(markup).toContain('Forecast ready');
     expect(markup).not.toContain('>Ready<');
     const accounts = markup.slice(markup.search(/<section[^>]*aria-labelledby="[^"]+-accounts"/));
     expect(accounts).toContain('Claude account 1');
@@ -996,7 +999,7 @@ describe('pool presentation', () => {
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(
-      /<li data-low="true"[^>]*><span>5-hour limit<\/span>[\s\S]*?<strong><span title="Low">[\s\S]*?<span>Low<\/span>[\s\S]*?12.0%/
+      /<li data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span title="Low">[\s\S]*?<span>Low<\/span>[\s\S]*?12.0%/
     );
     expect(markup).toMatch(/<li data-low="false"[^>]*><span>[^<]*Opus[^<]*<\/span>[\s\S]*?64.0%/);
     // Accounts start collapsed (numbers only); one control expands the whole section.
@@ -1084,10 +1087,11 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).toContain(
-      '<span data-counted="true">Weekly limit<small>counts toward total</small></span>'
+      '<span data-counted="true">Weekly remaining<small>counts toward total</small></span>'
     );
-    // Only the phone heading label names the balance; the table has no duplicate column.
-    expect(markup.match(/Weekly remaining/g)).toHaveLength(1);
+    // The phone heading label, the column heading and the row's own limit name it once each; the
+    // table has no duplicate balance column.
+    expect(markup.match(/Weekly remaining/g)).toHaveLength(3);
   });
   test('a low balance is marked on the row as well as on its limit', async () => {
     await i18n.changeLanguage('en');
@@ -1197,7 +1201,8 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toContain('1 current · 1 stale');
+    expect(markup).toContain('1 current');
+    expect(markup).toContain('1 stale');
   });
   test('a forecast beyond the range says when the range ends', async () => {
     await i18n.changeLanguage('en');
@@ -1267,7 +1272,7 @@ describe('pool presentation', () => {
       })
     );
     expect(markup).toMatch(
-      /<li data-missing="true"[^>]*><span>5-hour limit<\/span><em>No 5-hour limit<\/em><\/li>/
+      /<li data-missing="true"[^>]*><span>5-hour remaining<\/span><em>No 5-hour limit<\/em><\/li>/
     );
   });
   test('every forecast state gets one chip shape with its own icon, and Ready is neutral', async () => {
@@ -1303,18 +1308,19 @@ describe('pool presentation', () => {
         savedData: true,
       })
     );
-    expect(markup).toContain('Forecast: Saved');
+    expect(markup).toContain('Forecast saved');
     // The snapshot is marked on the chart; the card doesn't repeat its time.
     expect(markup).toContain('Saved snapshot');
     expect(markup).not.toContain('Saved snapshot:');
     // The card's snapshot line dates every row, so rows don't repeat it.
     expect(markup).not.toContain('Saved observation');
-    expect(markup).not.toContain('Forecast: Ready');
+    expect(markup).not.toContain('Forecast ready');
     expect(markup).not.toContain('>Current<');
     // Rate views keep the balance as the first pair of the remaining-quota forecast.
     expect(markup).toContain('<dt>Weekly remaining</dt><dd>73 <small>of 200 points</small></dd>');
     expect(markup).toContain('of 200 points');
-    expect(markup).toContain('3 points/h');
+    // Rates carry their unit on the number line.
+    expect(markup).toContain('3<small> points/h</small>');
     expect(markup).not.toContain('· Recorded');
   });
 

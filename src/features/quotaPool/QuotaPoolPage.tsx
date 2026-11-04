@@ -287,6 +287,16 @@ export function QuotaPoolPage() {
           />
           <div>
             <h2>{t(`quota_pool.${data ? 'refresh_failed_title' : 'load_failed_title'}`)}</h2>
+            {/* Say what went wrong in plain words before the saved-data line and the code. */}
+            {state.refreshError && (
+              <p>
+                {t(
+                  state.refreshErrorStatus === null || state.refreshErrorStatus >= 500
+                    ? 'quota_pool.refresh_cause'
+                    : 'quota_pool.refresh_cause_error'
+                )}
+              </p>
+            )}
             <p>
               {/* A failed refresh says how old the data still on screen is. */}
               {state.refreshError && data
