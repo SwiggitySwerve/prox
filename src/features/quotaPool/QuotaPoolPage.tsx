@@ -74,6 +74,7 @@ export function QuotaPoolPage() {
   const refreshStatus = state.refreshStatus ?? data;
   const refreshing = state.refreshing || refreshStatus?.refreshing;
   const chartUnavailable = !data?.pools.length;
+  const showSkeleton = !data && state.loading && state.connected;
   const { order, setOrder } = usePoolOrder();
   const orderedPools = data ? orderPools(data.pools, order) : [];
   const shownPools = orderedPools.filter(
@@ -148,6 +149,8 @@ export function QuotaPoolPage() {
               <span aria-hidden="true">→</span>
             </Link>
           )}
+          {/* Phones: the Accounts link's place, so the rows below start where the loaded page's do. */}
+          {showSkeleton && <Skeleton className={styles.loadingLink} rounded={999} />}
         </div>
         <div className={styles.actions}>
           {!chartUnavailable && (
@@ -168,6 +171,18 @@ export function QuotaPoolPage() {
               refreshing={Boolean(refreshing)}
               retrying={Boolean(state.refreshError)}
             />
+          )}
+          {/* Phones: Show emails and Auto-refresh, as their own row. */}
+          {showSkeleton && (
+            <>
+              <Skeleton
+                className={styles.loadingAction}
+                rounded={999}
+                data-skeleton-row="utility"
+                inert
+              />
+              <Skeleton className={styles.loadingAction} rounded={999} inert />
+            </>
           )}
         </div>
       </header>
@@ -409,12 +424,13 @@ export function QuotaPoolPage() {
           {t('provider_sources.unresolved_history')}
         </p>
       )}
-      {!data && state.loading && state.connected && (
+      {showSkeleton && (
         <>
           {/* Placeholders shaped like the toolbar that will render: pool tabs, two view
-              toggles, the two settings boxes and the date navigator, all on one top edge. */}
-          <div className={styles.loadingControls} aria-hidden="true">
-            <div className={styles.loadingRow}>
+              toggles, the two settings boxes and the date navigator, all on one top edge.
+              Phones show the loaded rows instead: tabs, date, then the Options button. */}
+          <div className={styles.loadingControls} aria-hidden="true" inert>
+            <div className={styles.loadingRow} data-skeleton-row="tabs">
               {[104, 92, 92].map((width, index) => (
                 <Skeleton key={index} width={width} height={40} rounded={999} />
               ))}
@@ -427,12 +443,25 @@ export function QuotaPoolPage() {
                   <Skeleton key={index} width={width} height={46} rounded={999} />
                 ))}
               </span>
-              <Skeleton className={styles.loadingDate} height={40} rounded={10} />
+              <Skeleton
+                className={styles.loadingDate}
+                height={40}
+                rounded={10}
+                data-skeleton-row="date"
+              />
+              <Skeleton
+                className={styles.loadingOptions}
+                rounded={999}
+                data-skeleton-row="options"
+              />
             </div>
           </div>
-          <div className={styles.loading} aria-busy="true">
+          <div className={styles.loading} aria-busy="true" data-skeleton-row="card">
             <div className={styles.loadingHead}>
               <h2>{t('quota_pool.combined_usage')}</h2>
+              {/* Phones: the graph toggle beside the heading, and the chart-view select on its own row. */}
+              <Skeleton className={styles.loadingToggle} rounded={999} inert />
+              <Skeleton className={styles.loadingSelect} rounded={999} inert />
               <span className={styles.loadingStatus} role="status">
                 <span className={styles.loadingDot} />
                 {t('quota_pool.loading')}
@@ -454,11 +483,20 @@ export function QuotaPoolPage() {
           {/* One placeholder per provider card, in the card's own order: headline and facts,
               chart, then the first account rows. */}
           {(['claude', 'codex'] as const).map((item) => (
-            <div key={item} className={styles.loading} aria-hidden="true">
-              <h2 className={styles.loadingTitle}>
-                <PoolProviderMark provider={item} />
-                {t(`quota_pool.${item}`)}
-              </h2>
+            <div key={item} className={styles.loading} aria-hidden="true" inert>
+              <div className={styles.loadingIdentity}>
+                <h2 className={styles.loadingTitle}>
+                  <PoolProviderMark provider={item} />
+                  {t(`quota_pool.${item}`)}
+                </h2>
+                {/* Phones: the account count and status chip, then the action pills. */}
+                <Skeleton className={styles.loadingCount} rounded={4} />
+                <Skeleton className={styles.loadingChip} rounded={999} />
+                <span className={styles.loadingPills}>
+                  <Skeleton className={styles.loadingPill} rounded={999} />
+                  <Skeleton className={styles.loadingPill} rounded={999} />
+                </span>
+              </div>
               <div className={styles.loadingStats}>
                 <span className={styles.loadingNumber}>
                   <Skeleton width={130} height={44} rounded={8} />

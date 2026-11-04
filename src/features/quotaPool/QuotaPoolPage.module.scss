@@ -2429,3 +2429,179 @@ $pool-error: #ff5252;
     }
   }
 }
+/* H */
+// Phone card header (640px and below): row 1 is the title, account count and status chip, wrapping
+// only when they don't fit; row 2 holds the action pills; the headline starts on its own row below.
+@media (max-width: 640px) {
+  .poolTitle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+  }
+  // The count and chip become items of the title row, so each moves to the next line on its own.
+  .poolMeta {
+    display: contents;
+  }
+}
+
+// Opened rows at 900px and below: the active limit's list item is hidden (the heading already shows
+// its value), and one line under the heading keeps its reset time. Closed rows and wide tables are
+// unchanged.
+@media (min-width: 901px) {
+  .activeReset {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .activeReset {
+    display: none;
+  }
+  .account[open] {
+    > summary > .activeReset {
+      display: block;
+      grid-column: 2 / -1;
+      grid-row: 3;
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+    > summary > .limits {
+      grid-row: 4;
+    }
+    .limits li[data-counted='true'] {
+      display: none;
+    }
+  }
+  // Panel order here is limits, Manual resets across the full row, Usage, Billing (PoolCard puts
+  // the reset section first in the DOM at this width).
+  .accountFacts section[data-tone='accent'] {
+    grid-column: 1 / -1;
+  }
+}
+
+// Laptops (1100px and wider screens whose drawer is narrower than the panel's own 1100px threshold):
+// Usage, Billing and Manual resets sit side by side, in that order, the accent column a little wider.
+// From a 1100px drawer the panel's own layout (S3) takes over, so this never applies there.
+@media (min-width: 1100px) {
+  @container (max-width: 1099px) {
+    .accountFacts > div > div {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.3fr);
+      align-items: start;
+    }
+    .accountFacts section,
+    .accountFacts section[data-tone='accent'] {
+      grid-column: auto;
+      display: block;
+      dl {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  }
+}
+
+// Loading skeleton, phones: the loaded page's rows. Utility (Show emails, Auto-refresh), tabs, date,
+// Options; a Combined card with a heading and toggle row and a select row; provider cards with a
+// title, count and chip row and a row of pills. Wide screens keep the placeholders they had.
+@media (min-width: 641px) {
+  .page {
+    .loadingLink,
+    .loadingAction,
+    .loadingOptions,
+    .loadingToggle,
+    .loadingSelect,
+    .loadingCount,
+    .loadingChip,
+    .loadingPills {
+      display: none;
+    }
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    .loadingLink {
+      flex: none;
+      width: 98px;
+      height: 44px;
+    }
+    .loadingAction {
+      height: 44px;
+    }
+    .loadingControls {
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    // The loaded cards pad 12px here.
+    .loading {
+      padding: 12px;
+    }
+    .loadingControls .loadingRow {
+      gap: 6px;
+    }
+    // The tabs and date row carry inline heights; the loaded controls are 44px tall.
+    .loadingControls .loadingRow > *,
+    .loadingDate {
+      height: 44px !important;
+    }
+    .loadingSegment,
+    .loadingSegmentWide,
+    .loadingSelects {
+      display: none;
+    }
+    .loadingDate {
+      border-radius: 999px !important;
+    }
+    .loadingOptions {
+      width: 100%;
+      height: 44px;
+    }
+    .loadingHead {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      > h2 {
+        grid-column: 1;
+        grid-row: 1;
+      }
+    }
+    .loadingToggle {
+      grid-column: 2;
+      grid-row: 1;
+      width: 150px;
+      height: 44px;
+    }
+    .loadingSelect {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      width: 190px;
+      height: 44px;
+    }
+    .loadingHead > .loadingStatus {
+      grid-column: 1 / -1;
+      grid-row: 3;
+    }
+    .loadingIdentity {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .loadingCount {
+      width: 72px;
+      height: 20px;
+    }
+    .loadingChip {
+      width: 128px;
+      height: 26px;
+    }
+    .loadingPills {
+      display: flex;
+      flex-basis: 100%;
+      gap: 8px;
+    }
+    .loadingPill {
+      width: 140px;
+      height: 44px;
+    }
+  }
+}

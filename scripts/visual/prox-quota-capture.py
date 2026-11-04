@@ -761,17 +761,40 @@ async def check_toggle_consistency(page, state, width):
 
 
 async def check_phone_header(page, state, width):
-    """I4: at 390 a provider card's top to its headline number's top is at most 150px."""
+    """I4 (H1): at 390 a provider card's top to the top of its headline block (label included) is at most
+    112px when the title, count and chip share one line (tops within 4px), otherwise 148px. The action
+    pills sit on their own row between the two, and the headline starts below them."""
     if width != 390:
         return []
     return await page.evaluate("(cardless) => {" + C1_PRELUDE + r"""
       const fails = [], articles = [...document.querySelectorAll('article')];
       if (!cardless && !articles.length) fails.push({why: 'no provider cards found'});
       for (const a of articles) {
-        const n = a.querySelector('[class*="__headline___"] strong');
-        if (!n) { fails.push({why: 'card has no headline number'}); continue; }
-        const d = n.getBoundingClientRect().top - a.getBoundingClientRect().top;
-        if (d > 150) fails.push({card: a.querySelector('h2')?.textContent, why: `headline number starts ${d.toFixed(0)}px below the card top`});
+        const card = a.querySelector('h2')?.textContent, headline = a.querySelector('[class*="__headline___"]');
+        const title = a.querySelector('h2'), count = a.querySelector('[class*="__poolMeta___"] > span:first-child'), chip = a.querySelector('[class*="__badge___"]');
+        if (!headline || !title || !count || !chip) { fails.push({card, why: 'card lacks a headline, title, count or chip'}); continue; }
+        const top = e => e.getBoundingClientRect().top, tops = [title, count, chip].map(top);
+        const oneLine = Math.max(...tops) - Math.min(...tops) <= 4, limit = oneLine ? 112 : 148;
+        // Wrapping is allowed only when the three genuinely don't fit one line (mark, title, count, chip and gaps).
+        const cs = getComputedStyle(a), inner = a.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+        const textWidth = e => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
+        const need = 20 + textWidth(title) + textWidth(count) + chip.getBoundingClientRect().width + 3 * 8;
+        if (!oneLine && need <= inner) fails.push({card, why: `title, count and chip fit on one line (${need.toFixed(0)} of ${inner.toFixed(0)}px) but wrap`});
+        const d = top(headline) - top(a);
+        if (d > limit) fails.push({card, why: `headline block starts ${d.toFixed(0)}px below the card top (limit ${limit}, title/count/chip ${oneLine ? 'on one line' : 'wrapped'})`});
+        const pills = actions(a);
+        if (!pills.length) fails.push({card, why: 'card has no visible action pills'});
+        const bottom = Math.max(...pills.map(p => p.getBoundingClientRect().bottom));
+        if (top(headline) < bottom) fails.push({card, why: 'headline block starts above the action pills end'});
+        // Pills only on row 2: they start below the identity row, and every pill shares one row.
+        const identityBottom = Math.max(...[title, count, chip].map(e => e.getBoundingClientRect().bottom));
+        for (const p of pills) if (p.getBoundingClientRect().top < identityBottom - 1) fails.push({card, why: 'an action pill shares a row with the title, count or chip'});
+        const pillTops = pills.map(top);
+        if (pills.length && Math.max(...pillTops) - Math.min(...pillTops) > 2) fails.push({card, why: 'action pills are not on one row'});
+        // Touch targets stay full size.
+        for (const p of pills) if (p.getBoundingClientRect().height < 43.5) fails.push({card, why: `action pill ${p.getBoundingClientRect().height}px tall`});
+        // Chip text is whole.
+        if (chip.scrollWidth > chip.clientWidth + 1 || getComputedStyle(chip).textOverflow === 'ellipsis') fails.push({card, why: 'chip text is clipped'});
       }
       return fails;
     }""", state in C1_CARDLESS)
@@ -869,6 +892,209 @@ async def check_action_align(page, state):
       }
       return out;
     }""")
+
+
+# H phone checks (round h1). phoneHeaderFailures (above, in C1_KEYS) is the fourth; these three are new. Each has
+# its own JSON key, registered in H_KEYS for the summary and the exit gate. A check that finds nothing to measure
+# in a case where it applies fails.
+H_KEYS = ("expandedDuplicateFailures", "phonePanelOrderFailures", "skeletonShapeFailures")
+H_PRELUDE = C1_PRELUDE + r"""
+const activeId = (article, view) => view === 'five-hour' ? 'five-hour' : /__claude___/.test(article.className) ? 'seven-day' : 'weekly';
+"""
+
+
+async def h_expand_all(page):
+    """Open every row: each click renames its button to "Collapse all", so always take the first still closed."""
+    for _ in range(await page.get_by_role("button", name="Expand all").count()):
+        await page.get_by_role("button", name="Expand all").first.click()
+    await page.wait_for_timeout(150)
+
+
+async def check_expanded_duplicates(page, state, width):
+    """H2: in an opened row at 900px and below, the active window is not listed twice. No visible
+    li[data-limit-id=<active>]; one "{Window} · Resets …" line under the heading exactly when the limit has a reset
+    time; every other limit keeps its value, bar and reset. Run at 390 and 820 in the Weekly and 5-hour views."""
+    if width > 900 or state not in ("expanded", "partial"):
+        return []
+    measure = "(view) => {" + H_PRELUDE + r"""
+      const fails = [], rows = [...document.querySelectorAll('article details[open]')];
+      if (!rows.length) return [{why: 'no open row to measure'}];
+      let others = 0, lines = 0;
+      for (const row of rows) {
+        const article = row.closest('article'), active = activeId(article, view), summary = row.querySelector('summary');
+        const who = (row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '') + ' / ' + view;
+        const items = [...row.querySelectorAll('ul[aria-label="Limits"] > li')];
+        const activeItem = items.find(li => li.dataset.limitId === active);
+        if (!activeItem) { fails.push({who, why: 'no list item carries data-limit-id for the active window'}); continue; }
+        if (items.some(li => li.dataset.limitId === active && shown(li))) fails.push({who, why: 'the active window is still a visible list item'});
+        const reset = !!activeItem?.querySelector('small'), found = [...row.querySelectorAll('[class*="__activeReset___"]')].filter(shown);
+        if (found.length !== (reset ? 1 : 0)) fails.push({who, why: `expected ${reset ? 1 : 0} reset line(s), found ${found.length}`});
+        for (const line of found) {
+          lines++;
+          const label = view === 'five-hour' ? '5-hour' : 'Weekly', fs = parseFloat(getComputedStyle(line).fontSize);
+          if (!new RegExp('^' + label + ' · Resets .+').test(line.textContent.trim())) fails.push({who, why: 'reset line reads "' + line.textContent.trim() + '"'});
+          const l = line.getBoundingClientRect(), name = row.querySelector('[class*="__accountName___"]').getBoundingClientRect(), value = summary.querySelector(':scope > strong').getBoundingClientRect();
+          if (Math.abs(l.left - name.left) > 2 || l.right < value.right - 2) fails.push({who, why: 'the reset line does not span the name and value columns', line: box(line)});
+          if (l.top < Math.max(name.bottom, value.bottom) - 1) fails.push({who, why: 'the reset line is not under the heading'});
+          if (l.height > fs * 1.8) fails.push({who, why: 'the reset line wraps'});
+          const first = items.filter(shown)[0];
+          if (first && l.bottom > first.getBoundingClientRect().top + 1) fails.push({who, why: 'the reset line is not above the limit list'});
+        }
+        const heading = summary.querySelector(':scope > strong');
+        if (!shown(heading) || !/%|—/.test(heading.textContent)) fails.push({who, why: 'the heading lost its value'});
+        if (heading.dataset.low === 'true' && (!heading.querySelector('[class*="__lowWord___"]') || !heading.querySelector('[class*="__limitWarning___"]'))) fails.push({who, why: 'the low heading lost its word or icon'});
+        for (const li of items.filter(li => li.dataset.limitId !== active && !li.dataset.missing)) {
+          others++;
+          const v = li.querySelector(':scope > strong'), empty = /^—$/.test(v.textContent.trim());
+          if (!shown(li) || !shown(v)) { fails.push({who, limit: li.dataset.limitId, why: 'another limit is hidden or lost its value'}); continue; }
+          const bar = li.querySelector('[class*="__limitBar___"]');
+          if (!empty && (!bar || !shown(bar))) fails.push({who, limit: li.dataset.limitId, why: 'another limit lost its bar'});
+          const small = li.querySelector('small');
+          if (small && !shown(small)) fails.push({who, limit: li.dataset.limitId, why: 'another limit lost its reset'});
+          if (li.dataset.low === 'true' && !li.querySelector('[class*="__limitWarning___"]')) fails.push({who, limit: li.dataset.limitId, why: 'a low limit lost its warning'});
+        }
+      }
+      if (!others) fails.push({why: 'no other limit to measure'});
+      return fails;
+    }"""
+    out = []
+    was_open = await page.locator("article details[open]").count()
+    await h_expand_all(page)
+    out += [dict(view="weekly", **f) for f in await page.evaluate(measure, "weekly")]
+    await switch_view(page, "5-hour")
+    await page.locator("article").first.wait_for()
+    await page.wait_for_timeout(400)
+    await h_expand_all(page)
+    out += [dict(view="five-hour", **f) for f in await page.evaluate(measure, "five-hour")]
+    await switch_view(page, "Weekly")
+    await page.locator("article").first.wait_for()
+    await page.wait_for_timeout(400)
+    await h_expand_all(page)
+    if not was_open:
+        for _ in range(await page.get_by_role("button", name="Collapse all").count()):
+            await page.get_by_role("button", name="Collapse all").first.click()
+    return out
+
+
+async def check_panel_order(page, state, width):
+    """H3: from the limits down an opened row reads Manual resets (full row), Usage, Billing at 900px and below,
+    in the visual and the DOM order; at 1100 and 1280 Usage is left of Billing, which is left of Manual resets."""
+    if state != "expanded" or width not in (390, 820, 1100, 1280):
+        return []
+    return await page.evaluate("(wide) => {" + H_PRELUDE + r"""
+      const fails = [], rows = [...document.querySelectorAll('article details[open]')];
+      if (!rows.length) return [{why: 'no open row to measure'}];
+      for (const row of rows) {
+        const who = row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent;
+        const facts = row.querySelector('[class*="__accountFacts___"]'), sections = [...facts.querySelectorAll('section')];
+        const find = re => sections.find(s => re.test(s.querySelector('h4')?.textContent || '')), usage = find(/^Usage$/), billing = find(/^Billing$/), resets = sections.find(s => s.dataset.tone === 'accent');
+        if (!usage || !billing || !resets || sections.length !== 3) { fails.push({who, why: 'row does not hold exactly Usage, Billing and Manual resets', found: sections.length}); continue; }
+        if (facts.querySelectorAll('[data-tone="accent"]').length !== 1) fails.push({who, why: 'not exactly one reset section'});
+        const r = e => e.getBoundingClientRect(), limits = row.querySelector('summary > ul[aria-label="Limits"]'), cs = getComputedStyle(facts);
+        if (!wide) {
+          const dom = sections.map(s => s === resets ? 'resets' : s === usage ? 'usage' : 'billing').join(',');
+          if (dom !== 'resets,usage,billing') fails.push({who, why: 'DOM order is ' + dom});
+          const lim = [...limits.children].filter(shown), last = lim[lim.length - 1] || limits;
+          if (r(resets).top < r(last).bottom - 1) fails.push({who, why: 'Manual resets starts above the limits end'});
+          if (r(usage).top < r(resets).bottom - 1 || r(billing).top < r(usage).bottom - 1) fails.push({who, why: 'visual order is not resets, usage, billing', tops: [resets, usage, billing].map(e => Math.round(r(e).top))});
+          const inner = r(facts).width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+          if (Math.abs(r(resets).width - inner) > 2) fails.push({who, why: `Manual resets spans ${r(resets).width.toFixed(0)} of the ${inner.toFixed(0)}px row`});
+        } else {
+          if (!(r(usage).left < r(billing).left - 4 && r(billing).left < r(resets).left - 4)) fails.push({who, why: 'Usage is not left of Billing, left of Manual resets', lefts: [usage, billing, resets].map(e => Math.round(r(e).left))});
+          if (r(usage).right > r(billing).left + 1 || r(billing).right > r(resets).left + 1) fails.push({who, why: 'the three panels overlap'});
+        }
+      }
+      return fails;
+    }""", width >= 901)
+
+
+H_LOADED_ROWS = dict(utility='[class*="__privacy___"]', tabs='[class*="__providerBar___"]', date='[class*="__dateNavigation___"]',
+                     options='button[aria-controls="pool-view-options"]', card='section[class*="__combined___"]')
+
+
+async def check_skeleton_shape(browser, url, page, name, state, width):
+    """H4: at 390 the loading skeleton mirrors the loaded structure (utility row, tabs, date, Options, Combined card
+    with a heading+toggle row and a select row, provider cards with a title/count/chip row and a pill row) and
+    its row tops and first card top are within 4px of a loaded page's at 390x844. Placeholders are visible, inert
+    and aria-hidden. Opens its own second page in state ready."""
+    if name != "loading-narrow":
+        return []
+    fails = []
+    rows = await page.evaluate("""() => {
+      const top = e => e.getBoundingClientRect().top, h = e => e.getBoundingClientRect().height;
+      const rows = Object.fromEntries([...document.querySelectorAll('[data-skeleton-row]')].map(e => [e.dataset.skeletonRow, {top: top(e), height: h(e),
+        visible: h(e) > 0 && e.checkVisibility({checkVisibilityCSS: true}), hidden: !!e.closest('[aria-hidden="true"]'), inert: !!e.closest('[inert]')}]));
+      const card = document.querySelector('[data-skeleton-row="card"]');
+      const part = (root, sel) => root.querySelector('[class*="__' + sel + '___"]');
+      const provider = [...document.querySelectorAll('[class*="__loadingIdentity___"]')].map(i => ({
+        title: top(part(i, 'loadingTitle')), count: top(part(i, 'loadingCount')), chip: top(part(i, 'loadingChip')), pills: top(part(i, 'loadingPills')),
+        sizes: [...i.querySelectorAll('[class*="__loadingCount___"], [class*="__loadingChip___"], [class*="__loadingPill___"]')].map(h), inert: !!i.closest('[inert]'), hidden: !!i.closest('[aria-hidden="true"]')}));
+      return {rows, provider, combined: card && {heading: top(card.querySelector('h2')) + h(card.querySelector('h2')) / 2, toggle: top(part(card, 'loadingToggle')) + h(part(card, 'loadingToggle')) / 2, select: top(part(card, 'loadingSelect')),
+        toggleH: h(part(card, 'loadingToggle')), selectH: h(part(card, 'loadingSelect'))}};
+    }""")
+    for key in H_LOADED_ROWS:
+        if key not in rows["rows"]:
+            fails.append(dict(why=f"skeleton has no {key} row"))
+        elif not rows["rows"][key]["visible"] or rows["rows"][key]["height"] < 16:
+            fails.append(dict(why=f"skeleton {key} row is not visible", row=rows["rows"][key]))
+        elif key != "card" and not (rows["rows"][key]["hidden"] and rows["rows"][key]["inert"]):
+            fails.append(dict(why=f"skeleton {key} row is not aria-hidden and inert", row=rows["rows"][key]))
+    combined = rows["combined"]
+    if not combined or abs(combined["heading"] - combined["toggle"]) > 4 or combined["select"] < combined["toggle"] + combined["toggleH"] / 2 - 1:
+        fails.append(dict(why="Combined skeleton lacks a heading+toggle row with a select row below", combined=combined))
+    if len(rows["provider"]) != 2:
+        fails.append(dict(why="expected two provider skeletons", found=len(rows["provider"])))
+    for p in rows["provider"]:
+        if max(p["title"], p["count"], p["chip"]) - min(p["title"], p["count"], p["chip"]) > 4 or p["pills"] < p["title"] + 20 or min(p["sizes"]) < 20 or not (p["inert"] and p["hidden"]):
+            fails.append(dict(why="provider skeleton lacks a title/count/chip row and a pill row, or is not inert and aria-hidden", provider=p))
+    loaded, context = await h_open_ready_page(browser, url, 390, 844)
+    try:
+        tops = await loaded.evaluate("(map) => Object.fromEntries(Object.entries(map).map(([k, s]) => [k, document.querySelector(s)?.getBoundingClientRect().top ?? null]))", H_LOADED_ROWS)
+    finally:
+        await context.close()
+    for key, top in tops.items():
+        if top is None:
+            fails.append(dict(why=f"loaded page has no {key} row to compare"))
+        elif key in rows["rows"] and abs(rows["rows"][key]["top"] - top) > 4:
+            fails.append(dict(why=f"skeleton {key} top {rows['rows'][key]['top']:.0f} vs loaded {top:.0f}"))
+    return fails
+
+
+async def h_open_ready_page(browser, url, width, height):
+    """A second page in state ready, with its own fixture routes (the case page keeps its own state)."""
+    context = await browser.new_context(viewport=dict(width=width, height=height), device_scale_factor=1, is_mobile=width < 600,
+                                        has_touch=width < 600, locale="en-US", timezone_id="UTC", color_scheme="dark", reduced_motion="reduce")
+    page = await context.new_page()
+
+    async def route_api(route):
+        target = route.request.url
+        if "/requests/api-call" in target:
+            await route.fulfill(status=400, json={"error": "Unexpected provider call in cancel-only fixture"})
+        elif "/prox/inventory" in target:
+            await route.fulfill(json={"version": "fixture", "syncedAtMs": NOW, "sources": []})
+        elif "/prox/pools" in target or "/prox/refresh" in target:
+            await route.fulfill(json=fixture("ready"))
+        else:
+            await route.fulfill(json={})
+
+    async def local_only(route):
+        await (route.continue_() if route.request.url.startswith(url + "/") else route.abort())
+    await context.route("**/*", local_only)
+    await page.route("**/prox/sources.json", lambda route: route.fulfill(status=404))
+    await page.route("**/v8/management/**", route_api)
+    await page.goto(url, wait_until="networkidle")
+    await page.evaluate("""async () => {
+        const {useAuthStore}=await import('/src/stores/useAuthStore.ts');
+        const {apiClient}=await import('/src/services/api/client.ts');
+        const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage('en');
+        apiClient.setConfig({apiBase:location.origin,managementKey:'visual-fixture-only'});
+        useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
+        location.hash='/quota';
+    }""")
+    await page.locator("article").first.wait_for()
+    await page.evaluate("document.fonts.ready")
+    await page.wait_for_timeout(350)
+    return page, context
 OPTIONS_BUTTON = 'button[aria-controls="pool-view-options"]'
 
 
@@ -1002,9 +1228,13 @@ async def main():
         ("details-narrow", "details", 390, 844),
         ("expanded", "expanded", 1920, 1280),
         ("expanded-narrow", "expanded", 390, 844),
+        ("expanded-tablet", "expanded", 820, 1000),
+        ("expanded-1100", "expanded", 1100, 900),
+        ("expanded-1280", "expanded", 1280, 900),
         ("drain", "drain", 1440, 1000),
         ("deep-link", "deep-link", 1440, 1000),
         ("burn-narrow", "burn", 390, 844),
+        ("drain-narrow", "drain", 390, 844),
         ("refresh-error", "refresh-error", 1440, 1000),
         ("refresh-pending", "refresh-pending", 1440, 1000),
         ("ultra", "ultra", 1440, 1000),
@@ -1307,6 +1537,9 @@ async def main():
                 results[name]["lowInlineFailures"] = await check_low_inline(page, state)
                 results[name]["forecastRowFailures"] = await check_forecast_row(page, state, width)
                 results[name]["actionAlignFailures"] = await check_action_align(page, state)
+                results[name]["phonePanelOrderFailures"] = await check_panel_order(page, state, width)
+                results[name]["skeletonShapeFailures"] = await check_skeleton_shape(browser, args.url, page, name, state, width)
+                results[name]["expandedDuplicateFailures"] = await check_expanded_duplicates(page, state, width)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -1543,7 +1776,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + H_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

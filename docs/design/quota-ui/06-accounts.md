@@ -53,6 +53,7 @@ One anatomy at every roster size:
 ```
 
 - The counted limit is the row value, captioned with its name; the other limits are one compact line (value + mini bar each), always shown, at every roster size.
+- An opened row does not list the active window a second time: its list item is hidden, and one line under the heading, spanning the name and value columns, reads "{window} · Resets {date}" (for example "Weekly · Resets Oct 28, 12:00 PM UTC"). The line is omitted when the limit has no reset time. The heading keeps its value, low mark and stale line; every other limit keeps its value, warning, bar and reset.
 - A low limit stays in the compact line: neutral value, red ⚠ and bar, and the visible word "Low" (S5). Stale adds one line, "◷ Stale · Last reading 11:00 AM", in amber with a clock icon, on one line; values and bars keep the normal colour and opacity (S6). Unavailable replaces that limit's value with "Unavailable".
 
 ## Minimized list (≥ 901px)
