@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -118,6 +119,19 @@ describe('prox auth janitor script', () => {
     expect(result.code).toBe(0);
     expect(result.out.split('\n').sort()).toEqual(['', 'a.json.lock', 'b.json.lock']);
     for (const lock of locks) expect(existsSync(lock)).toBe(false);
+  });
+
+  test('a directory that cannot be scanned does not stop the next one', () => {
+    const [a, b] = [authDir(), authDir()];
+    const lock = write(b, 'b.json.lock', 60);
+    chmodSync(a, 0o300); // enterable but not listable: find exits non-zero
+    try {
+      const result = run([a, b]);
+      expect(result.out).toBe('b.json.lock\n');
+      expect(existsSync(lock)).toBe(false);
+    } finally {
+      chmodSync(a, 0o700);
+    }
   });
 
   test('handles names with spaces and leading dashes', () => {

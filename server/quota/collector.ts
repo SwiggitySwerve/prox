@@ -303,7 +303,10 @@ export class QuotaCollector {
   private syncQueued: { names: Set<string>; promise: Promise<InventoryChange> } | null = null;
   private lastSyncStartedAtMs: number | null = null;
   private syncController = new AbortController();
-  private readonly retiredNames = new Map<string, { name: string; atMs: number }>();
+  private readonly retiredNames = new Map<
+    string,
+    { name: string; sourceId: string; atMs: number }
+  >();
   /** In-flight polls per account, so removing an account can abort them. */
   private readonly pollControllers = new Map<string, Set<AbortController>>();
 
@@ -445,6 +448,7 @@ export class QuotaCollector {
     this.lastSyncStartedAtMs = this.now();
     const signal = this.syncController.signal;
     const change: InventoryChange = { added: [], removed: [], purged: [] };
+    const fresh = new Set<string>();
     await Promise.all(
       this.collectionSources.map(async (source) => {
         const seq = this.startInventoryRead(source);
@@ -458,16 +462,22 @@ export class QuotaCollector {
         if (signal.aborted) return;
         const applied = this.applyInventory(source, read, seq, names);
         if (!applied) return;
+        fresh.add(source.instanceId ?? source.label);
         change.added.push(...applied.change.added);
         change.removed.push(...applied.change.removed);
         change.purged.push(...applied.change.purged);
       })
     );
-    // Accounts an earlier read already retired, whose names are no longer on disk.
+    // Accounts an earlier read already retired, whose names are no longer on disk. Purged only
+    // when this sync read their own source fresh, like a purge on the read itself.
     const nowMs = this.now();
     const late = [...this.retiredNames]
       .filter(([, remembered]) => {
-        return names.has(remembered.name) && nowMs - remembered.atMs <= RETIRED_NAME_MEMORY_MS;
+        return (
+          fresh.has(remembered.sourceId) &&
+          names.has(remembered.name) &&
+          nowMs - remembered.atMs <= RETIRED_NAME_MEMORY_MS
+        );
       })
       .map(([accountId]) => accountId);
     if (late.length) {
@@ -949,7 +959,7 @@ export class QuotaCollector {
     for (const accountId of change.added) this.retiredNames.delete(accountId);
     for (const accountId of change.removed) {
       const name = namesBefore.get(accountId);
-      if (name !== undefined) this.retiredNames.set(accountId, { name, atMs: nowMs });
+      if (name !== undefined) this.retiredNames.set(accountId, { name, sourceId: id, atMs: nowMs });
     }
     this.forget([...change.removed, ...change.purged]);
     return { pending, change };

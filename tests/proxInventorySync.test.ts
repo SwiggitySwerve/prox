@@ -164,6 +164,21 @@ describe('retire, purge and re-add through the collector', () => {
     expect(h.row(h.idOf('b'))?.retired).toBe(false);
   });
 
+  test('a remembered name purges only when its own source was read fresh in that sync', async () => {
+    const h = harness();
+    h.lists['codex-primary'] = [file('codex', 'a'), file('codex', 'b')];
+    await h.collector.syncInventory();
+    h.lists['codex-primary'] = [file('codex', 'b')];
+    await h.collector.syncInventory();
+    h.override['codex-primary'] = 503;
+    const blind = await h.collector.syncInventory({ deletedNames: ['a.json'] });
+    expect(blind.purged).toEqual([]);
+    expect(h.row(h.idOf('a'))?.retired).toBe(true);
+    delete h.override['codex-primary'];
+    const change = await h.collector.syncInventory({ deletedNames: ['a.json'] });
+    expect(change.purged).toEqual([h.idOf('a')]);
+  });
+
   test('that memory of retired names is short: later, only the 24 h grace purges', async () => {
     const h = harness();
     h.lists['codex-primary'] = [file('codex', 'a')];

@@ -26,5 +26,6 @@ for dir in "$@"; do
         rm -f -- "./$lock"
         printf '%s\n' "$lock"
       done
-  )
+  ) || echo "prox-auth-janitor: could not fully scan $dir" >&2
+  # A file vanishing mid-scan or an unreadable directory must not skip the next directory.
 done
