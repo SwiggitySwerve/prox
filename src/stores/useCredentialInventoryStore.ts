@@ -70,7 +70,8 @@ export interface CredentialInventoryState {
   startedAt: number;
   status: 'idle' | 'loading' | 'ready' | 'error';
   sources: Readonly<Record<string, SourceSlice>>;
-  pool: { key: string; data: PoolDashboard } | null;
+  /** The registered query's pool; `revision` is the commit that read it (kept pools keep theirs). */
+  pool: { key: string; data: PoolDashboard; revision: number } | null;
 
   configure(runtime: InventoryRuntime | null): void;
   refresh(): Promise<RefreshOutcome>;
@@ -175,7 +176,7 @@ export function createCredentialInventoryStore() {
         });
         const nextPool =
           reader && pool?.ok
-            ? { key: reader.key, data: pool.value }
+            ? { key: reader.key, data: pool.value, revision: before.revision + 1 }
             : reader && before.pool?.key === reader.key
               ? before.pool
               : null;
