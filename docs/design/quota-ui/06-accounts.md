@@ -50,8 +50,8 @@ Manual resets 1   Usable resets 2   Current 2   Stale 1
 One anatomy at every roster size, at 900px and below, minimized or not (see "Minimized card"):
 
 ```
-›  ada•••ce@ex•••.test  [Resets 1]
-   Pro · 100 points
+›  ada•••ce@ex•••.test
+   Pro · 100 points  [Manual resets 1]
    Weekly remaining                          82.8%
    ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
    5-hour remaining                 ⚠ Low    14.0%
@@ -82,7 +82,7 @@ On the Quota Management page each estimated renewal reads "Estimated · from sta
 - All summary items sit in one wrapping group under the heading. Each is a label element and a value element stacked as a pair, the label above the value, in the card's Now and Forecast pattern one step smaller (label `type-label`, value 14px); values use the Manual resets value style (weight 500, tabular figures). Pairs share one top when they fit and wrap only between pairs; a pair never breaks inside or overflows its container, down to 320px.
 - Items, each only when it applies: "Manual resets N", "Usable resets N", "Reporting X of Y", "Current N", "Stale N", "With a 5-hour limit X of Y".
 - At 640px and below the pairs form an even grid: two equal columns (three pairs share one row when they fit), so no pair is left alone on a second line; a pair wider than its column keeps its own width and wraps as a unit. The Data collection facts in the page footer are label-above-value pairs in one row, in the same label and value type.
-- The "Resets N" / "Resets N · N usable" chip in a closed row is a read-only status chip, not a control: no border, a subtle fill at least 1.15:1 against the closed, hovered and open row, `--radius-md`, text of 13px or more at 4.5:1 on that fill. "Usable" keeps its brighter neutral text so the two states stay distinct.
+- The "Manual resets N" / "Manual resets N · N usable" chip in a closed row (renamed from "Resets N", 2026-11-05, so it can't be read as the scheduled "Resets {date}" lines under the bars) is a read-only status chip, not a control: no border, a subtle fill at least 1.15:1 against the closed, hovered and open row, `--radius-md`, text of 13px or more at 4.5:1 on that fill. "Usable" keeps its brighter neutral text so the two states stay distinct. From 901px the chip follows the name and wraps under it when the Account track is short, so the name cell is never more than two lines tall; on phones it shares the plan line under the name and takes a line of its own only when the two don't fit (`resetChipFitFailures`; closed rows stay inside `phoneRowBlockFailures`' budget). It never clips or overlaps another cell.
 
 ## Paging
 

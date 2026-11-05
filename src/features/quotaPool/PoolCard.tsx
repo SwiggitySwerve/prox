@@ -106,6 +106,7 @@ export function PoolCard({
   // Bumped by the notice's action; the effect then brings the first affected row into focus.
   const [affectedFocus, setAffectedFocus] = useState(0);
   const accountsRef = useRef<HTMLElement>(null);
+  const accountsHeadingRef = useRef<HTMLHeadingElement>(null);
   const [showAll, setShowAll] = useState(false);
   // Opening a row reveals reset details.
   const [openAccounts, setOpenAccounts] = useState<ReadonlySet<string>>(() => new Set());
@@ -191,6 +192,12 @@ export function PoolCard({
     accountsRef.current?.scrollIntoView({ block: 'start' });
     accountsRef.current?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
   }, [affectedFocus]);
+  // The header's "N accounts" jumps past the chart to the roster. Focus goes to the Accounts heading, not
+  // the search box, so a phone's keyboard stays closed.
+  const jumpToAccounts = () => {
+    accountsRef.current?.scrollIntoView({ block: 'start' });
+    accountsHeadingRef.current?.focus({ preventScroll: true });
+  };
   const forecastWithheld = pool.forecastState !== 'ready' && pool.forecastState !== 'no-limit';
   // A withheld forecast with no burn rate has nothing measured to add beside the headline.
   const showNow = mode !== 'remaining' || !(forecastWithheld && pool.burnPointsPerHour === null);
@@ -357,7 +364,17 @@ export function PoolCard({
               {pool.sourceLabel && <small> · {pool.sourceLabel}</small>}
             </h2>
             <div className={styles.poolMeta}>
-              <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
+              <button
+                type="button"
+                className={styles.accountsJump}
+                aria-describedby={`${id}-accounts-jump`}
+                onClick={jumpToAccounts}
+              >
+                {t('quota_pool.account_count', { count: pool.accountCount })}
+              </button>
+              <span id={`${id}-accounts-jump`} className={styles.srOnly}>
+                {t('quota_pool.accounts_jump')}
+              </span>
               <span
                 className={styles.badge}
                 data-state={chip.state}
@@ -520,7 +537,7 @@ export function PoolCard({
         />
       </PoolGraph>
       <section ref={accountsRef} className={styles.accounts} aria-labelledby={`${id}-accounts`}>
-        <h3 id={`${id}-accounts`}>
+        <h3 id={`${id}-accounts`} ref={accountsHeadingRef} tabIndex={-1}>
           <span className={styles.accountsHeading}>
             <span>
               <b className={styles.accountHeadingLabel}>{t('quota_pool.accounts')}</b>

@@ -917,9 +917,11 @@ async def check_phone_header(page, state, width):
       const fails = [], articles = [...document.querySelectorAll('article')];
       if (!cardless && !articles.length) fails.push({why: 'no provider cards found'});
       const top = e => e.getBoundingClientRect().top;
+      // The count is a button whose 44px hit area is taller than its line; it is placed by its text.
+      const ink = e => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect(); };
       const textWidth = e => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
       const parts = a => ({a, card: a.querySelector('h2')?.textContent, headline: a.querySelector('[class*="__headline___"]'), title: a.querySelector('h2'),
-        count: a.querySelector('[class*="__poolMeta___"] > span:first-child'), chip: a.querySelector('[class*="__badge___"]')});
+        count: a.querySelector('[class*="__poolMeta___"] > :first-child'), chip: a.querySelector('[class*="__badge___"]')});
       const measured = articles.map(parts);
       // Whether one card's mark, title, count, chip and gaps fit its line (the chip alone may wrap inside its own box).
       const fit = m => {
@@ -931,11 +933,11 @@ async def check_phone_header(page, state, width):
       for (const m of measured) {
         const {a, card, headline, title, count, chip} = m;
         if (!headline || !title || !count || !chip) { fails.push({card, why: 'card lacks a headline, title, count or chip'}); continue; }
-        const tops = [title, count, chip].map(top), oneLine = Math.max(...tops) - Math.min(...tops) <= 4, limit = allFit ? 112 : 148;
+        const mid = e => { const b = e.getBoundingClientRect(); return (b.top + b.bottom) / 2; }, tops = [mid(title), (ink(count).top + ink(count).bottom) / 2, mid(chip)], oneLine = Math.max(...tops) - Math.min(...tops) <= 4, limit = allFit ? 112 : 148;
         if (allFit && !oneLine) { const f = fit(m); fails.push({card, why: `every card's title, count and chip fit one line (${f.need.toFixed(0)} of ${f.inner.toFixed(0)}px here) but this card wraps`}); }
         if (!allFit) {
-          if (top(chip) < Math.max(title.getBoundingClientRect().bottom, count.getBoundingClientRect().bottom) - 2) fails.push({card, why: 'a card does not fit one line, yet this chip is not on its own second line'});
-          if (Math.abs(top(count) - top(title)) > 4) fails.push({card, why: 'the count left the title line'});
+          if (top(chip) < Math.max(title.getBoundingClientRect().bottom, ink(count).bottom) - 2) fails.push({card, why: 'a card does not fit one line, yet this chip is not on its own second line'});
+          if (Math.abs((ink(count).top + ink(count).bottom) / 2 - mid(title)) > 4) fails.push({card, why: 'the count left the title line'});
         }
         const d = top(headline) - top(a);
         if (d > limit) fails.push({card, why: `headline block starts ${d.toFixed(0)}px below the card top (limit ${limit}, ${allFit ? 'every card inline' : 'chips on a second line'})`});
@@ -944,7 +946,7 @@ async def check_phone_header(page, state, width):
         const bottom = Math.max(...pills.map(p => p.getBoundingClientRect().bottom));
         if (top(headline) < bottom) fails.push({card, why: 'headline block starts above the action pills end'});
         // Pills only on row 2: they start below the identity row, and every pill shares one row.
-        const identityBottom = Math.max(...[title, count, chip].map(e => e.getBoundingClientRect().bottom));
+        const identityBottom = Math.max(title.getBoundingClientRect().bottom, ink(count).bottom, chip.getBoundingClientRect().bottom);
         for (const p of pills) if (p.getBoundingClientRect().top < identityBottom - 1) fails.push({card, why: 'an action pill shares a row with the title, count or chip'});
         const pillTops = pills.map(top);
         if (pills.length && Math.max(...pillTops) - Math.min(...pillTops) > 2) fails.push({card, why: 'action pills are not on one row'});
@@ -3620,6 +3622,175 @@ async def check_stale_line(page, name, state, width):
     return out
 
 
+# G2 checks (round h2, job G): the card header's Accounts jump and the row's "Manual resets" chip. Each has its own JSON
+# key, registered in G2_KEYS for the summary and the exit gate. A check that finds nothing to measure fails.
+G2_KEYS = ("accountsJumpFailures", "resetChipFitFailures")
+G2_JUMP_CASES = {"many": 1440, "many-narrow": 390}
+G2_CHIP_CASES = {"laptop": ("en", *R_LANGS, "ko", "zh-CN", "zh-TW"), "many": ("en", *R_LANGS), "narrow": ("en",)}
+# The exact chip strings, written out here rather than read from the locales: (plain, usable).
+G2_CHIP_TEXT = {
+    "en": ("Manual resets {n}", "Manual resets {n} · {u} usable"),
+    "ko": ("수동 초기화 {n}", "수동 초기화 {n} · {u}개 사용 가능"),
+    "ru": ("Ручные сбросы: {n}", "Ручные сбросы: {n} · доступно {u}"),
+    "vi": ("Đặt lại thủ công {n}", "Đặt lại thủ công {n} · {u} dùng được"),
+    "zh-CN": ("手动重置 {n}", "手动重置 {n} · {u} 个可用"),
+    "zh-TW": ("手動重設 {n}", "手動重設 {n} · {u} 個可用"),
+}
+G2_JUMP_JS = """(i) => {
+  const card = document.querySelectorAll('article')[i], section = card.querySelector('section[class*="__accounts___"]');
+  const h = section.querySelector(':scope > h3'), r = h.getBoundingClientRect();
+  const scroller = document.querySelector('.content') || document.documentElement, v = scroller.getBoundingClientRect();
+  const active = document.activeElement, a = getComputedStyle(h);
+  return {top: r.top, bottom: r.bottom, viewTop: Math.max(0, v.top), viewBottom: Math.min(innerHeight, v.bottom), tabindex: h.getAttribute('tabindex'),
+    focusInSection: section.contains(active), onHeading: active === h, active: active.tagName + '.' + String(active.className).slice(0, 40), heading: h.textContent.trim().slice(0, 30)};
+}"""
+G2_JUMP_BUTTON_JS = """(i) => {
+  const card = document.querySelectorAll('article')[i], meta = card.querySelector('[class*="__poolMeta___"]');
+  const b = meta && meta.querySelector('button'), badge = meta && meta.querySelector('[class*="__badge___"]');
+  if (!b) return null;
+  const r = b.getBoundingClientRect(), s = getComputedStyle(b), d = b.getAttribute('aria-describedby'), desc = d && document.getElementById(d);
+  return {text: b.textContent.trim(), w: r.width, h: r.height, first: meta.firstElementChild === b, beforeBadge: !badge || badge.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING,
+    underline: s.textDecorationLine, ring: b.matches(':focus-visible'), outlineStyle: s.outlineStyle, outlineWidth: parseFloat(s.outlineWidth), described: desc ? desc.textContent.trim() : ''};
+}"""
+
+
+async def check_accounts_jump(browser, url, name):
+    """G1: on `many` (1440) and `many-narrow` (390) every card's "N accounts" is a button in the header's meta line (same
+    text and place), at least 24px (44px on phones) each way, underlined on hover and not at rest, with a visible focus ring
+    and a description. Pressing it (mouse, and Enter on the first card) brings that card's Accounts heading fully into view
+    and moves focus into the Accounts section; the heading takes focus (tabindex -1). Opens a page of its own, 700px tall."""
+    if name not in G2_JUMP_CASES:
+        return []
+    width, fails, away = G2_JUMP_CASES[name], [], 0
+    context, page = await open_fixture_page(browser, url, "many", width, "en", None, 700)
+    try:
+        await page.locator("article").first.wait_for()
+        for i in range(await page.locator("article").count()):
+            where = dict(card=i)
+            card = page.locator("article").nth(i)
+            button = card.locator('[class*="__poolMeta___"] button').first
+            if not await button.count():
+                fails.append(dict(where, why="the card header's account count is not a button"))
+                continue
+            await button.scroll_into_view_if_needed()
+            await button.focus()
+            got = await page.evaluate(G2_JUMP_BUTTON_JS, i)
+            if not re.fullmatch(r"\d+ accounts", got["text"]):
+                fails.append(dict(where, why=f"the jump reads {got['text']!r}, not the plain 'N accounts'"))
+            if not got["first"] or not got["beforeBadge"]:
+                fails.append(dict(where, why="the jump left its place before the forecast chip"))
+            need = 44 if width <= 640 else 24
+            if got["w"] < need - 0.5 or got["h"] < need - 0.5:
+                fails.append(dict(where, why=f"jump is {got['w']:.0f}x{got['h']:.0f}, want at least {need}x{need}"))
+            if not got["ring"] or got["outlineStyle"] == "none" or got["outlineWidth"] < 2:
+                fails.append(dict(where, why="the jump shows no focus ring", ring=got["ring"], style=got["outlineStyle"]))
+            if not got["described"]:
+                fails.append(dict(where, why="the jump has no description"))
+            await page.mouse.move(0, 0)
+            rest = (await page.evaluate(G2_JUMP_BUTTON_JS, i))["underline"]
+            await button.hover()
+            hover = (await page.evaluate(G2_JUMP_BUTTON_JS, i))["underline"]
+            if "underline" in rest or "underline" not in hover:
+                fails.append(dict(where, why="underline should show on hover only", rest=rest, hover=hover))
+            before = await page.evaluate(G2_JUMP_JS, i)
+            if before["top"] >= before["viewBottom"]:
+                away += 1
+            for how in (("click", "press") if i == 0 else ("click",)):
+                await page.evaluate("() => (document.querySelector('.content') || document.documentElement).scrollTo(0, 0)")
+                await page.wait_for_timeout(100)
+                await button.scroll_into_view_if_needed()
+                if how == "click":
+                    await button.click()
+                else:
+                    await button.focus()
+                    await page.keyboard.press("Enter")
+                await page.wait_for_timeout(250)
+                after = await page.evaluate(G2_JUMP_JS, i)
+                if after["tabindex"] != "-1":
+                    fails.append(dict(where, how=how, why="the Accounts heading lacks tabindex=-1", tabindex=after["tabindex"]))
+                if after["top"] < after["viewTop"] - 1 or after["bottom"] > after["viewBottom"] + 1:
+                    fails.append(dict(where, how=how, why="the Accounts heading is not in view after the jump", top=after["top"], bottom=after["bottom"], view=[after["viewTop"], after["viewBottom"]]))
+                if not after["focusInSection"]:
+                    fails.append(dict(where, how=how, why="focus is not inside the Accounts section", active=after["active"]))
+    finally:
+        await context.close()
+    if not away:
+        fails.append(dict(why="every Accounts heading was already in view, so no jump was proven"))
+    return fails
+
+
+G2_CHIP_JS = """() => {
+  const out = [], r = e => e.getBoundingClientRect();
+  for (const chip of document.querySelectorAll('article [class*="__accountResetMarker___"]')) {
+    if (!chip.checkVisibility({checkVisibilityCSS: true})) continue;
+    const row = chip.closest('details'), summary = row.querySelector(':scope > summary'), nameCell = chip.closest('[class*="__accountName___"]');
+    const text = nameCell.querySelector('[class*="__accountText___"]'), c = r(chip), s = r(summary), pad = parseFloat(getComputedStyle(summary).paddingRight);
+    let cut = null;
+    for (let n = chip.parentElement; n && n !== summary.parentElement; n = n.parentElement) {
+      const o = getComputedStyle(n);
+      if (o.overflowX === 'visible' && o.overflowY === 'visible') continue;
+      const b = r(n);
+      if (c.left < b.left - 0.5 || c.right > b.right + 0.5 || c.top < b.top - 0.5 || c.bottom > b.bottom + 0.5) { cut = String(n.className).slice(0, 40); break; }
+    }
+    const others = [text, nameCell.querySelector('[class*="__accountPlan___"]'), ...summary.querySelectorAll(':scope > *:not([class*="__accountName___"]):not(ul)'),
+      ...summary.querySelectorAll(':scope > ul > li')].filter(e => e && e !== chip && !e.contains(chip) && e.checkVisibility({checkVisibilityCSS: true}));
+    const hits = others.filter(e => { const b = r(e); return b.width > 0 && b.height > 0 && Math.min(c.right, b.right) - Math.max(c.left, b.left) > 1 && Math.min(c.bottom, b.bottom) - Math.max(c.top, b.top) > 1; })
+      .map(e => (e.textContent || e.className).trim().slice(0, 24));
+    out.push({text: chip.textContent.trim(), usable: chip.hasAttribute('data-usable'), clipped: chip.scrollWidth > chip.clientWidth + 1, cut, hits,
+      chipH: c.height, outside: c.left < s.left - 0.5 || c.right > s.right - pad + 0.5 || c.right > innerWidth,
+      nameH: r(nameCell).height, lh: parseFloat(getComputedStyle(text).lineHeight) || 21});
+  }
+  return out;
+}"""
+
+
+async def g2_chip_pass(page, lng, wide, out):
+    chips = await page.evaluate(G2_CHIP_JS)
+    if not chips:
+        out.append(dict(lng=lng, why="no closed row with a reset chip to measure"))
+        return
+    plain, usable = (re.compile("^" + re.escape(t).replace(r"\{n\}", r"\d+").replace(r"\{u\}", r"\d+") + "$") for t in G2_CHIP_TEXT[lng])
+    for c in chips:
+        where = dict(lng=lng, chip=c["text"])
+        if not (usable if c["usable"] else plain).match(c["text"]):
+            out.append(dict(where, why="chip text is not the Manual resets wording"))
+        if c["clipped"] or c["cut"]:
+            out.append(dict(where, why="chip is clipped", cut=c["cut"]))
+        if c["outside"]:
+            out.append(dict(where, why="chip leaves its row"))
+        if c["hits"]:
+            out.append(dict(where, why="chip overlaps another cell", hits=c["hits"]))
+        if c["chipH"] > 26:
+            out.append(dict(where, why=f"chip wraps inside itself ({c['chipH']:.0f}px tall)"))
+        # From 901px the name cell holds the name and, wrapped under it, the chip: never a third line.
+        if wide and c["nameH"] > 2 * c["lh"] + 4:
+            out.append(dict(where, why=f"name cell is {c['nameH']:.0f}px tall, over two lines ({2 * c['lh']:.0f}px)"))
+    if not any(c["usable"] for c in chips) and not any(not c["usable"] for c in chips):
+        out.append(dict(lng=lng, why="no chip variant measured"))
+
+
+async def check_reset_chip_fit(page, context, url, route_api, name, width):
+    """G2: the row chip reads "Manual resets N" / "Manual resets N · N usable" in the language's own words (all 6 locales
+    on `laptop` at 1280, en/ru/vi on `many` at 1440, en on `narrow`), and no closed row's chip is clipped, leaves its row,
+    overlaps another cell or wraps inside itself; from 901px the name cell is never over two lines tall."""
+    if name not in G2_CHIP_CASES:
+        return []
+    out, wide = [], width >= 901
+    for lng in G2_CHIP_CASES[name]:
+        if lng == "en" and name != "many":
+            await g2_chip_pass(page, lng, wide, out)
+            continue
+        fresh = await r_page(context, url, route_api, "", lng)
+        try:
+            more = fresh.locator('article [class*="__rosterFooter___"] button')
+            while await more.count():
+                await more.first.click()
+            await g2_chip_pass(fresh, lng, wide, out)
+        finally:
+            await fresh.close()
+    return out
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", required=True)
@@ -3828,7 +3999,7 @@ async def main():
                 dialog_facts_failures = []
                 if name.startswith("reset-confirm"):
                     codex = page.locator('article[class*="__codex___"]')
-                    row = codex.locator('details[class*="__account___"]').filter(has_text="Resets 2").first
+                    row = codex.locator('details[class*="__account___"]').filter(has_text="Manual resets 2").first
                     await row.locator("summary").click()
                     use_reset = row.get_by_role("button", name="Use reset", exact=False)
                     await use_reset.wait_for()
@@ -4234,6 +4405,8 @@ async def main():
                 results[name]["optionsOverlayFailures"] = await check_options_overlay(page, name)
                 results[name]["phoneFactGridFailures"] = await check_phone_fact_grid(page, name, width)
                 results[name]["dataCollectionFactFailures"] = await check_data_collection_facts(page, name)
+                results[name]["accountsJumpFailures"] = await check_accounts_jump(browser, args.url, name)
+                results[name]["resetChipFitFailures"] = await check_reset_chip_fit(page, context, args.url, route_api, name, width)
                 if state == "ready":
                     # Phones fold Rate behind Options; opening it shows the select.
                     options = page.locator(OPTIONS_BUTTON)
@@ -4269,7 +4442,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + B2_KEYS + D2_KEYS + E2_KEYS + C2_KEYS + A2_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + B2_KEYS + D2_KEYS + E2_KEYS + C2_KEYS + A2_KEYS + G2_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():
