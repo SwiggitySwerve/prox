@@ -15,6 +15,8 @@ interface ConfirmationOptions {
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'primary' | 'secondary';
+  /** Pill-shaped actions and a touch-sized close button, to match the page that asked. */
+  pill?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel?: () => void;
 }

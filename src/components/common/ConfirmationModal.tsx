@@ -23,6 +23,7 @@ export function ConfirmationModal() {
     confirmText,
     cancelText,
     variant = 'primary',
+    pill,
   } = options;
 
   const handleConfirm = async () => {
@@ -50,7 +51,13 @@ export function ConfirmationModal() {
   };
 
   return (
-    <Modal open={isOpen} onClose={handleCancel} title={title} closeDisabled={isLoading}>
+    <Modal
+      open={isOpen}
+      onClose={handleCancel}
+      title={title}
+      closeDisabled={isLoading}
+      className={pill ? 'modal-pill' : undefined}
+    >
       {typeof message === 'string' ? (
         <p style={{ margin: '1rem 0' }}>{message}</p>
       ) : (

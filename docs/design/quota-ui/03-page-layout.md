@@ -29,7 +29,7 @@ Closes: toolbar baseline/labels, date navigator wrap/float, phone control stack,
 
 ### Rules
 
-- **Global vs local.** The view bar holds only controls that change every card [R§1]. "Rate interval" and "Future usage" change every card's facts and projections, so they stay **inline and visible** (council decision 2, `14-council-decisions.md`): native selects with the setting's name as a prefix inside the box ("Rate 3h", "Future Same as now"), the `<label>` kept as a visually hidden accessible name. That gives every view-bar control one top edge. When Future usage doesn't apply to the current measure it is disabled, and its reason ("Applies to Remaining view") stays visible on the same row, wired through `aria-describedby`. Fallback only if the phone view bar measures over budget: a popover whose trigger shows the current values.
+- **Global vs local.** The view bar holds only controls that change every card [R§1]. "Rate interval" and "Future usage" change every card's facts and projections, so they stay **inline and visible** (council decision 2, `14-council-decisions.md`): native selects with the setting's name as a prefix inside the box ("Rate 3h", "Future Same as now"), the `<label>` kept as a visually hidden accessible name. That gives every view-bar control one top edge. When Future usage doesn't apply to the current measure it is disabled, and its reason ("Applies to Remaining view") stays visible on the same row, wired through `aria-describedby`. On phones (≤640px) the view bar measured over budget, so this fallback applies (S4): an overlay anchored under a button that shows the current values, with the same labels and reasons inside. Its controls' accessible names start with their visible labels (S8): "Averaged over", "Future", "Window", "Measure".
 - **Chart-only controls stay on their card.** The combined card's "Stacked / Provider lines" switch is in that card's header.
 - **One baseline.** Every view-bar control has the same height and sits on one line. Segmented controls carry a visually hidden label ("Window", "Measure") [R§1: Primer].
 - **Date range.** `‹ Oct 24 – Nov 3 ›` stepper plus a "Today" button. "Today" is disabled when already showing today; `›` is disabled at the furthest forecast day. The range is the last group, right-aligned on wide.
@@ -52,9 +52,9 @@ Viewport media queries for the page frame; container queries for cards and table
 |---|---|---|
 | ≥ 1100px | one row | one row: pools · window · measure · options · range |
 | 768–1099px | one row | two rows: (pools) / (window · measure · options · range) — the whole row reflows, never one orphaned control |
-| < 768px | title row; then actions row | row 1: pool menu ("All pools ▾") + RefreshControl (icon + time); row 2: Window segmented + Measure segmented (Primer: never wrap a segmented control; if it can't fit, switch it to a menu); row 3: the two prefixed selects splitting the row; row 4: range stepper |
+| < 768px | title row; then actions row | row 1: pool menu ("All pools ▾") + RefreshControl (icon + time); row 2: range stepper; row 3: a full-width Options button that spells out the current choices ("Weekly · Remaining · 3h"), shows a trailing chevron-down that flips while the overlay is open, and opens an overlay holding Window, Measure, Averaged over and Future (≤640px; from 641px the controls sit inline as in the wider rows) |
 
-Budget: on a 390 × 844 screen the first headline number starts no lower than 360px from the top.
+Budget: on a 390 × 844 screen the first headline number starts no lower than 470px from the top (420px if the Options summary fits on the date row). The 360px budget was replaced by this measured one (S4): the phone toolbar is the pool tabs, the date row and a full-width Options button, and C2 measures the headline at 455px. The capture's `toolbarBudgetFailures` check holds it.
 
 ### Cards (container)
 

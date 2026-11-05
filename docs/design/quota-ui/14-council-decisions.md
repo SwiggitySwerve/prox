@@ -40,7 +40,7 @@ The corpus is `/tmp/hc/notes_all.json`: 6,242 notes from r10 to r27, extracted f
 | On phones, the two selects already share one full-width row; a label line sits above them, plus a hint line in Drain and Burn | `src/features/quotaPool/QuotaPoolPage.module.scss:1373-1385` |
 
 The capture harness, `scripts/visual/prox-quota-capture.py`:
-- uses the combobox "Rate interval" by name (around line 895);
+- uses the combobox "Averaged over" by name (it was "Rate interval" before S8 made names start with their visible label);
 - asserts 5 `article details` in the ready case (around line 813);
 - checks the shell box doesn't overlap the countdown (around lines 846-851).
 
@@ -86,7 +86,7 @@ Inline labels stay instead.
 - **Why:**
   - These two settings change every card's numbers. Future usage is shown nowhere else, so hiding it buries meaning. Archivist's Grafana and GOV.UK evidence points the same way.
   - On phones the selects already share one row (code table above). A popover trigger with values would take that same row, so the popover saves no rows. It only removes the label and hint lines, which inline prefixes also remove.
-  - Native selects keep the capture's "Rate interval" locator working.
+  - Native selects keep the capture's "Averaged over" locator working (renamed from "Rate interval" by S8).
   - A `title` tooltip is unreliable on disabled controls and on touch, so the reason stays as visible text.
 
 ### 3. Keep the shell cluster out of scope: rejected
@@ -159,6 +159,18 @@ It moves to "Beyond this redesign".
   - Reusing `<details>` breaks the capture invariant of 5 `article details`.
   - A toggle button would add a second pattern for the same job in the middle of a hill-climb.
 
+### 5. Card actions: labelled pills, not a card menu (amended 2026-11-05)
+
+Settled after the council, from three rounds of reviewer notes. It replaces the `⋯` card menu that `04-components` once specified.
+
+- **What ships:** every provider and Combined card shows the same `.reorder` group of labelled pills: "Minimize graph" / "Expand graph", and on provider cards "Move up" / "Move down". Each has an icon and a visible word at every width. Each is 32px tall, or 44px on coarse pointers and phones. The word is never truncated.
+- **Impossible moves:** the first card has no "Move up" and the last has no "Move down". They are not drawn, so the pills that remain sit against the card's right edge.
+- **Names:** each accessible name starts with its visible label, e.g. "Move up (Claude)".
+- **Why:**
+  - Icon-only buttons below 1600px read as "fullscreen" (the diagonal arrows) or as nothing (the up and down arrows), in all six reviewers' notes over three rounds.
+  - A menu would hide the one control that says what the card does, behind another icon.
+  - The pills don't squeeze the facts: they sit on the identity row, and drop to their own row under it when both don't fit.
+
 ## Survival Score
 
 **Modified.**
@@ -217,3 +229,11 @@ Decisions 1 and 4c rest on Phase 2 agreement only.
 - Phase 3 coverage not stated.
 
 All were fixed above. `12` is updated in the same change.
+
+## User decisions, 2026-11-04
+
+These override the decisions above where they conflict.
+
+- **S5 Low quota.** The number stays neutral. A red warning icon and red bar mark it, with the visible word "Low" (`quota_pool.limit_low`) beside the icon. Meaning never relies on colour alone. Amends `02-foundations` (Critical row) and `06-accounts`.
+- **S6 Stale rows.** Stale values and bars use the normal colour and opacity. Staleness shows through the amber "Stale" word, a clock icon and the timestamp. Amends `02-foundations` ("Dimming (stale rows)") and `05-states`.
+- **S7 Estimated renewals.** On the Quota Management page only, each estimated renewal says "Estimated · from start date", and "annual plans differ" appears once per provider Accounts section, always on screen. Other pages keep the full sentence. Amends `15-fact-panel`.

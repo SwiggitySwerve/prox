@@ -63,11 +63,31 @@ export function CombinedPoolCard({
       </select>
     </label>
   );
+  const headlineContext = (
+    <div className={styles.headlineContext}>
+      <p className={styles.metricLabel}>
+        {mode !== 'remaining'
+          ? t('quota_pool.recorded_rate', {
+              rate: t(`quota_pool.${mode}`),
+              hours: dashboard.lookbackHours,
+            })
+          : t('quota_pool.window_remaining', { window: windowLabel })}
+      </p>
+      {/* Remaining adds its scale on a second line; rates keep their unit beside the number. */}
+      {mode === 'remaining' && total?.series && (
+        <span>
+          {t('quota_pool.of_capacity', {
+            capacity: formatPoolNumber(total.series.capacityPoints, i18n.language),
+          })}
+        </span>
+      )}
+    </div>
+  );
   return (
     <section className={`${styles.pool} ${styles.combined}`} aria-labelledby={`${id}-title`}>
       <div className={styles.graphHeader}>
         <h2 id={`${id}-title`}>{t('quota_pool.combined_usage')}</h2>
-        {/* The chart's view control sits on the card's title row, next to the chart toggle. */}
+        {/* The chart's view control sits beside the actions on wide cards; below the title row otherwise. */}
         <div className={styles.combinedOptions}>{viewSelect}</div>
         <span className={styles.reorder}>
           <PoolGraphToggle
@@ -84,6 +104,8 @@ export function CombinedPoolCard({
         data-unavailable={headline === null}
         data-rate={mode !== 'remaining'}
       >
+        {/* Rate views read label, then number; Remaining keeps its caption beside the number. */}
+        {mode !== 'remaining' && headlineContext}
         <strong>
           {/* Same as the provider cards: the value slot says the total is missing. */}
           {headline === null ? (
@@ -96,30 +118,18 @@ export function CombinedPoolCard({
               )}
             </span>
           ) : (
-            formatPoolNumber(headline, i18n.language)
+            <>
+              {formatPoolNumber(headline, i18n.language)}
+              {mode !== 'remaining' && <small> {t('quota_pool.points_hour')}</small>}
+            </>
           )}
         </strong>
-        <div className={styles.headlineContext}>
-          <p className={styles.metricLabel}>
-            {mode !== 'remaining'
-              ? t('quota_pool.recorded_rate', {
-                  rate: t(`quota_pool.${mode}`),
-                  hours: dashboard.lookbackHours,
-                })
-              : t('quota_pool.window_remaining', { window: windowLabel })}
-          </p>
-          {/* A two-line caption in every view: what the number is, then its unit or scale. */}
-          {mode === 'remaining'
-            ? total?.series && (
-                <span>
-                  {t('quota_pool.of_capacity', {
-                    capacity: formatPoolNumber(total.series.capacityPoints, i18n.language),
-                  })}
-                </span>
-              )
-            : headline !== null && <span>{t('quota_pool.points_hour')}</span>}
-        </div>
+        {mode === 'remaining' && headlineContext}
       </div>
+      {/* What the selected rate counts, from About these numbers, so the number isn't a guess. */}
+      {mode !== 'remaining' && (
+        <p className={styles.rateDefinition}>{t(`quota_pool.${mode}_definition`)}</p>
+      )}
       {/* Partial or stale data withholds the total; say why under the headline, as the provider cards do. */}
       {headline === null && total?.series && total.series.forecastState !== 'ready' && (
         <p className={styles.stateNote} role="status" data-state={total.series.forecastState}>

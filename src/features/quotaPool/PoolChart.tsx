@@ -68,7 +68,8 @@ function PoolChartView({
   const chartFrame = fitChartFrame(
     width,
     savedData || pools.some((pool) => pool.forecastState !== 'ready') || mode !== 'remaining',
-    minimized,
+    // One reading draws a point, not a line, so it gets the compact height.
+    minimized || Math.max(...pools.map((pool) => pool.recorded.length)) === 1,
     formatPoolNumber(
       Math.max(0, stackedTotal?.capacityPoints ?? 0, ...pools.map((pool) => pool.capacityPoints)),
       i18n.language
@@ -201,13 +202,14 @@ function PoolChartView({
         : `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])}\u00a0${unit}`}`;
   const latestPrefix = selected === latestRecorded ? `${t('quota_pool.latest_reading')} · ` : '';
   // When a single-provider chart's latest recorded value is the card's big number, the readout
-  // names only its moment; a withheld total, any other point or a combined chart shows values.
+  // names only its moment; a withheld total or any other point shows values. A combined chart's
+  // latest reading names only its moment too: the provider cards show each value.
   const valueOnCard =
-    !comparison &&
     selected === latestRecorded &&
     !sample?.projected &&
-    sample?.point[field] !== null &&
-    sample?.point[field] === sample?.pool[field];
+    (comparison
+      ? !unobserved
+      : sample?.point[field] !== null && sample?.point[field] === sample?.pool[field]);
   const description = !sample
     ? t('quota_pool.inspect_hint')
     : unobserved

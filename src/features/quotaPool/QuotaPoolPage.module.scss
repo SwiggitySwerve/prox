@@ -364,16 +364,6 @@ $pool-error: #ff5252;
     var(--bg-primary);
   padding: 18px 24px 12px;
 }
-.poolHeader {
-  display: flex;
-  gap: 20px;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-.poolIdentity {
-  min-width: 0;
-  flex: 1;
-}
 .poolTitle {
   display: flex;
   align-items: center;
@@ -388,38 +378,6 @@ $pool-error: #ff5252;
   > span {
     font-size: 13px;
     color: #b5b5b5;
-  }
-}
-.reorder {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  display: inline-flex;
-  gap: 4px;
-  // Desktop: compact corner controls. Narrow layouts keep the page's 44px touch targets.
-  @media (min-width: 901px) {
-    button {
-      min-width: 32px;
-      min-height: 32px;
-      width: 32px;
-      height: 32px;
-    }
-  }
-  @media (max-width: 900px) {
-    position: static;
-    margin-left: auto;
-  }
-  button {
-    display: inline-grid;
-    place-items: center;
-    padding: 0;
-    background: transparent;
-    color: var(--text-secondary);
-    border-color: var(--border-primary);
-  }
-  button:hover:not(:disabled) {
-    background: var(--bg-hover);
-    color: var(--text-primary);
   }
 }
 .metricLabel {
@@ -451,7 +409,8 @@ $pool-error: #ff5252;
 // A withheld total is a muted word a step below the number size, so it reads as a status.
 .unavailableValue {
   color: var(--text-secondary);
-  font-size: 28px;
+  font-size: 24px;
+  font-weight: 500;
   letter-spacing: -0.02em;
 }
 .headlineContext {
@@ -480,26 +439,7 @@ $pool-error: #ff5252;
   font-size: 13px;
   margin-top: 4px !important;
 }
-.statsBlock {
-  flex: 2;
-  min-width: 0;
-}
-// Rate views: a one-fact "Now" group beside the forecast, on the same four-column rhythm.
-.statsBlock[data-split] {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
-  gap: 8px 20px;
-  .statsGroup:first-child .stats {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .statsGroup:last-child .stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
 .stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
   dt {
     color: var(--text-tertiary);
     font-size: 12px;
@@ -722,6 +662,18 @@ $pool-error: #ff5252;
 .accounts > h3 span {
   color: var(--text-tertiary);
 }
+// Reset facts and data-reporting facts each get a line of small label/value items.
+.accountsHeading {
+  display: grid;
+  gap: 2px;
+}
+.accountSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+  font-size: 13px;
+  font-weight: 400;
+}
 .page .expandAccounts {
   margin-left: auto;
   padding: 4px 12px;
@@ -786,15 +738,8 @@ $pool-error: #ff5252;
       color: var(--warning-text);
     }
   }
-  &[data-status='stale'] strong small {
-    color: var(--warning-text);
-  }
-  // A stale reading is still shown, in muted text, so it doesn't pass for a current one.
-  // Low values stay red, and bars keep full strength: meaningful graphics need 3:1.
-  &[data-status='stale'] > summary > strong:not([data-low]),
-  &[data-status='stale'] .limits li:not([data-low='true']) strong {
-    color: var(--text-quaternary); // #888 on the card is 5.2:1
-  }
+  // A stale reading keeps the normal value colour and opacity; the amber "Stale" word, its clock
+  // icon and the timestamp in .accountStatus say it is old.
   // Wide tables tint an open row; phones keep dividers only, so no box sits in the card.
   @media (min-width: 901px) {
     &[open] {
@@ -826,9 +771,6 @@ $pool-error: #ff5252;
   grid-column: 2 / -1;
   grid-row: 2;
 }
-.account > summary > strong[data-low='true'] {
-  color: $pool-error;
-}
 .account[data-status='ok'] .accountStatus {
   display: none;
 }
@@ -837,7 +779,8 @@ $pool-error: #ff5252;
   grid-column: 2 / -1;
   grid-row: 3;
   display: grid;
-  grid-template-columns: 6.5em minmax(40px, 1fr) 4.6em;
+  // The value column grows to fit a low value's icon, word and percentage; the bar gives way.
+  grid-template-columns: 7.5em minmax(24px, 1fr) minmax(4.6em, max-content);
   gap: 6px 10px;
   margin: 6px 0 2px;
   padding: 0;
@@ -866,23 +809,19 @@ $pool-error: #ff5252;
     color: var(--text-tertiary);
     font-size: 11px;
   }
-  li[data-low='true'] {
-    strong {
-      color: $pool-error;
-    }
-    .limitBar > span {
-      background: $pool-error;
-    }
+  // Low keeps the value colour neutral: the red icon and bar plus the visible "Low" word carry it.
+  li[data-low='true'] .limitBar > span {
+    background: $pool-error;
   }
 }
 // Collapsed accounts keep the same rows; the reset line waits for the row to open.
 .account:not([open]) .limits small {
   display: none;
 }
-// Phone rows already show the counted limit as the row's value, so a closed row doesn't repeat
-// it; an open row lists every limit the same way, with its bar, value and reset.
+// A compact row (a closed row of a minimized card) shows the counted limit as the row's value, so
+// it doesn't repeat it in the list. Phone rows with blocks list it first (the B block).
 @media (max-width: 900px) {
-  .account:not([open]) .limits li[data-counted='true'] {
+  .account:not([open]):not([data-phone-blocks]) .limits li[data-counted='true'] {
     display: none;
   }
   // The row's value is the limit the page is set to, so it leads: a step larger, named on the
@@ -906,6 +845,7 @@ $pool-error: #ff5252;
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
+  white-space: nowrap;
 }
 .valueCaption {
   color: var(--text-secondary);
@@ -1308,31 +1248,8 @@ $pool-error: #ff5252;
   .selectLabel {
     padding-left: 12px;
   }
-  // The headline needs less room than three forecast dates; give the facts the larger share.
-  .statsBlock[data-split] {
-    flex: 1.8;
-  }
 }
 @media (min-width: 901px) and (max-width: 1450px) {
-  .statsBlock {
-    flex: 1.3;
-  }
-  // Too narrow for Now beside a full Forecast row: Now sits above it, and Forecast keeps its
-  // three facts on one row instead of leaving one alone on a second.
-  .statsBlock[data-split] {
-    grid-template-columns: minmax(0, 1fr);
-    .statsGroup:last-child .stats {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      column-gap: 12px;
-    }
-  }
-  .statsHeading {
-    margin-bottom: 4px !important;
-  }
-  .stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px 16px;
-  }
   // The skeleton follows the loaded card's two-by-two facts at this width.
   .loadingStats {
     grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
@@ -1342,19 +1259,6 @@ $pool-error: #ff5252;
   }
 }
 @media (max-width: 900px) {
-  .statsBlock,
-  .poolIdentity {
-    width: 100%;
-  }
-  .poolHeader {
-    align-items: start;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .stats {
-    width: 100%;
-    max-width: none;
-  }
   .dateNavigation {
     margin-left: 0;
   }
@@ -1390,7 +1294,7 @@ $pool-error: #ff5252;
   .accountPlan {
     flex-basis: 100%;
   }
-  // Search takes its own line; sort, the low filter and the count share the next.
+  // Search takes its own line; the R block at the end gives sort, the chips and the count theirs.
   .rosterSearch {
     flex-basis: 100%;
   }
@@ -1421,9 +1325,6 @@ $pool-error: #ff5252;
     min-width: 44px;
     min-height: 44px;
     padding-inline: 8px;
-  }
-  .toolbar > .segment:first-child {
-    flex-basis: 100%;
   }
   // Settings share a row when both fit whole, and wrap to their own rows when they don't, so a
   // value or reason is never cut short.
@@ -1459,46 +1360,11 @@ $pool-error: #ff5252;
   .pool {
     padding: 12px;
   }
-  .poolHeader {
-    gap: 6px;
-  }
-  .stats {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-    // Equal halves keep 'First account empty' and a full date on one line each.
-    > div {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      align-items: baseline;
-      gap: 2px 8px;
-    }
-    dt {
-      margin: 0;
-    }
-    dd {
-      text-align: right;
-    }
-    small {
-      grid-column: 2;
-      margin: 0;
-      text-align: right;
-    }
-  }
-  .stats dd {
-    font-size: 14px;
-  }
-  // Now and Forecast stack as full-width label/value rows; side by side they can't fit.
-  .statsBlock[data-split] {
-    grid-template-columns: minmax(0, 1fr);
-    .statsGroup:first-child .stats,
-    .statsGroup:last-child .stats {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
+  // Name row, then count and chip; the actions follow as their own row.
   .poolTitle {
     gap: 7px;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     > h2 {
       min-width: 0;
     }
@@ -1506,10 +1372,6 @@ $pool-error: #ff5252;
   .poolMeta {
     grid-column: 1 / -1;
     grid-row: 2;
-  }
-  .reorder {
-    grid-column: 3;
-    grid-row: 1;
   }
   .headline strong {
     font-size: 40px;
@@ -1589,7 +1451,6 @@ $pool-error: #ff5252;
   margin-bottom: 4px;
   h2 {
     font-size: 16px;
-    padding-right: 36px;
   }
 }
 .combinedOptions select {
@@ -1601,15 +1462,17 @@ $pool-error: #ff5252;
   align-items: center;
   gap: 8px 16px;
   flex-wrap: wrap;
-  // In the title row: pushed right, clear of the chart toggle in the corner.
-  margin: 0 40px 0 auto;
+  // Beside the actions on wide cards; below 901px it takes the row under the title and actions.
+  margin: 0 0 0 auto;
   @media (max-width: 900px) {
-    margin-right: 0;
+    order: 3;
+    flex-basis: 100%;
+    justify-content: flex-end;
+    margin: 0;
   }
   // Phones: the title and toggle keep their row; the select takes the next one.
   @media (max-width: 640px) {
-    order: 3;
-    flex-basis: 100%;
+    justify-content: flex-start;
     margin: 4px 0 0;
   }
   select {
@@ -1624,35 +1487,10 @@ $pool-error: #ff5252;
   --pool-accent: #c4b5fd;
 }
 @media (min-width: 901px) {
-  .poolHeader {
-    padding-right: 100px;
-  }
-  .reorder button {
-    min-width: 28px;
-    min-height: 28px;
-    width: 28px;
-    height: 28px;
-    border-radius: 5px;
-  }
   .combinedOptions select {
     min-height: 32px;
     padding: 4px 8px;
   }
-}
-// Card controls show their round target at rest, so they read as buttons, not bare glyphs.
-.reorder button {
-  border-color: var(--hairline-soft);
-  border-radius: 999px;
-  background: transparent;
-}
-.reorder button.graphToggle {
-  color: var(--text-secondary);
-  background: transparent;
-  border-color: var(--hairline-soft);
-}
-.reorder .graphToggle:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
 }
 
 // A minimized provider card keeps a compact account roster. Opening a row restores
@@ -1665,7 +1503,10 @@ $pool-error: #ff5252;
     gap: 0 var(--compact-account-gap);
   }
   .account:not([open]) {
-    max-inline-size: var(--compact-account-width);
+    // Phones and tablets keep a bounded row; from 901px the list spans the card (C3 block).
+    @media (max-width: 900px) {
+      max-inline-size: var(--compact-account-width);
+    }
     .accountPlan {
       display: none;
     }
@@ -1687,47 +1528,6 @@ $pool-error: #ff5252;
     .account:not([open]) > summary {
       min-height: 44px;
     }
-  }
-  @media (min-width: 1200px) {
-    .accountGrid:not(:has(.account[open])) {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      max-inline-size: calc(3 * var(--compact-account-width) + 2 * var(--compact-account-gap));
-    }
-  }
-}
-
-// Coverage is a status beside the heading: quieter than the heading, and not a control.
-.accountCoverage {
-  display: inline-block;
-  margin-left: 10px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 400;
-  white-space: nowrap;
-}
-@media (min-width: 641px) {
-  .accountCoverage + .accountCoverage {
-    margin-left: 4px;
-    &::before {
-      content: '· ';
-    }
-  }
-}
-.accountBalanceLabel {
-  margin-left: 6px;
-  font-weight: 400;
-  white-space: nowrap;
-}
-// Wide tables name the balance in their own column header; phones name it under each row's
-// value, so neither repeats it in the heading. A minimized wide card has neither, so keeps it.
-@media (min-width: 901px) {
-  .pool:not([data-minimized='true']) .accountBalanceLabel {
-    display: none;
-  }
-}
-@media (max-width: 900px) {
-  .accountBalanceLabel {
-    display: none;
   }
 }
 
@@ -1765,6 +1565,25 @@ $pool-error: #ff5252;
   gap: 6px;
   white-space: nowrap;
 }
+// Phone labels say "remaining", so they may wrap inside their column instead of running into the bar.
+@media (max-width: 900px) {
+  .limits li > span:first-child {
+    white-space: normal;
+  }
+}
+// Phones: each limit's label takes its own line above its bar and value, so it never wraps.
+@media (max-width: 640px) {
+  .limits li > span:first-child {
+    grid-area: 1 / 1 / 2 / -1;
+    white-space: nowrap;
+  }
+  .limits li .limitBar {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+  .limits li strong {
+    grid-area: 2 / 3;
+  }
+}
 .limitWarning {
   display: inline-flex;
   flex-shrink: 0;
@@ -1787,8 +1606,6 @@ $pool-error: #ff5252;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin: 2px 0;
-  border-inline-start: 2px solid var(--text-quaternary);
-  padding-inline-start: 6px;
   gap: 2px;
   &:not(:has([data-low='true'])) {
     display: none;
@@ -1814,14 +1631,6 @@ $pool-error: #ff5252;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 4px 8px;
   }
-  .accountCoverage {
-    display: block;
-    width: fit-content;
-    margin: 4px 0 0;
-  }
-  .accountBalanceLabel {
-    font-size: 13px;
-  }
   .page .expandAccounts {
     margin-right: 0;
   }
@@ -1837,12 +1646,6 @@ $pool-error: #ff5252;
   .accounts > h3 {
     padding: 4px 0;
   }
-}
-
-// A move that can't happen (first card up, last card down) stays in its slot, dimmed, so every card's controls line up.
-// A move that can't happen keeps its slot, so the corner controls still line up, but isn't drawn.
-.reorder button:disabled {
-  visibility: hidden;
 }
 
 // Wide screens: one heading row, then one line per account with a column per limit.
@@ -2064,10 +1867,14 @@ $pool-error: #ff5252;
   &:hover {
     color: var(--text-primary);
   }
-  // On: the page's pressed style and a check; red stays for the low values themselves.
+  // On: the selected-segment fill and a check; red stays for the low values themselves. A segment's
+  // button (fill-hover) sits on its track (fill-soft), so it reads about 14% light; the chip sits
+  // straight on the card and draws that same result. The border is strong enough to read against
+  // the card without the fill (3:1).
   &[aria-pressed='true'] {
-    background: var(--bg-pressed);
-    border-color: var(--border-hover);
+    background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+    border-color: color-mix(in srgb, var(--text-primary) 45%, transparent);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
     color: var(--text-primary);
   }
   &[aria-pressed='true'] svg {
@@ -2077,14 +1884,14 @@ $pool-error: #ff5252;
     margin-left: 0;
   }
 }
-// On a phone a long roster shows one line per account, plus any low limit in the same bar row
-// the short rosters use; the other limits open with the row.
+// On a phone a long roster shows the active window, plus any low limit in the same block the
+// short rosters use; the other limits open with the row.
 @media (max-width: 640px) {
   .pool:not([data-minimized='true']) .accountGrid[data-large='true'] .account:not([open]) .limits {
-    &:not(:has([data-low='true'])) {
+    &:not(:has([data-low='true'], [data-counted='true'])) {
       display: none;
     }
-    li:not([data-low='true']) {
+    li:not([data-low='true'], [data-counted='true']) {
       display: none;
     }
   }
@@ -2109,11 +1916,6 @@ $pool-error: #ff5252;
     .segment button {
       min-height: 32px;
     }
-    .reorder button {
-      min-width: 28px;
-      min-height: 28px;
-      padding: 0;
-    }
   }
   .privacy,
   .accountLink,
@@ -2134,16 +1936,17 @@ $pool-error: #ff5252;
   display: inline-block;
   margin-left: 8px;
   padding: 0 8px;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
+  // A read-only status chip: a quiet fill (about 1.25:1 on closed, hovered and open rows), no outline.
+  border: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 20px;
   white-space: nowrap;
   vertical-align: 1px;
   // Usable now: brighter, in a neutral tone, so the provider colour keeps its one meaning.
   &[data-usable] {
-    border-color: var(--text-tertiary);
     color: var(--text-primary);
   }
 }
@@ -2205,14 +2008,11 @@ $pool-error: #ff5252;
   }
 }
 
-// Phones fold Rate and Future behind an options button on the date row; wide screens show them.
+// Phones fold the view settings behind an options button under the date row; wide screens show them.
 .dateNavigation .optionsToggle {
   display: none;
 }
 @media (max-width: 640px) {
-  .chartSettings:not([data-open]) {
-    display: none;
-  }
   .dateNavigation .optionsToggle {
     display: inline-flex;
     align-items: center;
@@ -2234,4 +2034,810 @@ $pool-error: #ff5252;
 .pools > .emptyNotice h2,
 .errorNotice h2 {
   font-size: 17px;
+}
+
+// A definition of the selected rate, as the Combined usage summary's note.
+.rateDefinition {
+  margin: 4px 0 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+// The drawer's Use reset is a pill like every other action here; the page's button reset
+// would otherwise round it as a rectangle.
+.page .accountFacts button {
+  border-radius: 999px;
+}
+
+/* C1 */
+// Card header. Row 1: identity on the left, actions on the right (the actions take their own row
+// under the identity when both don't fit). Row 2: the headline, then the facts, which are sized to
+// their content and sit directly after it. The facts follow the card's own width, not the screen's.
+.poolHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 48px;
+  container: poolHeader / inline-size;
+}
+.poolIdentity {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.poolTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.poolHeader .headline {
+  flex: 0 1 auto;
+  max-width: 100%;
+  margin-top: 0;
+}
+
+// The same labelled pills on provider and Combined cards, at every width.
+.reorder {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+.page .reorder button,
+.page .reorder button.graphToggle[aria-pressed='true'] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-color: var(--hairline-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  svg {
+    flex: none;
+  }
+}
+.page .reorder button:hover,
+.page .reorder button.graphToggle[aria-pressed='true']:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+// 44px for touch: coarse pointers, and every phone width (a phone's pointer type is not always reported).
+@media (pointer: coarse), (max-width: 640px) {
+  .page .reorder button,
+  .page .reorder button.graphToggle[aria-pressed='true'] {
+    height: 44px;
+    min-height: 44px;
+  }
+}
+@media (max-width: 640px) {
+  // Phones: name row, count and chip row, then the actions, from the left.
+  .poolIdentity > .reorder {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+}
+
+// Facts, narrow cards first: label left, value right, full width under the headline.
+.statsBlock {
+  display: grid;
+  flex: 1 0 100%;
+  gap: 8px;
+  min-width: 0;
+}
+.statsHeading {
+  margin-bottom: 4px !important;
+}
+.stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 8px;
+  }
+  dt {
+    margin: 0;
+  }
+  dd {
+    font-size: 14px;
+    text-align: right;
+    white-space: nowrap;
+  }
+  small {
+    grid-column: 2;
+    margin: 0;
+    text-align: right;
+  }
+}
+// Cards from 720px wide (672px inside the padding): Now beside Forecast, Forecast in two columns.
+@container poolHeader (min-width: 672px) {
+  .statsBlock {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 40px;
+  }
+  .statsHeading {
+    margin-bottom: 6px !important;
+  }
+  .statsGroup {
+    min-width: 0;
+  }
+  // Facts are content-sized and left-aligned; they share one row whenever the card has room and
+  // wrap only when it hasn't.
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    > div {
+      display: block;
+    }
+    dt {
+      margin-bottom: 4px;
+      white-space: nowrap;
+    }
+    dd {
+      font-size: 15px;
+      text-align: left;
+    }
+    small {
+      text-align: left;
+    }
+  }
+}
+
+// Phone limit rows put each label on its own line, so the 7.5em label column only widened the grid
+// past a 320px card and clipped the values ("62." for "62.8%"). The bar still spans the same width
+// wherever the card is wider. (Accounts are C3's: drop this if C3 reworks the grid.)
+@media (max-width: 640px) {
+  .limits {
+    grid-template-columns: 4em minmax(24px, 1fr) minmax(4.6em, max-content);
+  }
+}
+
+// At 1100px the account table's tracks (name 18vw = 198px, 16px gaps) left its columns 30px wider
+// than the grid, clipping it (found by the new laptop-1100 case). The name track's 160px floor and
+// 12px gaps fit. (Accounts are C3's: drop this if C3 reworks the tracks.)
+@media (min-width: 901px) and (max-width: 1199px) {
+  .pool:not([data-minimized='true']) {
+    --name-track: 160px;
+    .accountHead,
+    .account > summary {
+      column-gap: 12px;
+    }
+  }
+}
+/* C3 */
+// Low: the value keeps its normal colour; the red icon and bar and the visible word carry it.
+.lowMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.lowWord {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+// The icon, "Low" and the value stay on one line in every layout. A short column gives up bar
+// width (see the P1 block), never text.
+.limits li[data-low='true'] strong {
+  white-space: nowrap;
+}
+// Stale: the clock and the amber word stay together, and so does the timestamp; the line may wrap
+// between them on a narrow row or in a longer language, never out of the row.
+.staleWord {
+  white-space: nowrap;
+}
+// A phone row has no room beside the chevron for the whole line, so it starts at the row's edge.
+@media (max-width: 640px) {
+  .account[data-status='stale'] .accountStatus {
+    grid-column: 1 / -1;
+    font-size: 13px;
+  }
+}
+.staleIcon {
+  margin-inline-end: 4px;
+  vertical-align: -2px;
+}
+// One caveat per provider Accounts section, after the list and its Show more footer.
+.renewalCaveat {
+  margin: 0;
+  padding: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+// Minimized wide list: the C block at the end of this file lays it out.
+.compactHead {
+  display: none;
+}
+/* C2 */
+// From 641px the options wrapper takes no part in layout: its controls stay toolbar items.
+.viewOptions {
+  display: contents;
+}
+.groupLabel {
+  display: none;
+}
+@media (max-width: 640px) {
+  // The overlay hangs under the Options button (the toolbar's last row) and floats over the
+  // cards, so opening it shifts nothing.
+  .toolbar {
+    position: relative;
+  }
+  .viewOptions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: calc(100vw - 32px);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 12px;
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow);
+  }
+  .viewOptions:not([data-open]) {
+    display: none;
+  }
+  .groupLabel {
+    display: block;
+    color: var(--text-secondary);
+  }
+  // The date row holds the range and its steps; the Options button takes the full row below.
+  .dateNavigation {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .dateNavigation .optionsToggle {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+    padding-block: 8px;
+    text-align: left;
+    line-height: 1.3;
+  }
+}
+/* P1 */
+// Table cells: a low value is wider than the 3.6em value column, so its cell sizes the column to
+// the icon, word and percentage and leaves the bar whatever remains.
+@media (min-width: 901px) {
+  .pool:not([data-minimized='true']) .account > summary > .limits li[data-low='true'] {
+    grid-template-columns: max-content minmax(8px, 1fr);
+    column-gap: 6px;
+  }
+}
+// Phone Options button: a trailing chevron-down that flips while the overlay is open, like the
+// app's other disclosure controls (Collapsible, Select).
+.optionsChevron {
+  flex: none;
+  margin-inline-start: auto;
+  transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+}
+.optionsToggle[aria-expanded='true'] .optionsChevron {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .optionsChevron {
+    transition: none;
+  }
+}
+// 901-1199px, balance-less tables: 8px column gaps (instead of 12px) and a matching 56px reserve in
+// the limit tracks (5 gaps of 8px plus 16px of slack, so the last header label still fits) give a
+// low cell room for its icon, word and percentage and still a visible bar.
+@media (min-width: 901px) and (max-width: 1199px) {
+  .pool:not([data-minimized='true']) [data-balance-column='false'] {
+    .accountHead,
+    .account > summary {
+      column-gap: 8px;
+      grid-template-columns:
+        20px var(--name-track) var(--plan-track)
+        repeat(
+          var(--limit-cols),
+          minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 56px) / 3))
+        );
+    }
+  }
+}
+/* G */
+// Rate views: the label sits on one line above the number, whose unit shares its baseline.
+.headline[data-rate='true'] {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+// Combined card, 901px up: the chart view select sits right before the graph toggle, which ends at
+// the card's content edge (the select's auto margin pushes both to the right).
+@media (min-width: 901px) {
+  .graphHeader {
+    column-gap: 8px;
+  }
+  .combinedOptions + .reorder {
+    margin-left: 0;
+  }
+}
+// Phones: the heading and the toggle keep one row, so a long heading wraps inside its cell and never
+// pushes the toggle down (S1); the select takes the row below.
+@media (max-width: 640px) {
+  .graphHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    > h2 {
+      grid-area: 1 / 1;
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+    }
+    > .reorder {
+      grid-area: 1 / 2;
+    }
+    > .combinedOptions {
+      grid-area: 2 / 1 / 3 / -1;
+    }
+  }
+}
+/* H */
+// Phone card header (640px and below): row 1 is the title, account count and status chip, wrapping
+// only when they don't fit; row 2 holds the action pills; the headline starts on its own row below.
+@media (max-width: 640px) {
+  .poolTitle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+  }
+  // The count and chip become items of the title row, so each moves to the next line on its own.
+  .poolMeta {
+    display: contents;
+  }
+}
+
+@media (max-width: 900px) {
+  // Panel order here is limits, Manual resets across the full row, Usage, Billing (PoolCard puts
+  // the reset section first in the DOM at this width).
+  .accountFacts section[data-tone='accent'] {
+    grid-column: 1 / -1;
+  }
+}
+
+// Laptops (1100px and wider screens whose drawer is narrower than the panel's own 1100px threshold):
+// Usage, Billing and Manual resets sit side by side, in that order, the accent column a little wider.
+// From a 1100px drawer the panel's own layout (S3) takes over, so this never applies there.
+@media (min-width: 1100px) {
+  @container (max-width: 1099px) {
+    .accountFacts > div > div {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.3fr);
+      align-items: start;
+    }
+    .accountFacts section,
+    .accountFacts section[data-tone='accent'] {
+      grid-column: auto;
+      display: block;
+      dl {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  }
+}
+
+// Loading skeleton, phones: the loaded page's rows. Utility (Show emails, Auto-refresh), tabs, date,
+// Options; a Combined card with a heading and toggle row and a select row; provider cards with a
+// title, count and chip row and a row of pills. Wide screens keep the placeholders they had.
+@media (min-width: 641px) {
+  .page {
+    .loadingLink,
+    .loadingAction,
+    .loadingOptions,
+    .loadingToggle,
+    .loadingSelect,
+    .loadingCount,
+    .loadingChip,
+    .loadingPills {
+      display: none;
+    }
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    .loadingLink {
+      flex: none;
+      width: 98px;
+      height: 44px;
+    }
+    .loadingAction {
+      height: 44px;
+    }
+    .loadingControls {
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    // The loaded cards pad 12px here.
+    .loading {
+      padding: 12px;
+    }
+    .loadingControls .loadingRow {
+      gap: 6px;
+    }
+    // The tabs and date row carry inline heights; the loaded controls are 44px tall.
+    .loadingControls .loadingRow > *,
+    .loadingDate {
+      height: 44px !important;
+    }
+    .loadingSegment,
+    .loadingSegmentWide,
+    .loadingSelects {
+      display: none;
+    }
+    .loadingDate {
+      border-radius: 999px !important;
+    }
+    .loadingOptions {
+      width: 100%;
+      height: 44px;
+    }
+    .loadingHead {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      > h2 {
+        grid-column: 1;
+        grid-row: 1;
+      }
+    }
+    .loadingToggle {
+      grid-column: 2;
+      grid-row: 1;
+      width: 150px;
+      height: 44px;
+    }
+    .loadingSelect {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      width: 190px;
+      height: 44px;
+    }
+    .loadingHead > .loadingStatus {
+      grid-column: 1 / -1;
+      grid-row: 3;
+    }
+    .loadingIdentity {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .loadingCount {
+      width: 72px;
+      height: 20px;
+    }
+    .loadingChip {
+      width: 128px;
+      height: 26px;
+    }
+    .loadingPills {
+      display: flex;
+      flex-basis: 100%;
+      gap: 8px;
+    }
+    .loadingPill {
+      width: 140px;
+      height: 44px;
+    }
+  }
+}
+
+/* R */
+// Phone roster toolbar: search, sort, each filter chip, then the count, one full-width row each.
+// A chip's long rule wording wraps inside its pill instead of clipping.
+@media (max-width: 640px) {
+  .rosterTools {
+    > * {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+    select {
+      width: 100%;
+    }
+    .rosterCount {
+      flex-basis: 100%;
+    }
+  }
+  .page .rosterTools .rosterLow {
+    justify-content: flex-start;
+    min-height: 44px;
+    padding-block: 8px;
+    text-align: start;
+    white-space: normal;
+  }
+}
+
+/* A */
+// Accounts summary: label/value pairs in one wrapping group. A pair wraps as a unit, never inside,
+// and its value keeps the Manual resets style (weight 500, tabular figures).
+.summaryFact {
+  max-width: 100%;
+  white-space: nowrap;
+}
+.accountSummary .summaryLabel {
+  color: var(--text-secondary);
+}
+.accountSummary .summaryValue {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+/* C */
+// Minimized wide list: Account | active window remaining | other low limits. Closed rows and their
+// header are left-aligned and content-sized; the tracks are measured once for the whole page
+// (useSharedMinimizedTracks) so every row in every card shares them. Opened rows span the card.
+@media (min-width: 901px) {
+  .pool[data-minimized='true'] {
+    --compact-cols: var(--compact-account-track, fit-content(40ch))
+      var(--compact-value-track, minmax(14ch, max-content)) minmax(0, 1fr);
+    .accountGrid {
+      margin: 4px 0 8px;
+      border-block: 1px solid var(--hairline);
+    }
+    .compactHead {
+      display: grid;
+      grid-template-columns: var(--compact-cols);
+      column-gap: 16px;
+      padding: 6px 0;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      span:first-child {
+        padding-inline-start: 28px;
+      }
+      span:nth-child(2) {
+        text-align: right;
+      }
+    }
+    // The name truncates beyond 28ch; its reset chip never wraps below it.
+    .account:not([open]) .accountLabel {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+    .account:not([open]) .accountText {
+      min-width: 0;
+      max-width: 28ch;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account:not([open]) .accountResetMarker {
+      flex: none;
+      margin-left: 0;
+    }
+    .account:not([open]) > summary {
+      grid-template-columns: var(--compact-cols);
+      gap: 0 16px;
+      .accountDisclosure {
+        grid-column: 1;
+        grid-row: 1;
+      }
+      > .accountName {
+        grid-column: 1;
+        grid-row: 1;
+        align-self: center;
+        padding-inline-start: 28px;
+      }
+      // A status line sits under the row and takes no part in sizing the Account column.
+      > .accountStatus {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        padding-inline-start: 28px;
+        contain: inline-size;
+      }
+      > strong {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: center;
+        justify-self: end;
+        white-space: nowrap;
+      }
+      // Other low limits sit inline and wrap only when the card runs out of room.
+      > .limits {
+        grid-column: 3;
+        grid-row: 1;
+        align-self: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 24px;
+        margin: 0;
+        li[data-counted='true'] {
+          display: none;
+        }
+        li {
+          flex: 0 1 auto;
+          min-width: 0;
+          flex-wrap: wrap;
+          > span:first-child {
+            white-space: normal;
+          }
+        }
+        strong {
+          margin-left: auto;
+          white-space: nowrap;
+        }
+      }
+    }
+  }
+}
+/* B */
+// Phone account rows (900px and below). The header holds the chevron, name, chip and plan. The
+// limits follow as blocks, the active window first: one line (label left, value right) over its
+// bar, and a limit's reset line directly under its bar. The list takes no box of its own, so the
+// stale line sits directly under the active block, and every bar track spans the block's full width.
+// A closed row of a minimized card keeps its compact list (no data-phone-blocks).
+.unavailableWord {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.limitBar[data-empty] {
+  display: none;
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  // Rows without blocks keep label | bar | value on one line.
+  .limits li strong {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .limits li .limitBar {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+@media (max-width: 900px) {
+  .account[data-phone-blocks] {
+    > summary {
+      grid-template-columns: 20px minmax(0, 1fr) minmax(4.6em, max-content);
+      row-gap: 3px;
+      padding-block: 4px;
+      > strong {
+        display: none;
+      }
+      > .accountName {
+        grid-column: 2 / -1;
+      }
+      > .accountStatus {
+        grid-row: 3;
+      }
+      > .limits {
+        display: contents;
+        > li {
+          grid-column: 2 / -1;
+          grid-template-columns: subgrid;
+          row-gap: 2px;
+          // The label may run under the shared value column (its own value is short) but leaves
+          // room for its value ("Low" value: icon, word and figure), and wraps only where a narrow
+          // card needs it to.
+          > span:first-child {
+            grid-area: 1 / 1 / 2 / -1;
+            max-width: calc(100% - 3.4em - 8px);
+            line-height: 1.35;
+            white-space: normal;
+          }
+          &[data-low='true'] > span:first-child {
+            max-width: calc(100% - 7.4em - 8px);
+          }
+          > strong {
+            grid-area: 1 / 2;
+          }
+          // The track spans the block's whole width, under the label and value line, so the same
+          // value draws the same length in every row, whatever its value text or Low word.
+          > .limitBar {
+            grid-area: 2 / 1 / 3 / -1;
+          }
+          > small {
+            grid-area: 3 / 1 / 4 / -1;
+            color: var(--text-tertiary);
+            font-size: 13px;
+          }
+          // The active value spans both columns, so a wide "Low" value never widens the shared column
+          // and squeezes the other limits' labels. The active window's label and value keep weight 600,
+          // which marks the selected balance.
+          &[data-counted='true'] {
+            grid-row: 2;
+            > span:first-child,
+            > strong,
+            > em {
+              font-weight: 600;
+            }
+            > strong {
+              grid-column: 1 / -1;
+              justify-self: end;
+            }
+          }
+          // A missing or unlimited active window keeps its reason, with no track.
+          &[data-missing='true'][data-counted='true'] {
+            display: grid;
+            grid-template-columns: max-content minmax(0, 1fr);
+            column-gap: 8px;
+            > span:first-child {
+              grid-area: 1 / 1;
+              max-width: none;
+              color: var(--text-secondary);
+              white-space: nowrap;
+            }
+            > em {
+              grid-area: 1 / 2;
+              color: var(--text-secondary);
+              font-size: 14px;
+              font-style: normal;
+              text-align: right;
+            }
+          }
+        }
+      }
+    }
+    // The block says an unavailable window; the status line doesn't repeat it.
+    &[data-status='error'] .accountStatus,
+    &[data-status='missing-window'] .accountStatus {
+      display: none;
+    }
+    .limitDash {
+      display: none;
+    }
+    // Same amber as the wide table's "Weekly quota unavailable", with its warning icon.
+    .unavailableWord {
+      position: static;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      width: auto;
+      height: auto;
+      overflow: visible;
+      clip-path: none;
+      color: var(--warning-text);
+    }
+    .limitBar[data-empty] {
+      display: block;
+      border: 1px dashed var(--text-tertiary);
+      background: transparent;
+    }
+  }
+}
+
+// Phone provider header (640px and below): title, count and chip share a line while every card's fits;
+// when any card's doesn't, the page sets data-chip-line (usePhoneChipLine) and every card's chip takes
+// its own second line, so a page never mixes the two. The action row stays as shipped.
+@media (max-width: 640px) {
+  .pools[data-chip-line] .poolTitle {
+    display: grid;
+    grid-template-columns: auto minmax(0, auto) minmax(0, 1fr);
+    align-items: center;
+    .badge {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
 }

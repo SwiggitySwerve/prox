@@ -9,6 +9,7 @@ Council decision: use a self-styled `FactPanel` primitive for read-only account 
 - Facts use `dl > div > dt + dd`.
 - Each fact explicitly declares a state: known; estimated with a required visible basis; not reported with a required visible reason; or not applicable with a required reason.
 - “Estimated” and “Not reported” are visible words. Critical context never depends on a tooltip or an em dash.
+- Exception (S7): on the Quota Management page each estimated renewal says “Estimated · from start date”, and one caveat per provider Accounts section carries “annual plans differ”. Other pages keep the full basis sentence.
 - Section titles sit above facts. An optional header action includes visually hidden account context. Its `aria-describedby` points to the always-visible section note.
 - The panel has no border or background. At most one section has `tone="accent"`, using the host's `--fact-accent`: 1px border at 35%, 8% fill, 12px padding, 8px radius.
 - Container queries provide four shared subgrid columns at 720px or wider, two at 440–719px, and label-left/value-right rows below 440px. Titles span the columns. Coarse-pointer actions have 44px targets.
@@ -37,9 +38,9 @@ Claude:
 
 - Reuse the plan profile request for billing. The gate is `!profileAttempts.has(id) || now - max(planObservedAt, profileAttempts.get(id)) >= 6h`.
 - Read once after restart even when the stored plan is fresh. Record billing before returning for an unknown plan.
-- Estimate renewal only for an active subscription, using the next monthly anniversary of its creation date, clamped to the month's length. Label it Estimated and explain the basis; annual plans can differ.
+- Estimate renewal only for an active subscription, using the next monthly anniversary of its creation date, clamped to the month's length. Label it Estimated and explain the basis; annual plans can differ. On the Quota Management page the basis is the short “from start date” and the annual-plan caveat is shown once per Accounts section (S7).
 
-Render three drawer sections: Usage, Billing and Manual resets. Usage contains Last reading, the window reset when not already shown, Predicted empty and Burn rate (3h). Billing uses Renews, Ends, Next plan, Payment overdue and Active since as applicable. Missing billing says Not reported with its reason; no subscription says No paid plan.
+Render three drawer sections: Usage, Billing and Manual resets. At ≤ 900px an opened row reads, from the limits down: Manual resets (spanning the full row), Usage, Billing, in the visual and the DOM order, with one reset section mounted per open account; this applies on the Quota Management page only, so the shared panel keeps its own order elsewhere. From 1100px wide screens whose drawer is narrower than the panel's own 1100px threshold show Usage, Billing and Manual resets side by side, in that order; a drawer of 1100px or more keeps the three-column facts with the accent column on the right (S3). Usage contains Last reading, the window reset when not already shown, Predicted empty and Burn rate (3h). Billing uses Renews, Ends, Next plan, Payment overdue and Active since as applicable. Missing billing says Not reported with its reason; no subscription says No paid plan.
 
 Move Use reset to the Manual resets header while preserving lazy credential loading on disclosure, spent markers, disabled reasons, provider spend paths and confirmations. Keep the closed-row “Manual resets (N)” marker and existing `<details>` / `<summary>` elements; add no nested disclosures. Keep existing `reset_*` translation keys and update all six locales with identical interpolation contracts.
 
