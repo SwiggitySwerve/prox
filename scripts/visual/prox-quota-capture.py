@@ -5,6 +5,7 @@ import asyncio
 import colorsys
 import json
 import hashlib
+import io
 import math
 import re
 import time
@@ -1542,7 +1543,7 @@ async def check_filter_chip(context, url, route_api, name, state):
 R_TOOLBAR = "() => {" + R_JS + r"""
   const out = [], tools = [...document.querySelectorAll('article')].map(toolsIn).filter(Boolean), canvas = document.createElement('canvas').getContext('2d');
   if (!tools.length) return [{why: 'no roster toolbar found'}];
-  const kind = e => e.matches('input[type="search"]') ? 'search' : e.tagName === 'SELECT' ? 'sort' : e.tagName === 'BUTTON' ? 'chip' : e.matches('[class*="__rosterCount___"]') ? 'count' : 'other';
+  const kind = e => e.matches('label') && e.querySelector('input[type="search"]') ? 'search' : e.tagName === 'SELECT' ? 'sort' : e.tagName === 'BUTTON' ? 'chip' : e.matches('[class*="__rosterCount___"]') ? 'count' : 'other';
   for (const t of tools) {
     const card = t.closest('article').querySelector('h2')?.textContent, kids = [...t.children].filter(shown), kinds = kids.map(kind).join();
     if (!/^search,sort(,chip)+,count$/.test(kinds)) { out.push({card, why: 'controls are not search, sort, chip(s), count', kinds}); continue; }
@@ -1560,8 +1561,10 @@ R_TOOLBAR = "() => {" + R_JS + r"""
         for (const q of range.getClientRects()) if (q.left < r.left - 0.5 || q.right > r.right + 0.5 || q.top < r.top - 0.5 || q.bottom > r.bottom + 0.5) { out.push({card, what, why: 'text leaves its box'}); break; }
       }
       if (kind(k) === 'sort' || kind(k) === 'search') {
-        canvas.font = st.font;
-        const text = kind(k) === 'sort' ? k.selectedOptions[0].textContent : k.placeholder, room = r.width - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight) - (kind(k) === 'sort' ? 24 : 0);
+        // The search field is a label wrapping its input: the visible label must fit with 48px left to type in.
+        const label = kind(k) === 'search' ? k.querySelector('span') : null;
+        canvas.font = label ? getComputedStyle(label).font : st.font;
+        const text = kind(k) === 'sort' ? k.selectedOptions[0].textContent : label.textContent, room = r.width - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight) - (kind(k) === 'sort' ? 24 : 48);
         if (canvas.measureText(text).width > room) out.push({card, what, why: `"${text}" is wider than its ${room.toFixed(0)}px of room`});
       }
     });
@@ -1922,8 +1925,11 @@ A_SUMMARY_JS = "() => {" + C3_HELPERS + r"""
         facts.push([label.textContent.trim(),value.textContent.trim()]);
         const vs=getComputedStyle(value),fs=parseFloat(getComputedStyle(item).fontSize),r=rects[i];
         if(vs.fontWeight!=='500'||!/tabular-nums/.test(vs.fontVariantNumeric))out.push({provider,label:label.textContent,why:'value is not weight 500 with tabular figures',weight:vs.fontWeight,numeric:vs.fontVariantNumeric});
-        const lr=label.getBoundingClientRect(),vr=value.getBoundingClientRect();
-        if(Math.abs(lr.top-vr.top)>3||r.height>fs*1.9)out.push({provider,label:label.textContent,why:'a pair breaks internally'});
+        // Stacked pair: the label sits directly above its value, both start at the pair's left edge, and neither wraps.
+        const lr=label.getBoundingClientRect(),vr=value.getBoundingClientRect(),ls=getComputedStyle(label);
+        if(vr.top<lr.bottom-1||vr.top-lr.bottom>8||Math.abs(lr.left-vr.left)>1)out.push({provider,label:label.textContent,why:'the label is not directly above its value',labelBottom:Math.round(lr.bottom),valueTop:Math.round(vr.top)});
+        if(lr.height>parseFloat(ls.fontSize)*1.9||vr.height>parseFloat(vs.fontSize)*1.9)out.push({provider,label:label.textContent,why:'a label or value wraps inside its pair'});
+        if(parseFloat(vs.fontSize)>=15||parseFloat(vs.fontSize)<=parseFloat(ls.fontSize))out.push({provider,label:label.textContent,why:'the pair is not one step below the Now and Forecast facts (value under 15px, label smaller than its value)',value:vs.fontSize,label_:ls.fontSize});
         if(r.right>box.right+0.5||r.left<box.left-0.5||r.right>innerWidth+0.5)out.push({provider,label:label.textContent,why:'a pair overflows its container',right:Math.round(r.right),container:Math.round(box.right),viewport:innerWidth});
       }
       const tops=rects.map(r=>Math.round(r.top));
@@ -1974,6 +1980,134 @@ async def check_summary_facts(page, context, url, route_api, name, state):
             finally:
                 await fresh.close()
     return out
+
+
+# H1-C checks (caption type, search label, rate-view balance). Each has its own JSON key, registered in H1C_KEYS
+# for the summary and the exit gate. A check that finds nothing to measure where it applies fails.
+H1C_KEYS = ("captionFailures", "searchLabelFailures", "rateBalanceFailures")
+H1C_CAPTION_CASES = ("wide", "laptop", "narrow", "expanded", "drain", "expanded-1100", "laptop-1100")
+H1C_CAPTION_JS = "() => {" + C3_HELPERS + r"""
+  const picks = [
+    ['axis tick', '[class*="__grid___"] text'], ['axis unit', 'text[class*="__axisUnit___"]'],
+    ['legend', '[class*="__legend___"]'], ['latest reading', '[class*="__chartReadout___"]'],
+    ['resets line', 'ul[aria-label="Limits"] li > small'], ['counts toward total', '[class*="__accountHead___"] small'],
+  ];
+  const out = [];
+  for (const [cat, sel] of picks) for (const e of document.querySelectorAll(sel)) {
+    if (!shown(e)) continue;
+    // An SVG label's CSS size is in user units; the chart's viewBox is its CSS width, so the scale is 1, but measure it anyway.
+    const scale = e instanceof SVGGraphicsElement ? (e.getScreenCTM()?.a || 1) : 1;
+    const boxes = [], w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+    while (w.nextNode()) {
+      if (!w.currentNode.textContent.trim()) continue;
+      const r = document.createRange(); r.selectNodeContents(w.currentNode);
+      for (const b of r.getClientRects()) if (b.width > 2 && b.height > 2) boxes.push({x: b.x + scrollX, y: b.y + scrollY, w: b.width, h: b.height});
+    }
+    out.push({cat, text: e.textContent.trim().slice(0, 40), size: parseFloat(getComputedStyle(e).fontSize) * scale, boxes});
+  }
+  return out;
+}"""
+
+
+async def check_captions(page, name, state, width):
+    """H1-C2: the small grey captions (axis ticks and unit, legends, "Latest reading", a limit's "Resets" line, "counts
+    toward total") are at least 13px and read at 5.5:1 or better against what they sit on, measured from the pixels."""
+    if name not in H1C_CAPTION_CASES:
+        return []
+    found = await page.evaluate(H1C_CAPTION_JS)
+    shot = Image.open(io.BytesIO(await page.screenshot(full_page=True, animations="disabled"))).convert("RGB")
+    out = []
+    need = ["axis tick", "axis unit", "legend", "latest reading"]
+    if width >= 901:
+        need.append("counts toward total")
+    if state == "expanded":
+        need.append("resets line")
+    # Raising the size must not make one caption run into another of its kind (a Resets line into the next column's).
+    for i, a in enumerate(found):
+        for b in found[i + 1:]:
+            if a["cat"] != b["cat"]:
+                continue
+            for p in a["boxes"]:
+                for q in b["boxes"]:
+                    dx = min(p["x"] + p["w"], q["x"] + q["w"]) - max(p["x"], q["x"])
+                    dy = min(p["y"] + p["h"], q["y"] + q["h"]) - max(p["y"], q["y"])
+                    if dx > 1 and dy > 2:
+                        out.append(dict(cat=a["cat"], text=a["text"], why=f"overlaps another {a['cat']} ({b['text']!r}) by {dx:.0f}px"))
+    for cat in need:
+        if not any(f["cat"] == cat for f in found):
+            out.append(dict(why=f"no {cat} to measure"))
+    for f in found:
+        if f["size"] < 12.99:
+            out.append(dict(cat=f["cat"], text=f["text"], why=f"font size {f['size']:.1f}px, under 13px"))
+        worst = None
+        for box in f["boxes"]:
+            colours = pixels(shot, box)
+            if not colours:
+                continue
+            bg = colours.most_common(1)[0][0]
+            fg = max(colours, key=lambda c: ratio(c, bg))
+            worst = min(worst, ratio(fg, bg)) if worst is not None else ratio(fg, bg)
+        if worst is None:
+            out.append(dict(cat=f["cat"], text=f["text"], why="no painted pixels to measure"))
+        elif worst < 5.5:
+            out.append(dict(cat=f["cat"], text=f["text"], why=f"contrast {worst:.2f}:1, under 5.5:1"))
+    return out
+
+
+async def check_search_label(page, name, state):
+    """H1-C3: with text typed, the roster search field still has a visible label element associated with it (the
+    field's <label>), in view, beside the typed text rather than over it, and the field is named by it."""
+    if name not in ("many", "many-search-narrow"):
+        return []
+    search = page.locator('article input[type="search"]').first
+    if not await search.count():
+        return [dict(why="no roster search field to measure")]
+    await search.scroll_into_view_if_needed()
+    await search.fill("gra")
+    got = await page.evaluate("""() => {
+      const input = document.querySelector('article input[type="search"]'), label = input.labels[0], out = [];
+      if (!input.value) out.push({why: 'no text typed'});
+      const span = label && label.querySelector('span');
+      if (!span || !span.textContent.trim()) return out.concat({why: 'the field has no visible label text'});
+      const s = span.getBoundingClientRect(), i = input.getBoundingClientRect(), v = {w: innerWidth, h: innerHeight};
+      if (!span.checkVisibility({checkVisibilityCSS: true}) || s.width < 1) out.push({why: 'the label is not visible'});
+      if (s.left < 0 || s.right > v.w || s.top < 0 || s.bottom > v.h) out.push({why: 'the label is not in view', rect: [s.left, s.top, s.right, s.bottom].map(Math.round)});
+      if (s.right > i.left + 1) out.push({why: 'the label overlaps the typed text'});
+      return out.concat({text: span.textContent.trim(), ok: true});
+    }""")
+    out = [f for f in got if not f.get("ok")]
+    label = next((f["text"] for f in got if f.get("ok")), None)
+    if label and not await page.get_by_role("searchbox", name=label, exact=True).count():
+        out.append(dict(why=f"the field is not named by its visible label {label!r}"))
+    await search.fill("")
+    return out
+
+
+async def check_rate_balance(page, name, state):
+    """H1-C4: a rate view's balance is the headline's context line (no "Now" heading over a single fact): it sits under
+    the rate, its number has the value style, and its unit has the same muted style as "points/h"."""
+    if state not in ("drain", "burn"):
+        return []
+    return await page.evaluate("() => {" + C1_PRELUDE + r"""
+      const out = []; let measured = 0;
+      if ([...document.querySelectorAll('article [class*="__statsHeading___"]')].some(h => shown(h) && h.textContent.trim() === 'Now')) out.push({why: 'a Now heading still stands over the single balance fact'});
+      const probe = parent => { const p = document.createElement('span'); p.style.cssText = 'display:inline-block;width:0;height:0'; parent.appendChild(p); const y = p.getBoundingClientRect().bottom; p.remove(); return y; };
+      for (const card of document.querySelectorAll('article')) {
+        const who = card.querySelector('h2')?.textContent, h = card.querySelector('[class*="__headline___"]'), line = h && h.querySelector('[class*="__headlineBalance___"]');
+        if (!line) { out.push({who, why: 'no balance line under the headline'}); continue; }
+        const strong = h.querySelector('strong'), unit = strong.querySelector('small'), b = line.querySelector('b'), small = line.querySelector('small');
+        if (!b || !small || !unit) { out.push({who, why: 'balance line lacks its number or unit, or the headline its unit'}); continue; }
+        measured++;
+        if (line.getBoundingClientRect().top < strong.getBoundingClientRect().bottom - 1) out.push({who, why: 'balance line is not under the headline number'});
+        const us = getComputedStyle(unit), ss = getComputedStyle(small), bs = getComputedStyle(b), ns = getComputedStyle(strong);
+        if (us.color !== ss.color || us.fontWeight !== ss.fontWeight || us.fontSize !== ss.fontSize) out.push({who, why: 'the balance unit style differs from "points/h"', headline: [us.color, us.fontWeight, us.fontSize], balance: [ss.color, ss.fontWeight, ss.fontSize]});
+        if (parseInt(bs.fontWeight) < 500 || bs.color !== ns.color || !/tabular-nums/.test(bs.fontVariantNumeric)) out.push({who, why: 'the balance number is not in the value style', weight: bs.fontWeight, color: bs.color});
+        const drift = Math.abs(probe(b) - probe(small));
+        if (drift > 2) out.push({who, why: `balance unit baseline ${drift.toFixed(1)}px off its number's`});
+      }
+      if (!measured) out.push({why: 'no rate headline with a balance line to measure'});
+      return out;
+    }""")
 
 
 A_CHIP_JS = "(idxs) => {" + C3_HELPERS + r"""
@@ -2624,6 +2758,9 @@ async def main():
                 results[name]["rosterToolbarFailures"] = await check_roster_toolbar(context, args.url, route_api, name, state)
                 results[name]["summaryFactFailures"] = await check_summary_facts(page, context, args.url, route_api, name, state)
                 results[name]["statusChipFailures"] = await check_status_chip(page, context, args.url, route_api, name, state)
+                results[name]["captionFailures"] = await check_captions(page, name, state, width)
+                results[name]["searchLabelFailures"] = await check_search_label(page, name, state)
+                results[name]["rateBalanceFailures"] = await check_rate_balance(page, name, state)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -2862,7 +2999,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + H1C_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

@@ -416,33 +416,30 @@ export function PoolCard({
             )}
           </strong>
           {mode === 'remaining' && headlineContext}
+          {/* A rate view's one other measured fact, the balance, is the headline's context line:
+              its number in the value style, "of 300 points" in the same muted unit style as "points/h". */}
+          {mode !== 'remaining' && (
+            <p className={styles.headlineBalance}>
+              <span>{t('quota_pool.account_remaining', { window: windowLabel })}</span>{' '}
+              <b>{number(pool.remainingPoints)}</b>{' '}
+              <small>{t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}</small>
+            </p>
+          )}
         </div>
-        {/* Every view has the same two groups: "Now" holds the one measured fact the headline
-            doesn't show (the burn rate, or in rate views the balance), "Forecast" the projections. */}
+        {/* Remaining has two groups: "Now" holds the one measured fact the headline doesn't show
+            (the burn rate), "Forecast" the projections. Rate views keep their balance under the headline. */}
         <div className={styles.statsBlock} data-split={showNow || undefined}>
-          {showNow && (
+          {showNow && mode === 'remaining' && (
             <div className={styles.statsGroup}>
               <p className={styles.statsHeading}>{t('quota_pool.now_group')}</p>
               <dl className={styles.stats}>
-                {mode === 'remaining' ? (
-                  <div>
-                    <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
-                    <dd>
-                      {number(pool.burnPointsPerHour)}
-                      {pool.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
-                    </dd>
-                  </div>
-                ) : (
-                  <div>
-                    <dt>{t('quota_pool.account_remaining', { window: windowLabel })}</dt>
-                    <dd>
-                      {number(pool.remainingPoints)}{' '}
-                      <small>
-                        {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
-                      </small>
-                    </dd>
-                  </div>
-                )}
+                <div>
+                  <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
+                  <dd>
+                    {number(pool.burnPointsPerHour)}
+                    {pool.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
+                  </dd>
+                </div>
               </dl>
             </div>
           )}
@@ -578,14 +575,16 @@ export function PoolCard({
           <div className={styles.rosterTools}>
             {showRosterControls && (
               <>
-                <input
-                  type="search"
-                  className={styles.rosterSearch}
-                  value={rosterQuery}
-                  onChange={(event) => setRosterQuery(event.target.value)}
-                  placeholder={t('quota_pool.account_search')}
-                  aria-label={t('quota_pool.account_search')}
-                />
+                {/* The label stays in view whatever is typed; it is the field's accessible name, so a
+                    placeholder would only repeat it. */}
+                <label className={styles.rosterSearch}>
+                  <span className={styles.rosterSearchLabel}>{t('quota_pool.account_search')}</span>
+                  <input
+                    type="search"
+                    value={rosterQuery}
+                    onChange={(event) => setRosterQuery(event.target.value)}
+                  />
+                </label>
                 <select
                   value={rosterSort}
                   onChange={(event) => setRosterSort(event.target.value as AccountSort)}
