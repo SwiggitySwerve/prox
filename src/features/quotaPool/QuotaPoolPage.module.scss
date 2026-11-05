@@ -2912,26 +2912,7 @@ $pool-error: #ff5252;
   .account > summary:active {
     background: var(--fill-hover);
   }
-  // Forecast facts read label over value, as on wide cards, in one group that wraps between pairs.
-  .statsBlock > .statsGroup:last-child .stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 28px;
-    > div {
-      display: block;
-    }
-    dt {
-      margin-bottom: 4px;
-      white-space: nowrap;
-    }
-    dd {
-      font-size: 15px;
-      text-align: left;
-    }
-    small {
-      text-align: left;
-    }
-  }
+  // Now and Forecast facts read label over value, as on wide cards; the H2-C block lays them out.
 }
 
 /* H1-C */
@@ -2976,27 +2957,6 @@ $pool-error: #ff5252;
   flex: none;
   color: var(--text-secondary);
   white-space: nowrap;
-}
-// Rate views: the balance is the headline's context line. Its number takes the value style and its unit
-// the same muted unit style as "points/h" beside the headline number.
-.headlineBalance {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 6px;
-  color: var(--text-secondary);
-  font-size: 14px;
-  b {
-    color: var(--text-primary);
-    font-size: 20px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-  }
-  small {
-    color: var(--text-secondary);
-    font-size: 16px;
-    font-weight: 400;
-  }
 }
 
 /* H1-T */
@@ -3410,5 +3370,74 @@ $pool-error: #ff5252;
   }
   .staleDot {
     display: none;
+  }
+}
+
+/* H2-C */
+// Now group in rate views: "248.4" in the value style, " of 300 points" in the headline unit's muted
+// style (same colour and weight as "points/h").
+.stats dd small {
+  color: #b5b5b5;
+  font-weight: 400;
+}
+// Phone cards (header container under 672px): every Now and Forecast fact reads label over value, in one
+// wrapping grid of two columns where the values fit; a date that doesn't fit takes a full row.
+@container poolHeader (max-width: 671px) {
+  .stats {
+    display: grid;
+    // 154px holds the longest date at the phone's 14px value size, so two columns form from a 320px
+    // fact area (a 390px phone has 324px) and a narrower one stacks single.
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 154px), 1fr));
+    gap: 8px 12px;
+    > div {
+      display: block;
+    }
+    dt {
+      margin-bottom: 4px;
+      white-space: nowrap;
+    }
+    dd {
+      font-size: 14px;
+      text-align: left;
+    }
+    small {
+      text-align: left;
+    }
+  }
+}
+// Phone summary facts sit in an even grid: two equal columns (three facts share one row) so none is left
+// alone on a second line. A pair that is wider than its column keeps its own width and wraps as a unit.
+@media (max-width: 640px) {
+  .accountSummary {
+    gap: 8px 16px;
+    > .summaryFact {
+      flex: 1 1 calc(50% - 8px);
+      min-width: max-content;
+    }
+    // Three pairs share one row when they fit; the spare width is split evenly.
+    &:has(> :nth-child(3):last-child) > .summaryFact {
+      flex-basis: max-content;
+    }
+  }
+}
+// Data collection: label-above-value pairs in one row, the Accounts summary facts' style.
+.footerFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  > div {
+    display: flex;
+    flex-direction: column;
+  }
+  dt {
+    color: var(--caption-color);
+    font-size: var(--caption-size);
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+  }
+  dd {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
   }
 }

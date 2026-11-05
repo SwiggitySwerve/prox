@@ -79,21 +79,21 @@ At most one [R§3], directly under the page header.
 
 ### Summary: headline
 
-- Remaining view: `type-display` number with its two-line caption beside it: metric ("Weekly remaining") and context ("of 300 points"). Drain and Burn views: the one-line label ("Drain rate (3h)") sits above the number, and "points/h" shares the number's baseline. Label then number is also the DOM order, so the label never sits beside the number and long numbers never push it. In those views the balance ("Weekly remaining **248.4** of 300 points") is the headline's context line under the rate: the number in the value style (500, tabular) and "of 300 points" in the same muted unit style as "points/h". Nothing stands under a "Now" heading there, because it would hold a single fact.
+- Remaining view: `type-display` number with its two-line caption beside it: metric ("Weekly remaining") and context ("of 300 points"). Drain and Burn views: the one-line label ("Drain rate (3h)") sits above the number, and "points/h" shares the number's baseline. Label then number is also the DOM order, so the label never sits beside the number and long numbers never push it. In those views the balance is the card's titled "Now" group, the same heading and fact styles as the Remaining view's Now group: label "Weekly remaining" above the value "**248.4**" in the value style (500, tabular), followed by " of 300 points" in the same muted unit style (colour and weight) as "points/h". It is not folded into a run-in line under the headline.
 - A thin capacity meter under the headline (Remaining view): remaining / capacity in the provider colour, with a tick at the 20% low threshold.
 - **Withheld total:** the word ("Withheld", or "Not summed" on the combined card) in the headline number's weight (600) and a muted neutral colour, at 28px so the context label stays beside it, on the number's baseline; label line 1 unchanged; line 2 becomes the reason: "Withheld · 2 of 3 current" (or "Not summed" on the combined card). No meter. The notice explains.
 
 ### Summary: facts
 
 - A labelled group: section heading names the window ("Weekly forecast" / "5-hour forecast") — this also answers "are these weekly facts?" in the 5-hour view.
-- Four fixed slots. Every slot reserves three lines: label (`type-label`), value (`type-body` 500), aside (`type-label`). From 720px, Now sits beside Forecast and Forecast's three facts share one row whenever the card has room for them (headline, Now and the facts all on one row only at ≥ 1200px card width); a card too narrow for three wraps the last fact rather than overflowing. The capture's `forecastRowFailures` check holds this at 1280, 1440 and 1920. Below 720px the Now facts stack full width under the headline as a label-left, value-right list; at 900px and below the Forecast facts read label over value, as on wide cards, in one group that wraps between pairs. Fact columns are sized to their content (at most 16rem), left-aligned directly after the headline block, and never stretched across the card or right-aligned. A fact's value never wraps or clips.
+- Four fixed slots. Every slot reserves three lines: label (`type-label`), value (`type-body` 500), aside (`type-label`). From 720px, Now sits beside Forecast and Forecast's three facts share one row whenever the card has room for them (headline, Now and the facts all on one row only at ≥ 1200px card width); a card too narrow for three wraps the last fact rather than overflowing. The capture's `forecastRowFailures` check holds this at 1280, 1440 and 1920. Below 720px (the card's header width under 672px) every Now and Forecast fact reads label over value, as on wide cards, in one wrapping grid of two columns where the values fit (154px per column, so a 390px phone holds two dates side by side and a 320px phone stacks them); one fact grammar, never a label-left row beside stacked facts. Fact columns are sized to their content (at most 16rem), left-aligned directly after the headline block, and never stretched across the card or right-aligned. A fact's value never wraps or clips.
 
 | Slot | Remaining view | Drain / Burn view | Combined card |
 |---|---|---|---|
 | 1 | Pool empty | Pool empty | Claude remaining |
 | 2 | First account empty | First account empty | Codex remaining |
 | 3 | Next reset (aside: +100 · in 1d 4h) | Next reset | First pool empty |
-| 4 | Burn rate (3h) | none: the balance (248.4 of 300) is the headline's context line | Next reset |
+| 4 | Burn rate (3h) (Now) | Weekly remaining (Now): 248.4 of 300 points | Next reset |
 
 - Withheld forecast: the slots keep their labels; values read "—" and the aside reads "Needs all accounts". Next reset still shows.
 - One horizon: "After Nov 10" means the projection reaches the forecast horizon without emptying. The chart shows the same horizon (edge label "empty after Nov 10 →") so the fact and the chart never disagree.
@@ -106,7 +106,8 @@ See `07-charts.md` and `06-accounts.md`.
 
 ```
 ABOUT THIS DATA
-History since   Oct 24, 12:00 PM UTC        Last collection   Oct 27, 12:05 PM UTC · failed (HTTP 503)
+History since            Last collection attempt
+Oct 24, 12:00 PM UTC     Oct 27, 12:05 PM UTC · failed (HTTP 503)
 ▸ How these numbers work
 ```
 

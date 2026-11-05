@@ -849,11 +849,10 @@ describe('stacked chart geometry', () => {
       );
     // Remaining: the burn rate is the measured fact; the headline is the balance.
     expect(card(pool, 'remaining')).toMatch(/<p>Now<\/p><dl><div><dt>Burn rate \(3h\)<\/dt>/);
-    // Rate views: the headline is the rate, so the balance is its context line and Now has nothing to hold.
+    // Rate views: the headline is the rate, so the balance is the one fact Now holds, label over value.
     expect(card(pool, 'burn')).toMatch(
-      /<\/strong><p[^>]*><span>Weekly remaining<\/span> <b>73<\/b> <small>of 200 points<\/small><\/p>/
+      /<p[^>]*>Now<\/p><dl[^>]*><div><dt>Weekly remaining<\/dt><dd>73 <small>of 200 points<\/small><\/dd><\/div><\/dl>/
     );
-    expect(card(pool, 'burn')).not.toContain('<p>Now</p>');
     // A withheld forecast with no burn rate has nothing measured to add, so Now is left out.
     expect(card({ ...pool, burnPointsPerHour: null }, 'remaining')).not.toContain('<p>Now</p>');
   });
@@ -1099,9 +1098,10 @@ describe('pool presentation', () => {
     expect(markup).toContain(
       '<span data-counted="true">Weekly remaining<small>counts toward total</small></span>'
     );
-    // The column heading and the row's own limit name it once each; the section heading doesn't
-    // repeat it and the table has no duplicate balance column.
-    expect(markup.match(/Weekly remaining/g)).toHaveLength(2);
+    // The column heading, the row's own limit and the phone note ("Weekly remaining counts toward total")
+    // name it once each; the section heading doesn't repeat it and the table has no duplicate balance column.
+    expect(markup.match(/Weekly remaining/g)).toHaveLength(3);
+    expect(markup).toContain('Weekly remaining counts toward total');
   });
   test('a low balance is marked on the row as well as on its limit', async () => {
     await i18n.changeLanguage('en');
@@ -1137,7 +1137,7 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toMatch(/>5-hour limit<\/span> <b[^>]*>1 of 2<\/b>/);
+    expect(markup).toMatch(/>With a 5-hour limit<\/span> <b[^>]*>1 of 2<\/b>/);
     expect(markup).not.toContain('loaded ·');
   });
   test('a partial pool counts the accounts missing data and offers to show them; the combined card offers one refresh', async () => {
@@ -1326,8 +1326,8 @@ describe('pool presentation', () => {
     expect(markup).not.toContain('Saved observation');
     expect(markup).not.toContain('Forecast ready');
     expect(markup).not.toContain('>Current<');
-    // Rate views keep the balance as the headline's context line.
-    expect(markup).toContain('<span>Weekly remaining</span> <b>73</b> <small>of 200 points</small>');
+    // Rate views keep the balance as the Now group's fact.
+    expect(markup).toContain('<dt>Weekly remaining</dt><dd>73 <small>of 200 points</small></dd>');
     expect(markup).toContain('of 200 points');
     // Rates carry their unit on the number line.
     expect(markup).toContain('3<small> points/h</small>');
