@@ -2543,7 +2543,6 @@
     "counts_toward_total_phone": "Giới hạn in đậm được tính vào tổng",
     "billing_estimate_from_start": "theo ngày bắt đầu",
     "billing_estimate_caveat": "Ngày gia hạn được ước tính theo ngày bắt đầu của từng gói; gói năm có thể khác.",
-    "other_low_limits": "Các giới hạn thấp khác",
     "limit_resets": "Đặt lại {{date}}",
     "expand_accounts": "Mở rộng tất cả",
     "collapse_accounts": "Thu gọn tất cả",

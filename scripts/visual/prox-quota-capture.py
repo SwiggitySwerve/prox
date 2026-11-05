@@ -168,7 +168,7 @@ def fixture(state):
             recorded[-1] = dict(recorded[-1], remainingPoints=None, burnPointsPerHour=None,
                                 drainPointsPerHour=None)
         if state == "long-name":
-            # A name beyond 28ch, beside a (usable) reset chip: the minimized list truncates it with a title.
+            # A name beyond 28ch, beside a (usable) reset chip: it wraps in its Account cell, minimized or not.
             accounts[0]["identifier"] = "a.deliberately.long.credential.name.for.a.shared.workstation@example-corporate.test"
         pools.append(pool)
     if state == "multi-low":
@@ -340,12 +340,13 @@ const textRight=node=>{const r=document.createRange();r.selectNodeContents(node)
 """
 # The fixtures that carry no account rows have nothing for the account checks to measure.
 C3_NO_ROSTER = ("empty", "loading", "error")
-# Cases captured with every card minimized, so the wide minimized list is measured.
+# Cases captured with every card minimized: minimizedProximityFailures compares each card's Accounts table with its
+# expanded self (F, h2: Minimize shrinks the graph only). Phones and tablets are included.
 MINIMIZED_CASES = (
     "stale-minimized", "many-low-minimized", "multi-low-minimized",
     "stale-minimized-1920", "many-low-minimized-1920", "multi-low-minimized-1920",
     "wide-minimized-1100", "wide-minimized-1280", "wide-minimized-1440", "wide-minimized-1920",
-    "long-minimized-901",
+    "long-minimized-901", "multi-low-minimized-820", "multi-low-minimized-narrow", "many-minimized-narrow",
 )
 # Extra pages (fixture state, width, language) the minimized check also runs on, opened fresh.
 MINIMIZED_SWEEPS = {"wide-minimized-1440": [("multi-low", 1440, lng) for lng in ("ru", "vi")]}
@@ -547,88 +548,79 @@ async def renewal_caveat_failures(page, context, url, route_api, name, state):
     return out
 
 
-MINIMIZED_PROXIMITY_JS = "() => {" + C3_HELPERS + r"""
-      const out=[],cards=[...document.querySelectorAll('article')].filter(a=>a.querySelector('section[class*="__accounts___"] details'));
-      if(!cards.length)out.push({why:'no card with account rows'});
-      const same=(xs,tol=1)=>xs.length<2||Math.max(...xs)-Math.min(...xs)<=tol;
-      const R=e=>e.getBoundingClientRect(),over=(a,b)=>a.left<b.right-0.5&&a.right>b.left+0.5&&a.top<b.bottom-0.5&&a.bottom>b.top+0.5;
-      const cols=[];let allHeights=[],lowSeen=0;
-      for(const a of cards){
-        const card=a.querySelector('h2').textContent,cs=getComputedStyle(a),box=R(a),
-          contentW=box.width-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-parseFloat(cs.borderLeftWidth)-parseFloat(cs.borderRightWidth),
-          head=[...a.querySelectorAll('[class*="__compactHead___"] > span')].filter(shown),
-          rows=[...a.querySelectorAll('details:not([open])')].filter(shown);
-        if(head.length!==3||!rows.length){out.push({card,why:'missing header or rows'});continue;}
-        const hb=head.map(R);
-        cols.push({card,left:hb[0].left,w0:hb[0].width,w1:hb[1].width,right1:hb[1].right});
-        for(const h of head)if(h.scrollWidth>h.clientWidth+1||R(h).height>20)out.push({card,why:'column header wraps or is clipped: '+h.textContent});
-        const probe=document.createElement('span');probe.style.cssText='position:absolute;visibility:hidden;width:1ch';rows[0].querySelector('summary').appendChild(probe);
-        const ch=R(probe).width;probe.remove();
-        const heights=[],rights=[],valueLefts=[];
-        for(const r of rows){
-          const s=r.querySelector('summary'),nameCell=s.querySelector(':scope > [class*="__accountName___"]'),text=nameCell.querySelector('[class*="__accountText___"]'),
-            chip=nameCell.querySelector('[class*="__accountResetMarker___"]'),strong=s.querySelector(':scope > strong'),limits=s.querySelector(':scope > ul'),
-            label=text.textContent.trim(),rr=R(r),nb=R(nameCell);
-          // Equal heights: a row with no status line and its low limits on one line.
-          const lows=[...s.querySelectorAll(':scope > ul > li[data-low="true"]')].filter(li=>li.dataset.counted!=='true'),shownLows=lows.filter(shown);
-          const oneLine=shownLows.every(li=>Math.abs(R(li).top-R(shownLows[0]).top)<4&&R(li).height<26);
-          if(!shown(s.querySelector('[class*="__accountStatus___"]'))&&oneLine)heights.push(rr.height);
-          // Account track: at most 40ch, left of the value track; items stay inside it.
-          if(nb.width>40*ch+1)out.push({card,label,why:'Account track is '+(nb.width/ch).toFixed(1)+'ch wide'});
-          if(Math.abs(nb.left-hb[0].left)>1)out.push({card,label,why:'Account cell not under its header'});
-          if(Math.abs(R(strong).right-hb[1].right)>1)out.push({card,label,why:'value edge differs from its header'});
-          if(limits&&shown(limits)&&Math.abs(R(limits).left-hb[2].left)>1)out.push({card,label,why:'other-low cell not under its header'});
-          // Text lost: the name may end in an ellipsis only with its full text in a title.
-          if(text.scrollWidth>text.clientWidth+1&&text.title!==label)out.push({card,label,why:'name truncated without a title'});
-          if(text.scrollWidth<=text.clientWidth+1&&text.title)out.push({card,label,why:'title on a name that is not truncated'});
-          if(R(text).width>28*ch+1)out.push({card,label,why:'name wider than 28ch'});
-          // The chip stays on the name's line, whole.
-          const items=[text,chip].filter(Boolean);
-          if(chip){const c=R(chip),t=R(text);if(c.top>t.bottom-2||c.height>26||chip.scrollWidth>chip.clientWidth+1)out.push({card,label,why:'reset chip wraps below the name or is clipped'});}
-          // Proximity (per column): the rightmost Account-cell item to the leftmost value, within the card.
-          const right=Math.max(...items.map(e=>R(e).right));rights.push(right);valueLefts.push(R(strong).left);
-          if(hb[1].left-right<0)out.push({card,label,why:'Account item overlaps the value column'});
-          // Nothing overlaps; the value and every low limit are whole.
-          const parts=[...items,strong,...shownLows].map(R);
-          for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++)if(over(parts[i],parts[j]))out.push({card,label,why:'row items overlap'});
-          if(strong.scrollWidth>strong.clientWidth+1||R(strong).height>24)out.push({card,label,why:'value wraps or is clipped'});
-          if(!/\d/.test(strong.textContent)&&!strong.textContent.trim())out.push({card,label,why:'value is empty'});
-          lowSeen+=shownLows.length;
-          if(lows.length!==shownLows.length)out.push({card,label,why:'a low limit is hidden'});
-          for(const li of shownLows){
-            if(!li.firstElementChild.textContent.trim()||!/%/.test(li.querySelector('strong').textContent)||!li.querySelector('[class*="__limitWarning___"] svg')||!li.querySelector('[class*="__lowWord___"]'))out.push({card,label,why:'low limit lacks label, value, icon or Low word'});
-            const sb=R(li.querySelector('strong'));if(sb.height>24||li.querySelector('strong').scrollWidth>li.querySelector('strong').clientWidth+1)out.push({card,label,why:'low limit value wraps or is clipped'});
-          }
-          const lb=limits&&shown(limits)?R(limits):null;
-          if(lb&&lb.right>R(s).right+1)out.push({card,label,why:'other low limits overflow the row'});
+MINIMIZED_TABLE_JS = "async (lng = 'en') => {" + C3_HELPERS + r"""
+      // F (h2): Minimize shrinks the graph only. Each minimized card's Accounts table is measured as it is, then the
+      // card is expanded and measured again; every cell keeps its box relative to the Accounts section (1px).
+      const out=[],R=e=>e.getBoundingClientRect(),settle=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,200))));
+      const over=(a,b)=>a.left<b.right-0.5&&a.right>b.left+0.5&&a.top<b.bottom-0.5&&a.bottom>b.top+0.5;
+      const CELLS=['[class*="__accountHead___"]','[class*="__accountHead___"] > span','[class*="__phoneCountsNote___"]','details',
+        'details > summary','summary > *','summary [class*="__accountLabel___"] > *','summary > ul > li','summary > ul > li > *',
+        'summary > ul > li > strong *','[class*="__accountFacts___"]','[class*="__accountFacts___"] section'].join(',');
+      const snap=section=>{const base=R(section);return [...section.querySelectorAll(CELLS)].map((e,i)=>{const r=R(e);
+        return {key:i+':'+e.tagName.toLowerCase()+'.'+((String(e.className.baseVal??e.className).match(/__(\w+?)___/)||[,''])[1]),
+          shown:shown(e),x:r.left-base.left,y:r.top-base.top,w:r.width,h:r.height};});};
+      const diff=(card,phase,a,b)=>{
+        if(a.length!==b.length){out.push({card,phase,why:`minimized table has ${a.length} cells, expanded ${b.length}`});return;}
+        let n=0;for(let i=0;i<a.length;i++){const p=a[i],q=b[i];
+          // A cell that isn't drawn (display none or contents) has no box of its own to compare.
+          if(p.key!==q.key||p.shown!==q.shown||(p.shown&&['x','y','w','h'].some(k=>Math.abs(p[k]-q[k])>1))){
+            if(n++<6)out.push({card,phase,why:'a table cell moved, resized or changed visibility when the graph was minimized',minimized:p,expanded:q});}}
+        if(n>6)out.push({card,phase,why:`${n-6} more cells differ`});};
+      // Nothing overlaps in a closed minimized row: name, chip, plan, status, value, and each limit's label, value, bar and
+      // reason, by their painted boxes (a text's glyphs; a bar's track), since a label's cell may run under its value's.
+      const paint=e=>{if(!e.textContent.trim())return R(e);const r=document.createRange();r.selectNodeContents(e);return r.getBoundingClientRect();};
+      const overlaps=(card,a)=>{const found=[];
+        for(const row of [...a.querySelectorAll('details:not([open])')].filter(shown)){
+          const s=row.querySelector(':scope > summary'),label=(row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent||'?').trim();
+          const parts=[...s.querySelectorAll(':scope [class*="__accountLabel___"] > *, :scope [class*="__accountPlan___"], :scope > [class*="__accountStatus___"], :scope > strong, :scope > ul > li > span:first-child, :scope > ul > li > strong, :scope > ul > li > [class*="__limitBar___"], :scope > ul > li > em')]
+            .filter(e=>shown(e)&&!getComputedStyle(e).clipPath.startsWith('inset(50%')&&paint(e).width>2&&paint(e).height>2);
+          for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++)
+            if(!parts[i].contains(parts[j])&&!parts[j].contains(parts[i])&&over(paint(parts[i]),paint(parts[j])))
+              found.push({card,row:label,why:'row items overlap',a:parts[i].className||parts[i].tagName,b:parts[j].className||parts[j].tagName,
+                aText:parts[i].textContent.trim().slice(0,40),bText:parts[j].textContent.trim().slice(0,40),aBox:paint(parts[i]).toJSON(),bBox:paint(parts[j]).toJSON()});
         }
-        const proximity=Math.min(...valueLefts)-Math.max(...rights);
-        if(proximity>160)out.push({card,why:'rightmost Account item to the leftmost value is '+proximity.toFixed(0)+'px'});
-        if(!same(heights))out.push({card,why:'closed rows differ in height: '+[...new Set(heights.map(h=>h.toFixed(1)))].join(',')});
-        allHeights=allHeights.concat(heights);
-        // Opening a row restores every limit and fact, across the card's content width.
-        const row=rows[0],before=row.querySelectorAll(':scope > summary > ul > li').length;row.open=true;
-        const grid=R(row.parentElement),opened=R(row),section=a.querySelector('section[class*="__accounts___"]'),ss=getComputedStyle(section),
-          inner=contentW-parseFloat(ss.paddingLeft)-parseFloat(ss.paddingRight);
-        if(Math.abs(opened.width-grid.width)>1||Math.abs(opened.width-inner)>1)out.push({card,why:'opened row is '+opened.width.toFixed(1)+'px, card content is '+inner.toFixed(1)});
-        const limits=[...row.querySelectorAll(':scope > summary > ul > li')];
-        if(!limits.every(shown)||limits.length!==before||!shown(row.querySelector('[class*="__accountFacts___"]')))out.push({card,why:'open row did not restore its limits and facts'});
-        row.open=false;
+        return found;};
+      const cards=[...document.querySelectorAll('article')].filter(a=>a.querySelector('section[class*="__accounts___"] details'));
+      if(!cards.length)out.push({why:'no card with account rows'});
+      for(const a of cards){
+        const card=a.querySelector('h2').textContent.trim(),section=a.querySelector('section[class*="__accounts___"]'),
+          toggle=a.querySelector('button[class*="__graphToggle___"]'),graph=toggle&&document.getElementById(toggle.getAttribute('aria-controls')),
+          plot=()=>graph?.querySelector('svg[role="img"]');
+        if(!toggle||!graph||!plot()){out.push({card,why:'no graph toggle or plot to measure'});continue;}
+        if(toggle.getAttribute('aria-pressed')!=='true'||a.dataset.minimized!=='true'){out.push({card,why:'the card is not minimized'});continue;}
+        if(lng==='en'&&!/^Expand graph/.test(toggle.textContent.trim()))out.push({card,why:'the minimized pill reads "'+toggle.textContent.trim()+'"'});
+        const rows=[...section.querySelectorAll('details')].filter(shown);
+        if(!rows.length||rows.some(r=>r.open)){out.push({card,why:'needs closed account rows to compare'});continue;}
+        // The chart area is collapsed and sits clear of the Accounts section.
+        const minPlot=R(plot()).height,minGraph=R(graph);
+        if(minGraph.bottom>R(section).top+0.5)out.push({card,why:'the minimized graph overlaps the Accounts section'});
+        const minOverlaps=overlaps(card,a);
+        const minClosed=snap(section);rows[0].open=true;await settle();const minOpen=snap(section);rows[0].open=false;await settle();
+        toggle.click();await settle();
+        if(toggle.getAttribute('aria-pressed')!=='false'||(lng==='en'&&!/^Minimize graph/.test(toggle.textContent.trim())))out.push({card,why:'expanding the graph did not flip the pill to Minimize graph'});
+        const fullPlot=R(plot()).height;
+        // Every overlap fails; one the expanded table has as well is marked, since Minimize didn't cause it.
+        const fullOverlaps=overlaps(card,a).map(f=>f.row+'|'+f.aText+'|'+f.bText);
+        for(const f of minOverlaps)out.push(fullOverlaps.includes(f.row+'|'+f.aText+'|'+f.bText)?{...f,alsoExpanded:true}:f);
+        if(!(minPlot<fullPlot-50))out.push({card,why:`the minimized plot is ${minPlot.toFixed(0)}px, the expanded one ${fullPlot.toFixed(0)}px`});
+        const fullClosed=snap(section);rows[0].open=true;await settle();const fullOpen=snap(section);rows[0].open=false;await settle();
+        toggle.click();await settle();
+        if(toggle.getAttribute('aria-pressed')!=='true')out.push({card,why:'the card did not minimize again'});
+        diff(card,'closed',minClosed,fullClosed);
+        diff(card,'first row open',minOpen,fullOpen);
       }
-      if(cards.length&&!lowSeen)out.push({why:'no low limit to measure'});
-      if(!same(allHeights))out.push({why:'equal-height rows differ across cards'});
-      // Every provider card shares the same column tracks.
-      if(cols.length<2)out.push({why:'fewer than 2 minimized cards to compare'});
-      for(const k of ['left','w0','w1','right1'])if(!same(cols.map(c=>c[k])))out.push({why:'column '+k+' differs across cards: '+cols.map(c=>c[k].toFixed(1)).join(' / ')});
       return out;
     }"""
 
 
 async def minimized_width_failures(page, name):
-    """I5/C: minimized closed rows are left-aligned and content-sized on tracks shared by every row and card (<=160px from Account to value)."""
+    """F (h2): Minimize shrinks the graph only. In every minimized card the Accounts table, closed and with its first
+    row open, keeps every cell's box (1px, relative to the Accounts section) when the card's graph is expanded; the
+    minimized plot is at least 50px shorter than the expanded one and clear of the Accounts section; nothing in a
+    closed row overlaps; the pill reads Expand graph / Minimize graph with aria-pressed to match."""
     if name not in MINIMIZED_CASES:
         return []
-    return await page.evaluate(MINIMIZED_PROXIMITY_JS)
+    return await page.evaluate(MINIMIZED_TABLE_JS)
 
 
 async def minimized_sweep_failures(browser, url, name):
@@ -640,7 +632,7 @@ async def minimized_sweep_failures(browser, url, name):
             for button in await page.locator('button[class*="__graphToggle___"]').all():
                 await button.click()
             await page.wait_for_timeout(250)
-            out += [dict(page=f"{state}@{width}/{lng}", **f) for f in await page.evaluate(MINIMIZED_PROXIMITY_JS)]
+            out += [dict(page=f"{state}@{width}/{lng}", **f) for f in await page.evaluate(MINIMIZED_TABLE_JS, lng)]
         finally:
             await context.close()
     return out
@@ -2874,7 +2866,7 @@ W_TRACK_CASES = ("wide", "laptop", "laptop-1100", "many-low", "partial", "stale"
 W_UNAVAILABLE_CASES = {"partial": (390, True), "stacked-unavailable": (390, False),
                        "partial-narrow": (1440, True), "partial-affected-narrow": (1440, True)}
 W_HEADLINE_CASES = ("partial", "stale", "stacked-unavailable", "partial-narrow")
-W_TRACK_JS = "([isOpen, minimized, minTrack]) => {" + C1_PRELUDE + r"""
+W_TRACK_JS = "([isOpen, minTrack]) => {" + C1_PRELUDE + r"""
   const fails = [], pct = /(\d+(?:\.\d+)?)%/, r = e => e.getBoundingClientRect();
   let tracks = 0;
   for (const article of document.querySelectorAll('article')) {
@@ -2897,18 +2889,16 @@ W_TRACK_JS = "([isOpen, minimized, minTrack]) => {" + C1_PRELUDE + r"""
           const ratio = r(fill).width / b.width * 100;
           if (Math.abs(ratio - parseFloat(text[1])) > 2) fails.push({...at, why: `fill is ${ratio.toFixed(1)}% of its track but the value reads ${text[1]}%`});
           // The value text starts at one x in a column, whatever the Low mark beside it.
-          if (!minimized) {
-            const node = [...strong.querySelectorAll('*')].find(e => e.children.length === 0 && pct.test(e.textContent)) || strong, range = document.createRange();
-            range.selectNodeContents(node);
-            columns[id][columns[id].length - 1].valueLeft = range.getBoundingClientRect().left;
-          }
+          const node = [...strong.querySelectorAll('*')].find(e => e.children.length === 0 && pct.test(e.textContent)) || strong, range = document.createRange();
+          range.selectNodeContents(node);
+          columns[id][columns[id].length - 1].valueLeft = range.getBoundingClientRect().left;
         } else if (fill || text) fails.push({...at, why: 'a bar and its value text do not pair up'});
         if (b.width < minTrack) fails.push({...at, why: `the bar track is only ${b.width.toFixed(0)}px wide (at least ${minTrack}px here)`});
       }
       // A table with fewer limits still spreads them over the row: its last column ends near the row's right edge.
       const balance = summary.querySelector(':scope > strong');
       if (balance && shown(balance)) lastRight = Math.max(lastRight, r(balance).right);
-      if (!minimized && lastRight && contentRight - lastRight > 24) fails.push({who, row: label, why: `the last column ends ${(contentRight - lastRight).toFixed(0)}px short of the row's right edge`});
+      if (lastRight && contentRight - lastRight > 24) fails.push({who, row: label, why: `the last column ends ${(contentRight - lastRight).toFixed(0)}px short of the row's right edge`});
     }
     for (const [id, cells] of Object.entries(columns)) {
       const spread = key => Math.max(...cells.map(c => c[key])) - Math.min(...cells.map(c => c[key]));
@@ -2927,20 +2917,17 @@ async def check_wide_tracks(page, name, width):
     """W1/W2: from 901px, every bar track in a column of a provider card shares its left and right edges (1px), whatever
     the value or its Low mark; the fill is the printed value of the track (2 points); the value text starts at one x;
     the last column ends within 24px of the row's right edge (a two-limit table as well as a three-limit one); no
-    track is shorter than 100px at 1440 and up, 90px at 1280, 16px below. Closed and opened rows. A minimized card is measured in its opened rows, which have
-    no status slot (its closed rows draw no bars), so only the edges and the fill apply there."""
+    track is shorter than 100px at 1440 and up, 90px at 1280, 16px below. Closed and opened rows. A minimized card (F, h2:
+    Minimize shrinks the graph only) is measured exactly as an expanded one."""
     if name not in W_TRACK_CASES:
         return []
-    minimized = name in MINIMIZED_CASES
     # Bars stay long (S13): 100px from 1440, 90px at 1280, and the 16px floor below that.
     min_track = 100 if width >= 1440 else 90 if width >= 1280 else 16
     out = []
     for opened in (False, True):
         if opened:
             await h_expand_all(page)
-        elif minimized:
-            continue
-        out += [dict(open=opened, width=width, **f) for f in await page.evaluate(W_TRACK_JS, [opened, minimized, min_track])]
+        out += [dict(open=opened, width=width, **f) for f in await page.evaluate(W_TRACK_JS, [opened, min_track])]
     for _ in range(await page.get_by_role("button", name="Collapse all").count()):
         await page.get_by_role("button", name="Collapse all").first.click()
     return out
@@ -3051,7 +3038,7 @@ async def main():
     ap.add_argument("--minimize-cards", action="store_true")
     ap.add_argument("--capture-only", action="store_true")
     ap.add_argument("--assert-compact", action="store_true")
-    ap.add_argument("--compact-baseline", help="Evidence round whose account geometry must be preserved")
+    ap.add_argument("--compact-baseline", help="Unminimized evidence round whose account geometry a --minimize-cards run must match")
     args = ap.parse_args()
     out = ROOT / "docs/evidence/hillclimb" / args.round
     out.mkdir(parents=True, exist_ok=True)
@@ -3116,6 +3103,9 @@ async def main():
         ("wide-minimized-1440", "multi-low", 1440, 1000),
         ("wide-minimized-1920", "multi-low", 1920, 1280),
         ("long-minimized-901", "long-name", 901, 900),
+        ("multi-low-minimized-820", "multi-low", 820, 1000),
+        ("multi-low-minimized-narrow", "multi-low", 390, 844),
+        ("many-minimized-narrow", "many", 390, 844),
     ]
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
@@ -3460,10 +3450,10 @@ async def main():
                             results[name]['compactInteractions']=[]
                             for provider_index, section in enumerate(await page.locator('article section[class*="__accounts___"]').all()):
                                 closed=section.locator('details:not([open])')
+                                # Minimize shrinks the graph only (F, h2): a closed row shows the same limits either way.
+                                shown_limits="nodes=>nodes.map(n=>n.dataset.limitId+':'+n.checkVisibility()).join(',')"
+                                limits_before=[await row.locator('ul[aria-label="Limits"] li').evaluate_all(shown_limits) for row in await closed.all()]
                                 for row in await closed.all():
-                                    # A closed minimized row shows its low limits; from 901px the active window's own value
-                                    # sits in the primary column, so that limit isn't repeated among the other low limits.
-                                    assert await row.locator('ul[aria-label="Limits"] li').evaluate_all("(nodes,wide)=>nodes.every(n=>n.checkVisibility()===(n.dataset.low==='true'&&!(wide&&n.dataset.counted==='true')))", width >= 901)
                                     status=row.locator('[class*="__accountStatus___"]')
                                     if await row.get_attribute('data-status') != 'ok': assert await status.is_visible()
                                 if await closed.count():
@@ -3478,9 +3468,10 @@ async def main():
                                 card=page.locator('article').nth(provider_index)
                                 toggle=card.locator('button[class*="__graphToggle___"]')
                                 await toggle.click()
-                                for limits in await card.locator('details:not([open]) ul[aria-label="Limits"]').all():assert await limits.is_visible()
+                                limits_after=[await row.locator('ul[aria-label="Limits"] li').evaluate_all(shown_limits) for row in await closed.all()]
+                                assert limits_after==limits_before, f"{name}: toggling the graph changed the closed rows' limits"
                                 await toggle.click()
-                                results[name]['compactInteractions'].append(dict(providerIndex=provider_index, result='warnings retained; keyboard expansion and full-card restore passed'))
+                                results[name]['compactInteractions'].append(dict(providerIndex=provider_index, result='limits unchanged by the graph toggle; keyboard expansion passed'))
 
                     print(name, "captured", flush=True)
                     saved.write_text(json.dumps(results, indent=2)+"\n")
@@ -3489,10 +3480,8 @@ async def main():
                 # Exercise chart keyboard inspection after capturing the fixed
                 # visual state, so screenshots stay comparable.
                 interaction = {}
-                if name in MINIMIZED_CASES:
-                    # The wide minimized list has its own columns; minimizedProximityFailures measures them.
-                    pass
-                elif width >= 901:
+                # A minimized card's table is the expanded one (F, h2), so the same alignment holds.
+                if width >= 901:
                     # Table: every limit cell starts exactly under its column heading.
                     alignment = await page.locator('article section[class*="__accounts___"]').evaluate_all('''sections => sections.flatMap(section => {
                         const heads = [...section.querySelectorAll('[class*="__accountHead___"] > span')];
@@ -3516,7 +3505,7 @@ async def main():
                         });
                     })''')
                     assert all(cell['rightOffset'] < 1 and cell['lineOffset'] < 12 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
-                interaction["collapsed_labels_and_values_align"] = "see minimizedProximityFailures" if name in MINIMIZED_CASES else "passed"
+                interaction["collapsed_labels_and_values_align"] = "passed"
                 if state == "refresh-pending":
                     countdown = page.locator('[class*="__countdown___"]')
                     await countdown.filter(has_text="Auto-refresh in").wait_for(timeout=9000)
@@ -3683,22 +3672,21 @@ async def main():
             expected = baseline[name]["accountSections"]
             actual = result["accountSections"]
             assert len(actual) == len(expected), f"{name}: provider sections changed"
-            # Waived from 901px: the minimized list is a new grid (header row, value and other-low columns),
-            # so its heights and the low-limit alignment under the balance no longer match the old stack.
-            # Identity, balance and the warnings' label and value are still compared at every width.
-            wide = result["viewport"][0] >= 901
+            # Minimize shrinks the graph only (F, h2): a --minimize-cards run against an unminimized baseline round
+            # keeps every Accounts section, row, name and warning at the baseline's size and place (1px), at every width.
             for section, before in zip(actual, expected):
-                assert wide or section["height"] <= before["height"] + 0.5, f"{name}: account section grew"
+                assert abs(section["height"] - before["height"]) <= 1, f"{name}: account section height changed"
                 assert len(section["rows"]) == len(before["rows"]), f"{name}: account count changed"
                 for row, old in zip(section["rows"], before["rows"]):
                     assert row["name"] == old["name"] and row["balance"] == old["balance"], f"{name}: identity or balance changed"
-                    assert wide or row["height"] <= old["height"] + 0.5, f"{name}: account row grew"
-                    assert wide or row["nameHeight"] <= old["nameHeight"] + 0.5, f"{name}: name gained a line"
+                    assert abs(row["height"] - old["height"]) <= 1, f"{name}: account row height changed"
+                    assert abs(row["nameHeight"] - old["nameHeight"]) <= 1, f"{name}: name changed its line count"
+                    assert abs(row["balanceRight"] - old["balanceRight"]) <= 1, f"{name}: balance moved"
                     assert len(row["warnings"]) == len(old["warnings"]), f"{name}: warnings changed"
                     for warning, prior in zip(row["warnings"], old["warnings"]):
                         assert warning["label"] == prior["label"] and warning["value"] == prior["value"], f"{name}: warning meaning changed"
-                        assert wide or warning["height"] <= prior["height"] + 0.5, f"{name}: warning gained a line"
-                        assert wide or abs(warning["valueRight"] - row["balanceRight"]) <= 0.5, f"{name}: warning no longer aligns with its account balance"
+                        assert abs(warning["height"] - prior["height"]) <= 1, f"{name}: warning changed its height"
+                        assert abs(warning["valueRight"] - prior["valueRight"]) <= 1, f"{name}: warning value moved"
                 result["compactBaseline"] = args.compact_baseline
         saved.write_text(json.dumps(results, indent=2) + "\n")
     (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")

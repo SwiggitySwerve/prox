@@ -46,7 +46,7 @@ Manual resets 1   Usable now 2   Current 2   Stale 1
 
 ## Narrow (rows)
 
-One anatomy at every roster size, at 900px and below (closed rows of a minimized card keep their compact list):
+One anatomy at every roster size, at 900px and below, minimized or not (see "Minimized card"):
 
 ```
 ›  ada•••ce@ex•••.test  [Resets 1]
@@ -64,11 +64,12 @@ One anatomy at every roster size, at 900px and below (closed rows of a minimized
 - Unavailable: the block's value reads "Unavailable" in the same amber warning colour as the wide table's Unavailable cell, with the warning icon (`aria-hidden`), over an empty dashed track, and no separate "Weekly quota unavailable" line remains. A missing or unlimited active window keeps its reason ("Not reported", "No 5-hour limit") in the value place, with no percentage and no bar.
 - A low limit keeps the neutral value, red ⚠ and bar, and the visible word "Low" (S5). Stale adds one line, "◷ Stale · Last reading 11:00 AM", in amber with a clock icon, on one line directly under the name and plan line and above the first block, because the staleness belongs to the account, not to one limit; values and bars keep the normal colour and opacity (S6).
 
-## Minimized list (≥ 901px)
+## Minimized card
 
-- A minimized card's closed rows and their header row (Account | `<active window> remaining` | Other low limits) are left-aligned and content-sized, on the same column tracks in every minimized card on the page. The Account track is `min(max-content of name + reset chip, 40ch)`; the name ends in an ellipsis beyond 28ch (or where the card runs out of room) and then carries a `title` with the whole name; the chip never wraps below it. The value track is `max(14ch, header width)`. The other-low track takes the rest. Closed rows without a status line have equal height. The rightmost Account item in a card is at most 160px from the leftmost value in that card.
-- The primary column holds the active window's remaining value (weekly or 5-hour), right-aligned and on one line, with the low mark when it is low. The third column holds every other low limit, including Weekly Opus, as label, value, ⚠ and "Low"; several sit inline and wrap only when the card runs out of room, and none is hidden. It is empty when there are none. The reset chip stays in the Account cell, and "Expand all" stays beside the list header.
-- Opening a row restores every limit and fact; it spans the card's content width (the t15 fact panel, S3). At ≤ 900px the minimized list keeps its single bounded column.
+**Behaviour change, user-approved 2026-11-05 (round h2, job F).** "Minimize graph" shrinks the card's graph and nothing else. Until h2 it also swapped the Accounts table for a condensed list: on wide screens "Account | Weekly remaining | Other low limits", with no Plan, no bars and no healthy limits, and on phones a bare "71.4% / Weekly" list. Two table designs in one card read as two products, and that list is gone.
+
+- The Accounts section of a minimized card is the card's normal table at every width: the same header, columns, Plan, bars and limits, the same phone limit blocks, and the same opened-row panel. Every cell keeps its size and its place relative to the section within 1px (`minimizedProximityFailures`). Only the plot collapses, to its compact height, so everything under it moves up as a whole.
+- The pill keeps its labels and state: "Minimize graph" / "Expand graph", `aria-pressed`, and `aria-controls` on the plot.
 
 ## Estimated renewals (S7)
 

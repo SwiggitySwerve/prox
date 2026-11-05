@@ -692,7 +692,7 @@ $pool-error: #ff5252;
   align-items: start;
 }
 // The roster is one bounded list: a single outline, rules between rows.
-.pool:not([data-minimized='true']) .accountGrid {
+.pool .accountGrid {
   margin: 4px 0 8px;
   border-block: 1px solid var(--hairline);
   overflow: clip;
@@ -821,12 +821,7 @@ $pool-error: #ff5252;
 .account:not([open]) .limits small {
   display: none;
 }
-// A compact row (a closed row of a minimized card) shows the counted limit as the row's value, so
-// it doesn't repeat it in the list. Phone rows with blocks list it first (the B block).
 @media (max-width: 900px) {
-  .account:not([open]):not([data-phone-blocks]) .limits li[data-counted='true'] {
-    display: none;
-  }
   // The row's value is the limit the page is set to, so it leads: a step larger, named on the
   // line under it, and set apart from the per-limit bars, whose values drop to regular weight.
   .account > summary > strong {
@@ -1496,44 +1491,6 @@ $pool-error: #ff5252;
   }
 }
 
-// A minimized provider card keeps a compact account roster. Opening a row restores
-// every limit, plan and reset detail; warnings remain visible even while closed.
-.pool[data-minimized='true'] {
-  --compact-account-width: 28rem;
-  --compact-account-gap: 20px;
-
-  .accountGrid {
-    gap: 0 var(--compact-account-gap);
-  }
-  .account:not([open]) {
-    // Phones and tablets keep a bounded row; from 901px the list spans the card (C3 block).
-    @media (max-width: 900px) {
-      max-inline-size: var(--compact-account-width);
-    }
-    .accountPlan {
-      display: none;
-    }
-    > summary {
-      min-height: 36px;
-      padding: 4px 0;
-    }
-  }
-  @media (min-width: 901px) {
-    .accounts > h3 {
-      padding: 4px 0;
-    }
-    .expandAccounts {
-      min-height: 32px;
-      padding: 4px 8px;
-    }
-  }
-  @media (max-width: 900px) {
-    .account:not([open]) > summary {
-      min-height: 44px;
-    }
-  }
-}
-
 .page .expandAccounts {
   white-space: nowrap;
   flex-shrink: 0;
@@ -1602,32 +1559,6 @@ $pool-error: #ff5252;
     align-self: end;
   }
 }
-.pool[data-minimized='true'] .account:not([open]) .limits {
-  .limitBar {
-    display: none;
-  }
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  margin: 2px 0;
-  gap: 2px;
-  &:not(:has([data-low='true'])) {
-    display: none;
-  }
-  li:not([data-low='true']) {
-    display: none;
-  }
-  li {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
-  }
-  strong {
-    flex-shrink: 0;
-    font-size: 13px;
-  }
-}
 @media (max-width: 640px) {
   .accounts > h3 {
     display: grid;
@@ -1653,7 +1584,7 @@ $pool-error: #ff5252;
 
 // Wide screens: one heading row, then one line per account with a column per limit.
 @media (min-width: 901px) {
-  .pool:not([data-minimized='true']) {
+  .pool {
     // Sized from the table's own width, never from a row's content, so every row of a card has the
     // same columns. Plan fits "Plus · 100 points" (about 108px). Account is as wide as an address and
     // its reset badge (the cap), unless that would take the bars below their target (--bar-target,
@@ -1915,7 +1846,7 @@ $pool-error: #ff5252;
 // On a phone a long roster shows the active window, plus any low limit in the same block the
 // short rosters use; the other limits open with the row.
 @media (max-width: 640px) {
-  .pool:not([data-minimized='true']) .accountGrid[data-large='true'] .account:not([open]) .limits {
+  .pool .accountGrid[data-large='true'] .account:not([open]) .limits {
     &:not(:has([data-low='true'], [data-counted='true'])) {
       display: none;
     }
@@ -2241,7 +2172,7 @@ $pool-error: #ff5252;
 // than the grid, clipping it (found by the new laptop-1100 case). The name track's 160px cap keeps
 // it fitting. (Accounts are C3's: drop this if C3 reworks the tracks.)
 @media (min-width: 901px) and (max-width: 1199px) {
-  .pool:not([data-minimized='true']) {
+  .pool {
     --name-cap: 160px;
   }
 }
@@ -2286,10 +2217,6 @@ $pool-error: #ff5252;
   padding: 6px 0 0;
   color: var(--text-secondary);
   font-size: 13px;
-}
-// Minimized wide list: the C block at the end of this file lays it out.
-.compactHead {
-  display: none;
 }
 /* C2 */
 // From 641px the options wrapper takes no part in layout: its controls stay toolbar items.
@@ -2361,7 +2288,7 @@ $pool-error: #ff5252;
 // 901-1199px, balance-less tables: 8px column gaps (instead of 12px) give a low cell room for its
 // status slot, value and a visible bar.
 @media (min-width: 901px) and (max-width: 1199px) {
-  .pool:not([data-minimized='true']) .accountGrid[data-balance-column='false'] {
+  .pool .accountGrid[data-balance-column='false'] {
     --col-gap: 8px;
   }
 }
@@ -2601,113 +2528,11 @@ $pool-error: #ff5252;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-/* C */
-// Minimized wide list: Account | active window remaining | other low limits. Closed rows and their
-// header are left-aligned and content-sized; the tracks are measured once for the whole page
-// (useSharedMinimizedTracks) so every row in every card shares them. Opened rows span the card.
-@media (min-width: 901px) {
-  .pool[data-minimized='true'] {
-    --compact-cols: var(--compact-account-track, fit-content(40ch))
-      var(--compact-value-track, minmax(14ch, max-content)) minmax(0, 1fr);
-    .accountGrid {
-      margin: 4px 0 8px;
-      border-block: 1px solid var(--hairline);
-    }
-    .compactHead {
-      display: grid;
-      grid-template-columns: var(--compact-cols);
-      column-gap: 16px;
-      padding: 6px 0;
-      color: var(--text-tertiary);
-      font-size: 12px;
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-      span:first-child {
-        padding-inline-start: 28px;
-      }
-      span:nth-child(2) {
-        text-align: right;
-      }
-    }
-    // The name truncates beyond 28ch; its reset chip never wraps below it.
-    .account:not([open]) .accountLabel {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      flex-wrap: nowrap;
-    }
-    .account:not([open]) .accountText {
-      min-width: 0;
-      max-width: 28ch;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .account:not([open]) .accountResetMarker {
-      flex: none;
-      margin-left: 0;
-    }
-    .account:not([open]) > summary {
-      grid-template-columns: var(--compact-cols);
-      gap: 0 16px;
-      .accountDisclosure {
-        grid-column: 1;
-        grid-row: 1;
-      }
-      > .accountName {
-        grid-column: 1;
-        grid-row: 1;
-        align-self: center;
-        padding-inline-start: 28px;
-      }
-      // A status line sits under the row and takes no part in sizing the Account column.
-      > .accountStatus {
-        grid-column: 1 / -1;
-        grid-row: 2;
-        padding-inline-start: 28px;
-        contain: inline-size;
-      }
-      > strong {
-        grid-column: 2;
-        grid-row: 1;
-        align-self: center;
-        justify-self: end;
-        white-space: nowrap;
-      }
-      // Other low limits sit inline and wrap only when the card runs out of room.
-      > .limits {
-        grid-column: 3;
-        grid-row: 1;
-        align-self: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 2px 24px;
-        margin: 0;
-        li[data-counted='true'] {
-          display: none;
-        }
-        li {
-          flex: 0 1 auto;
-          min-width: 0;
-          flex-wrap: wrap;
-          > span:first-child {
-            white-space: normal;
-          }
-        }
-        strong {
-          margin-left: auto;
-          white-space: nowrap;
-        }
-      }
-    }
-  }
-}
 /* B */
 // Phone account rows (900px and below). The header holds the chevron, name, chip and plan. The
 // limits follow as blocks, the active window first: one line (label left, value right) over its
 // bar, and a limit's reset line directly under its bar. The list takes no box of its own, so the
 // stale line sits under the name and plan (H1-P), and every bar track spans the block's full width.
-// A closed row of a minimized card keeps its compact list (no data-phone-blocks).
 .unavailableWord {
   position: absolute;
   width: 1px;
@@ -3044,7 +2869,6 @@ $pool-error: #ff5252;
   .page .reorder button,
   .page .reorder button.graphToggle[aria-pressed='true'],
   .page .pool .expandAccounts,
-  .page .pool[data-minimized='true'] .expandAccounts,
   .page .combinedOptions select,
   .privacy,
   .accountLink {
@@ -3114,7 +2938,7 @@ $pool-error: #ff5252;
 /* H1-W */
 // Wide limit cells. A column that shows a Low mark or "Unavailable" on any row has a status slot on
 // every row, as wide as its widest mark: the real mark sits in it, and hidden ghosts size the rest.
-// Phones and the minimized compact list keep the mark inline in the value, so the wrapper takes no box.
+// Phones keep the mark inline in the value, so the wrapper takes no box.
 .limitStatus {
   display: contents;
 }
@@ -3148,12 +2972,7 @@ $pool-error: #ff5252;
   // "Unavailable" has no value beside it, so it runs on through the value column and 4px into the gap
   // before the bar: only what passes them (the value column, 3.6em of the cell's 14px = 50.4px, the
   // slot's 4px margin and those 4px) counts toward the status slot's width.
-  .pool:not([data-minimized='true'])
-    .account
-    > summary
-    > .limits
-    li
-    :is(.unavailableWord, .unavailableGhost) {
+  .pool .account > summary > .limits li :is(.unavailableWord, .unavailableGhost) {
     margin-inline-end: -58.4px;
   }
   .limitBar[data-empty] {
@@ -3163,8 +2982,7 @@ $pool-error: #ff5252;
   }
   // Hidden ghosts size a status slot to its widest mark: the same icon box, gap and word as the Low
   // mark, and as the Unavailable word.
-  .pool:not([data-minimized='true']) .account > summary > .limits li,
-  .pool[data-minimized='true'] .account[open] > summary > .limits li {
+  .pool .account > summary > .limits li {
     .statusGhost {
       display: inline-flex;
       align-items: center;
@@ -3186,7 +3004,7 @@ $pool-error: #ff5252;
       font-weight: inherit;
     }
   }
-  .pool:not([data-minimized='true']) .account > summary > .limits li {
+  .pool .account > summary > .limits li {
     .limitStatus {
       display: grid;
       align-items: center;
@@ -3202,8 +3020,7 @@ $pool-error: #ff5252;
     }
   }
   // The cell already says which limit is unavailable; the line under the name would say it twice.
-  .pool:not([data-minimized='true']) .account[data-unavailable-cell],
-  .pool[data-minimized='true'] .account[open][data-unavailable-cell] {
+  .pool .account[data-unavailable-cell] {
     &[data-status='error'],
     &[data-status='missing-window'] {
       > summary > .accountStatus {
@@ -3211,36 +3028,26 @@ $pool-error: #ff5252;
       }
     }
   }
-  // A minimized card's opened rows keep the shared value column of the base list. Its slot is the
-  // card's (every row reserves the widest mark), and its values share one width, so a Low row's bar
-  // ends where the others' do.
-  .pool[data-minimized='true'] .account[open] > summary > .limits li {
-    .limitStatus {
-      display: inline-grid;
-      align-items: center;
-      justify-items: start;
-      > * {
-        grid-area: 1 / 1;
-      }
-    }
-    .limitValue {
-      min-width: 3.6em;
-      text-align: right;
-    }
-  }
 }
 // Bars stay long (S13): each bar in the table is at least 100px from 1440 and 90px from 1280 (the
 // targets leave 2-4px for a slot a little wider than the 54px the tracks reserve). Account takes what
 // they leave, between its 160px floor and its cap; below 1280 the bars take what Account's cap leaves.
 @media (min-width: 1280px) {
-  .pool:not([data-minimized='true']) {
+  .pool {
     --bar-target: 94px;
     --col-gap: 10px;
   }
 }
 @media (min-width: 1440px) {
-  .pool:not([data-minimized='true']) {
+  .pool {
     --bar-target: 104px;
     --col-gap: 12px;
   }
+}
+
+/* H2-F */
+// The account name's own element (capture checks click it). Minimize no longer truncates it: it wraps
+// within its label like the rest of the table.
+.accountText {
+  overflow-wrap: anywhere;
 }
