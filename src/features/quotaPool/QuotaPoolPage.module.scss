@@ -1590,11 +1590,11 @@ $pool-error: #ff5252;
 @media (min-width: 901px) {
   .pool {
     // Sized from the table's own width, never from a row's content, so every row of a card has the
-    // same columns. Plan fits "Plus · 100 points" (about 108px). Account is as wide as an address and
-    // its reset badge (the cap), unless that would take the bars below their target (--bar-target,
-    // set by the width media blocks at the end).
+    // same columns. Plan fits "Ultra · 2,000 points" (about 125px) with 16px to spare after the column
+    // gap. Account is as wide as an address and its reset badge (the cap), unless that would take the
+    // bars below their target (--bar-target, set by the width media blocks at the end).
     --name-cap: clamp(160px, 18vw, 330px);
-    --plan-track: clamp(110px, 8vw, 140px);
+    --plan-track: clamp(134px, 8vw, 140px);
     --col-gap: 12px;
     --bar-target: 0px;
     .accountGrid {
