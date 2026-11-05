@@ -396,24 +396,47 @@ async def stale_dim_failures(page, state):
 
 
 async def stale_label_failures(page, state):
-    """I3: every stale row shows the amber "Stale" word, a clock icon and its timestamp on one line."""
+    """I3: every stale row shows the amber "Stale" word, a clock icon and its timestamp, inside its row."""
     if state != "stale":
         return []
-    return await page.evaluate("() => {" + C3_HELPERS + r"""
+    return await page.evaluate(STALE_JS, "en")
+
+
+# Phones and longer languages wrap the timestamp; it must still stay inside its row (390 English alone hid this).
+STALE_SWEEP = ((320, "en"), (390, "ru"), (390, "vi"))
+
+
+async def stale_sweep_failures(browser, url, name):
+    """I3 again at 320px and in ru and vi, on pages of their own (run once, from the stale-narrow case)."""
+    if name != "stale-narrow":
+        return []
+    out = []
+    for width, lng in STALE_SWEEP:
+        context, sweep = await open_fixture_page(browser, url, "stale", width, lng, None)
+        try:
+            out += [dict(f, width=width, lng=lng) for f in await sweep.evaluate(STALE_JS, lng)]
+        finally:
+            await context.close()
+    return out
+
+
+STALE_JS = "(lng) => {" + C3_HELPERS + r"""
       const out=[],rows=[...document.querySelectorAll('article details[data-status="stale"]')];
       if(!rows.length)out.push({why:'no stale row'});
       for(const row of rows){
         const where=row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent,status=row.querySelector('[class*="__accountStatus___"]');
         if(!status||!shown(status)){out.push({where,why:'status line is not visible'});continue;}
         const icon=status.querySelector('svg'),size=parseFloat(getComputedStyle(status).fontSize),box=status.getBoundingClientRect(),summary=row.querySelector('summary').getBoundingClientRect();
-        if(!/^Stale\b/.test(status.textContent.trim()))out.push({where,why:'status does not start with "Stale"'});
+        if(lng==='en'&&!/^Stale\b/.test(status.textContent.trim()))out.push({where,why:'status does not start with "Stale"'});
         if(!icon||icon.getAttribute('aria-hidden')!=='true'||!shown(icon)||!icon.matches('[class*="__staleIcon___"]'))out.push({where,why:'no visible aria-hidden clock icon'});
         if(!/\d{1,2}:\d{2}/.test(status.textContent))out.push({where,why:'no timestamp'});
-        if(box.height>size*1.8)out.push({where,why:'status wraps onto '+Math.round(box.height/size)+' lines'});
+        const word=status.querySelector('[class*="__staleWord___"]');
+        if(!word)out.push({where,why:'no stale word group'});
+        else if(icon&&Math.abs(icon.getBoundingClientRect().top-word.getBoundingClientRect().top)>size)out.push({where,why:'the clock and "Stale" are on different lines'});
         if(status.scrollWidth>status.clientWidth+1||textRight(status)>summary.right+1)out.push({where,why:'status overflows its row'});
       }
       return out;
-    }""")
+    }"""
 
 
 A_PAGED_CASES = ("many", "many-low", "many-narrow")  # rosters that offer Show more
@@ -1048,20 +1071,24 @@ G_SWEEPS = {
 }
 
 
-async def open_fixture_page(browser, url, state, width, lng, view):
+async def open_fixture_page(browser, url, state, width, lng, view, height=1000):
     """A fresh page on the fixture, in `state` at `width`; `view` is pressed in English first, then the language is set."""
     context = await browser.new_context(
-        viewport=dict(width=width, height=1000), device_scale_factor=1, is_mobile=width < 600,
+        viewport=dict(width=width, height=height), device_scale_factor=1, is_mobile=width < 600,
         has_touch=width < 600, locale="en-US", timezone_id="UTC", color_scheme="dark", reduced_motion="reduce",
     )
     page = await context.new_page()
 
     async def route_api(route):
         request_url = route.request.url
-        if "/credentials" in request_url:
+        if "/requests/api-call" in request_url:
+            await route.fulfill(status=400, json={"error": "Unexpected provider call in cancel-only fixture"})
+        elif "/credentials" in request_url:
             await route.fulfill(json={"files": []})
         elif "/prox/inventory" in request_url:
             await route.fulfill(json={"version": "fixture", "syncedAtMs": NOW, "sources": []})
+        elif "/prox/refresh" in request_url:
+            await route.fulfill(json=fixture(state))
         elif "/prox/pools" in request_url:
             query = parse_qs(urlparse(request_url).query)
             data = fixture(state)
@@ -1837,39 +1864,8 @@ async def check_skeleton_shape(browser, url, page, name, state, width):
 
 
 async def h_open_ready_page(browser, url, width, height):
-    """A second page in state ready, with its own fixture routes (the case page keeps its own state)."""
-    context = await browser.new_context(viewport=dict(width=width, height=height), device_scale_factor=1, is_mobile=width < 600,
-                                        has_touch=width < 600, locale="en-US", timezone_id="UTC", color_scheme="dark", reduced_motion="reduce")
-    page = await context.new_page()
-
-    async def route_api(route):
-        target = route.request.url
-        if "/requests/api-call" in target:
-            await route.fulfill(status=400, json={"error": "Unexpected provider call in cancel-only fixture"})
-        elif "/prox/inventory" in target:
-            await route.fulfill(json={"version": "fixture", "syncedAtMs": NOW, "sources": []})
-        elif "/prox/pools" in target or "/prox/refresh" in target:
-            await route.fulfill(json=fixture("ready"))
-        else:
-            await route.fulfill(json={})
-
-    async def local_only(route):
-        await (route.continue_() if route.request.url.startswith(url + "/") else route.abort())
-    await context.route("**/*", local_only)
-    await page.route("**/prox/sources.json", lambda route: route.fulfill(status=404))
-    await page.route("**/v8/management/**", route_api)
-    await page.goto(url, wait_until="networkidle")
-    await page.evaluate("""async () => {
-        const {useAuthStore}=await import('/src/stores/useAuthStore.ts');
-        const {apiClient}=await import('/src/services/api/client.ts');
-        const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage('en');
-        apiClient.setConfig({apiBase:location.origin,managementKey:'visual-fixture-only'});
-        useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
-        location.hash='/quota';
-    }""")
-    await page.locator("article").first.wait_for()
-    await page.evaluate("document.fonts.ready")
-    await page.wait_for_timeout(350)
+    """A second page in state ready (the case page keeps its own state). Returns (page, context)."""
+    context, page = await open_fixture_page(browser, url, "ready", width, "en", None, height)
     return page, context
 
 
@@ -2608,6 +2604,7 @@ async def main():
                 results[name]["lowColourFailures"] = await low_colour_failures(page, state)
                 results[name]["staleDimFailures"] = await stale_dim_failures(page, state)
                 results[name]["staleLabelFailures"] = await stale_label_failures(page, state)
+                results[name]["staleLabelFailures"] += await stale_sweep_failures(browser, args.url, name)
                 results[name]["renewalCaveatFailures"] = await renewal_caveat_failures(page, context, args.url, route_api, name, state)
                 results[name]["minimizedProximityFailures"] = await minimized_width_failures(page, name)
                 results[name]["minimizedProximityFailures"] += await minimized_sweep_failures(browser, args.url, name)

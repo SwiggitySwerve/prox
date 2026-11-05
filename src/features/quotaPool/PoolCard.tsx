@@ -747,8 +747,11 @@ export function PoolCard({
                   <span className={styles.accountStatus}>
                     {account.status === 'stale' ? (
                       <>
-                        <IconClock className={styles.staleIcon} size={14} aria-hidden="true" />
-                        {t('quota_pool.account_status.stale')} · {t('quota_pool.observed')}{' '}
+                        <span className={styles.staleWord}>
+                          <IconClock className={styles.staleIcon} size={14} aria-hidden="true" />
+                          {t('quota_pool.account_status.stale')}
+                        </span>{' '}
+                        · {t('quota_pool.observed')}{' '}
                         <span className={styles.nowrap}>{date(account.observedAtMs)}</span>
                       </>
                     ) : account.status === 'no-limit' ? (

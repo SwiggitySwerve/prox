@@ -2240,8 +2240,9 @@ $pool-error: #ff5252;
 .limits li[data-low='true'] strong {
   white-space: nowrap;
 }
-// Stale: amber word, clock icon and timestamp share one line.
-.account[data-status='stale'] .accountStatus {
+// Stale: the clock and the amber word stay together, and so does the timestamp; the line may wrap
+// between them on a narrow row or in a longer language, never out of the row.
+.staleWord {
   white-space: nowrap;
 }
 // A phone row has no room beside the chevron for the whole line, so it starts at the row's edge.
