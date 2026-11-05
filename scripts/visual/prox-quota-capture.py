@@ -4174,7 +4174,7 @@ async def main():
                 if state == "many-lowest":
                     await page.get_by_role("combobox", name="Sort accounts").first.select_option("lowest")
                 if state == "many-low":
-                    await page.get_by_role("button", name="Limits below 20%").first.click()
+                    await page.locator('article [class*="__rosterLow___"]').first.click()
                 if state == "deep-link":
                     # The address holds the view: a link opens it, and changing the view rewrites
                     # the address with only the non-default keys.
