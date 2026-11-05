@@ -569,13 +569,15 @@ MINIMIZED_TABLE_JS = "async (lng = 'en') => {" + C3_HELPERS + r"""
       // Nothing overlaps in a closed minimized row: name, chip, plan, status, value, and each limit's label, value, bar and
       // reason, by their painted boxes (a text's glyphs; a bar's track), since a label's cell may run under its value's.
       const paint=e=>{if(!e.textContent.trim())return R(e);const r=document.createRange();r.selectNodeContents(e);return r.getBoundingClientRect();};
+      // A wrapped text paints one box per line: a chip that sits in the free end of its last line doesn't touch it (H2-X).
+      const lines=e=>{if(!e.textContent.trim())return [R(e)];const r=document.createRange();r.selectNodeContents(e);return [...r.getClientRects()].filter(q=>q.width>0&&q.height>0);};
       const overlaps=(card,a)=>{const found=[];
         for(const row of [...a.querySelectorAll('details:not([open])')].filter(shown)){
           const s=row.querySelector(':scope > summary'),label=(row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent||'?').trim();
           const parts=[...s.querySelectorAll(':scope [class*="__accountLabel___"] > *, :scope [class*="__accountPlan___"], :scope > [class*="__accountStatus___"], :scope > strong, :scope > ul > li > span:first-child, :scope > ul > li > strong, :scope > ul > li > [class*="__limitBar___"], :scope > ul > li > em')]
             .filter(e=>shown(e)&&!getComputedStyle(e).clipPath.startsWith('inset(50%')&&paint(e).width>2&&paint(e).height>2);
           for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++)
-            if(!parts[i].contains(parts[j])&&!parts[j].contains(parts[i])&&over(paint(parts[i]),paint(parts[j])))
+            if(!parts[i].contains(parts[j])&&!parts[j].contains(parts[i])&&lines(parts[i]).some(p=>lines(parts[j]).some(q=>over(p,q))))
               found.push({card,row:label,why:'row items overlap',a:parts[i].className||parts[i].tagName,b:parts[j].className||parts[j].tagName,
                 aText:parts[i].textContent.trim().slice(0,40),bText:parts[j].textContent.trim().slice(0,40),aBox:paint(parts[i]).toJSON(),bBox:paint(parts[j]).toJSON()});
         }
@@ -2329,6 +2331,8 @@ B_ROW_VIEWS = {
     "narrow": ("weekly", "five-hour"), "narrow-320": ("weekly", "five-hour"), "tablet": ("weekly", "five-hour"),
     "many-narrow": ("weekly", "five-hour"), "partial-narrow": ("weekly", "five-hour"), "stale-narrow": ("weekly", "five-hour"),
     "long-narrow": ("weekly", "five-hour"), "no-limit-narrow": ("five-hour",),
+    # H2-X: the block layout also shows from 901px while the Accounts section is too narrow for the table.
+    "laptop-901": ("weekly", "five-hour"), "laptop-960": ("weekly", "five-hour"),
 }
 # (case, view) -> the exception that page must show at least once, so a check can't pass by measuring none of it.
 B_ROW_EXPECT = {("partial-narrow", "weekly"): "unavailable", ("long-narrow", "weekly"): "unavailable",
@@ -2452,7 +2456,7 @@ async def check_phone_row_blocks(page, name, state, width):
 
 
 P2_TRACK_CASES = ("narrow", "narrow-320", "tablet", "many-narrow", "partial-narrow", "stale-narrow", "collecting-narrow",
-                  "burn-narrow", "refresh-pending-narrow")
+                  "burn-narrow", "refresh-pending-narrow", "laptop-901", "laptop-960", "many-low-1000", "long-minimized-901")
 P2_TRACK_JS = "(isOpen) => {" + C1_PRELUDE + r"""
   const fails = [], pct = /(\d+(?:\.\d+)?)%/;
   let tracks = 0;
@@ -2499,7 +2503,7 @@ async def check_phone_tracks(page, name):
 
 
 P_TOGGLE_CASES = ("narrow", "narrow-320", "details-narrow", "expanded-narrow", "stale-narrow")
-P_NOTE_CASES = P_TOGGLE_CASES + ("many-narrow", "tablet", "laptop")
+P_NOTE_CASES = P_TOGGLE_CASES + ("many-narrow", "tablet", "laptop", "laptop-901", "laptop-960", "many-low-1000")
 P_FORECAST_CASES = ("narrow", "narrow-320", "tablet", "burn-narrow", "drain-narrow", "partial-narrow", "stale-narrow", "collecting-narrow")
 P_TOGGLE_JS = "() => {" + C1_PRELUDE + r"""
   const fails = [], rows = [...document.querySelectorAll('article details')].filter(shown);
@@ -2605,7 +2609,7 @@ async def check_phone_counts_note(page, name, width):
         if (note.scrollWidth > note.clientWidth + 1) fails.push({who, why: 'the line is clipped'});
       }
       return fails;
-    }""", width <= 900)
+    }""", width <= 900 or not await page.locator('article [class*="__accountHead___"]').first.is_visible())
 
 
 async def check_phone_forecast_stack(page, name, width):
@@ -3339,7 +3343,7 @@ A2_PLAN_CASES = {"wide": "ready", "laptop": "ready", "no-limit": "no-limit", "ul
 A2_PLAN_WIDTHS = (1100, 1280, 1440, 1920)
 A2_PLAN_JS = "() => {" + C1_PRELUDE + r"""
   const fails = [];
-  let rows = 0;
+  let rows = 0, blocks = 0;
   // The painted left edge of a cell: its first visible text or icon, never its bar or a visually hidden label or ghost.
   const paintedLeft = li => {
     let left = Infinity;
@@ -3358,6 +3362,9 @@ A2_PLAN_JS = "() => {" + C1_PRELUDE + r"""
   for (const row of [...document.querySelectorAll('article details')].filter(shown)) {
     const summary = row.querySelector(':scope > summary'), plan = summary.querySelector('[class*="__accountPlan___"]');
     if (!plan || !shown(plan)) continue;
+    // A card whose Accounts section is too narrow for the table (H2-X) reads as blocks: the plan has no cell beside it.
+    const head = row.closest('article').querySelector('[class*="__accountHead___"]');
+    if (!head || !shown(head)) { blocks++; continue; }
     rows++;
     const range = document.createRange(); range.selectNodeContents(plan);
     let right = 0;
@@ -3374,7 +3381,7 @@ A2_PLAN_JS = "() => {" + C1_PRELUDE + r"""
     if (next === Infinity) fails.push({...at, why: 'no painted text or icon in the next cell to measure against'});
     else if (next - right < 16) fails.push({...at, why: `only ${(next - right).toFixed(1)}px between the plan text and the next cell (at least 16px)`});
   }
-  if (!rows) fails.push({why: 'no plan cell to measure'});
+  if (!rows && !blocks) fails.push({why: 'no plan cell to measure'});
   return fails;
 }"""
 
@@ -3400,6 +3407,127 @@ async def check_plan_gap(browser, url, name):
                 out += [dict(width=width, open=opened, **f) for f in await page.evaluate(A2_PLAN_JS)]
         finally:
             await context.close()
+    return out
+
+
+# X2 checks (round h2, job X): the Accounts table between 901 and 1099px. From 901px a row reads as the table while its
+# Accounts section has room for it and as the phone limit blocks otherwise, whatever the screen. Own JSON key, registered
+# in X2_KEYS for the summary and the exit gate. A check that finds nothing to measure fails.
+X2_KEYS = ("tableFitFailures",)
+X2_FIT_CASES = ("laptop-901", "laptop-960", "many-low-1000", "long-minimized-901", "laptop-1100", "wide-minimized-1100")
+# Fresh pages the check also runs on, opened at every width and state: where the section is too narrow for the table
+# the rows are blocks, and the switch happens inside this range for a three-limit card with a status slot.
+X2_SWEEPS = {"laptop-960": ([901, 920, 940, 960, 980, 1000, 1020, 1040, 1060, 1080, 1099],
+                            ["ready", "many-low", "long-name", "partial", "multi-low", "stale", "no-limit"])}
+X2_FLOOR = 40  # a table's bar track is at least this long; a card whose bars would be shorter reads as blocks
+X2_FIT_JS = "([isOpen, floor]) => {" + C1_PRELUDE + r"""
+  const fails = [], R = e => e.getBoundingClientRect(), pct = /(\d+(?:\.\d+)?)%/;
+  const over = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+  // A text paints one box per line (a chip in the free end of a wrapped name doesn't touch it); an element with no text is its box.
+  const lines = e => {
+    if (!e.textContent.trim()) return [R(e)];
+    const r = document.createRange(); r.selectNodeContents(e);
+    return [...r.getClientRects()].filter(q => q.width > 0 && q.height > 0);
+  };
+  const stats = {cards: 0, table: 0, blocks: 0, rows: 0, bars: 0, minBar: Infinity, minSection: Infinity};
+  for (const article of document.querySelectorAll('article')) {
+    const section = article.querySelector('section[class*="__accounts___"]'), grid = section && section.querySelector('[class*="__accountGrid___"]');
+    const rows = grid ? [...grid.querySelectorAll('details')].filter(shown) : [];
+    if (!rows.length) continue;
+    const who = (article.querySelector('h2')?.textContent || '?').trim() + (isOpen ? ' open' : ' closed');
+    const head = grid.querySelector('[class*="__accountHead___"]'), table = !!head && shown(head), g = R(grid), s = R(section);
+    stats.cards++; stats[table ? 'table' : 'blocks']++; stats.minSection = Math.min(stats.minSection, g.width);
+    // The grid never overflows its section, and no row or heading is wider than the grid's box.
+    if (g.left < s.left - 0.5 || g.right > s.right + 0.5) fails.push({who, why: 'the grid leaves its section', grid: [g.left, g.right], section: [s.left, s.right]});
+    if (grid.scrollWidth > grid.clientWidth + 1) fails.push({who, why: 'the grid is wider than its box', scroll: grid.scrollWidth, client: grid.clientWidth});
+    if (table) {
+      const cells = [...head.children].filter(shown);
+      for (const c of cells) {
+        for (const q of lines(c)) if (q.right > R(c).right + 0.5) fails.push({who, why: 'a column heading runs past its cell', text: c.textContent.trim().slice(0, 40)});
+      }
+      for (let i = 0; i < cells.length; i++) for (let j = i + 1; j < cells.length; j++)
+        if (lines(cells[i]).some(p => lines(cells[j]).some(q => over(p, q)))) fails.push({who, why: 'column headings overlap', a: cells[i].textContent.trim().slice(0, 30), b: cells[j].textContent.trim().slice(0, 30)});
+    }
+    for (const row of rows) {
+      stats.rows++;
+      const summary = row.querySelector(':scope > summary'), sb = R(summary), label = (row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '?').trim().slice(0, 30);
+      if (summary.scrollWidth > summary.clientWidth + 1) fails.push({who, row: label, why: 'the row is wider than its box', scroll: summary.scrollWidth, client: summary.clientWidth});
+      const parts = [...summary.querySelectorAll(':scope [class*="__accountLabel___"] > *, :scope [class*="__accountPlan___"], :scope > [class*="__accountStatus___"], :scope > strong, :scope > ul > li > span:first-child, :scope > ul > li > strong, :scope > ul > li > [class*="__limitBar___"], :scope > ul > li > em, :scope > ul > li > small')]
+        .filter(e => shown(e) && !getComputedStyle(e).clipPath.startsWith('inset(50%') && lines(e).length);
+      for (const e of parts) for (const q of lines(e)) {
+        if (q.right > sb.right + 0.5 || q.left < sb.left - 0.5) fails.push({who, row: label, why: 'a cell runs outside its row', text: e.textContent.trim().slice(0, 30), box: [q.left, q.right], row_box: [sb.left, sb.right]});
+      }
+      for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++)
+        if (!parts[i].contains(parts[j]) && !parts[j].contains(parts[i]) && lines(parts[i]).some(p => lines(parts[j]).some(q => over(p, q))))
+          fails.push({who, row: label, why: 'row items overlap', a: parts[i].textContent.trim().slice(0, 30), b: parts[j].textContent.trim().slice(0, 30)});
+      for (const li of summary.querySelectorAll(':scope > ul > li')) {
+        const bar = li.querySelector(':scope > [class*="__limitBar___"]'), value = li.querySelector(':scope > strong');
+        if (!bar || !shown(bar)) continue;
+        const b = R(bar), at = {who, row: label, limit: li.dataset.limitId};
+        stats.bars++; stats.minBar = Math.min(stats.minBar, b.width);
+        if (table && b.width < floor) fails.push({...at, why: `the bar track is ${b.width.toFixed(0)}px wide (at least ${floor}px in the table)`});
+        // Bars stay honest: the fill is the printed value of the track (2 points).
+        const fill = bar.querySelector(':scope > span'), text = value && value.textContent.match(pct);
+        if (fill && text && Math.abs(R(fill).width / b.width * 100 - parseFloat(text[1])) > 2) fails.push({...at, why: `fill is ${(R(fill).width / b.width * 100).toFixed(1)}% of its track but the value reads ${text[1]}%`});
+        // A table cell holds its bar, value and reset line.
+        if (table) for (const e of [value, bar, li.querySelector(':scope > small')]) if (e && shown(e)) for (const q of lines(e)) if (q.right > R(li).right + 0.5) fails.push({...at, why: 'a limit cell runs past its own column', text: e.textContent.trim().slice(0, 30)});
+      }
+    }
+  }
+  if (!stats.cards) fails.push({why: 'no card with account rows to measure'});
+  return {fails, stats};
+}"""
+
+
+async def x2_fit_page(page, width, state=None):
+    """The X2 measurement on one page, closed and with every row opened."""
+    out, stats = [], []
+    for opened in (False, True):
+        if opened:
+            await h_expand_all(page)
+        result = await page.evaluate(X2_FIT_JS, [opened, X2_FLOOR])
+        out += [dict(width=width, state=state, open=opened, **f) for f in result["fails"]]
+        stats.append(result["stats"])
+    for _ in range(await page.get_by_role("button", name="Collapse all").count()):
+        await page.get_by_role("button", name="Collapse all").first.click()
+    return out, stats
+
+
+async def check_table_fit(browser, url, page, name, width):
+    """X2: from 901 to 1099px, minimized or not, with one, two or three limit columns, the Accounts rows either read as the
+    table (every cell inside its own column, no heading or cell overlapping another, bars at least 40px) or as the phone
+    blocks, never as a table that doesn't fit: no row or grid wider than its box, nothing clipped, no overlap, every fill
+    the printed value of its track. Each card chooses by its own width and status slots. The case's own page, then fresh
+    pages at every width and state of its sweep."""
+    if name not in X2_FIT_CASES:
+        return []
+    out, stats = await x2_fit_page(page, width)
+    if not any(s["rows"] for s in stats):
+        out.append(dict(why="no account row to measure"))
+    widths, states = X2_SWEEPS.get(name, ([], []))
+    for state in states:
+        for sweep_width in widths:
+            # A loaded machine sometimes leaves a fresh page blank: open it again, twice at most, before failing.
+            for attempt in range(3):
+                context, fresh = None, None
+                try:
+                    context, fresh = await open_fixture_page(browser, url, state, sweep_width, "en", None, 900)
+                    if state == "no-limit":
+                        await switch_view(fresh, "5-hour")
+                    await fresh.locator('article details').first.wait_for(timeout=15000)
+                    await fresh.wait_for_timeout(250)
+                    found, seen = await x2_fit_page(fresh, sweep_width, state)
+                except Exception:
+                    if attempt == 2:
+                        raise
+                    continue
+                finally:
+                    if context:
+                        await context.close()
+                out += found
+                if not any(s["rows"] for s in seen):
+                    out.append(dict(width=sweep_width, state=state, why="no account row to measure"))
+                break
     return out
 
 
@@ -3681,6 +3809,9 @@ async def main():
         ("stacked-unavailable", "stacked-unavailable", 1440, 1000),
         ("tablet", "ready", 820, 1000),
         ("laptop-1100", "ready", 1100, 900),
+        ("laptop-901", "ready", 901, 900),
+        ("laptop-960", "ready", 960, 900),
+        ("many-low-1000", "many-low", 1000, 1000),
         ("narrow-320", "ready", 320, 700),
         ("stale-minimized", "stale", 1440, 1000),
         ("many-low-minimized", "many-low", 1440, 1000),
@@ -4022,6 +4153,7 @@ async def main():
                 results[name]["unavailableCellFailures"] = await check_unavailable_cells(browser, args.url, page, name, state, width)
                 results[name]["headlineBaselineFailures"] = await check_headline_baseline(browser, args.url, page, name, width)
                 results[name]["planGapFailures"] = await check_plan_gap(browser, args.url, name)
+                results[name]["tableFitFailures"] = await check_table_fit(browser, args.url, page, name, width)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -4083,20 +4215,25 @@ async def main():
                 # visual state, so screenshots stay comparable.
                 interaction = {}
                 # A minimized card's table is the expanded one (F, h2), so the same alignment holds.
-                if width >= 901:
-                    # Table: every limit cell starts exactly under its column heading.
-                    alignment = await page.locator('article section[class*="__accounts___"]').evaluate_all('''sections => sections.flatMap(section => {
-                        const heads = [...section.querySelectorAll('[class*="__accountHead___"] > span')];
-                        return [...section.querySelectorAll('details:not([open]) ul[aria-label="Limits"] li')].map(li => {
-                            const col = Number(getComputedStyle(li).getPropertyValue('--col'));
-                            return {offset: Math.abs(li.getBoundingClientRect().left - heads[col + 2].getBoundingClientRect().left)};
-                        });
-                    })''')
-                    assert all(cell['offset'] < 1 for cell in alignment), f"Limits not under their headings: {alignment}"
-                else:
-                    # Stacked: a block is label and value on one line over its bar; every value ends on the row's
-                    # content edge (a block row's list takes no box of its own, so the edge is the summary's).
-                    alignment = await page.locator('article details:not([open]) ul[aria-label="Limits"]').evaluate_all('''lists => lists.flatMap(list => {
+                # H2-X: from 901px each card reads as the table or as blocks by its own width and status slots, so a page
+                # may hold both; a table has column headings to align under, blocks have none.
+                alignment = await page.locator('article').evaluate_all('''articles => articles.flatMap(article => {
+                    const head = article.querySelector('[class*="__accountHead___"]');
+                    if (!head || !head.checkVisibility()) return [];
+                    const heads = [...head.children];
+                    return [...article.querySelectorAll('details:not([open]) ul[aria-label="Limits"] li')].map(li => {
+                        const col = Number(getComputedStyle(li).getPropertyValue('--col'));
+                        return {offset: Math.abs(li.getBoundingClientRect().left - heads[col + 2].getBoundingClientRect().left)};
+                    });
+                })''')
+                # Table: every limit cell starts exactly under its column heading.
+                assert all(cell['offset'] < 1 for cell in alignment), f"Limits not under their headings: {alignment}"
+                # Stacked: a block is label and value on one line over its bar; every value ends on the row's
+                # content edge (a block row's list takes no box of its own, so the edge is the summary's).
+                alignment = await page.locator('article').evaluate_all('''articles => articles.flatMap(article => {
+                    const head = article.querySelector('[class*="__accountHead___"]');
+                    if (head && head.checkVisibility()) return [];
+                    return [...article.querySelectorAll('details:not([open]) ul[aria-label="Limits"]')].flatMap(list => {
                         const summary = list.parentElement, edge = summary.getBoundingClientRect().right - parseFloat(getComputedStyle(summary).paddingRight);
                         return [...list.children].filter(li => li.checkVisibility()).map(li => {
                             const label = li.querySelector(':scope > span').getBoundingClientRect();
@@ -4105,8 +4242,9 @@ async def main():
                             const above = value.top >= label.bottom - 2;
                             return {rightOffset:Math.abs(edge-value.right), lineOffset:above ? (label.height < 24 ? 0 : 99) : Math.abs(label.top-value.top)};
                         });
-                    })''')
-                    assert all(cell['rightOffset'] < 1 and cell['lineOffset'] < 12 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
+                    });
+                })''')
+                assert all(cell['rightOffset'] < 1 and cell['lineOffset'] < 12 for cell in alignment), f"Misaligned collapsed limits: {alignment}"
                 interaction["collapsed_labels_and_values_align"] = "passed"
                 if state == "refresh-pending":
                     countdown = page.locator('[class*="__countdown___"]')
@@ -4269,7 +4407,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + B2_KEYS + D2_KEYS + E2_KEYS + C2_KEYS + A2_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + B2_KEYS + D2_KEYS + E2_KEYS + C2_KEYS + A2_KEYS + X2_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

@@ -686,6 +686,7 @@ export function PoolCard({
           className={styles.accountGrid}
           data-large={showRosterControls}
           data-balance-column={!balanceHasColumn}
+          data-slots={limitColumns.filter((column) => columnStatus.has(column.id)).length}
           style={
             {
               '--limit-cols': Math.max(1, limitColumns.length),

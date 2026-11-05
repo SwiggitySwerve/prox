@@ -690,12 +690,63 @@ $pool-error: #ff5252;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
+  // The Accounts table switches layout by its own width, not the screen's (H2-X). The container's name
+  // is its width tier: a table with more status slots needs more room (see $table-tiers).
+  container: accounts-c / inline-size;
+  &[data-slots='0'],
+  &[data-slots='1'] {
+    container-name: accounts-a;
+  }
+  &[data-slots='2'] {
+    container-name: accounts-b;
+  }
 }
 // The roster is one bounded list: a single outline, rules between rows.
 .pool .accountGrid {
   margin: 4px 0 8px;
   border-block: 1px solid var(--hairline);
   overflow: clip;
+}
+// H2-X: from 901px the rows read as the table while the card's Accounts section has room for it and as
+// the phone limit blocks below that (900px and below always). The table needs 20 (chevron) + 134 (Plan)
+// + 2 gaps of 12 + 160 (Account) = 338px, then per limit column 12 (gap) + 59 (value) + its bar, and 54
+// for each status slot (a Low mark or Unavailable). A bar is at least 40px (the 1100px screen's
+// three-limit card has 50px ones; at 16px a low value's red fill is under 2px and can't be seen). For
+// three limit columns that is 671px with no slot, 725 with one, 779 with two and 833 with three, and the
+// grid's tier (data-slots) picks its width. A card with fewer columns uses the same widths.
+$table-tiers: (a: 725px, b: 779px, c: 833px);
+@mixin wide-table {
+  @media (min-width: 901px) {
+    @each $tier, $width in $table-tiers {
+      @container accounts-#{$tier} (width >= #{$width}) {
+        @content;
+      }
+    }
+  }
+}
+@mixin block-rows {
+  @media (max-width: 900px) {
+    @content;
+  }
+  @media (min-width: 901px) {
+    @each $tier, $width in $table-tiers {
+      @container accounts-#{$tier} (width < #{$width}) {
+        @content;
+      }
+    }
+  }
+}
+@mixin tablet-rows {
+  @media (min-width: 641px) and (max-width: 900px) {
+    @content;
+  }
+  @media (min-width: 901px) {
+    @each $tier, $width in $table-tiers {
+      @container accounts-#{$tier} (width < #{$width}) {
+        @content;
+      }
+    }
+  }
 }
 .accountHead {
   display: none;
@@ -744,7 +795,7 @@ $pool-error: #ff5252;
   // A stale reading keeps the normal value colour and opacity; the amber "Stale" word, its clock
   // icon and the timestamp in .accountStatus say it is old.
   // Wide tables tint an open row; phones fill only the open row's header (H1-P), with no box in the card.
-  @media (min-width: 901px) {
+  @include wide-table {
     &[open] {
       background: var(--fill-soft);
     }
@@ -821,7 +872,7 @@ $pool-error: #ff5252;
 .account:not([open]) .limits small {
   display: none;
 }
-@media (max-width: 900px) {
+@include block-rows {
   // The row's value is the limit the page is set to, so it leads: a step larger, named on the
   // line under it, and set apart from the per-limit bars, whose values drop to regular weight.
   .account > summary > strong {
@@ -849,7 +900,7 @@ $pool-error: #ff5252;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 400;
-  @media (min-width: 901px) {
+  @include wide-table {
     display: none;
   }
 }
@@ -1530,7 +1581,7 @@ $pool-error: #ff5252;
   white-space: nowrap;
 }
 // Phone labels say "remaining", so they may wrap inside their column instead of running into the bar.
-@media (max-width: 900px) {
+@include block-rows {
   .limits li > span:first-child {
     white-space: normal;
   }
@@ -1622,6 +1673,11 @@ $pool-error: #ff5252;
         --fixed: calc(20px + var(--plan-track) + (var(--limit-cols) + 2) * var(--col-gap));
       }
     }
+  }
+}
+// The tracks and cells below apply while the Accounts section has room for the table (H2-X).
+@include wide-table {
+  .pool {
     .accountHead,
     .account > summary {
       display: grid;
@@ -2548,7 +2604,7 @@ $pool-error: #ff5252;
 .limitBar[data-empty] {
   display: none;
 }
-@media (min-width: 641px) and (max-width: 900px) {
+@include tablet-rows {
   // Rows without blocks keep label | bar | value on one line.
   .limits li strong {
     grid-column: 3;
@@ -2559,7 +2615,7 @@ $pool-error: #ff5252;
     grid-row: 1;
   }
 }
-@media (max-width: 900px) {
+@include block-rows {
   .account[data-phone-blocks] {
     > summary {
       grid-template-columns: 20px minmax(0, 1fr) minmax(4.6em, max-content);
@@ -2715,11 +2771,11 @@ $pool-error: #ff5252;
   padding: 6px 10px 2px;
   color: var(--text-secondary);
   font-size: 13px;
-  @media (min-width: 901px) {
+  @include wide-table {
     display: none;
   }
 }
-@media (max-width: 900px) {
+@include block-rows {
   // The stale line belongs to the account: directly under the name and plan, above the first block.
   .account[data-phone-blocks][data-status='stale'] > summary {
     > .accountStatus {
@@ -2888,7 +2944,7 @@ $pool-error: #ff5252;
 .statusGhost {
   display: none;
 }
-@media (min-width: 901px) {
+@include wide-table {
   // "Unavailable" reads as on phones: the warning icon and word in the warning colour over a dashed
   // empty track; the weight follows the column (the active window's is 600).
   .unavailableWord {
