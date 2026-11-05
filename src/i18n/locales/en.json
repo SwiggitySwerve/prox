@@ -2464,7 +2464,7 @@
     "data_collection": "Data collection",
     "no_account_matches": "No accounts match.",
     "about_numbers": "About these numbers",
-    "error_status": "Error code: HTTP {{status}}",
+    "error_status": "Error code HTTP {{status}}",
     "error_network": "No response from the server",
     "latest_reading": "Latest reading",
     "recorded": "Recorded",

@@ -1073,8 +1073,9 @@ G_SWEEPS = {
 }
 
 
-async def open_fixture_page(browser, url, state, width, lng, view, height=1000):
-    """A fresh page on the fixture, in `state` at `width`; `view` is pressed in English first, then the language is set."""
+async def open_fixture_page(browser, url, state, width, lng, view, height=1000, failing=False):
+    """A fresh page on the fixture, in `state` at `width`; `view` is pressed in English first, then the language is set.
+    `failing` answers the pools call with a 503, so the page shows its initial-error card instead of cards."""
     context = await browser.new_context(
         viewport=dict(width=width, height=height), device_scale_factor=1, is_mobile=width < 600,
         has_touch=width < 600, locale="en-US", timezone_id="UTC", color_scheme="dark", reduced_motion="reduce",
@@ -1091,6 +1092,8 @@ async def open_fixture_page(browser, url, state, width, lng, view, height=1000):
             await route.fulfill(json={"version": "fixture", "syncedAtMs": NOW, "sources": []})
         elif "/prox/refresh" in request_url:
             await route.fulfill(json=fixture(state))
+        elif "/prox/pools" in request_url and failing:
+            await route.fulfill(status=503, json={"error": "Fixture unavailable"})
         elif "/prox/pools" in request_url:
             query = parse_qs(urlparse(request_url).query)
             data = fixture(state)
@@ -1116,7 +1119,7 @@ async def open_fixture_page(browser, url, state, width, lng, view, height=1000):
         useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
         location.hash='/quota';
     }""")
-    await page.locator("article").first.wait_for()
+    await page.locator('[role="alert"]' if failing else "article").first.wait_for()
     if view:
         await switch_view(page, view)
     if lng != "en":
@@ -1868,6 +1871,18 @@ async def check_skeleton_shape(browser, url, page, name, state, width):
     for p in rows["provider"]:
         if max(p["title"], p["count"], p["chip"]) - min(p["title"], p["count"], p["chip"]) > 4 or p["pills"] < p["title"] + 20 or min(p["sizes"]) < 20 or not (p["inert"] and p["hidden"]):
             fails.append(dict(why="provider skeleton lacks a title/count/chip row and a pill row, or is not inert and aria-hidden", provider=p))
+    # H2-D4: each fact placeholder stacks its label bar over its value bar (the loaded Forecast facts do), inside its card.
+    facts = await page.evaluate("""() => [...document.querySelectorAll('[class*="__loadingFact___"]')].map(f => {
+      const [label, value] = [...f.children].map(c => c.getBoundingClientRect()), card = f.closest('[class*="__loading___"]').getBoundingClientRect();
+      return {labelBottom: label.bottom, valueTop: value.top, dx: Math.abs(label.left - value.left), right: Math.max(label.right, value.right), cardRight: card.right};
+    })""")
+    if len(facts) < 8:
+        fails.append(dict(why="expected at least 8 fact placeholders (4 in each provider card)", found=len(facts)))
+    for fact in facts:
+        if fact["valueTop"] < fact["labelBottom"] - 1 or fact["dx"] > 1:
+            fails.append(dict(why="a fact placeholder's value is not stacked under its label", fact=fact))
+        if fact["right"] > fact["cardRight"]:
+            fails.append(dict(why="a fact placeholder runs past its card", fact=fact))
     loaded, context = await h_open_ready_page(browser, url, 390, 844)
     try:
         tops = await loaded.evaluate("(map) => Object.fromEntries(Object.entries(map).map(([k, s]) => [k, document.querySelector(s)?.getBoundingClientRect().top ?? null]))", H_LOADED_ROWS)
@@ -2808,11 +2823,38 @@ async def check_pill_heights(page, name, width):
     return fails
 
 
-async def check_banner(page, name):
-    """T6: the "Could not refresh quotas" banner is at most 640px wide and starts at the content's left edge; Try again
-    has at least the banner's top padding below it and is a quiet pill (a dark fill, an outline), not a white button."""
+D_BUTTON_JS = """(sel) => {
+  const b = document.querySelector(sel);
+  if (!b) return null;
+  const s = getComputedStyle(b);
+  return {background: s.backgroundColor, color: s.color, border: s.borderTopColor, weight: s.fontWeight};
+}"""
+
+
+async def check_banner(browser, url, page, name):
+    """T6 (H2-D1): the "Could not refresh quotas" banner is at most 640px wide and starts at the content's left edge;
+    Try again has at least the banner's top padding below it, and it is the same light primary button as the
+    initial-error card's (the same computed background, colour, border and weight), never a ghost pill."""
     if name not in T_BANNER_CASES:
         return []
+    fails = await check_banner_layout(page)
+    banner_button = await page.evaluate(D_BUTTON_JS, '[class*="QuotaPoolPage"] [role="alert"] button')
+    context, error_page = await open_fixture_page(browser, url, "ready", 1440, "en", None, 900, failing=True)
+    try:
+        card_button = await error_page.evaluate(D_BUTTON_JS, '[class*="QuotaPoolPage"] [role="alert"] button')
+    finally:
+        await context.close()
+    if not banner_button or not card_button:
+        return fails + [dict(why="no Try again button to compare", banner=banner_button, card=card_button)]
+    if banner_button != card_button:
+        fails.append(dict(why="the banner's Try again does not look like the error card's", banner=banner_button, card=card_button))
+    rgb = [float(v) for v in re.findall(r"\d+(?:\.\d+)?", card_button["background"])[:3]]
+    if sum(rgb) / 3 < 200:
+        fails.append(dict(why="the error card's Try again is not the light primary fill", background=card_button["background"]))
+    return fails
+
+
+async def check_banner_layout(page):
     return await page.evaluate("""() => {
       const banner = document.querySelector('[class*="QuotaPoolPage"] [role="alert"]');
       const page = document.querySelector('[class*="QuotaPoolPage"][class*="__page___"]');
@@ -2824,9 +2866,6 @@ async def check_banner(page, name):
       if (Math.abs(b.left - p.left) > 1) fails.push({why: 'banner is not left-aligned with the content', left: b.left, content: p.left});
       const below = b.bottom - k.bottom - parseFloat(s.borderBottomWidth), top = parseFloat(s.paddingTop);
       if (below < top - 0.5) fails.push({why: 'Try again has less room below than the banner pads above', below, top});
-      const bs = getComputedStyle(button), rgb = bs.backgroundColor.match(/\\d+(\\.\\d+)?/g).map(Number);
-      if ((rgb[0] + rgb[1] + rgb[2]) / 3 > 100) fails.push({why: 'Try again is a light, loud fill', background: bs.backgroundColor});
-      if (parseFloat(bs.borderTopWidth) < 1) fails.push({why: 'Try again has no outline'});
       return fails;
     }""")
 
@@ -2865,6 +2904,185 @@ async def check_skeleton_wide(browser, url, page, name, width):
             fails.append(dict(why=f"skeleton {key} {skeleton[key]:.0f} vs loaded {loaded[key]:.0f}"))
     return fails
 
+
+
+# H2-D checks (toolbar, actions and page states). Each has its own JSON key, registered in D2_KEYS for the summary and
+# the exit gate (bannerFailures, in T_KEYS, and skeletonShapeFailures, in H_KEYS, are rewritten in place). A check
+# that finds nothing to measure where it applies fails.
+D2_KEYS = ("dateArrowFailures", "actionStatusFailures", "combinedGapFailures", "errorCodeFailures")
+D2_ARROW_CASES = ("laptop",)
+D2_ARROW_WIDTHS = (390, 1100, 1280, 1440, 1920)
+D2_ACTION_CASES = ("wide", "laptop", "narrow")
+D2_GAP_CASES = ("narrow", "narrow-320", "stacked-narrow")
+D2_ERROR_CASES = ("error", "error-narrow", "refresh-error", "refresh-error-narrow")
+D2_ARROWS_JS = """() => {
+  const nav = document.querySelector('[class*="__dateNavigation___"]');
+  if (!nav) return null;
+  const box = e => { const b = e.getBoundingClientRect(); return {x: b.x, y: b.y, w: b.width, h: b.height}; };
+  const info = e => { const s = getComputedStyle(e); return {name: e.getAttribute('aria-label'), disabled: e.disabled, box: box(e),
+    border: parseFloat(s.borderTopWidth), background: s.backgroundColor, opacity: parseFloat(s.opacity), cursor: s.cursor}; };
+  const steps = [...nav.querySelectorAll('button[class*="__dateStep___"]')].map(info);
+  const label = nav.querySelector('[class*="__todayState___"]');
+  return {steps, current: label ? {text: label.textContent.trim(), tag: label.tagName, border: parseFloat(getComputedStyle(label).borderTopWidth)} : null};
+}"""
+
+
+def d_border_contrast(im, box):
+    """A control's 1px border against the surface beside it, from the pixels: the surface is the pixel just outside the
+    box's left edge, the border the pixel on its top edge (centre column) that differs most from it."""
+    cx, cy, top = int(box["x"] + box["w"] / 2), int(box["y"] + box["h"] / 2), int(box["y"])
+    bg = im.getpixel((max(0, int(box["x"]) - 3), cy))
+    edge = max((im.getpixel((cx, y)) for y in range(max(0, top - 1), top + 2)), key=lambda c: ratio(c, bg))
+    return ratio(edge, bg), edge, bg
+
+
+async def check_date_arrows(browser, url, name):
+    """D2 (dateArrowFailures): the date arrows are bounded ghost icon buttons: 32px from 901px with a mouse, 44px on
+    phones, a border at 3:1 or better against the page (read from the pixels), a hover state; an arrow at its limit
+    is a disabled button that keeps its name and looks off (faded, default cursor, a weaker border than an enabled
+    one); "Current" stays a plain label (no border, not a button). Opens pages of its own."""
+    if name not in D2_ARROW_CASES:
+        return []
+    fails = []
+    for width in D2_ARROW_WIDTHS:
+        context, page = await open_fixture_page(browser, url, "ready", width, "en", None, 900)
+        try:
+            want = 44 if width < 641 else 32
+            read = await page.evaluate(D2_ARROWS_JS)
+            if not read or len(read["steps"]) != 2:
+                fails.append(dict(width=width, why="no two date arrows found"))
+                continue
+            shot = Image.open(io.BytesIO(await page.screenshot(animations="disabled"))).convert("RGB")
+            enabled = []
+            for step in read["steps"]:
+                box = step["box"]
+                if abs(box["w"] - want) > 0.5 or abs(box["h"] - want) > 0.5:
+                    fails.append(dict(width=width, why=f"{step['name']} is {box['w']:.0f}x{box['h']:.0f}px, want {want}", ))
+                if step["border"] < 1:
+                    fails.append(dict(width=width, why=f"{step['name']} has no border"))
+                contrast, edge, bg = d_border_contrast(shot, box)
+                enabled.append(contrast)
+                if contrast < 3:
+                    fails.append(dict(width=width, why=f"{step['name']} border is {contrast:.2f}:1, want 3:1", edge=edge, surface=bg))
+            if not read["current"] or read["current"]["tag"] != "SPAN" or read["current"]["border"] > 0:
+                fails.append(dict(width=width, why="Current is not a plain label", current=read["current"]))
+            if width in (390, 1440):
+                prev = page.get_by_role("button", name="Previous day", exact=True)
+                resting = (await page.evaluate(D2_ARROWS_JS))["steps"][0]["background"]
+                await prev.hover()
+                await page.wait_for_timeout(150)
+                hovered = (await page.evaluate(D2_ARROWS_JS))["steps"][0]["background"]
+                if hovered == resting:
+                    fails.append(dict(width=width, why="the arrow has no hover state", background=resting))
+                await page.mouse.move(0, 0)
+                for _ in range(14):
+                    await prev.click()
+                    await page.wait_for_timeout(60)
+                await page.wait_for_timeout(300)
+                limit = await page.evaluate(D2_ARROWS_JS)
+                first, second = limit["steps"]
+                if not (first["disabled"] and first["name"] == "Previous day"):
+                    fails.append(dict(width=width, why="the arrow at its limit is not a disabled button that keeps its name", step=first))
+                elif first["opacity"] > 0.6 or first["cursor"] == "pointer":
+                    fails.append(dict(width=width, why="the disabled arrow does not look off", opacity=first["opacity"], cursor=first["cursor"]))
+                else:
+                    off = Image.open(io.BytesIO(await page.screenshot(animations="disabled"))).convert("RGB")
+                    off_contrast = d_border_contrast(off, first["box"])[0]
+                    if off_contrast >= enabled[0] - 0.5:
+                        fails.append(dict(width=width, why="the disabled arrow's border is as strong as an enabled one's", disabled=off_contrast, enabled=enabled[0]))
+                if second["disabled"]:
+                    fails.append(dict(width=width, why="the other arrow is disabled too"))
+        finally:
+            await context.close()
+    return fails
+
+
+async def check_action_status(page, name):
+    """D3 (actionStatusFailures): actions outrank status. Every card action pill's border is at 3:1 or better against
+    the card (read from the pixels), the status chip has no fill, and the chip's fill differs less (CIE76 delta E)
+    from the card than the pill's border does."""
+    if name not in D2_ACTION_CASES:
+        return []
+    found = await page.evaluate("""() => {
+      // Earlier checks scroll the shell's content area; the full-page shot is taken from the top.
+      for (const e of document.querySelectorAll('.content')) e.scrollTop = 0;
+      window.scrollTo(0, 0);
+      const shown = e => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && e.checkVisibility({checkVisibilityCSS: true}); };
+      const box = e => { const b = e.getBoundingClientRect(); return {x: b.x, y: b.y, w: b.width, h: b.height}; };
+      const pills =[...document.querySelectorAll('[class*="__reorder___"] button')].filter(shown).map(e => ({text: e.innerText.trim(), box: box(e)}));
+      const chips = [...document.querySelectorAll('article [class*="__badge___"]')].filter(shown).map(e => ({text: e.innerText.trim(), box: box(e), background: getComputedStyle(e).backgroundColor}));
+      return {pills, chips};
+    }""")
+    if not found["pills"] or not found["chips"]:
+        return [dict(why="no action pill or status chip to measure", pills=len(found["pills"]), chips=len(found["chips"]))]
+    shot = Image.open(io.BytesIO(await page.screenshot(full_page=True, animations="disabled"))).convert("RGB")
+    fails, borders = [], []
+    for pill in found["pills"]:
+        contrast, edge, card = d_border_contrast(shot, pill["box"])
+        borders.append(r_delta_e(edge, card))
+        if contrast < 3:
+            fails.append(dict(why=f"action pill {pill['text']!r} border is {contrast:.2f}:1 on the card, want 3:1", edge=edge, card=card))
+    weakest = min(borders)
+    for chip in found["chips"]:
+        card = shot.getpixel((max(0, int(chip["box"]["x"]) - 3), int(chip["box"]["y"] + chip["box"]["h"] / 2)))
+        fill = pixels(shot, chip["box"]).most_common(1)[0][0]
+        delta = r_delta_e(fill, card)
+        if not re.match(r"rgba\(.*, 0\)$", chip["background"]) and chip["background"] != "transparent":
+            fails.append(dict(why=f"status chip {chip['text']!r} has a fill", background=chip["background"]))
+        if delta >= weakest:
+            fails.append(dict(why=f"status chip {chip['text']!r} fill (delta E {delta:.1f}) is not quieter than the weakest action border ({weakest:.1f})"))
+    return fails
+
+
+async def check_combined_gap(page, name, width):
+    """D5 (combinedGapFailures): on phones the Combined card's title row and its "Stacked providers" select are no
+    more than 8px apart (S1 holds: the heading and the toggle share one row), so no empty band sits between them."""
+    if name not in D2_GAP_CASES:
+        return []
+    read = await page.evaluate("""() => {
+      const card = document.querySelector('section[class*="__combined___"]');
+      const select = card?.querySelector('select'), h2 = card?.querySelector('h2'), toggle = card?.querySelector('[class*="__reorder___"]');
+      if (!select || !h2 || !toggle) return null;
+      const r = e => e.getBoundingClientRect();
+      return {rowBottom: Math.max(r(h2).bottom, r(toggle).bottom), selectTop: r(select.closest('[class*="__combinedOptions___"]') || select).top, h2Top: r(h2).top, toggleTop: r(toggle).top};
+    }""")
+    if not read:
+        return [dict(why="no Combined card, select or toggle to measure")]
+    fails = []
+    gap = read["selectTop"] - read["rowBottom"]
+    if gap > 8.5 or gap < 0:
+        fails.append(dict(why=f"{gap:.1f}px between the Combined title row and the select, want 0-8", **read))
+    if abs(read["h2Top"] - read["toggleTop"]) > 2:
+        fails.append(dict(why="the Combined heading and its toggle no longer share a row (S1)", **read))
+    return fails
+
+
+async def check_error_code(page, name):
+    """D6 (errorCodeFailures): the error code line reads "Error code HTTP 503" (no colon) in the caption style: 13px,
+    at 5.5:1 or better against the banner or card it sits on (read from the pixels)."""
+    if name not in D2_ERROR_CASES:
+        return []
+    found = await page.evaluate("""() => { for (const e of document.querySelectorAll('.content')) e.scrollTop = 0; window.scrollTo(0, 0);
+      return [...document.querySelectorAll('[class*="__errorCause___"]')].map(e => {
+      const b = e.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(e);
+      const t = range.getBoundingClientRect();
+      return {text: e.innerText.trim(), size: parseFloat(getComputedStyle(e).fontSize), box: {x: t.x, y: t.y, w: t.width, h: t.height}};
+    }); }""")
+    if not found:
+        return [dict(why="no error code line to measure")]
+    shot = Image.open(io.BytesIO(await page.screenshot(full_page=True, animations="disabled"))).convert("RGB")
+    fails = []
+    for line in found:
+        if not re.fullmatch(r"Error code HTTP \d{3}", line["text"]):
+            fails.append(dict(why="the error code line is not \"Error code HTTP <status>\"", text=line["text"]))
+        if line["size"] < 12.99:
+            fails.append(dict(why=f"the error code line is {line['size']:.1f}px, want 13", text=line["text"]))
+        colours = pixels(shot, line["box"])
+        bg = colours.most_common(1)[0][0]
+        fg = max(colours, key=lambda c: ratio(c, bg))
+        if ratio(fg, bg) < 5.5:
+            fails.append(dict(why=f"the error code line reads {ratio(fg, bg):.2f}:1, want 5.5:1", text=line["text"]))
+    return fails
 
 
 # W checks (round h1, job W): the wide Accounts table (901px and up) and the headline word. Each has its own JSON
@@ -3426,7 +3644,11 @@ async def main():
                 results[name]["dateNavFailures"] = await check_date_nav(browser, args.url, name)
                 results[name]["statusTextFailures"] = await check_status_text(page, name)
                 results[name]["pillHeightFailures"] = await check_pill_heights(page, name, width)
-                results[name]["bannerFailures"] = await check_banner(page, name)
+                results[name]["bannerFailures"] = await check_banner(browser, args.url, page, name)
+                results[name]["dateArrowFailures"] = await check_date_arrows(browser, args.url, name)
+                results[name]["actionStatusFailures"] = await check_action_status(page, name)
+                results[name]["combinedGapFailures"] = await check_combined_gap(page, name, width)
+                results[name]["errorCodeFailures"] = await check_error_code(page, name)
                 results[name]["wideTrackFailures"] = await check_wide_tracks(page, name, width)
                 results[name]["unavailableCellFailures"] = await check_unavailable_cells(browser, args.url, page, name, state, width)
                 results[name]["headlineBaselineFailures"] = await check_headline_baseline(browser, args.url, page, name, width)
@@ -3676,7 +3898,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + D2_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():
