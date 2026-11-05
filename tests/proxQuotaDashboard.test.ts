@@ -782,7 +782,8 @@ describe('stacked chart geometry', () => {
       );
     const long = render(10);
     expect(long).toContain('type="search"');
-    expect(long).toContain('aria-label="Search accounts"');
+    // The visible label is the field's accessible name, so it stays once text is typed.
+    expect(long).toMatch(/<label[^>]*><span[^>]*>Search accounts<\/span><input type="search"/);
     expect(long).toContain('Lowest limit remaining first');
     expect(long).toContain('1 with a limit below 20%');
     // The count is a toggle that filters the roster to accounts with a low limit.
@@ -845,8 +846,11 @@ describe('stacked chart geometry', () => {
       );
     // Remaining: the burn rate is the measured fact; the headline is the balance.
     expect(card(pool, 'remaining')).toMatch(/<p>Now<\/p><dl><div><dt>Burn rate \(3h\)<\/dt>/);
-    // Rate views: the balance moves to Now, because the headline is the rate.
-    expect(card(pool, 'burn')).toMatch(/<p>Now<\/p><dl><div><dt>Weekly remaining<\/dt>/);
+    // Rate views: the headline is the rate, so the balance is its context line and Now has nothing to hold.
+    expect(card(pool, 'burn')).toMatch(
+      /<\/strong><p[^>]*><span>Weekly remaining<\/span> <b>73<\/b> <small>of 200 points<\/small><\/p>/
+    );
+    expect(card(pool, 'burn')).not.toContain('<p>Now</p>');
     // A withheld forecast with no burn rate has nothing measured to add, so Now is left out.
     expect(card({ ...pool, burnPointsPerHour: null }, 'remaining')).not.toContain('<p>Now</p>');
   });
@@ -1319,8 +1323,8 @@ describe('pool presentation', () => {
     expect(markup).not.toContain('Saved observation');
     expect(markup).not.toContain('Forecast ready');
     expect(markup).not.toContain('>Current<');
-    // Rate views keep the balance as the first pair of the remaining-quota forecast.
-    expect(markup).toContain('<dt>Weekly remaining</dt><dd>73 <small>of 200 points</small></dd>');
+    // Rate views keep the balance as the headline's context line.
+    expect(markup).toContain('<span>Weekly remaining</span> <b>73</b> <small>of 200 points</small>');
     expect(markup).toContain('of 200 points');
     // Rates carry their unit on the number line.
     expect(markup).toContain('3<small> points/h</small>');

@@ -530,8 +530,8 @@ $pool-error: #ff5252;
 .chartReadout {
   min-height: 24px;
   margin-top: 0;
-  color: #b5b5b5;
-  font-size: 13px;
+  color: var(--caption-color);
+  font-size: var(--caption-size);
   text-align: left;
   font-variant-numeric: tabular-nums;
 }
@@ -554,8 +554,8 @@ $pool-error: #ff5252;
     stroke-width: 1;
   }
   text {
-    fill: var(--text-tertiary);
-    font-size: 12px;
+    fill: var(--caption-color);
+    font-size: var(--caption-size);
   }
 }
 .nowLine {
@@ -584,8 +584,8 @@ $pool-error: #ff5252;
   stroke-linejoin: round;
 }
 .axisUnit {
-  fill: #b5b5b5;
-  font-size: 13px;
+  fill: var(--caption-color);
+  font-size: var(--caption-size);
 }
 .chartFooter {
   display: flex;
@@ -600,8 +600,8 @@ $pool-error: #ff5252;
   flex-wrap: wrap;
   align-items: center;
   gap: 16px;
-  color: #b5b5b5;
-  font-size: 13px;
+  color: var(--caption-color);
+  font-size: var(--caption-size);
   span {
     display: inline-flex;
     gap: 7px;
@@ -670,8 +670,9 @@ $pool-error: #ff5252;
 .accountSummary {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 16px;
-  font-size: 13px;
+  align-items: flex-start;
+  gap: 6px 24px;
+  margin-top: 4px;
   font-weight: 400;
 }
 .page .expandAccounts {
@@ -806,8 +807,8 @@ $pool-error: #ff5252;
   }
   small {
     grid-column: 1 / -1;
-    color: var(--text-tertiary);
-    font-size: 11px;
+    color: var(--caption-color);
+    font-size: var(--caption-size);
   }
   // Low keeps the value colour neutral: the red icon and bar plus the visible "Low" word carry it.
   li[data-low='true'] .limitBar > span {
@@ -1747,8 +1748,10 @@ $pool-error: #ff5252;
           small {
             grid-column: 1 / -1;
             grid-row: 2;
-            font-size: 12px;
-            white-space: nowrap;
+            font-size: var(--caption-size);
+            // At 13px a date no longer fits a 1100px column on one line; it wraps inside its own
+            // column ("Resets Oct 28," over "12:00 PM UTC") instead of running into the next one.
+            white-space: normal;
           }
           &[data-missing='true'] em {
             grid-column: 1 / -1;
@@ -1776,8 +1779,8 @@ $pool-error: #ff5252;
       font-weight: 600;
       small {
         display: block;
-        color: var(--text-tertiary);
-        font-size: 12px;
+        color: var(--caption-color);
+        font-size: var(--caption-size);
         font-weight: 400;
       }
     }
@@ -1819,9 +1822,6 @@ $pool-error: #ff5252;
   gap: 8px 12px;
   padding: 4px 0 4px;
 }
-.rosterSearch::placeholder {
-  color: var(--text-tertiary);
-}
 .rosterSearch,
 .rosterTools select {
   box-sizing: border-box;
@@ -1835,7 +1835,7 @@ $pool-error: #ff5252;
   font-size: 13px;
 }
 .rosterSearch {
-  min-width: min(100%, 14rem);
+  min-width: min(100%, 18rem);
   padding-inline: 16px;
 }
 @media (min-width: 901px) and (pointer: fine) {
@@ -2573,17 +2573,24 @@ $pool-error: #ff5252;
 }
 
 /* A */
-// Accounts summary: label/value pairs in one wrapping group. A pair wraps as a unit, never inside,
-// and its value keeps the Manual resets style (weight 500, tabular figures).
+// Accounts summary: label-above-value pairs, the card's Now and Forecast pattern one step smaller, in
+// one wrapping group. A pair wraps as a unit, never inside, and its value keeps weight 500 with
+// tabular figures.
 .summaryFact {
+  display: flex;
+  flex-direction: column;
   max-width: 100%;
   white-space: nowrap;
 }
 .accountSummary .summaryLabel {
-  color: var(--text-secondary);
+  color: var(--caption-color);
+  font-size: var(--caption-size);
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
 }
 .accountSummary .summaryValue {
   color: var(--text-primary);
+  font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -2759,8 +2766,8 @@ $pool-error: #ff5252;
           }
           > small {
             grid-area: 3 / 1 / 4 / -1;
-            color: var(--text-tertiary);
-            font-size: 13px;
+            color: var(--caption-color);
+            font-size: var(--caption-size);
           }
           // The active value spans both columns, so a wide "Low" value never widens the shared column
           // and squeezes the other limits' labels. The active window's label and value keep weight 600,
@@ -2912,5 +2919,70 @@ $pool-error: #ff5252;
     small {
       text-align: left;
     }
+  }
+}
+
+/* H1-C */
+// One caption token for the small grey text under and beside the data: chart ticks and unit, legends,
+// "Latest reading", a limit's "Resets …" line and "counts toward total". 13px, and the brightest grey
+// so every caption reads at 5.5:1 or better on the card.
+.page {
+  --caption-size: 13px;
+  --caption-color: var(--text-secondary);
+}
+// Roster search: the visible label leads the field and stays once text is typed. The wrapper is the pill
+// (shared with sort and the chips); the input inside is borderless and takes the rest of the width.
+.rosterSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 0;
+  &:focus-within {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 3px;
+  }
+  // The input fills the pill's height, borders included, so its own target is the pill's 44px (36px
+  // with a mouse).
+  input {
+    align-self: stretch;
+    margin-block: -1px;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    color: var(--text-primary);
+    background: transparent;
+    border: 0;
+    outline: none;
+    // The pill carries the focus ring (above), so the input draws none of its own.
+    &:focus-visible {
+      outline: none;
+    }
+  }
+}
+.rosterSearchLabel {
+  flex: none;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+// Rate views: the balance is the headline's context line. Its number takes the value style and its unit
+// the same muted unit style as "points/h" beside the headline number.
+.headlineBalance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  b {
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  small {
+    color: var(--text-secondary);
+    font-size: 16px;
+    font-weight: 400;
   }
 }

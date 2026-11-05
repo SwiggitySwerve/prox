@@ -78,7 +78,7 @@ At most one [R§3], directly under the page header.
 
 ### Summary: headline
 
-- Remaining view: `type-display` number with its two-line caption beside it: metric ("Weekly remaining") and context ("of 300 points"). Drain and Burn views: the one-line label ("Drain rate (3h)") sits above the number, and "points/h" shares the number's baseline. Label then number is also the DOM order, so the label never sits beside the number and long numbers never push it.
+- Remaining view: `type-display` number with its two-line caption beside it: metric ("Weekly remaining") and context ("of 300 points"). Drain and Burn views: the one-line label ("Drain rate (3h)") sits above the number, and "points/h" shares the number's baseline. Label then number is also the DOM order, so the label never sits beside the number and long numbers never push it. In those views the balance ("Weekly remaining **248.4** of 300 points") is the headline's context line under the rate: the number in the value style (500, tabular) and "of 300 points" in the same muted unit style as "points/h". Nothing stands under a "Now" heading there, because it would hold a single fact.
 - A thin capacity meter under the headline (Remaining view): remaining / capacity in the provider colour, with a tick at the 20% low threshold.
 - **Withheld total:** `—` in muted display size; label line 1 unchanged; line 2 becomes the reason: "Withheld · 2 of 3 current" (or "Not summed" on the combined card). No meter. The notice explains.
 
@@ -89,10 +89,10 @@ At most one [R§3], directly under the page header.
 
 | Slot | Remaining view | Drain / Burn view | Combined card |
 |---|---|---|---|
-| 1 | Pool empty | Remaining (248.4 of 300) | Claude remaining |
-| 2 | First account empty | Pool empty | Codex remaining |
-| 3 | Next reset (aside: +100 · in 1d 4h) | First account empty | First pool empty |
-| 4 | Burn rate (3h) | Next reset | Next reset |
+| 1 | Pool empty | Pool empty | Claude remaining |
+| 2 | First account empty | First account empty | Codex remaining |
+| 3 | Next reset (aside: +100 · in 1d 4h) | Next reset | First pool empty |
+| 4 | Burn rate (3h) | none: the balance (248.4 of 300) is the headline's context line | Next reset |
 
 - Withheld forecast: the slots keep their labels; values read "—" and the aside reads "Needs all accounts". Next reset still shows.
 - One horizon: "After Nov 10" means the projection reaches the forecast horizon without emptying. The chart shows the same horizon (edge label "empty after Nov 10 →") so the fact and the chart never disagree.
