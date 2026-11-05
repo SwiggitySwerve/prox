@@ -740,7 +740,7 @@ $pool-error: #ff5252;
   }
   // A stale reading keeps the normal value colour and opacity; the amber "Stale" word, its clock
   // icon and the timestamp in .accountStatus say it is old.
-  // Wide tables tint an open row; phones keep dividers only, so no box sits in the card.
+  // Wide tables tint an open row; phones fill only the open row's header (H1-P), with no box in the card.
   @media (min-width: 901px) {
     &[open] {
       background: var(--fill-soft);
@@ -2692,7 +2692,7 @@ $pool-error: #ff5252;
 // Phone account rows (900px and below). The header holds the chevron, name, chip and plan. The
 // limits follow as blocks, the active window first: one line (label left, value right) over its
 // bar, and a limit's reset line directly under its bar. The list takes no box of its own, so the
-// stale line sits directly under the active block, and every bar track spans the block's full width.
+// stale line sits under the name and plan (H1-P), and every bar track spans the block's full width.
 // A closed row of a minimized card keeps its compact list (no data-phone-blocks).
 .unavailableWord {
   position: absolute;
@@ -2861,4 +2861,56 @@ $pool-error: #ff5252;
   border: 1px dashed var(--text-secondary);
   background: transparent;
   color: var(--text-secondary);
+}
+
+/* H1-P */
+// Phone account rows, Forecast facts and the "counts toward total" cue (900px and below).
+// One line per card says what the bold limit is; the wide table says it under the column header.
+.phoneCountsNote {
+  margin: 0;
+  padding: 6px 10px 2px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  @media (min-width: 901px) {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  // The stale line belongs to the account: directly under the name and plan, above the first block.
+  .account[data-phone-blocks][data-status='stale'] > summary {
+    > .accountStatus {
+      grid-row: 2;
+    }
+    > .limits > li[data-counted='true'] {
+      grid-row: 3;
+    }
+  }
+  // The whole header is the toggle (the summary): an open row's header carries a fill beyond the
+  // chevron's turn, and a press shows it before the row moves.
+  .account[open] > summary {
+    background: var(--fill-hover);
+  }
+  .account > summary:active {
+    background: var(--fill-hover);
+  }
+  // Forecast facts read label over value, as on wide cards, in one group that wraps between pairs.
+  .statsBlock > .statsGroup:last-child .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    > div {
+      display: block;
+    }
+    dt {
+      margin-bottom: 4px;
+      white-space: nowrap;
+    }
+    dd {
+      font-size: 15px;
+      text-align: left;
+    }
+    small {
+      text-align: left;
+    }
+  }
 }

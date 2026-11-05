@@ -125,17 +125,20 @@ export function QuotaPoolPage() {
       document.removeEventListener('click', onClick);
     };
   }, [optionsOpen, toolbarShown]);
-  // The Options button spells out the current choices; Future joins only when it applies and
-  // differs from the default.
+  // The Options button spells out the current choices; Future joins wherever it applies (rate views
+  // hide it). The default reads as its own short name, "Same as now"; any other choice keeps the
+  // "Future:" prefix, since "Half" alone says nothing.
   const optionsSummary = [
     t(`quota_pool.${view.window === 'weekly' ? 'weekly' : 'five_hour'}`),
     t(`quota_pool.${mode}`),
     t('quota_pool.hours', { hours: view.lookback }),
-    ...(mode === 'remaining' && view.future !== 1
+    ...(mode === 'remaining'
       ? [
-          `${t('quota_pool.future_prefix')}: ${t(
-            `quota_pool.scenario.${view.future === 0.5 ? 'half' : view.future === 2 ? 'double' : 'idle'}`
-          )}`,
+          view.future === 1
+            ? t('quota_pool.scenario.same')
+            : `${t('quota_pool.future_prefix')}: ${t(
+                `quota_pool.scenario.${view.future === 0.5 ? 'half' : view.future === 2 ? 'double' : 'idle'}`
+              )}`,
         ]
       : []),
   ].join(' · ');

@@ -1016,7 +1016,8 @@ describe('pool presentation', () => {
     expect(chart).toContain('tabindex="0"');
     expect(chart).toMatch(/aria-describedby="[^"]*-readout"/);
     expect(markup).toContain('stroke-dasharray="7 5"');
-    expect(markup).toContain('<summary>');
+    // The summary is the row's toggle, so it carries its expanded state.
+    expect(markup).toContain('<summary aria-expanded="false">');
     const revealed = renderToStaticMarkup(
       createElement(PoolCard, { pool, dashboard, mode: 'remaining', reveal: true })
     );
