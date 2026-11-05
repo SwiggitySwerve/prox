@@ -1643,10 +1643,21 @@ async def check_options_summary(page, name, state, width):
     toggle = page.locator(OPTIONS_BUTTON)
     if not await toggle.is_visible():
         return [dict(why="Options button not visible")]
+    rate_view = state in ("drain", "burn")
+    # Remaining names its Future assumption ("Same as now" by default); rate views hide Future, so they omit it.
     expected = ["5-hour" if state == "no-limit" else "Weekly", "Drain rate" if state == "drain" else "Burn rate" if state == "burn" else "Remaining", "3h"]
+    if not rate_view:
+        expected.append("Same as now")
     failures = []
     text = await toggle.inner_text()
     failures += [dict(why=f"summary lacks {item!r}", text=text) for item in expected if item not in text]
+    if rate_view and ("Same as now" in text or "Future" in text):
+        failures.append(dict(why="a rate view's summary names Future, which it hides", text=text))
+    box = await toggle.bounding_box()
+    if box["height"] < 43.5:
+        failures.append(dict(why="Options button under 44px tall", box=box))
+    if await toggle.evaluate("b => [...b.querySelectorAll('*')].some(e => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== 'visible') || b.scrollWidth > b.clientWidth + 1"):
+        failures.append(dict(why="Options summary is clipped", text=text))
     if name == "narrow":
         await toggle.click()
         future = page.get_by_role("combobox", name="Future", exact=True)
@@ -2071,6 +2082,10 @@ B_KEYS = (
     "phoneRowBlockFailures",
     "phoneHeaderConsistencyFailures",
     "phoneTrackFailures",
+    # H1-P: the whole row header as one toggle, the once-per-card "counts toward total" line, the stacked Forecast facts.
+    "phoneToggleFailures",
+    "phoneCountsNoteFailures",
+    "phoneForecastStackFailures",
 )
 # case -> views measured. no-limit-narrow is a 5-hour page (the Ultra account has no 5-hour limit).
 B_ROW_VIEWS = {
@@ -2137,14 +2152,17 @@ B_ROW_JS = "(args) => { const [view, isOpen, width] = args;" + H_PRELUDE + r"""
       if (!eb || !shown(eb) || filled || getComputedStyle(eb).borderTopStyle !== 'dashed') fails.push({who, why: 'the unavailable block lacks its empty dashed track'});
       if (status && shown(status) && /unavailable/i.test(status.textContent)) fails.push({who, why: 'a separate "quota unavailable" line remains', text: status.textContent.trim()});
     } else if (!pct.test(ev.textContent) || !eb || !shown(eb) || !(filled && r(filled).width > 0)) fails.push({who, why: 'a numeric window lacks its value or filled bar', text: ev.textContent.trim()});
-    // Stale: the line sits directly under the active block (and above the next one).
+    // Stale: the line belongs to the account, so it sits directly under the name and plan line and above the first block.
     if (row.dataset.status === 'stale') {
       stats.stale++;
+      const plan = summary.querySelector('[class*="__accountPlan___"]');
       if (!status || !shown(status)) fails.push({who, why: 'a stale row shows no status line'});
+      else if (!plan) fails.push({who, why: 'a stale row has no plan line to sit under'});
       else {
-        const gap = r(status).top - r(activeItem).bottom, next = byTop[1];
-        if (gap < -1 || gap > 16) fails.push({who, why: `the stale line is ${gap.toFixed(0)}px from the active block, not directly under it`});
-        if (next && r(next).top < r(status).bottom - 1) fails.push({who, why: 'the stale line is not above the next block'});
+        const gap = r(status).top - r(plan).bottom;
+        if (gap < -1) fails.push({who, why: 'the stale line is not below the plan line'});
+        if (gap > 12) fails.push({who, why: `the stale line is ${gap.toFixed(0)}px below the plan line, not directly under it`});
+        if (r(status).bottom > r(byTop[0]).top + 1) fails.push({who, why: 'the stale line is not above the first limit block'});
       }
     }
     // Closed rows at 390 stay compact: 110px with one block, 150px with two or three; a stale line adds its own height.
@@ -2241,6 +2259,134 @@ async def check_phone_tracks(page, name):
     for _ in range(await page.get_by_role("button", name="Collapse all").count()):
         await page.get_by_role("button", name="Collapse all").first.click()
     return out
+
+
+P_TOGGLE_CASES = ("narrow", "narrow-320", "details-narrow", "expanded-narrow", "stale-narrow")
+P_NOTE_CASES = P_TOGGLE_CASES + ("many-narrow", "tablet", "laptop")
+P_FORECAST_CASES = ("narrow", "narrow-320", "tablet", "burn-narrow", "drain-narrow", "partial-narrow", "stale-narrow", "collecting-narrow")
+P_TOGGLE_JS = "() => {" + C1_PRELUDE + r"""
+  const fails = [], rows = [...document.querySelectorAll('article details')].filter(shown);
+  for (const row of rows) {
+    const summary = row.querySelector(':scope > summary'), s = summary.getBoundingClientRect(), r = row.getBoundingClientRect();
+    const who = row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '?';
+    if (s.height < 43.5) fails.push({who, why: `the row header toggle is ${s.height.toFixed(1)}px tall`});
+    if (s.width < r.width * 0.8) fails.push({who, why: `the row header toggle spans ${s.width.toFixed(0)} of the ${r.width.toFixed(0)}px row`});
+    if (summary.getAttribute('aria-expanded') !== String(row.open)) fails.push({who, why: 'aria-expanded does not match the row', attr: summary.getAttribute('aria-expanded'), open: row.open});
+    const nested = summary.querySelectorAll('a[href], button, input, select, textarea, summary, [tabindex], [role="button"], [role="link"]');
+    if (nested.length) fails.push({who, why: 'the row header toggle holds another interactive element', found: [...nested].map(e => e.tagName)});
+  }
+  return {fails, rows: rows.length};
+}"""
+P_FOCUS_JS = """(summary) => {
+  const s = getComputedStyle(summary);
+  return {style: s.outlineStyle, width: parseFloat(s.outlineWidth), color: s.outlineColor, focused: document.activeElement === summary};
+}"""
+
+
+def lab(rgb):
+    """CIE Lab (D65) of an sRGB triple, for the CIE76 colour difference."""
+    lin = [((c / 255 + 0.055) / 1.055) ** 2.4 if c / 255 > 0.04045 else c / 255 / 12.92 for c in rgb[:3]]
+    x = (0.4124 * lin[0] + 0.3576 * lin[1] + 0.1805 * lin[2]) / 0.95047
+    y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    z = (0.0193 * lin[0] + 0.1192 * lin[1] + 0.9505 * lin[2]) / 1.08883
+    f = lambda t: t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+    return 116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))
+
+
+async def header_fill(page, summary):
+    """The pixel colour of a row header's own padding (left edge, top), with the pointer parked away from it."""
+    from PIL import Image
+    import io
+    await page.mouse.move(1, 1)
+    await page.wait_for_timeout(80)
+    await summary.scroll_into_view_if_needed()
+    box = await summary.bounding_box()
+    shot = await page.screenshot(clip=dict(x=box["x"] + 1, y=box["y"] + 1, width=4, height=2), animations="disabled")
+    return Image.open(io.BytesIO(shot)).convert("RGB").getpixel((1, 0))
+
+
+async def check_phone_toggle(page, name, width):
+    """P3: at 900px and below the whole row header is one toggle: at least 44px tall and 80% of the row wide, with
+    aria-expanded matching the row, no interactive element inside it, a click on the account name (not the
+    chevron) flips it, the open row's header fill differs from the closed one's by dE >= 3, and keyboard focus
+    shows a ring. Cases at 390 and 320."""
+    if name not in P_TOGGLE_CASES:
+        return []
+    out = []
+    first = await page.evaluate(P_TOGGLE_JS)
+    out += first["fails"]
+    if not first["rows"]:
+        return [dict(why="no account row to measure")]
+    row = page.locator("article details").first
+    summary = row.locator(":scope > summary")
+    before_open = await row.evaluate("d => d.open")
+    before_fill = await header_fill(page, summary)
+    # Click the name, which is not the chevron: the whole header toggles.
+    await row.locator('[class*="__accountText___"]').first.click()
+    await page.wait_for_timeout(150)
+    after_open = await row.evaluate("d => d.open")
+    if after_open == before_open or await summary.get_attribute("aria-expanded") != str(after_open).lower():
+        out.append(dict(why="clicking the account name did not flip the row and its aria-expanded", before=before_open, after=after_open))
+    after_fill = await header_fill(page, summary)
+    open_fill, closed_fill = (after_fill, before_fill) if after_open else (before_fill, after_fill)
+    delta = sum((a - b) ** 2 for a, b in zip(lab(open_fill), lab(closed_fill))) ** 0.5
+    if delta < 3:
+        out.append(dict(why=f"the open row header fill differs from the closed one by dE {delta:.1f}, under 3", open=open_fill, closed=closed_fill))
+    await page.keyboard.press("Shift")
+    await summary.focus()
+    ring = await summary.evaluate(P_FOCUS_JS)
+    if not ring["focused"] or ring["style"] == "none" or ring["width"] < 2:
+        out.append(dict(why="the row header toggle shows no focus ring", ring=ring))
+    await summary.evaluate("s => s.blur()")
+    await row.locator('[class*="__accountText___"]').first.click()
+    await page.wait_for_timeout(150)
+    await page.mouse.move(1, 1)
+    return out
+
+
+async def check_phone_counts_note(page, name, width):
+    """P4: at 900px and below each provider card with accounts says once, above its first row, what the bold limit is;
+    from 901px that line is hidden because the column header says it."""
+    if name not in P_NOTE_CASES:
+        return []
+    return await page.evaluate("(phone) => {" + C1_PRELUDE + r"""
+      const fails = [], articles = [...document.querySelectorAll('article')].filter(a => a.querySelector('details'));
+      if (!articles.length) return [{why: 'no card with accounts to measure'}];
+      for (const a of articles) {
+        const who = a.querySelector('h2')?.textContent, notes = [...a.querySelectorAll('[class*="__phoneCountsNote___"]')], visible = notes.filter(shown);
+        if (!notes.length) { fails.push({who, why: 'the card has no counts-toward-total line'}); continue; }
+        if (!phone) { if (visible.length) fails.push({who, why: 'the phone counts-toward-total line shows on a wide card'}); continue; }
+        if (visible.length !== 1) { fails.push({who, why: `${visible.length} counts-toward-total lines, expected one`}); continue; }
+        const note = visible[0], row = [...a.querySelectorAll('details')].filter(shown)[0];
+        if (!/total/i.test(note.textContent)) fails.push({who, why: 'the line does not say what counts toward the total', text: note.textContent});
+        if (note.getBoundingClientRect().bottom > row.getBoundingClientRect().top + 1) fails.push({who, why: 'the line is not above the first row'});
+        if (note.scrollWidth > note.clientWidth + 1) fails.push({who, why: 'the line is clipped'});
+      }
+      return fails;
+    }""", width <= 900)
+
+
+async def check_phone_forecast_stack(page, name, width):
+    """P5: at 900px and below each Forecast fact reads label over value (the value starts below the label and at its
+    left edge), and the facts stay inside their card."""
+    if name not in P_FORECAST_CASES:
+        return []
+    return await page.evaluate("() => {" + C1_PRELUDE + r"""
+      const fails = [], groups = [...document.querySelectorAll('article [class*="__statsBlock___"] > :last-child dl')].filter(shown);
+      if (!groups.length) return [{why: 'no Forecast facts found'}];
+      for (const dl of groups) {
+        const who = dl.closest('article').querySelector('h2')?.textContent, card = dl.closest('article').getBoundingClientRect(), facts = [...dl.children].filter(shown);
+        if (!facts.length) fails.push({who, why: 'the Forecast group holds no fact'});
+        for (const f of facts) {
+          const dt = f.querySelector('dt').getBoundingClientRect(), dd = f.querySelector('dd').getBoundingClientRect(), label = f.querySelector('dt').textContent;
+          if (dd.top < dt.bottom - 1) fails.push({who, label, why: 'the value is not below its label'});
+          if (Math.abs(dd.left - dt.left) > 1) fails.push({who, label, why: 'the value does not start at its label\'s left edge'});
+          const b = f.getBoundingClientRect();
+          if (b.left < card.left || b.right > card.right) fails.push({who, label, why: 'the fact leaves its card'});
+        }
+      }
+      return fails;
+    }""")
 
 
 async def check_header_consistency(browser, url, page, name, state, width):
@@ -2433,21 +2579,25 @@ async def main():
                 await context.route("**/*", local_only)
                 await page.route("**/prox/sources.json", lambda route: route.fulfill(status=404))
                 await page.route("**/v8/management/**", route_api)
-                await page.goto(args.url, wait_until="networkidle")
-                await page.evaluate("""async () => {
-                    const {useAuthStore}=await import('/src/stores/useAuthStore.ts');
-                    const {apiClient}=await import('/src/services/api/client.ts');
-                    const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage('en');
-                    apiClient.setConfig({apiBase:location.origin,managementKey:'visual-fixture-only'});
-                    useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
-                    location.hash='/quota';
-                }""")
-                try:
-                    await page.locator('[class*="QuotaPoolPage"][class*="__page___"]').wait_for()
-                except Exception:
-                    print("Fixture navigation failed", name, page.url, errors, flush=True)
-                    await page.screenshot(path=str(out / "navigation-error.png"),full_page=True)
-                    raise
+                # A busy machine sometimes leaves the first load blank: reload up to twice before failing.
+                for attempt in range(3):
+                    await page.goto(args.url, wait_until="networkidle")
+                    await page.evaluate("""async () => {
+                        const {useAuthStore}=await import('/src/stores/useAuthStore.ts');
+                        const {apiClient}=await import('/src/services/api/client.ts');
+                        const i18n=(await import('/src/i18n/index.ts')).default; await i18n.changeLanguage('en');
+                        apiClient.setConfig({apiBase:location.origin,managementKey:'visual-fixture-only'});
+                        useAuthStore.setState({isAuthenticated:true,connectionStatus:'connected',apiBase:location.origin,managementKey:'visual-fixture-only'});
+                        location.hash='/quota';
+                    }""")
+                    try:
+                        await page.locator('[class*="QuotaPoolPage"][class*="__page___"]').wait_for()
+                        break
+                    except Exception:
+                        print("Fixture navigation failed", name, page.url, errors, flush=True)
+                        await page.screenshot(path=str(out / "navigation-error.png"),full_page=True)
+                        if attempt == 2:
+                            raise
                 assert await page.title() == "Prox"
                 if state in ("error", "loading", "empty"):
                     await page.locator(
@@ -2619,6 +2769,9 @@ async def main():
                 results[name]["phoneRowBlockFailures"] = await check_phone_row_blocks(page, name, state, width)
                 results[name]["phoneHeaderConsistencyFailures"] = await check_header_consistency(browser, args.url, page, name, state, width)
                 results[name]["phoneTrackFailures"] = await check_phone_tracks(page, name)
+                results[name]["phoneToggleFailures"] = await check_phone_toggle(page, name, width)
+                results[name]["phoneCountsNoteFailures"] = await check_phone_counts_note(page, name, width)
+                results[name]["phoneForecastStackFailures"] = await check_phone_forecast_stack(page, name, width)
                 results[name]["rosterCountFailures"] = await check_roster_count(context, args.url, route_api, name, state)
                 results[name]["filterChipFailures"] = await check_filter_chip(context, args.url, route_api, name, state)
                 results[name]["rosterToolbarFailures"] = await check_roster_toolbar(context, args.url, route_api, name, state)

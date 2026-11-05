@@ -2532,6 +2532,7 @@
     "account_reset": "{{window}} reset",
     "account_remaining": "{{window}} remaining",
     "limit_low": "Low",
+    "counts_toward_total_phone": "Bold limit counts toward total",
     "billing_estimate_from_start": "from start date",
     "billing_estimate_caveat": "Renewal dates are estimated from each plan's start date; annual plans differ.",
     "other_low_limits": "Other low limits",

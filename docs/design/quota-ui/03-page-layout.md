@@ -52,7 +52,7 @@ Viewport media queries for the page frame; container queries for cards and table
 |---|---|---|
 | ≥ 1100px | one row | one row: pools · window · measure · options · range |
 | 768–1099px | one row | two rows: (pools) / (window · measure · options · range) — the whole row reflows, never one orphaned control |
-| < 768px | title row; then actions row | row 1: pool menu ("All pools ▾") + RefreshControl (icon + time); row 2: range stepper; row 3: a full-width Options button that spells out the current choices ("Weekly · Remaining · 3h"), shows a trailing chevron-down that flips while the overlay is open, and opens an overlay holding Window, Measure, Averaged over and Future (≤640px; from 641px the controls sit inline as in the wider rows) |
+| < 768px | title row; then actions row | row 1: pool menu ("All pools ▾") + RefreshControl (icon + time); row 2: range stepper; row 3: a full-width Options button that spells out the current choices ("Weekly · Remaining · 3h · Same as now"; the last item is the Future assumption, shown only in Remaining, as its short name, or "Future: Half" when it isn't the default), shows a trailing chevron-down that flips while the overlay is open, and opens an overlay holding Window, Measure, Averaged over and Future (≤640px; from 641px the controls sit inline as in the wider rows) |
 
 Budget: on a 390 × 844 screen the first headline number starts no lower than 470px from the top (420px if the Options summary fits on the date row). The 360px budget was replaced by this measured one (S4): the phone toolbar is the pool tabs, the date row and a full-width Options button, and C2 measures the headline at 455px. The capture's `toolbarBudgetFailures` check holds it.
 

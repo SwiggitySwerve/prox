@@ -2558,6 +2558,7 @@
     "account_reset": "{{window}}重設",
     "account_remaining": "{{window}}剩餘",
     "limit_low": "低",
+    "counts_toward_total_phone": "粗體限額計入合計",
     "billing_estimate_from_start": "按開始日期",
     "billing_estimate_caveat": "續訂日期按各方案的開始日期推算；年度方案可能不同。",
     "other_low_limits": "其他偏低的額度",

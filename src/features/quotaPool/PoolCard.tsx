@@ -671,6 +671,10 @@ export function PoolCard({
               <span>{t('quota_pool.other_low_limits')}</span>
             </div>
           )}
+          {/* Phones have no column heading, so one line per card says what the bold limit is. */}
+          {visibleAccounts.length > 0 && (
+            <p className={styles.phoneCountsNote}>{t('quota_pool.counts_toward_total_phone')}</p>
+          )}
           {visibleAccounts.length > 0 && (
             <div className={styles.accountHead} aria-hidden="true">
               <span />
@@ -705,7 +709,7 @@ export function PoolCard({
                 open={openAccounts.has(account.id)}
                 onToggle={(event) => setAccountOpen(account.id, event.currentTarget.open)}
               >
-                <summary>
+                <summary aria-expanded={openAccounts.has(account.id)}>
                   <IconChevronDown
                     className={styles.accountDisclosure}
                     size={20}

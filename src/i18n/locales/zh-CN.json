@@ -2530,6 +2530,7 @@
     "account_reset": "{{window}}重置",
     "account_remaining": "{{window}}剩余",
     "limit_low": "低",
+    "counts_toward_total_phone": "粗体限额计入合计",
     "billing_estimate_from_start": "按开始日期",
     "billing_estimate_caveat": "续订日期按各套餐的开始日期推算；年度套餐可能不同。",
     "other_low_limits": "其他偏低的额度",

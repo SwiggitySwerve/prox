@@ -56,11 +56,12 @@ One anatomy at every roster size, at 900px and below (closed rows of a minimized
    ▬▬
 ```
 
-- The row header holds only the chevron, name, reset chip and plan: no figure and no caption.
+- The row header holds the chevron, name, reset chip and plan, plus the stale line when the row is stale: no figure and no caption. The whole header is the toggle (the `summary`, `aria-expanded`, at least 44px tall, a visible focus ring); an open row's header takes the `--fill-hover` fill, beyond the chevron's turn, and a press shows it too. Nothing interactive sits inside it.
+- One line per card, "Bold limit counts toward total", sits above the first row. It is the phone form of the wide column header's "counts toward total" cue: once per card, not per row, so no row gets taller and no row's label changes. It is hidden from 901px.
 - The limits follow as blocks, the active window first. A block is one line, label on the left and value on the right (the Low word, icon and value stay on one line, S11), with its bar beneath. The active window leads with "{window} remaining" (for example "Weekly remaining"). A block's "Resets {date}" line sits directly under its own bar, in one type size and colour for every limit; closed rows leave reset lines to the opened row, as before.
 - Closed rows show the active block, plus every other limit on short rosters (a roster of more than 8 accounts shows only the low ones). Opened rows show every limit. A bar track spans the block's full content width, under the label and value line, so every track in a card has the same left and right edges and its fill length encodes the value whatever the value text, Low word or row (this replaces S13's t16/t17 lengths). The active window's label and value use weight 600; other limits stay at regular weight.
 - Unavailable: the block's value reads "Unavailable" in the same amber warning colour as the wide table's "Weekly quota unavailable", with the warning icon (`aria-hidden`), over an empty dashed track, and no separate "Weekly quota unavailable" line remains. A missing or unlimited active window keeps its reason ("Not reported", "No 5-hour limit") in the value place, with no percentage and no bar.
-- A low limit keeps the neutral value, red ⚠ and bar, and the visible word "Low" (S5). Stale adds one line, "◷ Stale · Last reading 11:00 AM", in amber with a clock icon, on one line directly under the active block; values and bars keep the normal colour and opacity (S6).
+- A low limit keeps the neutral value, red ⚠ and bar, and the visible word "Low" (S5). Stale adds one line, "◷ Stale · Last reading 11:00 AM", in amber with a clock icon, on one line directly under the name and plan line and above the first block, because the staleness belongs to the account, not to one limit; values and bars keep the normal colour and opacity (S6).
 
 ## Minimized list (≥ 901px)
 
