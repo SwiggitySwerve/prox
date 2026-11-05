@@ -3329,7 +3329,7 @@ $table-tiers: (a: 725px, b: 779px, c: 833px);
 // Phones: "Manual resets N" is longer than the chip it replaces, so it shares the plan's line under the name
 // (it wraps to a line of its own only when both don't fit) and a closed row keeps its two-line name cell.
 @media (max-width: 640px) {
-  .pool:not([data-minimized='true']) .account:not([open]) .accountName {
+  .pool .account:not([open]) .accountName {
     > .accountLabel {
       display: contents;
     }
@@ -3346,5 +3346,20 @@ $table-tiers: (a: 725px, b: 779px, c: 833px);
       order: 2;
       margin-left: 0;
     }
+  }
+}
+
+/* H2-INT */
+// The usable reset chip ("Manual resets 2 · 2 usable") is wider than the 160px Account column the 901–1199px
+// table gives it. There it may break at its " · " (each part stays whole), so it never runs into the Plan
+// column; elsewhere it stays on one line.
+.resetChipPart {
+  white-space: nowrap;
+}
+@media (min-width: 901px) and (max-width: 1199px) {
+  .accountResetMarker[data-usable] {
+    max-width: 100%;
+    white-space: normal;
+    vertical-align: top;
   }
 }

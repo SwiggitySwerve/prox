@@ -2,6 +2,7 @@ import { Fact, FactPanel, FactSection } from '@/components/ui/FactPanel';
 import { BillingFacts } from '@/components/ui/FactPanel/BillingFacts';
 import { billingFacts } from '@/domain/accountBilling';
 import {
+  Fragment,
   useEffect,
   useId,
   useRef,
@@ -777,10 +778,21 @@ export function PoolCard({
                             data-usable={account.resets.usable > 0 || undefined}
                           >
                             {account.resets.usable > 0
-                              ? t('quota_pool.reset_chip_usable', {
+                              ? // Two unbreakable parts, so a column narrower than the chip (901–1199px)
+                                // breaks it only at its " · ", never across the Plan column.
+                                t('quota_pool.reset_chip_usable', {
                                   count: account.resets.available,
                                   usable: account.resets.usable,
                                 })
+                                  .split(' · ')
+                                  .map((part, index, parts) => (
+                                    <Fragment key={index}>
+                                      <span className={styles.resetChipPart}>
+                                        {index < parts.length - 1 ? `${part} ·` : part}
+                                      </span>
+                                      {index < parts.length - 1 && ' '}
+                                    </Fragment>
+                                  ))
                               : t('quota_pool.reset_chip', { count: account.resets.available })}
                           </span>
                         )}
