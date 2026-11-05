@@ -1003,7 +1003,7 @@ describe('pool presentation', () => {
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(
-      /<li data-limit-id="five-hour" data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span><span aria-hidden="true">[\s\S]*?<\/span><span>Low<\/span><\/span>12.0%/
+      /<li data-limit-id="five-hour" data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span><span><span aria-hidden="true">[\s\S]*?<\/span><span>Low<\/span><\/span>[\s\S]*?<span>12.0%<\/span>/
     );
     // The visible word is the accessible text: no second, hidden "Low" beside it.
     expect(markup.match(/>Low</g)).toHaveLength(1);
@@ -1110,7 +1110,7 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toMatch(/<strong data-low="true">.*?12.0%<\/strong>/);
+    expect(markup).toMatch(/<strong data-low="true">.*?<span>Low<\/span>.*?12.0%/);
   });
   test('accounts without a 5-hour limit are counted as such, not as missing', async () => {
     await i18n.changeLanguage('en');

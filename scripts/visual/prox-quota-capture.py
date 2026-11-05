@@ -2867,6 +2867,182 @@ async def check_skeleton_wide(browser, url, page, name, width):
 
 
 
+# W checks (round h1, job W): the wide Accounts table (901px and up) and the headline word. Each has its own JSON
+# key, registered in W_KEYS for the summary and the exit gate. A check that finds nothing to measure fails.
+W_KEYS = ("wideTrackFailures", "unavailableCellFailures", "headlineBaselineFailures")
+W_TRACK_CASES = ("wide", "laptop", "laptop-1100", "many-low", "partial", "stale", "stacked-wide", "wide-minimized-1440")
+W_UNAVAILABLE_CASES = {"partial": (390, True), "stacked-unavailable": (390, False),
+                       "partial-narrow": (1440, True), "partial-affected-narrow": (1440, True)}
+W_HEADLINE_CASES = ("partial", "stale", "stacked-unavailable", "partial-narrow")
+W_TRACK_JS = "([isOpen, minimized, minTrack]) => {" + C1_PRELUDE + r"""
+  const fails = [], pct = /(\d+(?:\.\d+)?)%/, r = e => e.getBoundingClientRect();
+  let tracks = 0;
+  for (const article of document.querySelectorAll('article')) {
+    const who = (article.querySelector('h2')?.textContent || '?').trim() + (isOpen ? ' open' : ' closed');
+    const columns = {}, rowEnds = [];
+    for (const row of [...article.querySelectorAll('details')].filter(shown)) {
+      const summary = row.querySelector(':scope > summary'), cs = getComputedStyle(summary);
+      const contentRight = r(summary).right - parseFloat(cs.paddingRight);
+      const label = (row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '?');
+      let lastRight = 0;
+      for (const li of summary.querySelectorAll(':scope > ul[aria-label="Limits"] > li')) {
+        const bar = li.querySelector(':scope > [class*="__limitBar___"]');
+        if (!bar || !shown(bar)) continue;
+        const b = r(bar), id = li.dataset.limitId, at = {who, row: label, limit: id};
+        (columns[id] ||= []).push({...at, left: b.left, right: b.right});
+        tracks++;
+        lastRight = Math.max(lastRight, b.right);
+        const fill = bar.querySelector(':scope > span'), strong = li.querySelector(':scope > strong'), text = strong && textNodeLike(strong);
+        if (fill && text) {
+          const ratio = r(fill).width / b.width * 100;
+          if (Math.abs(ratio - parseFloat(text[1])) > 2) fails.push({...at, why: `fill is ${ratio.toFixed(1)}% of its track but the value reads ${text[1]}%`});
+          // The value text starts at one x in a column, whatever the Low mark beside it.
+          if (!minimized) {
+            const node = [...strong.querySelectorAll('*')].find(e => e.children.length === 0 && pct.test(e.textContent)) || strong, range = document.createRange();
+            range.selectNodeContents(node);
+            columns[id][columns[id].length - 1].valueLeft = range.getBoundingClientRect().left;
+          }
+        } else if (fill || text) fails.push({...at, why: 'a bar and its value text do not pair up'});
+        if (b.width < minTrack) fails.push({...at, why: `the bar track is only ${b.width.toFixed(0)}px wide (at least ${minTrack}px here)`});
+      }
+      // A table with fewer limits still spreads them over the row: its last column ends near the row's right edge.
+      const balance = summary.querySelector(':scope > strong');
+      if (balance && shown(balance)) lastRight = Math.max(lastRight, r(balance).right);
+      if (!minimized && lastRight && contentRight - lastRight > 24) fails.push({who, row: label, why: `the last column ends ${(contentRight - lastRight).toFixed(0)}px short of the row's right edge`});
+    }
+    for (const [id, cells] of Object.entries(columns)) {
+      const spread = key => Math.max(...cells.map(c => c[key])) - Math.min(...cells.map(c => c[key]));
+      if (spread('left') > 1 || spread('right') > 1) fails.push({who, limit: id, why: 'bar tracks do not share left and right edges', lefts: [...new Set(cells.map(c => +c.left.toFixed(1)))], rights: [...new Set(cells.map(c => +c.right.toFixed(1)))]});
+      const values = cells.filter(c => c.valueLeft !== undefined);
+      if (values.length > 1 && Math.max(...values.map(c => c.valueLeft)) - Math.min(...values.map(c => c.valueLeft)) > 1) fails.push({who, limit: id, why: 'value text does not start at one x', lefts: [...new Set(values.map(c => +c.valueLeft.toFixed(1)))]});
+    }
+  }
+  if (!tracks) fails.push({why: 'no visible limit bar track to measure'});
+  return fails;
+  function textNodeLike(e) { return e.textContent.match(pct); }
+}"""
+
+
+async def check_wide_tracks(page, name, width):
+    """W1/W2: from 901px, every bar track in a column of a provider card shares its left and right edges (1px), whatever
+    the value or its Low mark; the fill is the printed value of the track (2 points); the value text starts at one x;
+    the last column ends within 24px of the row's right edge (a two-limit table as well as a three-limit one); no
+    track is shorter than 100px at 1440 and up, 90px at 1280, 16px below. Closed and opened rows. A minimized card is measured in its opened rows, which have
+    no status slot (its closed rows draw no bars), so only the edges and the fill apply there."""
+    if name not in W_TRACK_CASES:
+        return []
+    minimized = name in MINIMIZED_CASES
+    # Bars stay long (S13): 100px from 1440, 90px at 1280, and the 16px floor below that.
+    min_track = 100 if width >= 1440 else 90 if width >= 1280 else 16
+    out = []
+    for opened in (False, True):
+        if opened:
+            await h_expand_all(page)
+        elif minimized:
+            continue
+        out += [dict(open=opened, width=width, **f) for f in await page.evaluate(W_TRACK_JS, [opened, minimized, min_track])]
+    for _ in range(await page.get_by_role("button", name="Collapse all").count()):
+        await page.get_by_role("button", name="Collapse all").first.click()
+    return out
+
+
+W_UNAVAILABLE_JS = "() => {" + C1_PRELUDE + r"""
+  const cells = [], stray = [];
+  for (const row of [...document.querySelectorAll('article details')].filter(shown)) {
+    const summary = row.querySelector(':scope > summary');
+    for (const li of summary.querySelectorAll(':scope > ul[aria-label="Limits"] > li')) {
+      const word = li.querySelector('[class*="__unavailableWord___"]');
+      if (!word || !shown(word)) continue;
+      const bar = li.querySelector(':scope > [class*="__limitBar___"]'), icon = word.querySelector('svg'), cs = getComputedStyle(word);
+      cells.push({limit: li.dataset.limitId, counted: !!li.dataset.counted, colour: cs.color, weight: cs.fontWeight,
+        text: word.textContent.trim(), icon: !!icon && icon.getAttribute('aria-hidden') === 'true' && shown(icon),
+        dashed: !!bar && shown(bar) && getComputedStyle(bar).borderTopStyle === 'dashed' && !bar.querySelector(':scope > span'),
+        named: !!li.querySelector(':scope > span:first-child')?.textContent.trim()});
+    }
+  }
+  // No "quota unavailable" line anywhere in the account rows: the cell says it.
+  for (const e of document.querySelectorAll('article details [class*="__accountStatus___"]')) if (shown(e) && /quota unavailable/i.test(e.textContent)) stray.push(e.textContent.trim());
+  return {cells, stray};
+}"""
+
+
+async def check_unavailable_cells(browser, url, page, name, state, width):
+    """W3: an Unavailable cell reads the same on wide and phone: the aria-hidden warning icon and "Unavailable" in
+    one colour and weight, over a dashed empty track, still named by its limit's label; no "quota unavailable" line
+    remains under the account name. The case's own page is measured, and the other form's page is opened to compare."""
+    if name not in W_UNAVAILABLE_CASES:
+        return []
+    other_width, needs_cell = W_UNAVAILABLE_CASES[name]
+    context, other = await open_fixture_page(browser, url, state, other_width, "en", None)
+    try:
+        here, there = await page.evaluate(W_UNAVAILABLE_JS), await other.evaluate(W_UNAVAILABLE_JS)
+    finally:
+        await context.close()
+    out = []
+    for label, found in ((f"{width}px", here), (f"{other_width}px", there)):
+        for cell in found["cells"]:
+            if cell["text"] != "Unavailable" or not cell["icon"] or not cell["dashed"] or not cell["named"]:
+                out.append(dict(page=label, why="Unavailable cell lacks its word, aria-hidden icon, dashed track or limit name", **cell))
+        out += [dict(page=label, why='a "quota unavailable" line remains under an account name', text=t) for t in found["stray"]]
+    if needs_cell:
+        if not here["cells"] or not there["cells"]:
+            out.append(dict(why="no Unavailable cell to measure on one of the two forms", wide_and_phone=[len(here["cells"]), len(there["cells"])]))
+        # The counted limit's cell (the one both forms bold) must match between widths in colour and weight.
+        for mine in here["cells"]:
+            for theirs in there["cells"]:
+                if mine["counted"] and theirs["counted"] and (mine["colour"], mine["weight"]) != (theirs["colour"], theirs["weight"]):
+                    out.append(dict(why="wide and phone Unavailable cells differ in colour or weight", here=[mine["colour"], mine["weight"]], there=[theirs["colour"], theirs["weight"]]))
+    return out
+
+
+W_HEADLINE_JS = "() => {" + C1_PRELUDE + r"""
+  const out = [];
+  for (const [index, headline] of [...document.querySelectorAll('[class*="__headline___"]')].entries()) {
+    const strong = headline.querySelector(':scope > strong'), word = strong.querySelector('[class*="__unavailableValue___"]');
+    const probe = document.createElement('span');
+    probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    (word || strong).append(probe);
+    const baseline = probe.getBoundingClientRect().bottom - headline.getBoundingClientRect().top;
+    probe.remove();
+    const context = headline.querySelector(':scope > [class*="__headlineContext___"]'), sr = (word || strong).getBoundingClientRect();
+    out.push({index, word: word ? word.textContent.trim() : null, baseline, weight: parseInt(getComputedStyle(word || strong).fontWeight, 10),
+      beside: !context || (context.getBoundingClientRect().left >= sr.right - 1 && context.getBoundingClientRect().top < sr.bottom)});
+  }
+  return out;
+}"""
+
+
+async def check_headline_baseline(browser, url, page, name, width):
+    """W4: a headline that shows a word ("Withheld", "Not summed") has the big number's weight (600 or more), keeps its
+    context label beside it, and sits on the baseline the number has in the same card on a ready page (2px)."""
+    if name not in W_HEADLINE_CASES:
+        return []
+    context, ready = await open_fixture_page(browser, url, "ready", width, "en", None)
+    try:
+        reference = await ready.evaluate(W_HEADLINE_JS)
+    finally:
+        await context.close()
+    mine = await page.evaluate(W_HEADLINE_JS)
+    out, words = [], 0
+    for item in mine:
+        if item["word"] is None:
+            continue
+        words += 1
+        base = next((r for r in reference if r["index"] == item["index"]), None)
+        if base is None or base["word"] is not None:
+            out.append(dict(why="no ready-page number to compare with", **item))
+            continue
+        if abs(item["baseline"] - base["baseline"]) > 2:
+            out.append(dict(why="the word's baseline differs from the number's on a ready page", word=item["word"], baseline=round(item["baseline"], 1), ready=round(base["baseline"], 1)))
+        if item["weight"] < 600:
+            out.append(dict(why="the word is lighter than the number", word=item["word"], weight=item["weight"]))
+        if not item["beside"] or not base["beside"]:
+            out.append(dict(why="the context label is not beside the word", word=item["word"]))
+    if not words:
+        out.append(dict(why="no Withheld or Not summed headline to measure"))
+    return out
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", required=True)
@@ -3251,6 +3427,9 @@ async def main():
                 results[name]["statusTextFailures"] = await check_status_text(page, name)
                 results[name]["pillHeightFailures"] = await check_pill_heights(page, name, width)
                 results[name]["bannerFailures"] = await check_banner(page, name)
+                results[name]["wideTrackFailures"] = await check_wide_tracks(page, name, width)
+                results[name]["unavailableCellFailures"] = await check_unavailable_cells(browser, args.url, page, name, state, width)
+                results[name]["headlineBaselineFailures"] = await check_headline_baseline(browser, args.url, page, name, width)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -3497,7 +3676,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():
