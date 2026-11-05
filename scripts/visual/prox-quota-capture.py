@@ -2568,43 +2568,63 @@ const textRight = el => { // the right edge of the painted text, not of its box
 
 
 async def check_fact_panel_gap(page, state, width):
-    """D1: in an opened row at 1100/1280/1440/1920 the empty run between the widest content of the last fact
-    column and the Manual resets box is at most 96px, every column gap (including the one before Manual resets)
-    is equal within 2px, and a drawer wide enough for the panel's own three columns shows three."""
+    """D1, rewritten for H2-B: in every opened row at 1100/1280/1440/1920 Manual resets is a compact right-hand
+    column 300-420px wide, to the right of every fact column, at the same left edge (within 1px) in every open row
+    of a card; the empty run between adjacent fact columns' painted content is at most 160px; every column gap
+    (including the one before Manual resets) is equal within 2px; and a 920px+ panel shows three fact columns."""
     if state != "expanded" or width not in D_GAP_WIDTHS:
         return []
     return await page.evaluate("() => {" + D_PRELUDE + r"""
+      const textLeft = el => { // the left edge of the painted text, not of its box
+        let left = Infinity; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let n = w.nextNode(); n; n = w.nextNode()) {
+          if (!n.textContent.trim()) continue;
+          const r = document.createRange(); r.selectNodeContents(n);
+          for (const b of r.getClientRects()) if (b.width > 0) left = Math.min(left, b.left);
+        }
+        return left;
+      };
       const fails = [], rows = [...document.querySelectorAll('article details[open]')];
       if (!rows.length) return [{why: 'no open row to measure'}];
+      const boxLefts = new Map();
       for (const row of rows) {
         const who = row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent;
         const facts = row.querySelector('[class*="__accountFacts___"]');
         const accent = facts.querySelector('section[data-tone="accent"]');
         const items = [...facts.querySelectorAll('section')].filter(s => s.dataset.tone !== 'accent').flatMap(s => [...s.querySelectorAll('dl > div')]).filter(shown);
         if (!accent || !shown(accent) || !items.length) { fails.push({who, why: 'no fact column or Manual resets box to measure'}); continue; }
+        const a = accent.getBoundingClientRect();
+        if (a.width < 299.5 || a.width > 420.5) fails.push({who, why: `Manual resets is ${a.width.toFixed(0)}px wide, expected 300-420`});
+        const card = row.closest('article');
+        if (!boxLefts.has(card)) boxLefts.set(card, []);
+        boxLefts.get(card).push({who, left: a.left});
         const columns = [];
-        for (const item of items.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)) {
+        for (const item of items.sort((x, y) => x.getBoundingClientRect().left - y.getBoundingClientRect().left)) {
           const left = item.getBoundingClientRect().left, last = columns[columns.length - 1];
           if (last && Math.abs(last.left - left) < 3) last.items.push(item); else columns.push({left, items: [item]});
         }
         const panelWidth = facts.firstElementChild.getBoundingClientRect().width;
-        if (panelWidth >= 1100 && columns.length !== 3) fails.push({who, why: `a ${panelWidth.toFixed(0)}px panel shows ${columns.length} fact columns, expected 3`});
+        if (panelWidth >= 920 && columns.length !== 3) fails.push({who, why: `a ${panelWidth.toFixed(0)}px panel shows ${columns.length} fact columns, expected 3`});
         if (columns.length < 2) fails.push({who, why: 'fewer than two fact columns'});
         const rights = columns.map(c => Math.max(...c.items.map(i => i.getBoundingClientRect().right)));
-        const lefts = [...columns.slice(1).map(c => c.left), accent.getBoundingClientRect().left];
+        if (a.left < Math.max(...rights)) fails.push({who, why: 'Manual resets is not to the right of every fact column'});
+        const lefts = [...columns.slice(1).map(c => c.left), a.left];
         const gaps = lefts.map((l, i) => l - rights[i]);
         if (Math.max(...gaps) - Math.min(...gaps) > 2) fails.push({who, why: 'column gaps differ', gaps: gaps.map(g => +g.toFixed(1))});
-        const run = accent.getBoundingClientRect().left - Math.max(...columns[columns.length - 1].items.map(textRight));
-        if (run > 96) fails.push({who, why: `${run.toFixed(0)}px empty before Manual resets, at most 96`});
-        const edge = facts.getBoundingClientRect().right - parseFloat(getComputedStyle(facts).paddingRight);
-        if (Math.abs(accent.getBoundingClientRect().right - edge) > 2) fails.push({who, why: 'Manual resets does not reach the panel edge', right: Math.round(accent.getBoundingClientRect().right), edge: Math.round(edge)});
+        const runs = columns.slice(1).map((c, i) => Math.min(...c.items.map(textLeft)) - Math.max(...columns[i].items.map(textRight)));
+        if (runs.length && Math.max(...runs) > 160) fails.push({who, why: `${Math.max(...runs).toFixed(0)}px empty between fact columns, at most 160`, runs: runs.map(r => +r.toFixed(1))});
+      }
+      for (const lefts of boxLefts.values()) {
+        const xs = lefts.map(l => l.left);
+        if (Math.max(...xs) - Math.min(...xs) > 1) fails.push({why: 'Manual resets starts at different left edges in one card', lefts: lefts.map(l => ({who: l.who, left: +l.left.toFixed(1)}))});
       }
       return fails;
     }""")
 
 
 async def check_predicted_empty(page, state, width):
-    """D3: the Usage fact names the active window: "Predicted empty (Weekly)", like "Burn rate (3h)"."""
+    """D3: the Usage fact names the active window in sentence case, "Predicted empty (weekly)" or "(5-hour)", like
+    "Burn rate (3h)" (H2-B lowered the window)."""
     if state != "expanded":
         return []
     return await page.evaluate("() => {" + D_PRELUDE + r"""
@@ -2612,14 +2632,14 @@ async def check_predicted_empty(page, state, width):
       if (!rows.length) return [{why: 'no open row to measure'}];
       const labels = rows.flatMap(row => [...row.querySelectorAll('[class*="__accountFacts___"] dt')].filter(shown).map(dt => dt.textContent.trim()).filter(t => /^Predicted empty/.test(t)));
       if (!labels.length) return [{why: 'no Predicted empty label to measure'}];
-      return labels.filter(t => !/^Predicted empty \((Weekly|5-hour)\)$/.test(t)).map(t => ({why: 'Predicted empty does not name its window', label: t}));
+      return labels.filter(t => !/^Predicted empty \((weekly|5-hour)\)$/.test(t)).map(t => ({why: 'Predicted empty does not name its window', label: t}));
     }""")
 
 
 async def check_reset_reason(page, name, state):
     """D2: in every opened Manual resets box the reason sits within 8px of the Use reset button and is its
-    aria-describedby; a disabled button has a border and text of at least 3:1 against the box, by pixels, and
-    looks different from an enabled one wherever both are on the page."""
+    aria-describedby; a disabled button (H2-B) has a solid outline of at least 3:1 and text of at least 4.5:1
+    against the box, by pixels, and no fill, and looks different from an enabled one wherever both are on the page."""
     if state not in ("expanded", "details") and not name.startswith("reset-confirm"):
         return []
     found = await page.evaluate("() => {" + D_PRELUDE + r"""
@@ -2648,6 +2668,10 @@ async def check_reset_reason(page, name, state):
             fails.append(dict(who=who, why=f"the reason is {item['gap']:.0f}px from the button, at most 8"))
         if not item["disabled"]:
             continue
+        if item["style"] != "solid":
+            fails.append(dict(who=who, why="disabled Use reset outline is not solid", style=item["style"]))
+        if item["fill"] not in ("rgba(0, 0, 0, 0)", "transparent"):
+            fails.append(dict(who=who, why="disabled Use reset has a fill", fill=item["fill"]))
         # Pixels, not CSS: shoot the box (scrolled into view) and read the button inside it.
         section = page.locator('article details[open] section[data-tone="accent"]').nth(item["index"])
         im = Image.open(io.BytesIO(await section.screenshot(animations="disabled"))).convert("RGB")
@@ -2661,7 +2685,7 @@ async def check_reset_reason(page, name, state):
         text = max(colors, key=lambda c: ratio(c, bg))
         edge = pixels(im, dict(x=b["x"] + b["w"] * 0.25, y=b["y"] - 1, w=b["w"] * 0.5, h=4))
         line = max(edge, key=lambda c: ratio(c, bg)) if edge else bg
-        if ratio(text, bg) < 3 or ratio(line, bg) < 3:
+        if ratio(text, bg) < 4.5 or ratio(line, bg) < 3:
             fails.append(dict(who=who, why="disabled Use reset is too faint", text=round(ratio(text, bg), 2), border=round(ratio(line, bg), 2)))
     enabled = [i for i in found if not i["disabled"]]
     disabled = [i for i in found if i["disabled"]]
@@ -2694,6 +2718,61 @@ async def check_reset_dialog(page, dialog):
         fails.append(dict(why=f"Close is {reading['w']:.0f}x{reading['h']:.0f}, expected at least 44x44"))
     if not reading["ring"] or reading["style"] == "none" or reading["width"] < 2:
         fails.append(dict(why="Close shows no focus ring", **reading))
+    return fails
+
+
+# H2-B check (round b2): the reset confirmation's labelled facts. Its own JSON key, registered in B2_KEYS for the
+# summary and the exit gate. A reset-confirm case whose dialog has no facts to measure fails.
+B2_KEYS = ("resetDialogFactsFailures",)
+
+
+async def check_reset_dialog_facts(dialog):
+    """B2-3: the reset confirmation shows Account (the masked name), Resets used ("1 of N held", or "1") and Limits
+    reset (the account's windows) as label-above-value facts in that order, with no packed sentence; then "This
+    can't be undone." on its own line in the warning colour with its icon, after the facts and before the buttons."""
+    reading = await dialog.evaluate(r"""d => {
+      const dl = d.querySelector('dl');
+      const facts = dl ? [...dl.querySelectorAll(':scope > div')].map(f => {
+        const dt = f.querySelector('dt'), dd = f.querySelector('dd');
+        if (!dt || !dd) return null;
+        const t = dt.getBoundingClientRect(), v = dd.getBoundingClientRect();
+        return {label: dt.textContent.trim(), value: dd.textContent.trim(), above: v.top >= t.bottom - 1, aligned: Math.abs(v.left - t.left) <= 1, color: getComputedStyle(dd).color};
+      }) : [];
+      const warn = [...d.querySelectorAll('p')].find(p => p.textContent.trim() === "This can't be undone.");
+      const buttons = [...d.querySelectorAll('button')].filter(b => /^(Cancel|Use reset)$/.test(b.textContent.trim()));
+      const w = warn?.getBoundingClientRect(), l = dl?.getBoundingClientRect();
+      return {facts, text: d.innerText,
+        warn: warn ? {inFacts: !!warn.closest('dl'), icon: !!warn.querySelector('svg'), color: getComputedStyle(warn).color,
+          afterFacts: !!l && w.top >= l.bottom - 0.5, beforeButtons: buttons.length > 0 && buttons.every(b => w.bottom <= b.getBoundingClientRect().top + 0.5),
+          warning: getComputedStyle(document.documentElement).getPropertyValue('--warning-text').trim()} : null};
+    }""")
+    fails = []
+    facts = reading["facts"]
+    if not facts or any(f is None for f in facts):
+        return [dict(why="the dialog has no label-above-value facts to measure")]
+    labels = [f["label"] for f in facts]
+    if labels != ["Account", "Resets used", "Limits reset"]:
+        fails.append(dict(why="the dialog facts are not Account, Resets used, Limits reset", labels=labels))
+    for fact in facts:
+        if not fact["above"] or not fact["aligned"]:
+            fails.append(dict(why="a dialog fact's label is not above its value", label=fact["label"]))
+    by = {f["label"]: f["value"] for f in facts}
+    if "•••" not in by.get("Account", "") or "@" not in by.get("Account", ""):
+        fails.append(dict(why="Account does not show the masked name", value=by.get("Account")))
+    if not re.fullmatch(r"1( of \d+ held)?", by.get("Resets used", "")):
+        fails.append(dict(why='Resets used is not "1 of N held" or "1"', value=by.get("Resets used")))
+    if "5-hour limit" not in by.get("Limits reset", "") or "Weekly limit" not in by.get("Limits reset", ""):
+        fails.append(dict(why="Limits reset does not name the account's windows", value=by.get("Limits reset")))
+    if "will use 1 manual reset" in reading["text"]:
+        fails.append(dict(why="the packed confirmation sentence is still shown"))
+    warn = reading["warn"]
+    if not warn:
+        fails.append(dict(why="no \"This can't be undone.\" line of its own"))
+    else:
+        if warn["inFacts"] or not warn["afterFacts"] or not warn["beforeButtons"]:
+            fails.append(dict(why="the irreversibility line is not between the facts and the buttons", **warn))
+        if not warn["icon"] or warn["color"] == facts[0]["color"]:
+            fails.append(dict(why="the irreversibility line is not in the warning style", **warn))
     return fails
 
 
@@ -3245,6 +3324,7 @@ async def main():
                 else:
                     await page.locator("article").first.wait_for()
                 dialog_failures = []
+                dialog_facts_failures = []
                 if name.startswith("reset-confirm"):
                     codex = page.locator('article[class*="__codex___"]')
                     row = codex.locator('details[class*="__account___"]').filter(has_text="Resets 2").first
@@ -3256,6 +3336,7 @@ async def main():
                     await dialog.wait_for()
                     await page.screenshot(path=str(out / f"{name}-dialog.png"), full_page=True, animations="disabled")
                     dialog_failures = await check_reset_dialog(page, dialog)
+                    dialog_facts_failures = await check_reset_dialog_facts(dialog)
                     await dialog.get_by_role("button", name="Cancel", exact=True).click()
                     await dialog.wait_for(state="hidden")
                     # The shared credential inventory loads once with the page; the row reads it from there.
@@ -3420,6 +3501,7 @@ async def main():
                 results[name]["predictedEmptyFailures"] = await check_predicted_empty(page, state, width)
                 results[name]["resetReasonFailures"] = reset_reason_failures
                 results[name]["resetDialogFailures"] = dialog_failures
+                results[name]["resetDialogFactsFailures"] = dialog_facts_failures
                 results[name]["captionFailures"] = await check_captions(page, name, state, width)
                 results[name]["searchLabelFailures"] = await check_search_label(page, name, state)
                 results[name]["rateBalanceFailures"] = await check_rate_balance(page, name, state)
@@ -3676,7 +3758,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + B2_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

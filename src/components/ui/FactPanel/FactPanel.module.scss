@@ -53,9 +53,10 @@
         var(--bg-tertiary)
       );
     }
-    // Disabled: a dashed outline with readable text, plainly off; its reason is the note beneath.
+    // Disabled: a subdued solid outline (at least 3:1 against the section) with readable text and
+    // no fill, so it reads as a button that is off; its reason is the note beneath.
     &:disabled {
-      border: 1px dashed var(--text-secondary);
+      border: 1px solid color-mix(in srgb, var(--text-secondary) 60%, transparent);
       background: transparent;
       color: var(--text-secondary);
       // Overrides the app's dimmed disabled button, which made this text unreadable on the fill.
@@ -183,12 +184,14 @@
   }
 }
 // Wide drawers: the facts keep three shared columns, and the accent section takes a fourth on
-// the right beside them, so every fact row stays on one line. The fact columns fit their content
-// (up to 240px) with one fixed gap, and the accent box starts one gap after the third and grows
-// to the panel edge, so a wide drawer has no dead run before it.
+// the right beside them, so every fact row stays on one line. The accent box is a compact column
+// (300–420px) and the fact columns share the rest equally with one fixed gap, each capped at 270px
+// so no empty run between two columns passes about 160px. Width beyond the caps stays after the
+// box, at the row's end, never as a dead run before it.
 @container (min-width: 1100px) {
   .panel:has(> .section[data-tone='accent']) {
-    grid-template-columns: repeat(3, fit-content(240px)) minmax(0, 1fr);
+    grid-template-columns: repeat(3, minmax(min-content, 1fr)) clamp(300px, 30cqi, 420px);
+    max-width: calc(3 * (270px + 32px) + 420px);
     column-gap: 32px;
     align-items: start;
     > .section dl {

@@ -2427,11 +2427,11 @@ $pool-error: #ff5252;
   }
 }
 
-// Laptops (1100px and wider screens whose drawer is narrower than the panel's own 1100px threshold):
-// Usage, Billing and Manual resets sit side by side, in that order, the accent column a little wider.
-// From a 1100px drawer the panel's own layout (S3) takes over, so this never applies there.
+// Laptops (1100px and wider screens whose drawer is narrower than 920px): Usage, Billing and Manual
+// resets sit side by side, in that order. From a 920px drawer the three fact columns (S3) take over
+// (H2-B), so this never applies there.
 @media (min-width: 1100px) {
-  @container (max-width: 1099px) {
+  @container (max-width: 919px) {
     .accountFacts > div > div {
       grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.3fr);
       align-items: start;
@@ -2857,22 +2857,23 @@ $pool-error: #ff5252;
 }
 
 /* H1-D */
-// Laptop drawers (1100px+ screens, drawer under 1100px): the two fact columns fit their content
-// (up to 240px) with the same fixed gap as the wide panel's, and Manual resets starts one gap after
-// them and grows to the panel edge, so no dead run sits before it.
+// Laptop drawers (1100px+ screens, drawer under 920px): Usage and Billing share the width equally
+// with one fixed 24px gap, and Manual resets is the same compact column (300–420px). The gap is
+// narrower than the wide panel's so a 1100px screen's columns keep "Estimated · from start date" on
+// one line.
 @media (min-width: 1100px) {
-  @container (max-width: 1099px) {
+  @container (max-width: 919px) {
     .accountFacts > div > div {
-      grid-template-columns: repeat(2, fit-content(240px)) minmax(0, 1fr);
-      column-gap: 32px;
+      grid-template-columns: repeat(2, minmax(min-content, 1fr)) clamp(300px, 30cqi, 420px);
+      column-gap: 24px;
     }
   }
 }
 
-// A disabled Use reset keeps the panel's readable dashed outline; the page's own dimmed
+// A disabled Use reset keeps the panel's subdued solid outline; the page's own dimmed
 // `button:disabled` would otherwise repaint its border and text.
 .page .accountFacts section button:disabled {
-  border: 1px dashed var(--text-secondary);
+  border: 1px solid color-mix(in srgb, var(--text-secondary) 60%, transparent);
   background: transparent;
   color: var(--text-secondary);
 }
@@ -3242,5 +3243,54 @@ $pool-error: #ff5252;
   .pool:not([data-minimized='true']) {
     --bar-target: 104px;
     --col-gap: 12px;
+  }
+}
+
+/* H2-B */
+// Drawers of 920px and wider show the panel's wide layout (S3): three equal fact columns with one
+// 32px gap, and Manual resets as a compact 300–420px column on the right. FactPanel starts that layout
+// at 1100px; the page's 1440px drawer (about 980px) already has room for it, so the page repeats it.
+@container (min-width: 920px) and (max-width: 1099px) {
+  .accountFacts > div > div:has(> section[data-tone='accent']) {
+    grid-template-columns: repeat(3, minmax(min-content, 1fr)) clamp(300px, 30cqi, 420px);
+    max-width: calc(3 * (270px + 32px) + 420px);
+    column-gap: 32px;
+    align-items: start;
+    > section {
+      grid-column: 1 / 4;
+    }
+    > section dl {
+      column-gap: 32px;
+    }
+    > section[data-tone='accent'] {
+      grid-column: 4;
+      grid-row: 1 / span 2;
+      display: block;
+      dl {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  }
+}
+
+// The reset confirmation: the account, the reset it uses and the limits it restores as label-above-
+// value facts, then the irreversibility line on its own in the warning colour, then the buttons.
+.resetFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 0;
+}
+.resetWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 16px 0 0;
+  color: var(--warning-text);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  svg {
+    flex-shrink: 0;
   }
 }

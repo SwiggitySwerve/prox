@@ -28,7 +28,7 @@ Closes: counts jargon, degraded repeats, pool empty "not before", latest reading
 | inferred date | Estimated, with visible basis | Unlabelled date |
 | absent provider fact | Not reported, with visible reason | An em dash |
 | no subscription | No paid plan | Missing value |
-| reset inventory | Held | Available (which implies usable) |
+| reset inventory | Resets held | Held alone; Available (which implies usable) |
 
 ## Copy rules
 
