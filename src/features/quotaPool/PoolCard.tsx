@@ -107,7 +107,7 @@ export function PoolCard({
   const [affectedFocus, setAffectedFocus] = useState(0);
   const accountsRef = useRef<HTMLElement>(null);
   const [showAll, setShowAll] = useState(false);
-  // Opening a row reveals reset details; minimization only compacts closed rows.
+  // Opening a row reveals reset details.
   const [openAccounts, setOpenAccounts] = useState<ReadonlySet<string>>(() => new Set());
   const allOpen = pool.accounts.length > 0 && pool.accounts.every((a) => openAccounts.has(a.id));
   const setAccountOpen = (accountId: string, open: boolean) =>
@@ -241,8 +241,7 @@ export function PoolCard({
         : 'weekly';
   const balanceHasColumn = limitColumns.some((column) => column.id === countedLimitId);
   // A wide column that shows a Low mark or "Unavailable" on any row reserves a status slot, as wide as
-  // its widest mark, on every row, so the values and bars of the whole column start at one x. A minimized
-  // card's opened rows list their limits in one shared value column, so its slot is the card's.
+  // its widest mark, on every row, so the values and bars of the whole column start at one x.
   const columnStatus = new Map<string, { low: boolean; unavailable: boolean }>();
   pool.accounts.forEach((account) =>
     account.windows.forEach((limit) => {
@@ -256,13 +255,6 @@ export function PoolCard({
       });
     })
   );
-  const cardStatus = columnStatus.size
-    ? {
-        low: [...columnStatus.values()].some((status) => status.low),
-        unavailable: [...columnStatus.values()].some((status) => status.unavailable),
-      }
-    : undefined;
-  const statusSlot = (limitId: string) => (minimized ? cardStatus : columnStatus.get(limitId));
   const resetSection = (account: (typeof pool.accounts)[number]) =>
     openAccounts.has(account.id) && (
       <PoolAccountResets
@@ -275,10 +267,10 @@ export function PoolCard({
       />
     );
   // At 900px and below a row reads as blocks: the active window leads the limit list instead of
-  // being the bold figure in the header. A closed row of a minimized card keeps its compact list,
-  // and an account that reports no windows (or a pool with no column for the active one) keeps the figure.
+  // being the bold figure in the header. An account that reports no windows (or a pool with no column
+  // for the active one) keeps the figure.
   const phoneBlocks = (account: (typeof pool.accounts)[number]) =>
-    balanceHasColumn && account.windows.length > 0 && (!minimized || openAccounts.has(account.id));
+    balanceHasColumn && account.windows.length > 0;
   const missingLimit = (
     account: (typeof pool.accounts)[number],
     column: (typeof limitColumns)[number]
@@ -539,7 +531,6 @@ export function PoolCard({
                 {resetTotals.available > 0 && (
                   <SummaryFact label={t('quota_pool.resets')}>{resetTotals.available}</SummaryFact>
                 )}
-                {/* Kept beside the total: a minimized card's rows don't show their own markers. */}
                 {resetTotals.available > 0 && resetTotals.usable > 0 && (
                   <SummaryFact label={t('quota_pool.reset_usable_summary')}>
                     {resetTotals.usable}
@@ -708,14 +699,6 @@ export function PoolCard({
             } as CSSProperties
           }
         >
-          {/* A minimized wide card lists the active window's remaining quota, then any other low limit. */}
-          {minimized && visibleAccounts.length > 0 && (
-            <div className={styles.compactHead} aria-hidden="true">
-              <span>{t('quota_pool.account_column')}</span>
-              <span>{t('quota_pool.account_remaining', { window: windowLabel })}</span>
-              <span>{t('quota_pool.other_low_limits')}</span>
-            </div>
-          )}
           {/* Phones have no column heading, so one line per card says what the bold limit is. */}
           {visibleAccounts.length > 0 && (
             <p className={styles.phoneCountsNote}>
@@ -767,8 +750,6 @@ export function PoolCard({
                   />
                   <span className={styles.accountName}>
                     <span className={styles.accountLabel}>
-                      {/* A minimized wide row truncates the name beyond 28ch; useSharedMinimizedTracks
-                          then gives it a title with the whole name. */}
                       <span className={styles.accountText}>{accountName(account)}</span>
                       {/* One compact badge beside the name, so the Plan cell holds only the plan. */}
                       {account.resets &&
@@ -871,7 +852,7 @@ export function PoolCard({
                             <span>{limitLabel(limit)}</span>
                             <strong>
                               {/* The slot holds this row's mark; the hidden ghosts size it to the column's widest. */}
-                              {statusSlot(limit.id) && (
+                              {columnStatus.get(limit.id) && (
                                 <span className={styles.limitStatus}>
                                   {isLowQuota(limit.remainingPercent) && lowMark}
                                   {limit.remainingPercent === null && (
@@ -880,14 +861,14 @@ export function PoolCard({
                                       {t('quota_pool.value_unavailable')}
                                     </span>
                                   )}
-                                  {statusSlot(limit.id)?.low && (
+                                  {columnStatus.get(limit.id)?.low && (
                                     <span
                                       className={styles.statusGhost}
                                       data-word={t('quota_pool.limit_low')}
                                       aria-hidden="true"
                                     />
                                   )}
-                                  {statusSlot(limit.id)?.unavailable && (
+                                  {columnStatus.get(limit.id)?.unavailable && (
                                     <span
                                       className={`${styles.statusGhost} ${styles.unavailableGhost}`}
                                       data-word={t('quota_pool.value_unavailable')}

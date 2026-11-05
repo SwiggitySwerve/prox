@@ -15,7 +15,6 @@ import type { PoolQuery } from '@/services/api/quotaPool';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh, useReportHeaderRefreshBusy } from '@/hooks/useHeaderRefresh';
 import { usePoolDashboard } from './usePoolDashboard';
-import { useSharedMinimizedTracks } from './useSharedMinimizedTracks';
 import { usePhoneChipLine } from './usePhoneChipLine';
 import { PoolCard } from './PoolCard';
 import { CombinedPoolCard } from './CombinedPoolCard';
@@ -41,7 +40,6 @@ export function QuotaPoolPage() {
   const optionsRef = useRef<HTMLDivElement>(null);
   const todayPressedRef = useRef(false);
   const poolsRef = useRef<HTMLDivElement>(null);
-  useSharedMinimizedTracks(poolsRef);
   const chipLine = usePhoneChipLine(poolsRef);
   const { t, i18n } = useTranslation();
   // Pool, window, measure and the two settings live in the address, so a link opens this view.

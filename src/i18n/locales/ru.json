@@ -2538,7 +2538,6 @@
     "counts_toward_total_phone": "Остаток ({{window}}) входит в итог",
     "billing_estimate_from_start": "по дате начала",
     "billing_estimate_caveat": "Даты продления рассчитаны по дате начала каждого тарифа; годовые тарифы могут отличаться.",
-    "other_low_limits": "Другие лимиты с низким остатком",
     "limit_resets": "Сброс {{date}}",
     "expand_accounts": "Развернуть все",
     "collapse_accounts": "Свернуть все",

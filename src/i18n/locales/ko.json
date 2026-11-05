@@ -2545,7 +2545,6 @@
     "counts_toward_total_phone": "{{window}} 잔여는 합계에 포함",
     "billing_estimate_from_start": "시작일 기준",
     "billing_estimate_caveat": "갱신일은 각 요금제의 시작일을 기준으로 추정하며 연간 요금제는 다를 수 있습니다.",
-    "other_low_limits": "기타 부족한 한도",
     "limit_resets": "{{date}} 초기화",
     "expand_accounts": "모두 펼치기",
     "collapse_accounts": "모두 접기",

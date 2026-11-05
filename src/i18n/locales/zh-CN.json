@@ -2543,7 +2543,6 @@
     "counts_toward_total_phone": "{{window}}剩余计入合计",
     "billing_estimate_from_start": "按开始日期",
     "billing_estimate_caveat": "续订日期按各套餐的开始日期推算；年度套餐可能不同。",
-    "other_low_limits": "其他偏低的额度",
     "limit_resets": "{{date}} 重置",
     "expand_accounts": "全部展开",
     "collapse_accounts": "全部收起",
