@@ -2273,7 +2273,7 @@ W_TRACK_CASES = ("wide", "laptop", "laptop-1100", "many-low", "partial", "stale"
 W_UNAVAILABLE_CASES = {"partial": (390, True), "stacked-unavailable": (390, False),
                        "partial-narrow": (1440, True), "partial-affected-narrow": (1440, True)}
 W_HEADLINE_CASES = ("partial", "stale", "stacked-unavailable", "partial-narrow")
-W_TRACK_JS = "([isOpen, minimized]) => {" + C1_PRELUDE + r"""
+W_TRACK_JS = "([isOpen, minimized, minTrack]) => {" + C1_PRELUDE + r"""
   const fails = [], pct = /(\d+(?:\.\d+)?)%/, r = e => e.getBoundingClientRect();
   let tracks = 0;
   for (const article of document.querySelectorAll('article')) {
@@ -2302,7 +2302,7 @@ W_TRACK_JS = "([isOpen, minimized]) => {" + C1_PRELUDE + r"""
             columns[id][columns[id].length - 1].valueLeft = range.getBoundingClientRect().left;
           }
         } else if (fill || text) fails.push({...at, why: 'a bar and its value text do not pair up'});
-        if (b.width < 16) fails.push({...at, why: `the bar track is only ${b.width.toFixed(0)}px wide`});
+        if (b.width < minTrack) fails.push({...at, why: `the bar track is only ${b.width.toFixed(0)}px wide (at least ${minTrack}px here)`});
       }
       // A table with fewer limits still spreads them over the row: its last column ends near the row's right edge.
       const balance = summary.querySelector(':scope > strong');
@@ -2326,18 +2326,20 @@ async def check_wide_tracks(page, name, width):
     """W1/W2: from 901px, every bar track in a column of a provider card shares its left and right edges (1px), whatever
     the value or its Low mark; the fill is the printed value of the track (2 points); the value text starts at one x;
     the last column ends within 24px of the row's right edge (a two-limit table as well as a three-limit one); no
-    track is shorter than 24px. Closed and opened rows. A minimized card is measured in its opened rows, which have
+    track is shorter than 100px at 1440 and up, 90px at 1280, 16px below. Closed and opened rows. A minimized card is measured in its opened rows, which have
     no status slot (its closed rows draw no bars), so only the edges and the fill apply there."""
     if name not in W_TRACK_CASES:
         return []
     minimized = name in MINIMIZED_CASES
+    # Bars stay long (S13): 100px from 1440, 90px at 1280, and the 16px floor below that.
+    min_track = 100 if width >= 1440 else 90 if width >= 1280 else 16
     out = []
     for opened in (False, True):
         if opened:
             await h_expand_all(page)
         elif minimized:
             continue
-        out += [dict(open=opened, width=width, **f) for f in await page.evaluate(W_TRACK_JS, [opened, minimized])]
+        out += [dict(open=opened, width=width, **f) for f in await page.evaluate(W_TRACK_JS, [opened, minimized, min_track])]
     for _ in range(await page.get_by_role("button", name="Collapse all").count()):
         await page.get_by_role("button", name="Collapse all").first.click()
     return out

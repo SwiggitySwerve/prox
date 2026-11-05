@@ -684,7 +684,18 @@ export function PoolCard({
           className={styles.accountGrid}
           data-large={showRosterControls}
           data-balance-column={!balanceHasColumn}
-          style={{ '--limit-cols': Math.max(1, limitColumns.length) } as CSSProperties}
+          style={
+            {
+              '--limit-cols': Math.max(1, limitColumns.length),
+              // A column with a status slot is that much wider than one without, so every bar is as long.
+              '--slotted-cols': limitColumns.filter((column) => columnStatus.has(column.id)).length,
+              '--limit-tracks': limitColumns
+                .map((column) =>
+                  columnStatus.has(column.id) ? 'var(--limit-slotted)' : 'var(--limit-plain)'
+                )
+                .join(' '),
+            } as CSSProperties
+          }
         >
           {/* A minimized wide card lists the active window's remaining quota, then any other low limit. */}
           {minimized && visibleAccounts.length > 0 && (

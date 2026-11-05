@@ -1653,22 +1653,51 @@ $pool-error: #ff5252;
 // Wide screens: one heading row, then one line per account with a column per limit.
 @media (min-width: 901px) {
   .pool:not([data-minimized='true']) {
-    // Sized from the viewport, not the table, so every provider's limit columns start at the
-    // same x whatever its number of limits.
-    // Wide enough for an address plus its reset badge on one line.
-    --name-track: clamp(160px, 18vw, 330px);
-    --plan-track: clamp(110px, 10vw, 140px);
+    // Sized from the table's own width, never from a row's content, so every row of a card has the
+    // same columns. Plan fits "Plus · 100 points" (about 108px). Account is as wide as an address and
+    // its reset badge (the cap), unless that would take the bars below their target (--bar-target,
+    // set by the width media blocks at the end).
+    --name-cap: clamp(160px, 18vw, 330px);
+    --plan-track: clamp(110px, 8vw, 140px);
+    --col-gap: 12px;
+    --bar-target: 0px;
+    .accountGrid {
+      // What a limit column needs besides its bar: the value column and the gap before the bar
+      // (3.6em at 14px, 8px), plus the status slot (Low mark or Unavailable, 4px margin) in a column
+      // that has one. Columns: chevron, Account, Plan, the limits and, when the counted limit has no
+      // column of its own, the 128px total.
+      --fixed: calc(
+        20px + var(--plan-track) + (var(--limit-cols) + 3) * var(--col-gap) + 128px
+      );
+      --need: calc(var(--limit-cols) * 59px + var(--slotted-cols, 0) * 54px);
+      --name-track: max(
+        160px,
+        min(
+          var(--name-cap),
+          calc(100% - var(--fixed) - var(--need) - var(--limit-cols) * var(--bar-target))
+        )
+      );
+      --limit-bar: calc(
+        (100% - var(--fixed) - var(--name-track) - var(--need)) / var(--limit-cols)
+      );
+      --limit-plain: calc(var(--limit-bar) + 59px);
+      --limit-slotted: calc(var(--limit-bar) + 59px + 54px);
+      &[data-balance-column='false'] {
+        --fixed: calc(20px + var(--plan-track) + (var(--limit-cols) + 2) * var(--col-gap));
+      }
+    }
     .accountHead,
     .account > summary {
       display: grid;
       // The limit tracks share what's left after Account and Plan, so a card with two limits ends at
-      // the row's right edge like one with three.
+      // the row's right edge like one with three. Each track is its column's needs plus an equal
+      // bar, so the bars of a card are as long as each other.
       grid-template-columns:
         20px var(--name-track) var(--plan-track)
-        repeat(var(--limit-cols), minmax(104px, 1fr))
+        var(--limit-tracks)
         128px;
       justify-content: start;
-      column-gap: 16px;
+      column-gap: var(--col-gap);
       align-items: center;
     }
     .accountHead {
@@ -1744,7 +1773,7 @@ $pool-error: #ff5252;
           .limitBar {
             grid-column: 3;
             grid-row: 1;
-            margin-inline-start: 10px;
+            margin-inline-start: 8px;
           }
           small {
             grid-column: 1 / -1;
@@ -1787,9 +1816,7 @@ $pool-error: #ff5252;
       .accountHead,
       .account > summary {
         // As above: the limits share the rest of the row.
-        grid-template-columns:
-          20px var(--name-track) var(--plan-track)
-          repeat(var(--limit-cols), minmax(104px, 1fr));
+        grid-template-columns: 20px var(--name-track) var(--plan-track) var(--limit-tracks);
       }
       // Here the last header is a limit's, not the balance's: it wraps inside its track like the others.
       .accountHead span:last-child {
@@ -2211,15 +2238,11 @@ $pool-error: #ff5252;
 }
 
 // At 1100px the account table's tracks (name 18vw = 198px, 16px gaps) left its columns 30px wider
-// than the grid, clipping it (found by the new laptop-1100 case). The name track's 160px floor and
-// 12px gaps fit. (Accounts are C3's: drop this if C3 reworks the tracks.)
+// than the grid, clipping it (found by the new laptop-1100 case). The name track's 160px cap keeps
+// it fitting. (Accounts are C3's: drop this if C3 reworks the tracks.)
 @media (min-width: 901px) and (max-width: 1199px) {
   .pool:not([data-minimized='true']) {
-    --name-track: 160px;
-    .accountHead,
-    .account > summary {
-      column-gap: 12px;
-    }
+    --name-cap: 160px;
   }
 }
 /* C3 */
@@ -2338,11 +2361,8 @@ $pool-error: #ff5252;
 // 901-1199px, balance-less tables: 8px column gaps (instead of 12px) give a low cell room for its
 // status slot, value and a visible bar.
 @media (min-width: 901px) and (max-width: 1199px) {
-  .pool:not([data-minimized='true']) [data-balance-column='false'] {
-    .accountHead,
-    .account > summary {
-      column-gap: 8px;
-    }
+  .pool:not([data-minimized='true']) .accountGrid[data-balance-column='false'] {
+    --col-gap: 8px;
   }
 }
 /* G */
@@ -2852,6 +2872,8 @@ $pool-error: #ff5252;
     overflow: visible;
     clip-path: none;
     color: var(--warning-text);
+    // The Low word's size, so a column's status slot is no wider than it must be for the bars.
+    font-size: 13px;
     white-space: nowrap;
   }
   .limits li .unavailableWord,
@@ -2861,15 +2883,16 @@ $pool-error: #ff5252;
   .limits li[data-counted='true'] :is(.unavailableWord, .unavailableGhost) {
     font-weight: 600;
   }
-  // "Unavailable" has no value beside it, so it runs on into the value column: only what passes the
-  // value column (3.6em and the slot's 6px gap) counts toward the status slot's width.
+  // "Unavailable" has no value beside it, so it runs on through the value column and 4px into the gap
+  // before the bar: only what passes them (the value column, 3.6em of the cell's 14px = 50.4px, the
+  // slot's 4px margin and those 4px) counts toward the status slot's width.
   .pool:not([data-minimized='true'])
     .account
     > summary
     > .limits
     li
     :is(.unavailableWord, .unavailableGhost) {
-    margin-inline-end: calc(-3.6em - 6px);
+    margin-inline-end: -58.4px;
   }
   .limitBar[data-empty] {
     display: block;
@@ -2898,7 +2921,6 @@ $pool-error: #ff5252;
       }
     }
     .unavailableGhost::after {
-      font-size: 14px;
       font-weight: inherit;
     }
   }
@@ -2907,7 +2929,7 @@ $pool-error: #ff5252;
       display: grid;
       align-items: center;
       justify-items: start;
-      margin-inline-end: 6px;
+      margin-inline-end: 4px;
       > * {
         grid-area: 1 / 1;
       }
@@ -2943,5 +2965,20 @@ $pool-error: #ff5252;
       min-width: 3.6em;
       text-align: right;
     }
+  }
+}
+// Bars stay long (S13): each bar in the table is at least 100px from 1440 and 90px from 1280 (the
+// targets leave 2-4px for a slot a little wider than the 54px the tracks reserve). Account takes what
+// they leave, between its 160px floor and its cap; below 1280 the bars take what Account's cap leaves.
+@media (min-width: 1280px) {
+  .pool:not([data-minimized='true']) {
+    --bar-target: 94px;
+    --col-gap: 10px;
+  }
+}
+@media (min-width: 1440px) {
+  .pool:not([data-minimized='true']) {
+    --bar-target: 104px;
+    --col-gap: 12px;
   }
 }
