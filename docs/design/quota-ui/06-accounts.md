@@ -7,7 +7,7 @@ Closes: low chip state, no-limit cell, detail type sizes, expanded detail grid, 
 ```
 ACCOUNTS
 Manual resets 1   Usable now 2   Current 2   Stale 1
-[🔍 Search Claude accounts] [Sort: Name A–Z ▾] [Show 40 with a limit below 20%]   25 of 120 shown
+[🔍 Search Claude accounts] [Sort  Name A–Z ▾] [⚠ Limits below 20%  40]   25 of 120 shown
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │    Account                Plan               5-hour         Weekly          Weekly Opus      │
 │                                                             Counts toward total              │
@@ -23,7 +23,8 @@ Manual resets 1   Usable now 2   Current 2   Stale 1
 
 - One row under the section heading [R§4: ≤ 5 toolbar actions]: search, sort, filter chip(s), then the count as the toolbar's last item. From 641px it is one wrapping row; at 640px and below search, sort, each chip and the count take a full-width row each, in that order, with 44px targets. Expand all sits in the section heading.
 - Scoped labels: "Search Claude accounts"; sort options "Name A–Z" (default: stable across the 15s reloads, honest; the server order is sha256-id order) and "Lowest limit first" (accounts with no data first, then lowest percent, then name) [R§4: one column sorted by default; council decision 4b].
-- Filter chip: a toggle labelled with its rule. Off = outline with the warning icon, "Show 40 with a limit below 20%". On = "Filtering to 40 with a limit below 20%", `aria-pressed="true"`, a leading check, the page's selected-segment fill (clearly lighter than off, ΔE ≥ 12) and a border that reads 3:1 against the card [R§4: chips]. The affected chip keeps "Affected (N)" and takes the same filled style. The red stays on the low values' icon and bar.
+- Filter chip: a toggle with one stable label in both states, "Limits below 20%", then a count badge ("40"); the count line says the same number once more in words. Off = outline with the warning icon. On = `aria-pressed="true"`, a leading check, a trailing × (decorative), the page's selected-segment fill (clearly lighter than off, ΔE ≥ 12) and a border that reads 3:1 against the card [R§4: chips]. The affected chip keeps "Affected (N)" and takes the same filled style. The red stays on the low values' icon and bar.
+- The sort select keeps a visible "Sort" prefix inside its pill (same radius and height as the search and chips), so "Name A–Z" is never unlabelled; its accessible name is "Sort accounts".
 - The search field keeps a visible leading label ("Search accounts", the field's `<label>` and so its accessible name) inside its pill, so it is still named once text is typed; it has no placeholder. Like the toolbar's "Averaged over" select, the label sits inside the pill rather than above it, so every toolbar control keeps one height.
 - Search filters live, resets paging to the first page, and the count reads "25 of 40 matches shown · 120 total" (D < F), or "12 of 120 match" when every match is on screen (D = F). See Paging for the full table.
 - "Expand all" appears only when the list shows ≤ 25 rows and is never on by default [R§4].

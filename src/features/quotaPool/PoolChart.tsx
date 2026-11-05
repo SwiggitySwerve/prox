@@ -193,10 +193,14 @@ function PoolChartView({
     other.point[field] === null ? t('quota_pool.no_observation') : number(other.point[field]);
   // A moment with no value is not a recording: say so once, without a Recorded/Projected tag.
   const unobserved = readingAt.every((other) => other.point[field] === null);
+  // Where the chart does draw recorded readings, a moment without one is missing only the complete set.
+  const hasRecorded = samples.some(({ point, projected }) => !projected && point[field] !== null);
   const readingText = !sample
     ? ''
     : unobserved
-      ? t('quota_pool.no_reading_at', { date: date(sample.point.atMs) })
+      ? t(hasRecorded ? 'quota_pool.no_complete_reading_at' : 'quota_pool.no_reading_at', {
+          date: date(sample.point.atMs),
+        })
       : readingAt.length > 1
         ? `${readingAt.map((other) => `${poolLabel(other.pool)}: ${readingValue(other)}`).join(' · ')}${readingAt.some((other) => other.point[field] !== null) ? `\u00a0${unit}` : ''}`
         : `${comparison ? `${poolLabel(sample.pool)} · ` : ''}${date(sample.point.atMs)} · ${sample.point[field] === null ? t('quota_pool.no_observation') : `${number(sample.point[field])}\u00a0${unit}`}`;

@@ -22,6 +22,7 @@ import {
   IconHistory,
   IconInfo,
   IconTimer,
+  IconX,
 } from '@/components/ui/icons';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
@@ -608,14 +609,19 @@ export function PoolCard({
                     onChange={(event) => setRosterQuery(event.target.value)}
                   />
                 </label>
-                <select
-                  value={rosterSort}
-                  onChange={(event) => setRosterSort(event.target.value as AccountSort)}
-                  aria-label={t('quota_pool.account_sort')}
-                >
-                  <option value="name">{t('quota_pool.sort_name')}</option>
-                  <option value="lowest">{t('quota_pool.sort_lowest')}</option>
-                </select>
+                {/* Like the search field, the pill carries a visible prefix; the select inside keeps the
+                    accessible name "Sort accounts", which starts with it. */}
+                <label className={styles.rosterSort}>
+                  <span className={styles.rosterSearchLabel}>{t('quota_pool.account_sort_label')}</span>
+                  <select
+                    value={rosterSort}
+                    onChange={(event) => setRosterSort(event.target.value as AccountSort)}
+                    aria-label={t('quota_pool.account_sort')}
+                  >
+                    <option value="name">{t('quota_pool.sort_name')}</option>
+                    <option value="lowest">{t('quota_pool.sort_lowest')}</option>
+                  </select>
+                </label>
               </>
             )}
             {(affectedOnly || (showRosterControls && affectedAccounts.length > 0)) && (
@@ -651,9 +657,11 @@ export function PoolCard({
                 ) : (
                   <IconAlertTriangle size={14} aria-hidden="true" />
                 )}
-                {t(lowOnly ? 'quota_pool.accounts_low_on' : 'quota_pool.accounts_low', {
-                  count: lowAccountCount,
-                })}
+                {/* One label in both states; the pressed style, the check and the × say it is on. */}
+                {t('quota_pool.accounts_low_chip')}
+                <span className={styles.rosterChipCount}>{lowAccountCount}</span>
+                {/* Filtering: the × says a second press clears it. */}
+                {lowOnly && <IconX size={14} aria-hidden="true" className={styles.rosterClear} />}
               </button>
             )}
             {/* Always the last item: D of T shown; while filtering, D of F matches shown · T total.
@@ -791,8 +799,12 @@ export function PoolCard({
                           <IconClock className={styles.staleIcon} size={14} aria-hidden="true" />
                           {t('quota_pool.account_status.stale')}
                         </span>{' '}
-                        · {t('quota_pool.observed')}{' '}
-                        <span className={styles.nowrap}>{date(account.observedAtMs)}</span>
+                        {/* "Last reading …" wraps as one unit, never between its words. */}
+                        <span className={styles.staleSince}>
+                          <span className={styles.staleDot}>· </span>
+                          {t('quota_pool.observed')}{' '}
+                          <span className={styles.nowrap}>{date(account.observedAtMs)}</span>
+                        </span>
                       </>
                     ) : account.status === 'no-limit' ? (
                       t('quota_pool.no_window_limit', { window: windowLabel })
