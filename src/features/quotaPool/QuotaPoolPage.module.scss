@@ -406,11 +406,13 @@ $pool-error: #ff5252;
     letter-spacing: 0;
   }
 }
-// A withheld total is a muted word a step below the number size, so it reads as a status.
+// A withheld total is a word in the headline number's weight, a step below its size so the context
+// label still fits beside it. It shares the number's baseline (the strong's strut) and keeps a muted
+// neutral colour, so it reads as a status rather than a value.
 .unavailableValue {
   color: var(--text-secondary);
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 28px;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 .headlineContext {
@@ -1659,18 +1661,11 @@ $pool-error: #ff5252;
     .accountHead,
     .account > summary {
       display: grid;
-      // Each limit track is a third of what's left, so a card with fewer limits keeps the same
-      // column edges as one with three and leaves the rest of the row empty. Providers report at
-      // most three limits; a fourth would need this divisor raised.
+      // The limit tracks share what's left after Account and Plan, so a card with two limits ends at
+      // the row's right edge like one with three.
       grid-template-columns:
         20px var(--name-track) var(--plan-track)
-        repeat(
-          var(--limit-cols),
-          minmax(
-            104px,
-            calc((100% - 20px - var(--name-track) - var(--plan-track) - 128px - 96px) / 3)
-          )
-        )
+        repeat(var(--limit-cols), minmax(104px, 1fr))
         128px;
       justify-content: start;
       column-gap: 16px;
@@ -1732,17 +1727,24 @@ $pool-error: #ff5252;
           grid-column: calc(var(--col) + 3);
           grid-row: 1;
           display: grid;
-          grid-template-columns: 3.6em minmax(24px, 1fr);
+          // Status slot (zero wide unless the column has a Low or Unavailable row), value, bar. The slot
+          // and value are the strong's own columns, so every row of a column starts its bar at one x.
+          grid-template-columns: max-content 3.6em minmax(24px, 1fr);
           align-items: center;
-          gap: 0 10px;
+          gap: 0;
           strong {
-            grid-column: 1;
+            grid-column: 1 / 3;
             grid-row: 1;
-            justify-content: flex-end;
+            display: grid;
+            grid-template-columns: subgrid;
+            column-gap: 0;
+            align-items: center;
+            justify-content: stretch;
           }
           .limitBar {
-            grid-column: 2;
+            grid-column: 3;
             grid-row: 1;
+            margin-inline-start: 10px;
           }
           small {
             grid-column: 1 / -1;
@@ -1784,16 +1786,15 @@ $pool-error: #ff5252;
     [data-balance-column='false'] {
       .accountHead,
       .account > summary {
-        // As above: a third of the rest per limit, so every card's columns share their edges.
+        // As above: the limits share the rest of the row.
         grid-template-columns:
           20px var(--name-track) var(--plan-track)
-          repeat(
-            var(--limit-cols),
-            minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 80px) / 3))
-          );
+          repeat(var(--limit-cols), minmax(104px, 1fr));
       }
+      // Here the last header is a limit's, not the balance's: it wraps inside its track like the others.
       .accountHead span:last-child {
         text-align: left;
+        white-space: normal;
       }
       .account > summary > strong {
         display: none;
@@ -2318,14 +2319,7 @@ $pool-error: #ff5252;
   }
 }
 /* P1 */
-// Table cells: a low value is wider than the 3.6em value column, so its cell sizes the column to
-// the icon, word and percentage and leaves the bar whatever remains.
-@media (min-width: 901px) {
-  .pool:not([data-minimized='true']) .account > summary > .limits li[data-low='true'] {
-    grid-template-columns: max-content minmax(8px, 1fr);
-    column-gap: 6px;
-  }
-}
+// Table cells: a column's status slot (Low mark, Unavailable) is laid out by the H1-W block at the end.
 // Phone Options button: a trailing chevron-down that flips while the overlay is open, like the
 // app's other disclosure controls (Collapsible, Select).
 .optionsChevron {
@@ -2341,20 +2335,13 @@ $pool-error: #ff5252;
     transition: none;
   }
 }
-// 901-1199px, balance-less tables: 8px column gaps (instead of 12px) and a matching 56px reserve in
-// the limit tracks (5 gaps of 8px plus 16px of slack, so the last header label still fits) give a
-// low cell room for its icon, word and percentage and still a visible bar.
+// 901-1199px, balance-less tables: 8px column gaps (instead of 12px) give a low cell room for its
+// status slot, value and a visible bar.
 @media (min-width: 901px) and (max-width: 1199px) {
   .pool:not([data-minimized='true']) [data-balance-column='false'] {
     .accountHead,
     .account > summary {
       column-gap: 8px;
-      grid-template-columns:
-        20px var(--name-track) var(--plan-track)
-        repeat(
-          var(--limit-cols),
-          minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 56px) / 3))
-        );
     }
   }
 }
@@ -2838,6 +2825,123 @@ $pool-error: #ff5252;
     .badge {
       grid-column: 1 / -1;
       justify-self: start;
+    }
+  }
+}
+
+/* H1-W */
+// Wide limit cells. A column that shows a Low mark or "Unavailable" on any row has a status slot on
+// every row, as wide as its widest mark: the real mark sits in it, and hidden ghosts size the rest.
+// Phones and the minimized compact list keep the mark inline in the value, so the wrapper takes no box.
+.limitStatus {
+  display: contents;
+}
+.statusGhost {
+  display: none;
+}
+@media (min-width: 901px) {
+  // "Unavailable" reads as on phones: the warning icon and word in the warning colour over a dashed
+  // empty track; the weight follows the column (the active window's is 600).
+  .unavailableWord {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    color: var(--warning-text);
+    white-space: nowrap;
+  }
+  .limits li .unavailableWord,
+  .limits li .unavailableGhost {
+    font-weight: 400;
+  }
+  .limits li[data-counted='true'] :is(.unavailableWord, .unavailableGhost) {
+    font-weight: 600;
+  }
+  // "Unavailable" has no value beside it, so it runs on into the value column: only what passes the
+  // value column (3.6em and the slot's 6px gap) counts toward the status slot's width.
+  .pool:not([data-minimized='true'])
+    .account
+    > summary
+    > .limits
+    li
+    :is(.unavailableWord, .unavailableGhost) {
+    margin-inline-end: calc(-3.6em - 6px);
+  }
+  .limitBar[data-empty] {
+    display: block;
+    border: 1px dashed var(--text-tertiary);
+    background: transparent;
+  }
+  // Hidden ghosts size a status slot to its widest mark: the same icon box, gap and word as the Low
+  // mark, and as the Unavailable word.
+  .pool:not([data-minimized='true']) .account > summary > .limits li,
+  .pool[data-minimized='true'] .account[open] > summary > .limits li {
+    .statusGhost {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      visibility: hidden;
+      white-space: nowrap;
+      pointer-events: none;
+      &::before {
+        content: '';
+        width: 14px;
+      }
+      &::after {
+        content: attr(data-word);
+        font-size: 13px;
+        font-weight: 600;
+      }
+    }
+    .unavailableGhost::after {
+      font-size: 14px;
+      font-weight: inherit;
+    }
+  }
+  .pool:not([data-minimized='true']) .account > summary > .limits li {
+    .limitStatus {
+      display: grid;
+      align-items: center;
+      justify-items: start;
+      margin-inline-end: 6px;
+      > * {
+        grid-area: 1 / 1;
+      }
+    }
+    .limitValue {
+      grid-column: 2;
+      justify-self: start;
+    }
+  }
+  // The cell already says which limit is unavailable; the line under the name would say it twice.
+  .pool:not([data-minimized='true']) .account[data-unavailable-cell],
+  .pool[data-minimized='true'] .account[open][data-unavailable-cell] {
+    &[data-status='error'],
+    &[data-status='missing-window'] {
+      > summary > .accountStatus {
+        display: none;
+      }
+    }
+  }
+  // A minimized card's opened rows keep the shared value column of the base list. Its slot is the
+  // card's (every row reserves the widest mark), and its values share one width, so a Low row's bar
+  // ends where the others' do.
+  .pool[data-minimized='true'] .account[open] > summary > .limits li {
+    .limitStatus {
+      display: inline-grid;
+      align-items: center;
+      justify-items: start;
+      > * {
+        grid-area: 1 / 1;
+      }
+    }
+    .limitValue {
+      min-width: 3.6em;
+      text-align: right;
     }
   }
 }

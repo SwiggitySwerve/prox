@@ -239,6 +239,29 @@ export function PoolCard({
         ? 'seven-day'
         : 'weekly';
   const balanceHasColumn = limitColumns.some((column) => column.id === countedLimitId);
+  // A wide column that shows a Low mark or "Unavailable" on any row reserves a status slot, as wide as
+  // its widest mark, on every row, so the values and bars of the whole column start at one x. A minimized
+  // card's opened rows list their limits in one shared value column, so its slot is the card's.
+  const columnStatus = new Map<string, { low: boolean; unavailable: boolean }>();
+  pool.accounts.forEach((account) =>
+    account.windows.forEach((limit) => {
+      const low = isLowQuota(limit.remainingPercent);
+      const unavailable = limit.remainingPercent === null;
+      if (!low && !unavailable) return;
+      const seen = columnStatus.get(limit.id) ?? { low: false, unavailable: false };
+      columnStatus.set(limit.id, {
+        low: seen.low || low,
+        unavailable: seen.unavailable || unavailable,
+      });
+    })
+  );
+  const cardStatus = columnStatus.size
+    ? {
+        low: [...columnStatus.values()].some((status) => status.low),
+        unavailable: [...columnStatus.values()].some((status) => status.unavailable),
+      }
+    : undefined;
+  const statusSlot = (limitId: string) => (minimized ? cardStatus : columnStatus.get(limitId));
   const resetSection = (account: (typeof pool.accounts)[number]) =>
     openAccounts.has(account.id) && (
       <PoolAccountResets
@@ -702,6 +725,9 @@ export function PoolCard({
                 className={styles.account}
                 data-status={account.status}
                 data-phone-blocks={phoneBlocks(account) || undefined}
+                data-unavailable-cell={
+                  account.windows.some((limit) => limit.remainingPercent === null) || undefined
+                }
                 open={openAccounts.has(account.id)}
                 onToggle={(event) => setAccountOpen(account.id, event.currentTarget.open)}
               >
@@ -812,19 +838,36 @@ export function PoolCard({
                           >
                             <span>{limitLabel(limit)}</span>
                             <strong>
-                              {isLowQuota(limit.remainingPercent) && lowMark}
-                              {limit.remainingPercent === null ? (
-                                <>
-                                  <span className={styles.limitDash} aria-hidden="true">
-                                    —
-                                  </span>
-                                  <span className={styles.unavailableWord}>
-                                    <IconAlertTriangle size={14} aria-hidden="true" />
-                                    {t('quota_pool.value_unavailable')}
-                                  </span>
-                                </>
-                              ) : (
-                                percent(limit.remainingPercent)
+                              {/* The slot holds this row's mark; the hidden ghosts size it to the column's widest. */}
+                              {statusSlot(limit.id) && (
+                                <span className={styles.limitStatus}>
+                                  {isLowQuota(limit.remainingPercent) && lowMark}
+                                  {limit.remainingPercent === null && (
+                                    <span className={styles.unavailableWord}>
+                                      <IconAlertTriangle size={14} aria-hidden="true" />
+                                      {t('quota_pool.value_unavailable')}
+                                    </span>
+                                  )}
+                                  {statusSlot(limit.id)?.low && (
+                                    <span
+                                      className={styles.statusGhost}
+                                      data-word={t('quota_pool.limit_low')}
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                  {statusSlot(limit.id)?.unavailable && (
+                                    <span
+                                      className={`${styles.statusGhost} ${styles.unavailableGhost}`}
+                                      data-word={t('quota_pool.value_unavailable')}
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                </span>
+                              )}
+                              {limit.remainingPercent !== null && (
+                                <span className={styles.limitValue}>
+                                  {percent(limit.remainingPercent)}
+                                </span>
                               )}
                             </strong>
                             {/* A missing value gets an empty dashed track (phones), so it can't read as 0%. */}
