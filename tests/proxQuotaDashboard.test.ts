@@ -785,9 +785,12 @@ describe('stacked chart geometry', () => {
     // The visible label is the field's accessible name, so it stays once text is typed.
     expect(long).toMatch(/<label[^>]*><span[^>]*>Search accounts<\/span><input type="search"/);
     expect(long).toContain('Lowest limit remaining first');
-    expect(long).toContain('1 with a limit below 20%');
-    // The count is a toggle that filters the roster to accounts with a low limit.
-    expect(long).toMatch(/<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?1 with a limit below 20%/);
+    // The sort pill carries a visible "Sort" prefix ahead of the select.
+    expect(long).toMatch(/<label[^>]*><span[^>]*>Sort<\/span><select/);
+    // The low chip is one stable label with its count in a badge, and it filters to accounts with a low limit.
+    expect(long).toMatch(
+      /<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?Limits below 20%<span[^>]*>1<\/span>/
+    );
     expect(long).toContain('data-large="true"');
     const short = render(3);
     expect(short).not.toContain('type="search"');

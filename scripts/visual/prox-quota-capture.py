@@ -1444,8 +1444,12 @@ async def r_chip_paint(chip):
 
 
 R_CHIP_STATE = "(el) => {" + R_JS + r"""
-  const svg = el.querySelector('svg'), b = svg ? svg.getBoundingClientRect() : null;
-  return {text: el.textContent.trim(), pressed: el.getAttribute('aria-pressed'), icon: !!svg && shown(svg) && b.width >= 12 && b.height >= 12,
+  const svg = el.querySelector('svg'), b = svg ? svg.getBoundingClientRect() : null, svgs = [...el.querySelectorAll('svg')], badge = el.querySelector('[class*="__rosterChipCount___"]');
+  // H2-E: the label is the chip's own text without its count badge; the on state ends in a decorative x after the badge.
+  const label = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
+  const lastSvg = svgs[svgs.length - 1], trail = lastSvg && badge && !!(badge.compareDocumentPosition(lastSvg) & Node.DOCUMENT_POSITION_FOLLOWING);
+  return {text: el.textContent.trim(), label, badge: badge ? badge.textContent.trim() : null, pressed: el.getAttribute('aria-pressed'), icon: !!svg && shown(svg) && b.width >= 12 && b.height >= 12,
+          svgs: svgs.length, trailing: !!trail && shown(lastSvg) && lastSvg.getAttribute('aria-hidden') === 'true',
           n: countOf(el.textContent)[0] ?? -1};
 }"""
 
@@ -1478,20 +1482,24 @@ async def _chip_checks(page, lng, out):
             out.append(dict(who, why=f"toggling reached states {sorted(seen)}, not both"))
             continue
         on, off = seen["true"], seen["false"]
-        labels = await page.evaluate("""async (n) => { const i18n = (await import('/src/i18n/index.ts')).default;
-            return {off: i18n.t('quota_pool.accounts_low', {count: n[0]}), on: i18n.t('quota_pool.accounts_low_on', {count: n[1]}), enOff: i18n.t('quota_pool.accounts_low', {count: n[0], lng: 'en'})}; }""", [off["n"], on["n"]])
-        if off["text"] != labels["off"] or on["text"] != labels["on"]:
-            out.append(dict(who, why="chip label is not the translated 'Show…' (off) / 'Filtering to…' (on) text", off=off["text"], on=on["text"]))
-        if lng == "en":
-            if not (re.match(r"Show\b", off["text"]) and re.fullmatch(r"Show \d+ with a limit below 20%", off["text"])):
-                out.append(dict(who, why="off label is not 'Show N with a limit below 20%'", text=off["text"]))
-            if not (re.match(r"Filtering\b", on["text"]) and re.fullmatch(r"Filtering to \d+ with a limit below 20%", on["text"])):
-                out.append(dict(who, why="on label is not 'Filtering to N with a limit below 20%'", text=on["text"]))
-        else:
-            if off["text"] == labels["enOff"]:
-                out.append(dict(who, why="off label is still the English text", text=off["text"]))
-            if on["text"] == off["text"]:
-                out.append(dict(who, why="on and off labels are identical", text=on["text"]))
+        # H2-E: one stable label in both states (the translated accounts_low_chip), the count in a badge beside it.
+        want = await page.evaluate("""async () => { const i18n = (await import('/src/i18n/index.ts')).default;
+            return {label: i18n.t('quota_pool.accounts_low_chip'), en: i18n.t('quota_pool.accounts_low_chip', {lng: 'en'})}; }""")
+        for tag, st in (("off", off), ("on", on)):
+            if st["label"] != want["label"]:
+                out.append(dict(who, why=f"{tag} chip label is not the translated stable label", label=st["label"], want=want["label"]))
+            if st["badge"] is None or not st["badge"].isdigit() or st["n"] != int(st["badge"]):
+                out.append(dict(who, why=f"{tag} chip has no numeric count badge", badge=st["badge"], text=st["text"]))
+        if off["label"] != on["label"] or off["badge"] is None or on["badge"] is None:
+            out.append(dict(who, why="the chip's label changes between off and on", off=off["label"], on=on["label"]))
+        if lng == "en" and not (re.fullmatch(r"Limits below 20%\s*\d+", off["text"]) and re.fullmatch(r"Limits below 20%\s*\d+", on["text"])):
+            out.append(dict(who, why="en chip is not 'Limits below 20%' plus a count", off=off["text"], on=on["text"]))
+        if lng != "en" and want["label"] == want["en"]:
+            out.append(dict(who, why="the chip label is still the English text", label=want["label"]))
+        if on["svgs"] != 2 or not on["trailing"]:
+            out.append(dict(who, why="the on chip lacks a leading check and a trailing aria-hidden x after the count", svgs=on["svgs"]))
+        if off["svgs"] != 1 or off["trailing"]:
+            out.append(dict(who, why="the off chip shows more than its warning icon", svgs=off["svgs"]))
         if (off["pressed"], on["pressed"]) != ("false", "true"):
             out.append(dict(who, why="aria-pressed is not false when off and true when on"))
         if not (off["icon"] and on["icon"]):
@@ -1522,8 +1530,8 @@ async def _affected_chip(page, out):
 
 
 async def check_filter_chip(context, url, route_api, name, state):
-    """R2: the low chip reads "Show N with a limit below 20%" off and "Filtering to N with a limit below 20%" on, with
-    aria-pressed, the icon and the page's selected-segment fill (dE >= 12 from off, a 3:1 border or fill against the
+    """R2 (H2-E): the low chip reads "Limits below 20%" plus a count badge in both states, with aria-pressed, the warning
+    icon off and a leading check and trailing x on, and the page's selected-segment fill (dE >= 12 from off, a 3:1 border or fill against the
     card) in each state. The affected chip keeps "Affected (N)" and takes the same fill."""
     if name not in R_CHIP_CASES:
         return []
@@ -1547,7 +1555,7 @@ async def check_filter_chip(context, url, route_api, name, state):
 R_TOOLBAR = "() => {" + R_JS + r"""
   const out = [], tools = [...document.querySelectorAll('article')].map(toolsIn).filter(Boolean), canvas = document.createElement('canvas').getContext('2d');
   if (!tools.length) return [{why: 'no roster toolbar found'}];
-  const kind = e => e.matches('label') && e.querySelector('input[type="search"]') ? 'search' : e.tagName === 'SELECT' ? 'sort' : e.tagName === 'BUTTON' ? 'chip' : e.matches('[class*="__rosterCount___"]') ? 'count' : 'other';
+  const kind = e => e.matches('label') && e.querySelector('input[type="search"]') ? 'search' : e.matches('label') && e.querySelector('select') ? 'sort' : e.tagName === 'BUTTON' ? 'chip' : e.matches('[class*="__rosterCount___"]') ? 'count' : 'other';
   for (const t of tools) {
     const card = t.closest('article').querySelector('h2')?.textContent, kids = [...t.children].filter(shown), kinds = kids.map(kind).join();
     if (!/^search,sort(,chip)+,count$/.test(kinds)) { out.push({card, why: 'controls are not search, sort, chip(s), count', kinds}); continue; }
@@ -1566,9 +1574,10 @@ R_TOOLBAR = "() => {" + R_JS + r"""
       }
       if (kind(k) === 'sort' || kind(k) === 'search') {
         // The search field is a label wrapping its input: the visible label must fit with 48px left to type in.
-        const label = kind(k) === 'search' ? k.querySelector('span') : null;
-        canvas.font = label ? getComputedStyle(label).font : st.font;
-        const text = kind(k) === 'sort' ? k.selectedOptions[0].textContent : label.textContent, room = r.width - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight) - (kind(k) === 'sort' ? 24 : 48);
+        // The sort pill's room is its select's own width less the arrow (H2-E: the pill holds a "Sort" prefix).
+        const label = kind(k) === 'search' ? k.querySelector('span') : null, sel = kind(k) === 'sort' ? k.querySelector('select') : null;
+        canvas.font = label ? getComputedStyle(label).font : getComputedStyle(sel).font;
+        const text = sel ? sel.selectedOptions[0].textContent : label.textContent, room = sel ? sel.getBoundingClientRect().width - 24 : r.width - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight) - 48;
         if (canvas.measureText(text).width > room) out.push({card, what, why: `"${text}" is wider than its ${room.toFixed(0)}px of room`});
       }
     });
@@ -3340,6 +3349,126 @@ async def check_headline_baseline(browser, url, page, name, width):
     return out
 
 
+# H2-E checks: a labelled sort pill, the chart footer's wording under partial data, the "Not summed" note, and the phone
+# stale line's type and wrap. Each has its own JSON key, registered in E2_KEYS. A check that finds nothing to measure fails.
+E2_KEYS = ("sortLabelFailures", "chartFooterFailures", "notSummedNoteFailures", "staleLineFailures")
+E2_SORT_CASES = ("many", "many-narrow", "many-search-narrow")
+E2_FOOTER_CASES = ("partial", "stale", "partial-narrow", "stale-narrow")
+E2_NOTE_CASES = ("stacked-unavailable",)
+E2_NOTE_EN = "Sources for the same provider may share accounts, so they aren't added up. Choose Provider lines to see each one."
+
+
+async def check_sort_label(page, name, state):
+    """H2-E1: every roster's sort control has a visible "Sort" prefix inside its pill, ahead of the choice, the pill is
+    named "Sort accounts" (it starts with the visible word), and it has the search pill's height and a full-round radius."""
+    if name not in E2_SORT_CASES:
+        return []
+    got = await page.evaluate("""() => {
+      const out = [], tools = [...document.querySelectorAll('article')].map(a => a.querySelector('[class*="__rosterTools___"]')).filter(Boolean);
+      if (!tools.length) return [{why: 'no roster toolbar to measure'}];
+      for (const t of tools) {
+        const card = t.closest('article').querySelector('h2')?.textContent, sort = t.querySelector('label:has(select)'), search = t.querySelector('label:has(input[type="search"])');
+        if (!sort || !search) { out.push({card, why: 'no sort pill or search pill'}); continue; }
+        const word = sort.querySelector('span'), select = sort.querySelector('select'), s = sort.getBoundingClientRect(), q = search.getBoundingClientRect();
+        if (!word || word.textContent.trim() !== 'Sort' || !word.checkVisibility({checkVisibilityCSS: true})) { out.push({card, why: 'the sort pill has no visible "Sort" prefix', text: word && word.textContent}); continue; }
+        if (word.getBoundingClientRect().right > select.getBoundingClientRect().left + 1) out.push({card, why: 'the prefix is not ahead of the choice'});
+        if (!(select.getAttribute('aria-label') || '').startsWith(word.textContent.trim())) out.push({card, why: 'the accessible name does not start with the visible prefix', name: select.getAttribute('aria-label')});
+        if (Math.abs(s.height - q.height) > 1) out.push({card, why: `sort pill is ${s.height.toFixed(1)}px tall, search pill ${q.height.toFixed(1)}px`});
+        const r = parseFloat(getComputedStyle(sort).borderTopLeftRadius), rs = parseFloat(getComputedStyle(search).borderTopLeftRadius);
+        if (r < s.height / 2 - 1 || Math.abs(Math.min(r, s.height / 2) - Math.min(rs, q.height / 2)) > 1) out.push({card, why: 'sort pill radius differs from the search pill', r, rs});
+        const bs = getComputedStyle(sort).borderTopWidth, bq = getComputedStyle(search).borderTopWidth, cs = getComputedStyle(sort).borderTopColor, cq = getComputedStyle(search).borderTopColor;
+        if (bs !== bq || cs !== cq) out.push({card, why: 'sort pill border differs from the search pill', sort: [bs, cs], search: [bq, cq]});
+        if (select.scrollWidth > select.clientWidth + 1 && select.getBoundingClientRect().width < 60) out.push({card, why: 'the choice has no room beside the prefix'});
+      }
+      return out;
+    }""")
+    out = list(got)
+    if not await page.get_by_role("combobox", name="Sort accounts").count():
+        out.append(dict(why="no combobox named 'Sort accounts'"))
+    return out
+
+
+async def check_chart_footer(page, name, state):
+    """H2-E3: a chart that draws recorded readings (its legend lists Recorded) never says "No reading at" for a moment
+    missing some of them; it says "No complete reading at". Only a chart with nothing recorded keeps "No reading at"."""
+    if name not in E2_FOOTER_CASES:
+        return []
+    got = await page.evaluate("""() => {
+      const out = [], seen = [];
+      for (const article of document.querySelectorAll('article')) {
+        const card = article.querySelector('h2')?.textContent, readout = article.querySelector('[class*="__chartReadout___"]');
+        if (!readout) continue;
+        const text = readout.textContent.trim().replace(/\\s+/g, ' '), recorded = /Recorded/.test((article.querySelector('[class*="__legend___"]') || {}).textContent || '');
+        const m = /^No (complete )?reading at /.exec(text);
+        if (!m) continue;
+        seen.push({card, text});
+        if (recorded && !m[1]) out.push({card, why: 'recorded readings are drawn, but the footer says "No reading at"', text});
+        if (!recorded && m[1]) out.push({card, why: 'nothing is recorded, but the footer says "No complete reading at"', text});
+      }
+      return {out, seen};
+    }""")
+    out = list(got["out"])
+    if not any("complete" in f["text"] for f in got["seen"]):
+        out.append(dict(why='no "No complete reading at" footer on a partial or stale chart', seen=got["seen"]))
+    return out
+
+
+async def check_not_summed_note(page, name, state):
+    """H2-E4: the combined card's "Not summed" note reads the settled sentence (sentence one: sources may share accounts, so
+    they aren't added up; sentence two: choose Provider lines), and Provider lines is a real control on the page."""
+    if name not in E2_NOTE_CASES:
+        return []
+    notes = await page.locator('[class*="__stateNote___"]').all_inner_texts()
+    notes = [" ".join(n.split()) for n in notes]
+    out = []
+    if E2_NOTE_EN not in notes:
+        out.append(dict(why="the not-summed note is not the settled text", notes=notes))
+    # Provider lines is an option of the combined card's view select.
+    if not await page.locator('select option', has_text="Provider lines").count():
+        out.append(dict(why="the note names Provider lines but no such option exists"))
+    return out
+
+
+E2_STALE_JS = """() => {
+  const out = [], rows = [...document.querySelectorAll('article details[data-status="stale"]')];
+  if (!rows.length) return [{why: 'no stale row to measure'}];
+  for (const row of rows) {
+    const where = row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent, status = row.querySelector('[class*="__accountStatus___"]');
+    const cs = getComputedStyle(status), sum = row.querySelector('summary').getBoundingClientRect(), unit = status.querySelector('[class*="__staleSince___"]'), word = status.querySelector('[class*="__staleWord___"]');
+    if (!unit || !word) { out.push({where, why: 'the stale line has no Stale word or no Last reading unit'}); continue; }
+    if (parseFloat(cs.fontSize) !== 13) out.push({where, why: `stale line is ${cs.fontSize}, not the 13px caption size`});
+    if (parseFloat(cs.paddingRight) < 12) out.push({where, why: `stale line has ${cs.paddingRight} of right padding, under 12px`});
+    const range = document.createRange(); range.selectNodeContents(status);
+    const right = Math.max(...[...range.getClientRects()].map(q => q.right));
+    if (right > sum.right - 12 + 0.5) out.push({where, why: `text ends ${(sum.right - right).toFixed(1)}px from the row's right edge, under 12px`});
+    const u = document.createRange(); u.selectNodeContents(unit);
+    const tops = new Set([...u.getClientRects()].filter(q => q.width > 1).map(q => Math.round(q.top)));
+    // A unit that fits on a line of its own must not be split; a longer one (320px) may wrap inside itself.
+    const was = unit.style.whiteSpace; unit.style.whiteSpace = 'nowrap'; const natural = unit.getBoundingClientRect().width; unit.style.whiteSpace = was;
+    const room = status.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    if (tops.size > 1 && natural <= room - 2) out.push({where, why: '"Last reading ..." is split across lines although it fits on one', natural, room});
+    if (unit.getBoundingClientRect().top < word.getBoundingClientRect().top - 1) out.push({where, why: 'Last reading sits above Stale'});
+    if (!/Last reading/.test(unit.textContent)) out.push({where, why: 'the unit lacks "Last reading"'});
+  }
+  return out;
+}"""
+
+
+async def check_stale_line(page, name, state, width):
+    """H2-E5 (390 and 320px): the stale line is 13px (the caption size), keeps 12px clear at the row's right edge, and
+    "Last reading ..." moves as one unit, under "Stale" when the line is full."""
+    if name != "stale-narrow":
+        return []
+    out = []
+    for w in (390, 320):
+        await page.set_viewport_size(dict(width=w, height=844))
+        await page.wait_for_timeout(150)
+        out += [dict(f, width=w) for f in await page.evaluate(E2_STALE_JS)]
+    await page.set_viewport_size(dict(width=width, height=844))
+    await page.wait_for_timeout(150)
+    return out
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", required=True)
@@ -3591,7 +3720,7 @@ async def main():
                 if state == "many-lowest":
                     await page.get_by_role("combobox", name="Sort accounts").first.select_option("lowest")
                 if state == "many-low":
-                    await page.get_by_role("button", name="40 with a limit below 20%").first.click()
+                    await page.get_by_role("button", name="Limits below 20%").first.click()
                 if state == "deep-link":
                     # The address holds the view: a link opens it, and changing the view rewrites
                     # the address with only the non-default keys.
@@ -3723,6 +3852,10 @@ async def main():
                 results[name]["captionFailures"] = await check_captions(page, name, state, width)
                 results[name]["searchLabelFailures"] = await check_search_label(page, name, state)
                 results[name]["rateBalanceFailures"] = await check_rate_balance(page, name, state)
+                results[name]["sortLabelFailures"] = await check_sort_label(page, name, state)
+                results[name]["chartFooterFailures"] = await check_chart_footer(page, name, state)
+                results[name]["notSummedNoteFailures"] = await check_not_summed_note(page, name, state)
+                results[name]["staleLineFailures"] = await check_stale_line(page, name, state, width)
                 results[name]["dateNavFailures"] = await check_date_nav(browser, args.url, name)
                 results[name]["statusTextFailures"] = await check_status_text(page, name)
                 results[name]["pillHeightFailures"] = await check_pill_heights(page, name, width)
@@ -3980,7 +4113,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + B2_KEYS + D2_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + B2_KEYS + D2_KEYS + E2_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

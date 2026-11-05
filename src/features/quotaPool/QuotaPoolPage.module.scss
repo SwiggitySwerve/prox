@@ -3332,3 +3332,83 @@ $pool-error: #ff5252;
     }
   }
 }
+
+/* H2-E */
+// Roster sort: the same pill as the search field, with a visible "Sort" prefix before the choice.
+.rosterSort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  color: var(--text-primary);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  font-size: 13px;
+  &:focus-within {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 3px;
+  }
+  // The select fills the pill's height, borders included, so its own target is the pill's.
+  select {
+    align-self: stretch;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    margin-block: -1px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    outline: none;
+    &:focus-visible {
+      outline: none;
+    }
+  }
+}
+@media (min-width: 901px) and (pointer: fine) {
+  .rosterSort {
+    min-height: 36px;
+  }
+}
+// The low chip's count: a small badge after the stable label, so the label never changes with state.
+.page .rosterLow .rosterChipCount {
+  min-width: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+// On phones the pill is full width but narrow: tighter padding leaves the choice room beside a long prefix.
+@media (max-width: 640px) {
+  .rosterSort {
+    gap: 6px;
+    padding: 0 8px 0 14px;
+  }
+}
+// A filter that is on shows a trailing x (decorative; pressing the chip again clears it).
+.page .rosterLow .rosterClear {
+  margin-inline-start: 2px;
+  color: var(--text-secondary);
+}
+// Phone stale line: the caption size and a gutter at the right; "Last reading ..." wraps as one unit.
+@media (max-width: 640px) {
+  .account[data-status='stale'] .accountStatus {
+    padding-inline-end: 12px;
+    font-size: var(--caption-size);
+  }
+  // One block under "Stale" (the separator dot is only for the inline wide layout); it wraps inside
+  // itself only when a line can't hold it.
+  .staleSince {
+    display: block;
+    max-width: 100%;
+  }
+  .staleDot {
+    display: none;
+  }
+}
