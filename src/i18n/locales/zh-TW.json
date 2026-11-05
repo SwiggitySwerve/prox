@@ -2391,6 +2391,7 @@
     "title": "額度管理",
     "show_emails": "顯示電子郵件",
     "auto_refresh_in": "{{seconds}} 秒後自動重新整理",
+    "today_state": "目前",
     "refreshing": "重新整理中…",
     "providers": "供應商",
     "all": "所有額度池",

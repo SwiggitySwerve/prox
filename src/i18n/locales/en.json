@@ -2365,6 +2365,7 @@
     "title": "Quota Management",
     "show_emails": "Show emails",
     "auto_refresh_in": "Auto-refresh in {{seconds}}s",
+    "today_state": "Current",
     "refreshing": "Refreshing…",
     "providers": "Providers",
     "all": "All pools",

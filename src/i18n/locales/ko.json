@@ -2365,6 +2365,7 @@
     "title": "할당량 관리",
     "show_emails": "이메일 표시",
     "auto_refresh_in": "{{seconds}}초 후 자동 새로고침",
+    "today_state": "현재",
     "refreshing": "새로고침 중…",
     "providers": "제공업체",
     "all": "모든 풀",
