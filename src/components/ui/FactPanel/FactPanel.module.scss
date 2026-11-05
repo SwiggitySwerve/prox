@@ -53,9 +53,9 @@
         var(--bg-tertiary)
       );
     }
-    // Disabled: an outline with readable text, plainly off; its reason is the note beneath.
+    // Disabled: a dashed outline with readable text, plainly off; its reason is the note beneath.
     &:disabled {
-      border-color: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+      border: 1px dashed var(--text-secondary);
       background: transparent;
       color: var(--text-secondary);
       // Overrides the app's dimmed disabled button, which made this text unreadable on the fill.
@@ -74,6 +74,18 @@
     margin: 0;
     display: grid;
     gap: 12px 16px;
+  }
+}
+// An action's status or reason follows its header closely, so it reads as the button's own.
+.section[data-action] {
+  // The button follows the title instead of sitting at the far edge of a wide box, so the reason
+  // beneath both reads as the button's.
+  header {
+    justify-content: flex-start;
+    margin-bottom: 8px;
+  }
+  .note {
+    margin: 0 0 12px;
   }
 }
 .section[data-tone='accent'] {
@@ -171,11 +183,17 @@
   }
 }
 // Wide drawers: the facts keep three shared columns, and the accent section takes a fourth on
-// the right beside them, so no column is left empty and every fact row stays on one line.
+// the right beside them, so every fact row stays on one line. The fact columns fit their content
+// (up to 240px) with one fixed gap, and the accent box starts one gap after the third and grows
+// to the panel edge, so a wide drawer has no dead run before it.
 @container (min-width: 1100px) {
   .panel:has(> .section[data-tone='accent']) {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr);
+    grid-template-columns: repeat(3, fit-content(240px)) minmax(0, 1fr);
+    column-gap: 32px;
     align-items: start;
+    > .section dl {
+      column-gap: 32px;
+    }
     > .section {
       grid-column: 1 / 4;
     }

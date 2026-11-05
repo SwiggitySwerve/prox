@@ -880,7 +880,7 @@ export function PoolCard({
                         />
                       )}
                       <Fact
-                        label={t('quota_pool.predicted_empty')}
+                        label={t('quota_pool.predicted_empty', { window: windowLabel })}
                         {...(pool.forecastState === 'ready' && account.status === 'ok'
                           ? {
                               state: 'known' as const,

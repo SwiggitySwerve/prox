@@ -300,6 +300,15 @@ function CodexResetAction({
               </section>
               <p>{t('quota_pool.reset_early_outcome')}</p>
             </div>
+          ) : fact.account.windows.length > 0 ? (
+            // The reset lifts Codex's rate limits (credit type codex_rate_limits); the credit
+            // doesn't list windows, so the dialog names the limits this account reports.
+            t('codex_quota.reset_confirm_windows', {
+              name,
+              windows: fact.account.windows
+                .map((limit) => t(limit.labelKey, limit.labelParams))
+                .join(' · '),
+            })
           ) : (
             t('quota_pool.reset_confirm_body', { name })
           ),

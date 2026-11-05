@@ -2841,3 +2841,24 @@ $pool-error: #ff5252;
     }
   }
 }
+
+/* H1-D */
+// Laptop drawers (1100px+ screens, drawer under 1100px): the two fact columns fit their content
+// (up to 240px) with the same fixed gap as the wide panel's, and Manual resets starts one gap after
+// them and grows to the panel edge, so no dead run sits before it.
+@media (min-width: 1100px) {
+  @container (max-width: 1099px) {
+    .accountFacts > div > div {
+      grid-template-columns: repeat(2, fit-content(240px)) minmax(0, 1fr);
+      column-gap: 32px;
+    }
+  }
+}
+
+// A disabled Use reset keeps the panel's readable dashed outline; the page's own dimmed
+// `button:disabled` would otherwise repaint its border and text.
+.page .accountFacts section button:disabled {
+  border: 1px dashed var(--text-secondary);
+  background: transparent;
+  color: var(--text-secondary);
+}
