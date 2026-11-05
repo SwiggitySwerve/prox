@@ -3244,3 +3244,60 @@ $pool-error: #ff5252;
     --col-gap: 12px;
   }
 }
+
+/* H2-G */
+// The card header's "N accounts" is a quiet link to the roster below the chart: same place and text as the
+// plain count it replaces, underlined on hover, 28px tall with a mouse and 44px on phones and touch.
+.page .poolMeta .accountsJump {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 28px;
+  margin-inline: -4px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #b5b5b5;
+  font-size: 13px;
+  line-height: 1.5;
+  text-underline-offset: 3px;
+  &:hover {
+    background: transparent;
+    color: var(--text-primary);
+    text-decoration: underline;
+  }
+}
+@media (max-width: 640px), (pointer: coarse) {
+  // The extra height is hit area only: negative block margins keep the header line as tall as before.
+  .page .poolMeta .accountsJump {
+    min-height: 44px;
+    margin-block: -8px;
+  }
+}
+// The heading takes focus from the jump; its ring shows for keyboard use only.
+.accounts > h3:focus:not(:focus-visible) {
+  outline: none;
+}
+// Phones: "Manual resets N" is longer than the chip it replaces, so it shares the plan's line under the name
+// (it wraps to a line of its own only when both don't fit) and a closed row keeps its two-line name cell.
+@media (max-width: 640px) {
+  .pool:not([data-minimized='true']) .account:not([open]) .accountName {
+    > .accountLabel {
+      display: contents;
+    }
+    .accountText {
+      flex-basis: 100%;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .accountPlan {
+      flex-basis: auto;
+      order: 1;
+    }
+    .accountResetMarker {
+      order: 2;
+      margin-left: 0;
+    }
+  }
+}

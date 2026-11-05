@@ -237,3 +237,8 @@ These override the decisions above where they conflict.
 - **S5 Low quota.** The number stays neutral. A red warning icon and red bar mark it, with the visible word "Low" (`quota_pool.limit_low`) beside the icon. Meaning never relies on colour alone. Amends `02-foundations` (Critical row) and `06-accounts`.
 - **S6 Stale rows.** Stale values and bars use the normal colour and opacity. Staleness shows through the amber "Stale" word, a clock icon and the timestamp. Amends `02-foundations` ("Dimming (stale rows)") and `05-states`.
 - **S7 Estimated renewals.** On the Quota Management page only, each estimated renewal says "Estimated · from start date", and "annual plans differ" appears once per provider Accounts section, always on screen. Other pages keep the full sentence. Amends `15-fact-panel`.
+
+## User decisions, 2026-11-05 (round h2, job G)
+
+- **Accounts jump (behaviour change).** The provider card header's "N accounts" becomes a button that jumps to that card's Accounts section and focuses its heading. This lifts the earlier "no new navigation such as jump links" limit for this one control. Amends `04-components` (PoolCard).
+- **"Manual resets N" chip.** The row chip "Resets N" / "Resets N · N usable" is renamed "Manual resets N" / "Manual resets N · N usable" in all 6 locales, because the scheduled "Resets {date}" lines under the bars read the same way. Amends `02-foundations` (Exception A) and `06-accounts`.
