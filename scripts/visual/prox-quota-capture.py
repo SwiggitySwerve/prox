@@ -2946,6 +2946,78 @@ async def check_wide_tracks(page, name, width):
     return out
 
 
+# A2 checks (round h2, job A): the Plan column's gutter. Own JSON key, registered in A2_KEYS for the summary and the
+# exit gate. A check that finds nothing to measure fails.
+A2_KEYS = ("planGapFailures",)
+A2_PLAN_CASES = {"wide": "ready", "laptop": "ready", "no-limit": "no-limit", "ultra": "ultra", "deep-link": "no-limit",
+                 "many": "many", "partial": "partial", "stale": "stale"}
+A2_PLAN_WIDTHS = (1100, 1280, 1440, 1920)
+A2_PLAN_JS = "() => {" + C1_PRELUDE + r"""
+  const fails = [];
+  let rows = 0;
+  // The painted left edge of a cell: its first visible text or icon, never its bar or a visually hidden label or ghost.
+  const paintedLeft = li => {
+    let left = Infinity;
+    const walker = document.createTreeWalker(li, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const e = n.parentElement;
+      if (!n.textContent.trim() || !e.checkVisibility({checkVisibilityCSS: true}) || e.closest('[class*="__statusGhost___"], [class*="__unavailableGhost___"]')) continue;
+      const clip = e.closest('span:first-child'), rr = e.getBoundingClientRect();
+      if ((clip && clip.parentElement === li) || rr.width <= 1 || rr.height <= 1) continue;
+      const range = document.createRange(); range.selectNodeContents(n);
+      for (const q of range.getClientRects()) if (q.width > 0) left = Math.min(left, q.left);
+    }
+    for (const svg of li.querySelectorAll('svg')) if (shown(svg) && !svg.closest('[class*="__statusGhost___"], [class*="__unavailableGhost___"]')) left = Math.min(left, svg.getBoundingClientRect().left);
+    return left;
+  };
+  for (const row of [...document.querySelectorAll('article details')].filter(shown)) {
+    const summary = row.querySelector(':scope > summary'), plan = summary.querySelector('[class*="__accountPlan___"]');
+    if (!plan || !shown(plan)) continue;
+    rows++;
+    const range = document.createRange(); range.selectNodeContents(plan);
+    let right = 0;
+    for (const q of range.getClientRects()) if (q.width > 0) right = Math.max(right, q.right);
+    const label = (row.querySelector('[class*="__accountLabel___"]')?.firstChild?.textContent || '?'), at = {row: label, plan: plan.textContent.trim()};
+    const cell = plan.getBoundingClientRect();
+    if (right > cell.right + 0.5) fails.push({...at, why: `plan text overflows its cell by ${(right - cell.right).toFixed(1)}px`});
+    let next = Infinity;
+    for (const li of summary.querySelectorAll(':scope > ul[aria-label="Limits"] > li')) {
+      if (!shown(li)) continue;
+      const l = paintedLeft(li);
+      if (l < Infinity && li.getBoundingClientRect().left >= cell.left) next = Math.min(next, l);
+    }
+    if (next === Infinity) fails.push({...at, why: 'no painted text or icon in the next cell to measure against'});
+    else if (next - right < 16) fails.push({...at, why: `only ${(next - right).toFixed(1)}px between the plan text and the next cell (at least 16px)`});
+  }
+  if (!rows) fails.push({why: 'no plan cell to measure'});
+  return fails;
+}"""
+
+
+async def check_plan_gap(browser, url, name):
+    """A2.1: at 1100, 1280, 1440 and 1920, in every wide card and row (closed and opened), the plan text ends at least
+    16px before the next cell's first painted text or icon, and no plan text runs past its own cell. Each width opens
+    a fresh page on the case's fixture state."""
+    if name not in A2_PLAN_CASES:
+        return []
+    out = []
+    for width in A2_PLAN_WIDTHS:
+        context, page = await open_fixture_page(browser, url, A2_PLAN_CASES[name], width, "en", None, 1000)
+        try:
+            if name == "deep-link":
+                await page.evaluate("location.hash='/quota?window=five-hour'")
+                await page.wait_for_timeout(400)
+            # The roster re-renders after a hash change and a loaded machine can be slow: wait for a plan cell.
+            await page.locator('article details [class*="__accountPlan___"]').first.wait_for(timeout=15000)
+            for opened in (False, True):
+                if opened:
+                    await h_expand_all(page)
+                out += [dict(width=width, open=opened, **f) for f in await page.evaluate(A2_PLAN_JS)]
+        finally:
+            await context.close()
+    return out
+
+
 W_UNAVAILABLE_JS = "() => {" + C1_PRELUDE + r"""
   const cells = [], stray = [];
   for (const row of [...document.querySelectorAll('article details')].filter(shown)) {
@@ -3430,6 +3502,7 @@ async def main():
                 results[name]["wideTrackFailures"] = await check_wide_tracks(page, name, width)
                 results[name]["unavailableCellFailures"] = await check_unavailable_cells(browser, args.url, page, name, state, width)
                 results[name]["headlineBaselineFailures"] = await check_headline_baseline(browser, args.url, page, name, width)
+                results[name]["planGapFailures"] = await check_plan_gap(browser, args.url, name)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -3676,7 +3749,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + A2_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():
