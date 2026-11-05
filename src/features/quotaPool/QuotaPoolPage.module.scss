@@ -1075,19 +1075,23 @@ $pool-error: #ff5252;
   grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
   align-items: start;
   gap: 20px;
-  // Phones list the facts as label/value rows under the headline, like the loaded card.
+  // Phones stack each fact label over value in two columns under the headline, like the loaded card.
   @media (max-width: 640px) {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    > .loadingNumber {
+      grid-column: 1 / -1;
+    }
   }
 }
 .loadingFact {
   display: grid;
   gap: 6px;
   @media (max-width: 640px) {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    // A placeholder never outgrows its column (320px is narrower than the 128px value bar plus a gap).
+    > * {
+      max-width: 100%;
+    }
   }
 }
 .loadingRows {
@@ -3027,11 +3031,6 @@ $pool-error: #ff5252;
   padding-inline: 10px;
   color: var(--text-secondary);
 }
-// A step at its limit fades out and drops its outline, so it never passes for an enabled one.
-.page .dateNavigation .dateStep:disabled {
-  border-color: transparent;
-  opacity: 0.35;
-}
 // The auto-refresh countdown is status text: no outline, no fill, a quieter tone than the pills.
 .countdown {
   padding-inline: 4px;
@@ -3088,28 +3087,11 @@ $pool-error: #ff5252;
   }
 }
 // The failed-refresh banner over saved data: one readable width, left-aligned with the content, an
-// equal inner padding on every side (Try again included) and a standard pill for its action.
+// equal inner padding on every side. Try again keeps the error card's light primary style (H2-D), so the
+// same recovery action looks the same on every page state.
 .errorNotice:not([data-alone]) {
   max-width: 640px;
   padding: 16px 18px;
-}
-.page .errorNotice:not([data-alone]) button {
-  min-height: 44px;
-  padding: 4px 14px;
-  border-color: var(--hairline);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 400;
-  &:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-}
-@media (min-width: 901px) and (pointer: fine) {
-  .page .errorNotice:not([data-alone]) button {
-    min-height: 36px;
-  }
 }
 
 /* H1-W */
@@ -3292,5 +3274,61 @@ $pool-error: #ff5252;
   font-weight: 500;
   svg {
     flex-shrink: 0;
+  }
+}
+
+/* H2-D */
+// One boundary colour for the controls that act (date steps, card action pills): 3:1 or more on the page
+// (#050505, 3.5:1) and on a card (#101010, 3.3:1), so an action outranks the status chip beside it.
+.page {
+  --action-border: #666666;
+}
+// Date steps are bounded ghost icon buttons: 32px with a mouse, 44px on touch and phones. A step at its limit
+// keeps its box but fades, drops its hover and shows the default cursor, so it never passes for an enabled one.
+.page .dateNavigation .dateStep {
+  flex: none;
+  width: 32px;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid var(--action-border);
+  background: transparent;
+  color: var(--text-secondary);
+  &:hover:not(:disabled) {
+    border-color: var(--text-quaternary);
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+@media (pointer: coarse), (max-width: 640px) {
+  .page .dateNavigation .dateStep {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+}
+// Card actions get a boundary; status chips (Forecast ready) lose their fill, keeping icon and text colour.
+.page .reorder button,
+.page .reorder button.graphToggle[aria-pressed='true'] {
+  border-color: var(--action-border);
+}
+.badge,
+.badge[data-tone='warning'] {
+  background: transparent;
+  padding-inline: 0;
+}
+// Phones: the Combined title row and the chart-view select sit one standard row gap (4px, as the card
+// headers' rows) apart, not 16px.
+@media (max-width: 640px) {
+  .graphHeader {
+    row-gap: 4px;
+    > .combinedOptions {
+      margin: 0;
+    }
   }
 }
