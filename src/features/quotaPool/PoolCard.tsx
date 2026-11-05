@@ -439,30 +439,34 @@ export function PoolCard({
             )}
           </strong>
           {mode === 'remaining' && headlineContext}
-          {/* A rate view's one other measured fact, the balance, is the headline's context line:
-              its number in the value style, "of 300 points" in the same muted unit style as "points/h". */}
-          {mode !== 'remaining' && (
-            <p className={styles.headlineBalance}>
-              <span>{t('quota_pool.account_remaining', { window: windowLabel })}</span>{' '}
-              <b>{number(pool.remainingPoints)}</b>{' '}
-              <small>{t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}</small>
-            </p>
-          )}
         </div>
-        {/* Remaining has two groups: "Now" holds the one measured fact the headline doesn't show
-            (the burn rate), "Forecast" the projections. Rate views keep their balance under the headline. */}
+        {/* Every view has the same two groups: "Now" holds the one measured fact the headline
+            doesn't show (the burn rate, or in rate views the balance), "Forecast" the projections. */}
         <div className={styles.statsBlock} data-split={showNow || undefined}>
-          {showNow && mode === 'remaining' && (
+          {showNow && (
             <div className={styles.statsGroup}>
               <p className={styles.statsHeading}>{t('quota_pool.now_group')}</p>
               <dl className={styles.stats}>
-                <div>
-                  <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
-                  <dd>
-                    {number(pool.burnPointsPerHour)}
-                    {pool.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
-                  </dd>
-                </div>
+                {mode === 'remaining' ? (
+                  <div>
+                    <dt>{t('quota_pool.burn_last', { hours: dashboard.lookbackHours })}</dt>
+                    <dd>
+                      {number(pool.burnPointsPerHour)}
+                      {pool.burnPointsPerHour !== null && ` ${t('quota_pool.points_hour')}`}
+                    </dd>
+                  </div>
+                ) : (
+                  <div>
+                    <dt>{t('quota_pool.account_remaining', { window: windowLabel })}</dt>
+                    {/* The number takes the value style; "of 300 points" the headline unit's muted style. */}
+                    <dd>
+                      {number(pool.remainingPoints)}{' '}
+                      <small>
+                        {t('quota_pool.of_capacity', { capacity: number(pool.capacityPoints) })}
+                      </small>
+                    </dd>
+                  </div>
+                )}
               </dl>
             </div>
           )}
@@ -536,7 +540,7 @@ export function PoolCard({
                 )}
                 {/* Kept beside the total: a minimized card's rows don't show their own markers. */}
                 {resetTotals.available > 0 && resetTotals.usable > 0 && (
-                  <SummaryFact label={t('quota_pool.reset_usable')}>
+                  <SummaryFact label={t('quota_pool.reset_usable_summary')}>
                     {resetTotals.usable}
                   </SummaryFact>
                 )}
@@ -706,7 +710,9 @@ export function PoolCard({
           )}
           {/* Phones have no column heading, so one line per card says what the bold limit is. */}
           {visibleAccounts.length > 0 && (
-            <p className={styles.phoneCountsNote}>{t('quota_pool.counts_toward_total_phone')}</p>
+            <p className={styles.phoneCountsNote}>
+              {t('quota_pool.counts_toward_total_phone', { window: windowLabel })}
+            </p>
           )}
           {visibleAccounts.length > 0 && (
             <div className={styles.accountHead} aria-hidden="true">

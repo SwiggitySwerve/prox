@@ -1912,12 +1912,12 @@ def a_expected_facts(state, provider):
     if available:
         facts.append(("Manual resets", str(available)))
         if usable:
-            facts.append(("Usable now", str(usable)))
+            facts.append(("Usable resets", str(usable)))
     if pool["loadedCount"] != pool["accountCount"] or pool["eligibleCount"] != pool["accountCount"]:
         if stale:
             facts += [("Current", str(pool["loadedCount"])), ("Stale", str(stale))]
         elif no_limit:
-            facts.append(("5-hour limit", f"{pool['eligibleCount']} of {pool['accountCount']}"))
+            facts.append(("With a 5-hour limit", f"{pool['eligibleCount']} of {pool['accountCount']}"))
             if pool["loadedCount"] < pool["eligibleCount"]:
                 facts.append(("Reporting", f"{pool['loadedCount']} of {pool['eligibleCount']}"))
         else:
@@ -1948,7 +1948,19 @@ A_SUMMARY_JS = "() => {" + C3_HELPERS + r"""
         if(r.right>box.right+0.5||r.left<box.left-0.5||r.right>innerWidth+0.5)out.push({provider,label:label.textContent,why:'a pair overflows its container',right:Math.round(r.right),container:Math.round(box.right),viewport:innerWidth});
       }
       const tops=rects.map(r=>Math.round(r.top));
-      if(sum<=box.width+0.5&&Math.max(...tops)-Math.min(...tops)>1)out.push({provider,why:'the items fit on one line ('+Math.round(sum)+' of '+Math.round(box.width)+'px) but sit on different tops',tops});
+      if(innerWidth<=640&&items.length>1){
+        // Phones: an even grid. Pairs on a two-column row have equal widths (three pairs share one row at their own widths; unless one is as wide as its own text and so
+        // keeps its width), every pair stays inside itself, and no row holds a single pair while another holds more
+        // (the orphan; a long translated label can force one, so the caller applies that to English only).
+        const rows={};for(const [i,r] of rects.entries()){const k=Math.round(r.top);(rows[k]||(rows[k]=[])).push(i);}
+        for(const idx of Object.values(rows)){
+          const ws=idx.map(i=>rects[i].width),tight=idx.some(i=>rects[i].width-Math.max(...[...items[i].children].map(c=>{const g=document.createRange();g.selectNodeContents(c);return g.getBoundingClientRect().width;}))<2);
+          if(items.length!==3&&idx.length>1&&Math.max(...ws)-Math.min(...ws)>1&&!tight)out.push({provider,why:'summary pairs on one row have unequal widths',widths:ws.map(Math.round)});
+        }
+        const counts=Object.values(rows).map(l=>l.length);
+        if(counts.length>1&&Math.min(...counts)<Math.max(...counts))out.push({provider,orphan:true,why:'a summary row holds fewer pairs than the others (an orphaned fact)',rows:counts});
+        for(const [i,item] of items.entries())if(item.scrollWidth>item.clientWidth+1)out.push({provider,label:item.textContent,why:'a pair is wider than its cell',scroll:item.scrollWidth,cell:Math.round(rects[i].width)});
+      }else if(sum<=box.width+0.5&&Math.max(...tops)-Math.min(...tops)>1)out.push({provider,why:'the items fit on one line ('+Math.round(sum)+' of '+Math.round(box.width)+'px) but sit on different tops',tops});
     }
     cards.push({provider,facts});
   }
@@ -1958,7 +1970,7 @@ A_SUMMARY_JS = "() => {" + C3_HELPERS + r"""
 
 async def a_summary_pass(page, state, lng, out):
     got = await page.evaluate(A_SUMMARY_JS)
-    out += [dict(f, lng=lng) for f in got["out"]]
+    out += [dict(f, lng=lng) for f in got["out"] if lng == "en" or not f.get("orphan")]
     if not got["cards"]:
         out.append(dict(lng=lng, why="no provider card to measure"))
     measured = 0
@@ -1978,8 +1990,9 @@ async def a_summary_pass(page, state, lng, out):
 
 async def check_summary_facts(page, context, url, route_api, name, state):
     """A3: every summary item is a label/value pair in one shared wrapping group; values keep the Manual resets style;
-    the facts are today's (Manual resets, Usable now, Reporting, Current, Stale, 5-hour limit) with the fixture's
-    numbers; a pair never breaks inside or overflows its container; items that fit one line share a top."""
+    the facts are today's (Manual resets, Usable resets, Reporting, Current, Stale, With a 5-hour limit) with the
+    fixture's numbers; a pair never breaks inside or overflows its container; items that fit one line share a top;
+    at 640px and below the pairs form an even grid (equal columns, no row with a single pair beside fuller rows)."""
     if name not in A_SUMMARY_CASES:
         return []
     out = []
@@ -2099,29 +2112,99 @@ async def check_search_label(page, name, state):
 
 
 async def check_rate_balance(page, name, state):
-    """H1-C4: a rate view's balance is the headline's context line (no "Now" heading over a single fact): it sits under
-    the rate, its number has the value style, and its unit has the same muted style as "points/h"."""
+    """H1-C4, rewritten in h2-C: a rate view's balance is the card's titled "Now" group (the heading and fact styles of the
+    Remaining view's Now group): a heading over one dt/dd fact, the label above the number, the number in the value
+    style, and " of 300 points" in the same colour and weight as the headline's "points/h"."""
     if state not in ("drain", "burn"):
         return []
     return await page.evaluate("() => {" + C1_PRELUDE + r"""
       const out = []; let measured = 0;
-      if ([...document.querySelectorAll('article [class*="__statsHeading___"]')].some(h => shown(h) && h.textContent.trim() === 'Now')) out.push({why: 'a Now heading still stands over the single balance fact'});
-      const probe = parent => { const p = document.createElement('span'); p.style.cssText = 'display:inline-block;width:0;height:0'; parent.appendChild(p); const y = p.getBoundingClientRect().bottom; p.remove(); return y; };
       for (const card of document.querySelectorAll('article')) {
-        const who = card.querySelector('h2')?.textContent, h = card.querySelector('[class*="__headline___"]'), line = h && h.querySelector('[class*="__headlineBalance___"]');
-        if (!line) { out.push({who, why: 'no balance line under the headline'}); continue; }
-        const strong = h.querySelector('strong'), unit = strong.querySelector('small'), b = line.querySelector('b'), small = line.querySelector('small');
-        if (!b || !small || !unit) { out.push({who, why: 'balance line lacks its number or unit, or the headline its unit'}); continue; }
+        const who = card.querySelector('h2')?.textContent, h = card.querySelector('[class*="__headline___"]');
+        if (!h || h.dataset.rate !== 'true') continue;
+        if (h.querySelector('[class*="__headlineBalance___"]')) out.push({who, why: 'the balance is still a run-in line under the headline'});
+        const block = card.querySelector('[class*="__statsBlock___"]'), groups = block ? [...block.querySelectorAll(':scope > [class*="__statsGroup___"]')] : [];
+        const now = groups.find(g => g.querySelector('[class*="__statsHeading___"]')?.textContent.trim() === 'Now');
+        if (!now || !shown(now)) { out.push({who, why: 'no titled Now group in the rate view'}); continue; }
+        const heading = now.querySelector('[class*="__statsHeading___"]'), fact = now.querySelector('dl > div'), dt = fact && fact.querySelector('dt'), dd = fact && fact.querySelector('dd');
+        if (!dt || !dd) { out.push({who, why: 'the Now group has no dt/dd fact'}); continue; }
+        const forecast = groups.find(g => g !== now), fh = forecast && forecast.querySelector('[class*="__statsHeading___"]');
+        if (fh) { const a = getComputedStyle(heading), b = getComputedStyle(fh); if (a.fontSize !== b.fontSize || a.fontWeight !== b.fontWeight || a.color !== b.color) out.push({who, why: 'the Now heading does not match the Forecast heading', now: [a.fontSize, a.fontWeight, a.color], forecast: [b.fontSize, b.fontWeight, b.color]}); }
+        const unit = h.querySelector('strong small'), small = dd.querySelector('small');
+        if (!unit || !small) { out.push({who, why: 'the balance lacks its unit, or the headline its "points/h"'}); continue; }
         measured++;
-        if (line.getBoundingClientRect().top < strong.getBoundingClientRect().bottom - 1) out.push({who, why: 'balance line is not under the headline number'});
-        const us = getComputedStyle(unit), ss = getComputedStyle(small), bs = getComputedStyle(b), ns = getComputedStyle(strong);
-        if (us.color !== ss.color || us.fontWeight !== ss.fontWeight || us.fontSize !== ss.fontSize) out.push({who, why: 'the balance unit style differs from "points/h"', headline: [us.color, us.fontWeight, us.fontSize], balance: [ss.color, ss.fontWeight, ss.fontSize]});
-        if (parseInt(bs.fontWeight) < 500 || bs.color !== ns.color || !/tabular-nums/.test(bs.fontVariantNumeric)) out.push({who, why: 'the balance number is not in the value style', weight: bs.fontWeight, color: bs.color});
-        const drift = Math.abs(probe(b) - probe(small));
-        if (drift > 2) out.push({who, why: `balance unit baseline ${drift.toFixed(1)}px off its number's`});
+        if (!/^Weekly remaining$|^5-hour remaining$/.test(dt.textContent.trim())) out.push({who, why: 'the Now label is not "<window> remaining"', text: dt.textContent});
+        if (!/^[\d.,]+\s+of\s+[\d.,]+\s+points$/.test(dd.textContent.trim())) out.push({who, why: 'the Now value is not "N of M points"', text: dd.textContent});
+        if (dd.getBoundingClientRect().top < dt.getBoundingClientRect().bottom - 1) out.push({who, why: 'the value is not under its label'});
+        const us = getComputedStyle(unit), ss = getComputedStyle(small), ds = getComputedStyle(dd);
+        if (us.color !== ss.color || us.fontWeight !== ss.fontWeight) out.push({who, why: 'the balance unit style differs from "points/h"', headline: [us.color, us.fontWeight], balance: [ss.color, ss.fontWeight]});
+        if (parseInt(ds.fontWeight) < 500 || !/tabular-nums/.test(ds.fontVariantNumeric)) out.push({who, why: 'the balance number is not in the value style', weight: ds.fontWeight});
       }
-      if (!measured) out.push({why: 'no rate headline with a balance line to measure'});
+      if (!measured) out.push({why: 'no rate headline with a Now group to measure'});
       return out;
+    }""")
+
+
+# H2-C checks (phone fact grid, Data collection facts). Each has its own JSON key, registered in C2_KEYS for the summary
+# and the exit gate. A check that finds nothing to measure where it applies fails.
+C2_KEYS = ("phoneFactGridFailures", "dataCollectionFactFailures")
+C2_GRID_CASES = ("narrow", "narrow-320", "drain-narrow", "burn-narrow", "partial-narrow", "stale-narrow")
+C2_DATA_CASES = ("laptop", "narrow", "narrow-320", "partial", "stale-narrow", "drain")
+
+
+async def check_phone_fact_grid(page, name, width):
+    """H2-C2: at 640px and below the Now and Forecast facts sit in one wrapping grid of at most two columns; facts on a
+    row have equal widths, every value and label stays inside its cell, and where the fact area is at least 320px
+    wide a group of two or more facts uses both columns on some row."""
+    if name not in C2_GRID_CASES or width > 640:
+        return []
+    return await page.evaluate("() => {" + C1_PRELUDE + r"""
+      const fails = [], groups = [...document.querySelectorAll('article [class*="__statsBlock___"] dl')].filter(shown);
+      if (!groups.length) return [{why: 'no Now or Forecast facts found'}];
+      for (const dl of groups) {
+        const who = dl.closest('article').querySelector('h2')?.textContent, cs = getComputedStyle(dl), facts = [...dl.children].filter(shown);
+        if (cs.display !== 'grid') { fails.push({who, why: 'the facts are not a grid', display: cs.display}); continue; }
+        const cols = cs.gridTemplateColumns.split(' ').length;
+        if (cols > 2) fails.push({who, why: cols + ' fact columns on a phone'});
+        const rows = {};
+        for (const f of facts) { const r = f.getBoundingClientRect(); (rows[Math.round(r.top)] ||= []).push(r); }
+        for (const list of Object.values(rows)) if (list.length > 1 && Math.max(...list.map(r => r.width)) - Math.min(...list.map(r => r.width)) > 1) fails.push({who, why: 'facts on one row have unequal widths'});
+        if (facts.length > 1 && dl.getBoundingClientRect().width >= 320 && !Object.values(rows).some(l => l.length > 1)) fails.push({who, why: 'the fact area is wide enough for two columns but every fact has its own row', width: Math.round(dl.getBoundingClientRect().width)});
+        for (const f of facts) {
+          const cell = f.getBoundingClientRect(), label = f.querySelector('dt').textContent;
+          for (const e of f.querySelectorAll('dt, dd, small')) { const r = document.createRange(); r.selectNodeContents(e); if (r.getBoundingClientRect().right > cell.right + 0.5) fails.push({who, label, why: 'a label or value runs past its grid cell'}); }
+        }
+      }
+      return fails;
+    }""")
+
+
+async def check_data_collection_facts(page, name):
+    """H2-C5: "History since" and "Last collection attempt" are label-above-value pairs in one row (tops within 2px
+    while they fit), in the Accounts summary facts' label and value type."""
+    if name not in C2_DATA_CASES:
+        return []
+    return await page.evaluate("() => {" + C1_PRELUDE + r"""
+      const fails = [], dl = document.querySelector('footer [class*="__footerFacts___"]');
+      if (!dl || !shown(dl)) return [{why: 'no Data collection facts to measure'}];
+      const facts = [...dl.children], ref = document.querySelector('[class*="__summaryLabel___"]'), refValue = document.querySelector('[class*="__summaryValue___"]');
+      if (facts.length !== 2) fails.push({why: facts.length + ' Data collection facts, expected 2'});
+      if (!ref || !refValue) fails.push({why: 'no Accounts summary fact to match against'});
+      for (const f of facts) {
+        const dt = f.querySelector('dt'), dd = f.querySelector('dd'), label = dt?.textContent;
+        if (!dt || !dd) { fails.push({why: 'a Data collection fact lacks its label or value'}); continue; }
+        const a = dt.getBoundingClientRect(), b = dd.getBoundingClientRect();
+        if (b.top < a.bottom - 1 || b.top - a.bottom > 8 || Math.abs(a.left - b.left) > 1) fails.push({label, why: 'the value is not directly under its label'});
+        if (ref) {
+          const ls = getComputedStyle(dt), rs = getComputedStyle(ref), vs = getComputedStyle(dd), ws = getComputedStyle(refValue);
+          if (ls.fontSize !== rs.fontSize || ls.color !== rs.color) fails.push({label, why: 'the label type differs from the Accounts summary labels', got: [ls.fontSize, ls.color], want: [rs.fontSize, rs.color]});
+          if (vs.fontSize !== ws.fontSize || vs.fontWeight !== ws.fontWeight || vs.color !== ws.color) fails.push({label, why: 'the value type differs from the Accounts summary values', got: [vs.fontSize, vs.fontWeight, vs.color], want: [ws.fontSize, ws.fontWeight, ws.color]});
+        }
+      }
+      const fr = facts.map(f => f.getBoundingClientRect()), colGap = parseFloat(getComputedStyle(dl).columnGap) || 0, dlBox = dl.getBoundingClientRect();
+      const total = fr.reduce((x, r) => x + r.width, 0) + colGap * Math.max(0, fr.length - 1);
+      if (fr.length > 1 && total <= dlBox.width + 0.5 && Math.abs(fr[0].top - fr[1].top) > 2) fails.push({why: 'the pairs fit one row but sit on different rows'});
+      return fails;
     }""")
 
 
@@ -2497,6 +2580,11 @@ async def check_phone_counts_note(page, name, width):
         if (visible.length !== 1) { fails.push({who, why: `${visible.length} counts-toward-total lines, expected one`}); continue; }
         const note = visible[0], row = [...a.querySelectorAll('details')].filter(shown)[0];
         if (!/total/i.test(note.textContent)) fails.push({who, why: 'the line does not say what counts toward the total', text: note.textContent});
+        // It names the limit (the counted column's heading) rather than leaning on bold.
+        const counted = a.querySelector('[class*="__accountHead___"] [data-counted]'), head = counted && counted.firstChild && counted.firstChild.textContent.trim();
+        if (!head) fails.push({who, why: 'no counted column heading to name'});
+        else if (note.textContent.trim() !== head + ' counts toward total') fails.push({who, why: 'the line does not name the counted limit', text: note.textContent, want: head + ' counts toward total'});
+        if (/bold/i.test(note.textContent)) fails.push({who, why: 'the line still relies on bold', text: note.textContent});
         if (note.getBoundingClientRect().bottom > row.getBoundingClientRect().top + 1) fails.push({who, why: 'the line is not above the first row'});
         if (note.scrollWidth > note.clientWidth + 1) fails.push({who, why: 'the line is clipped'});
       }
@@ -2505,13 +2593,13 @@ async def check_phone_counts_note(page, name, width):
 
 
 async def check_phone_forecast_stack(page, name, width):
-    """P5: at 900px and below each Forecast fact reads label over value (the value starts below the label and at its
-    left edge), and the facts stay inside their card."""
+    """P5: at 900px and below each Now and Forecast fact reads label over value (the value starts below the label and at
+    its left edge), in one grammar, and the facts stay inside their card."""
     if name not in P_FORECAST_CASES:
         return []
     return await page.evaluate("() => {" + C1_PRELUDE + r"""
-      const fails = [], groups = [...document.querySelectorAll('article [class*="__statsBlock___"] > :last-child dl')].filter(shown);
-      if (!groups.length) return [{why: 'no Forecast facts found'}];
+      const fails = [], groups = [...document.querySelectorAll('article [class*="__statsBlock___"] dl')].filter(shown), grammar = new Set();
+      if (!groups.length) return [{why: 'no Now or Forecast facts found'}];
       for (const dl of groups) {
         const who = dl.closest('article').querySelector('h2')?.textContent, card = dl.closest('article').getBoundingClientRect(), facts = [...dl.children].filter(shown);
         if (!facts.length) fails.push({who, why: 'the Forecast group holds no fact'});
@@ -2521,8 +2609,12 @@ async def check_phone_forecast_stack(page, name, width):
           if (Math.abs(dd.left - dt.left) > 1) fails.push({who, label, why: 'the value does not start at its label\'s left edge'});
           const b = f.getBoundingClientRect();
           if (b.left < card.left || b.right > card.right) fails.push({who, label, why: 'the fact leaves its card'});
+          const ts = getComputedStyle(f.querySelector('dt')), ds = getComputedStyle(f.querySelector('dd'));
+          grammar.add([ts.fontSize, ts.textAlign, ds.fontSize, ds.textAlign].join('/'));
         }
       }
+      // Now and Forecast facts share one grammar: the same label and value type, left-aligned, label over value.
+      if (grammar.size > 1) fails.push({why: 'Now and Forecast facts use different type or alignment', grammar: [...grammar]});
       return fails;
     }""")
 
@@ -3423,6 +3515,8 @@ async def main():
                 results[name]["captionFailures"] = await check_captions(page, name, state, width)
                 results[name]["searchLabelFailures"] = await check_search_label(page, name, state)
                 results[name]["rateBalanceFailures"] = await check_rate_balance(page, name, state)
+                results[name]["phoneFactGridFailures"] = await check_phone_fact_grid(page, name, width)
+                results[name]["dataCollectionFactFailures"] = await check_data_collection_facts(page, name)
                 results[name]["dateNavFailures"] = await check_date_nav(browser, args.url, name)
                 results[name]["statusTextFailures"] = await check_status_text(page, name)
                 results[name]["pillHeightFailures"] = await check_pill_heights(page, name, width)
@@ -3676,7 +3770,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + D_KEYS + H1C_KEYS + T_KEYS + W_KEYS + C2_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

@@ -6,7 +6,7 @@ Closes: low chip state, no-limit cell, detail type sizes, expanded detail grid, 
 
 ```
 ACCOUNTS
-Manual resets 1   Usable now 2   Current 2   Stale 1
+Manual resets 1   Usable resets 2   Current 2   Stale 1
 [🔍 Search Claude accounts] [Sort: Name A–Z ▾] [Show 40 with a limit below 20%]   25 of 120 shown
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │    Account                Plan               5-hour         Weekly          Weekly Opus      │
@@ -58,7 +58,7 @@ One anatomy at every roster size, at 900px and below (closed rows of a minimized
 ```
 
 - The row header holds the chevron, name, reset chip and plan, plus the stale line when the row is stale: no figure and no caption. The whole header is the toggle (the `summary`, `aria-expanded`, at least 44px tall, a visible focus ring); an open row's header takes the `--fill-hover` fill, beyond the chevron's turn, and a press shows it too. Nothing interactive sits inside it.
-- One line per card, "Bold limit counts toward total", sits above the first row. It is the phone form of the wide column header's "counts toward total" cue: once per card, not per row, so no row gets taller and no row's label changes. It is hidden from 901px.
+- One line per card, "{Window} remaining counts toward total" (for example "Weekly remaining counts toward total"), sits above the first row; it names the limit, so it does not rely on bold. It is the phone form of the wide column header's "counts toward total" cue: once per card, not per row, so no row gets taller and no row's label changes. It is hidden from 901px.
 - The limits follow as blocks, the active window first. A block is one line, label on the left and value on the right (the Low word, icon and value stay on one line, S11), with its bar beneath. The active window leads with "{window} remaining" (for example "Weekly remaining"). A block's "Resets {date}" line sits directly under its own bar, in one type size and colour for every limit; closed rows leave reset lines to the opened row, as before.
 - Closed rows show the active block, plus every other limit on short rosters (a roster of more than 8 accounts shows only the low ones). Opened rows show every limit. A bar track spans the block's full content width, under the label and value line, so every track in a card has the same left and right edges and its fill length encodes the value whatever the value text, Low word or row (this replaces S13's t16/t17 lengths). The active window's label and value use weight 600; other limits stay at regular weight.
 - Unavailable: the block's value reads "Unavailable" in the same amber warning colour as the wide table's Unavailable cell, with the warning icon (`aria-hidden`), over an empty dashed track, and no separate "Weekly quota unavailable" line remains. A missing or unlimited active window keeps its reason ("Not reported", "No 5-hour limit") in the value place, with no percentage and no bar.
@@ -78,7 +78,8 @@ On the Quota Management page each estimated renewal reads "Estimated · from sta
 ## Accounts header summary
 
 - All summary items sit in one wrapping group under the heading. Each is a label element and a value element stacked as a pair, the label above the value, in the card's Now and Forecast pattern one step smaller (label `type-label`, value 14px); values use the Manual resets value style (weight 500, tabular figures). Pairs share one top when they fit and wrap only between pairs; a pair never breaks inside or overflows its container, down to 320px.
-- Items, each only when it applies: "Manual resets N", "Usable now N", "Reporting X of Y", "Current N", "Stale N", "5-hour limit X of Y".
+- Items, each only when it applies: "Manual resets N", "Usable resets N", "Reporting X of Y", "Current N", "Stale N", "With a 5-hour limit X of Y".
+- At 640px and below the pairs form an even grid: two equal columns (three pairs share one row when they fit), so no pair is left alone on a second line; a pair wider than its column keeps its own width and wraps as a unit. The Data collection facts in the page footer are label-above-value pairs in one row, in the same label and value type.
 - The "Resets N" / "Resets N · N usable" chip in a closed row is a read-only status chip, not a control: no border, a subtle fill at least 1.15:1 against the closed, hovered and open row, `--radius-md`, text of 13px or more at 4.5:1 on that fill. "Usable" keeps its brighter neutral text so the two states stay distinct.
 
 ## Paging
