@@ -669,10 +669,9 @@ export function PoolCard({
                 ) : (
                   <IconAlertTriangle size={14} aria-hidden="true" />
                 )}
-                {/* One label in both states; the pressed style, the check and the × say it is on. */}
-                {t('quota_pool.accounts_low_chip')}
-                <span className={styles.rosterChipCount}>{lowAccountCount}</span>
-                {/* Filtering: the × says a second press clears it. */}
+                {/* Off says what pressing does and what the count counts ("Show 40 …"); on says it is
+                    filtering, and the × says a second press clears it (the blind A/B kept these words). */}
+                {t(lowOnly ? 'quota_pool.accounts_low_on' : 'quota_pool.accounts_low', { count: lowAccountCount })}
                 {lowOnly && <IconX size={14} aria-hidden="true" className={styles.rosterClear} />}
               </button>
             )}

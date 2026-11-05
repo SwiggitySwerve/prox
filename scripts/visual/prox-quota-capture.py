@@ -1441,7 +1441,7 @@ R_CHIP_STATE = "(el) => {" + R_JS + r"""
   const svg = el.querySelector('svg'), b = svg ? svg.getBoundingClientRect() : null, svgs = [...el.querySelectorAll('svg')], badge = el.querySelector('[class*="__rosterChipCount___"]');
   // H2-E: the label is the chip's own text without its count badge; the on state ends in a decorative x after the badge.
   const label = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
-  const lastSvg = svgs[svgs.length - 1], trail = lastSvg && badge && !!(badge.compareDocumentPosition(lastSvg) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const lastSvg = svgs[svgs.length - 1], trail = svgs.length > 1 && lastSvg === el.lastElementChild;
   return {text: el.textContent.trim(), label, badge: badge ? badge.textContent.trim() : null, pressed: el.getAttribute('aria-pressed'), icon: !!svg && shown(svg) && b.width >= 12 && b.height >= 12,
           svgs: svgs.length, trailing: !!trail && shown(lastSvg) && lastSvg.getAttribute('aria-hidden') === 'true',
           n: countOf(el.textContent)[0] ?? -1};
@@ -1476,20 +1476,18 @@ async def _chip_checks(page, lng, out):
             out.append(dict(who, why=f"toggling reached states {sorted(seen)}, not both"))
             continue
         on, off = seen["true"], seen["false"]
-        # H2-E: one stable label in both states (the translated accounts_low_chip), the count in a badge beside it.
-        want = await page.evaluate("""async () => { const i18n = (await import('/src/i18n/index.ts')).default;
-            return {label: i18n.t('quota_pool.accounts_low_chip'), en: i18n.t('quota_pool.accounts_low_chip', {lng: 'en'})}; }""")
-        for tag, st in (("off", off), ("on", on)):
-            if st["label"] != want["label"]:
-                out.append(dict(who, why=f"{tag} chip label is not the translated stable label", label=st["label"], want=want["label"]))
-            if st["badge"] is None or not st["badge"].isdigit() or st["n"] != int(st["badge"]):
-                out.append(dict(who, why=f"{tag} chip has no numeric count badge", badge=st["badge"], text=st["text"]))
-        if off["label"] != on["label"] or off["badge"] is None or on["badge"] is None:
-            out.append(dict(who, why="the chip's label changes between off and on", off=off["label"], on=on["label"]))
-        if lng == "en" and not (re.fullmatch(r"Limits below 20%\s*\d+", off["text"]) and re.fullmatch(r"Limits below 20%\s*\d+", on["text"])):
-            out.append(dict(who, why="en chip is not 'Limits below 20%' plus a count", off=off["text"], on=on["text"]))
-        if lng != "en" and want["label"] == want["en"]:
-            out.append(dict(who, why="the chip label is still the English text", label=want["label"]))
+        # The off label says the action and what the count counts; on says it is filtering (blind A/B, round h2).
+        labels = await page.evaluate("""async (n) => { const i18n = (await import('/src/i18n/index.ts')).default;
+            return {off: i18n.t('quota_pool.accounts_low', {count: n[0]}), on: i18n.t('quota_pool.accounts_low_on', {count: n[1]}), enOff: i18n.t('quota_pool.accounts_low', {count: n[0], lng: 'en'})}; }""", [off["n"], on["n"]])
+        if off["text"] != labels["off"] or on["text"] != labels["on"]:
+            out.append(dict(who, why="chip label is not the translated 'Show…' (off) / 'Filtering to…' (on) text", off=off["text"], on=on["text"]))
+        if lng == "en":
+            if not re.fullmatch(r"Show \d+ with a limit below 20%", off["text"]):
+                out.append(dict(who, why="off label is not 'Show N with a limit below 20%'", text=off["text"]))
+            if not re.fullmatch(r"Filtering to \d+ with a limit below 20%", on["text"]):
+                out.append(dict(who, why="on label is not 'Filtering to N with a limit below 20%'", text=on["text"]))
+        elif off["text"] == labels["enOff"]:
+            out.append(dict(who, why="off label is still the English text", text=off["text"]))
         if on["svgs"] != 2 or not on["trailing"]:
             out.append(dict(who, why="the on chip lacks a leading check and a trailing aria-hidden x after the count", svgs=on["svgs"]))
         if off["svgs"] != 1 or off["trailing"]:
@@ -1524,8 +1522,8 @@ async def _affected_chip(page, out):
 
 
 async def check_filter_chip(context, url, route_api, name, state):
-    """R2 (H2-E): the low chip reads "Limits below 20%" plus a count badge in both states, with aria-pressed, the warning
-    icon off and a leading check and trailing x on, and the page's selected-segment fill (dE >= 12 from off, a 3:1 border or fill against the
+    """R2: the low chip reads "Show N with a limit below 20%" off and "Filtering to N with a limit below 20%" on, with
+    aria-pressed, the warning icon off and a leading check and trailing x on, and the page's selected-segment fill (dE >= 12 from off, a 3:1 border or fill against the
     card) in each state. The affected chip keeps "Affected (N)" and takes the same fill."""
     if name not in R_CHIP_CASES:
         return []

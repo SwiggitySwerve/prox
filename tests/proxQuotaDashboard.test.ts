@@ -787,9 +787,9 @@ describe('stacked chart geometry', () => {
     expect(long).toContain('Lowest limit remaining first');
     // The sort pill carries a visible "Sort" prefix ahead of the select.
     expect(long).toMatch(/<label[^>]*><span[^>]*>Sort<\/span><select/);
-    // The low chip is one stable label with its count in a badge, and it filters to accounts with a low limit.
+    // The low chip says what pressing it does and what its count counts ("Show N …").
     expect(long).toMatch(
-      /<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?Limits below 20%<span[^>]*>1<\/span>/
+      /<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?Show 1 with a limit below 20%/
     );
     expect(long).toContain('data-large="true"');
     const short = render(3);

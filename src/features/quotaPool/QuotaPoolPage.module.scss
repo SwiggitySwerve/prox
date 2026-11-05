@@ -3131,19 +3131,6 @@ $pool-error: #ff5252;
     min-height: 36px;
   }
 }
-// The low chip's count: a small badge after the stable label, so the label never changes with state.
-.page .rosterLow .rosterChipCount {
-  min-width: 20px;
-  padding: 0 6px;
-  box-sizing: border-box;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-primary) 14%, transparent);
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 20px;
-  text-align: center;
-}
 // On phones the pill is full width but narrow: tighter padding leaves the choice room beside a long prefix.
 @media (max-width: 640px) {
   .rosterSort {
