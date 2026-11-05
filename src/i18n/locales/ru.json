@@ -2357,6 +2357,7 @@
     "title": "Управление квотами",
     "show_emails": "Показать почту",
     "auto_refresh_in": "Автообновление через {{seconds}} с",
+    "today_state": "Сейчас",
     "refreshing": "Обновление…",
     "providers": "Провайдеры",
     "all": "Все пулы",

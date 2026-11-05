@@ -1627,7 +1627,8 @@ async def check_toolbar_budget(page, name, result):
     )
     same_row = await page.evaluate("""() => {
         const b = document.querySelector('button[aria-controls="pool-view-options"]').getBoundingClientRect();
-        const t = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === 'Today').getBoundingClientRect();
+        // H1-T: Today is a label while the range ends today, so the date row is found by its step button.
+        const t = document.querySelector('[class*="__dateNavigation___"] [class*="__dateStep___"]').getBoundingClientRect();
         return Math.abs(b.top - t.top) < 8;
     }""")
     limit = 420 if same_row else 470
@@ -1820,6 +1821,8 @@ async def check_skeleton_shape(browser, url, page, name, state, width):
     with a heading+toggle row and a select row, provider cards with a title/count/chip row and a pill row) and
     its row tops and first card top are within 4px of a loaded page's at 390x844. Placeholders are visible, inert
     and aria-hidden. Opens its own second page in state ready."""
+    if name in T_SKELETON_WIDE:
+        return await check_skeleton_wide(browser, url, page, name, width)
     if name != "loading-narrow":
         return []
     fails = []
@@ -2266,6 +2269,176 @@ async def check_header_consistency(browser, url, page, name, state, width):
     return out
 
 
+# H1-T checks (toolbar, pills, page states). Each has its own JSON key, registered in T_KEYS for the summary and
+# the exit gate. A check that finds nothing to measure where it applies fails.
+T_KEYS = ("dateNavFailures", "statusTextFailures", "pillHeightFailures", "bannerFailures")
+T_NAV_WIDTHS = (1100, 1280, 1440, 1920)
+T_STATUS_CASES = ("wide", "laptop", "narrow", "refresh-error")
+T_PILL_CASES = ("wide", "laptop", "narrow", "many", "many-narrow", "wide-minimized-1440")
+T_PILL_STYLE_CASES = ("many", "many-narrow")
+T_BANNER_CASES = ("refresh-error", "refresh-error-narrow")
+T_SKELETON_WIDE = ("loading", "loading-wide")
+T_NAV_JS = """() => {
+  const nav = document.querySelector('[class*="__dateNavigation___"]');
+  const page = document.querySelector('[class*="QuotaPoolPage"][class*="__page___"]');
+  if (!nav || !page) return null;
+  const r = nav.getBoundingClientRect(), q = page.getBoundingClientRect();
+  return {top: r.top, right: r.right, pageRight: q.right};
+}"""
+
+
+async def check_date_nav(browser, url, name):
+    """T1: from 1100 to 1920 the date navigator's top and right edges are the same in Remaining, Drain rate and
+    Burn rate (within 1px), and its right edge is the page content's (within 2px). Opens pages of its own."""
+    if name != "laptop":
+        return []
+    fails = []
+    for width in T_NAV_WIDTHS:
+        context, page = await open_fixture_page(browser, url, "ready", width, "en", None, 900)
+        try:
+            first = None
+            for view in (None, "Drain rate", "Burn rate"):
+                if view:
+                    await switch_view(page, view)
+                    await page.wait_for_timeout(200)
+                box = await page.evaluate(T_NAV_JS)
+                if box is None:
+                    fails.append(dict(width=width, view=view, why="no date navigator or page found"))
+                    continue
+                first = first or box
+                if abs(box["top"] - first["top"]) > 1 or abs(box["right"] - first["right"]) > 1:
+                    fails.append(dict(width=width, view=view, why="navigator moved between views", box=box, first=first))
+                if abs(box["right"] - box["pageRight"]) > 2:
+                    fails.append(dict(width=width, view=view, why="navigator is not at the content's right edge", box=box))
+        finally:
+            await context.close()
+    return fails
+
+
+async def check_status_text(page, name):
+    """T2: the auto-refresh status is plain text (no border, transparent fill, a live region), and a range that ends
+    today shows its state as a visible label, not a disabled Today button: no disabled control in the date navigator
+    lacks a reason, and no Today button stands when it would do nothing."""
+    if name not in T_STATUS_CASES:
+        return []
+    return await page.evaluate("""() => {
+      const fails = [], shown = e => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && e.checkVisibility({checkVisibilityCSS: true}); };
+      const status = [...document.querySelectorAll('[class*="__countdown___"]')].filter(shown);
+      if (!status.length) fails.push({why: 'no visible auto-refresh status'});
+      for (const e of status) {
+        const s = getComputedStyle(e), border = ['Top', 'Right', 'Bottom', 'Left'].reduce((n, side) => n + parseFloat(s['border' + side + 'Width']), 0);
+        const alpha = (s.backgroundColor.match(/rgba?\\(([^)]+)\\)/)?.[1].split(',')[3] ?? '1').trim();
+        if (border > 0) fails.push({why: 'status has a border', border});
+        if (parseFloat(alpha) !== 0) fails.push({why: 'status has a fill', background: s.backgroundColor});
+        if (e.getAttribute('role') !== 'status') fails.push({why: 'status lost its live region'});
+      }
+      const nav = document.querySelector('[class*="__dateNavigation___"]');
+      if (!nav) return [...fails, {why: 'no date navigator'}];
+      const label = [...nav.querySelectorAll('[class*="__todayState___"]')].filter(shown);
+      const today = [...nav.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Today');
+      if (label.length !== 1 || !label[0].textContent.trim()) fails.push({why: 'a current range shows no visible state label', labels: label.length});
+      if (today.length) fails.push({why: 'a Today button stands although the range already ends today'});
+      for (const b of nav.querySelectorAll('button')) {
+        if (b.disabled || b.getAttribute('aria-disabled') === 'true') fails.push({why: 'a disabled date control has no visible reason', name: b.getAttribute('aria-label') || b.textContent.trim()});
+      }
+      return fails;
+    }""")
+
+
+async def check_pill_heights(page, name, width):
+    """T3: the labelled pills (graph size, move, Expand all, Show N more, Stacked providers, Manage accounts, Show
+    emails) are one height from 901px (36px, never under 32) and 44px on phones. T4: Expand all and Show N more have
+    the same fill, border, radius and type (cases many and many-narrow, which have both)."""
+    if name not in T_PILL_CASES:
+        return []
+    pills = await page.evaluate("""() => {
+      const shown = e => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && e.checkVisibility({checkVisibilityCSS: true}); };
+      const sel = ['[class*="__reorder___"] button', '[class*="__expandAccounts___"]', '[class*="__combinedOptions___"] select',
+        '[class*="__accountLink___"]', '[class*="__privacy___"]'].join(',');
+      const style = e => { const s = getComputedStyle(e); return {background: s.backgroundColor, border: s.borderTopColor, borderWidth: s.borderTopWidth,
+        radius: s.borderTopLeftRadius, font: s.fontSize, weight: s.fontWeight, color: s.color}; };
+      return [...document.querySelectorAll(sel)].filter(shown).map(e => ({
+        text: (e.innerText || e.getAttribute('aria-label') || '').trim().slice(0, 30) || e.tagName, h: e.getBoundingClientRect().height,
+        showAll: e.className.includes('showAll'), expand: e.className.includes('expandAccounts'), style: style(e)}));
+    }""")
+    if not pills:
+        return [dict(why="no labelled pills found")]
+    fails = []
+    if width >= 901:
+        lo, hi = min(p["h"] for p in pills), max(p["h"] for p in pills)
+        if lo < 32 or hi - lo > 1:
+            fails.append(dict(why=f"pill heights {lo:.1f}-{hi:.1f}px (want one height, at least 32)", pills=[(p["text"], round(p["h"], 1)) for p in pills]))
+    elif width < 600:
+        fails += [dict(why="phone pill under 44px", text=p["text"], h=p["h"]) for p in pills if p["h"] < 43.9]
+    if name in T_PILL_STYLE_CASES:
+        expand = next((p for p in pills if p["expand"] and not p["showAll"]), None)
+        more = next((p for p in pills if p["showAll"]), None)
+        if not expand or not more:
+            fails.append(dict(why="Expand all and Show N more are not both on the page", expand=bool(expand), more=bool(more)))
+        elif expand["style"] != more["style"]:
+            fails.append(dict(why="Show N more does not share Expand all's style", expand=expand["style"], more=more["style"]))
+    return fails
+
+
+async def check_banner(page, name):
+    """T6: the "Could not refresh quotas" banner is at most 640px wide and starts at the content's left edge; Try again
+    has at least the banner's top padding below it and is a quiet pill (a dark fill, an outline), not a white button."""
+    if name not in T_BANNER_CASES:
+        return []
+    return await page.evaluate("""() => {
+      const banner = document.querySelector('[class*="QuotaPoolPage"] [role="alert"]');
+      const page = document.querySelector('[class*="QuotaPoolPage"][class*="__page___"]');
+      if (!banner || !page) return [{why: 'no banner found'}];
+      const button = banner.querySelector('button');
+      if (!button) return [{why: 'banner has no Try again button'}];
+      const b = banner.getBoundingClientRect(), k = button.getBoundingClientRect(), p = page.getBoundingClientRect(), s = getComputedStyle(banner), fails = [];
+      if (b.width > 640.5) fails.push({why: 'banner wider than 640px', width: b.width});
+      if (Math.abs(b.left - p.left) > 1) fails.push({why: 'banner is not left-aligned with the content', left: b.left, content: p.left});
+      const below = b.bottom - k.bottom - parseFloat(s.borderBottomWidth), top = parseFloat(s.paddingTop);
+      if (below < top - 0.5) fails.push({why: 'Try again has less room below than the banner pads above', below, top});
+      const bs = getComputedStyle(button), rgb = bs.backgroundColor.match(/\\d+(\\.\\d+)?/g).map(Number);
+      if ((rgb[0] + rgb[1] + rgb[2]) / 3 > 100) fails.push({why: 'Try again is a light, loud fill', background: bs.backgroundColor});
+      if (parseFloat(bs.borderTopWidth) < 1) fails.push({why: 'Try again has no outline'});
+      return fails;
+    }""")
+
+
+async def check_skeleton_wide(browser, url, page, name, width):
+    """T5 (skeletonShapeFailures at 1440 and 1920): the loading skeleton's tabs row, date navigator, toolbar row and
+    first card start within 4px of the loaded page's, and its tab, segment and navigator heights are within 4px of
+    the loaded ones. Opens a second page in state ready at the same size."""
+    sample = """() => {
+      const q = s => document.querySelector(s), top = e => e ? e.getBoundingClientRect().top : null, h = e => e ? e.getBoundingClientRect().height : null;
+      const skeleton = !!q('[data-skeleton-row="tabs"]');
+      const controls = q('[class*="__loadingControls___"]');
+      return skeleton ? {
+        tabs: top(q('[data-skeleton-row="tabs"]')), tabH: h(q('[data-skeleton-row="tabs"] > *')),
+        date: top(q('[data-skeleton-row="date"]')), dateH: h(q('[data-skeleton-row="date"]')),
+        toolbar: top(controls?.children[1]), segmentH: h(q('[class*="__loadingSegment___"]')),
+        card: top(q('[data-skeleton-row="card"]'))
+      } : {
+        tabs: top(q('[class*="__providerBar___"]')), tabH: h(q('[class*="__providerBar___"] button')),
+        date: top(q('[class*="__dateNavigation___"]')), dateH: h(q('[class*="__dateNavigation___"] button')),
+        toolbar: top(q('fieldset[class*="__toolbar___"]')), segmentH: h(q('[class*="__segment___"]')),
+        card: top(q('section[class*="__combined___"]'))
+      };
+    }"""
+    skeleton = await page.evaluate(sample)
+    loaded_page, context = await h_open_ready_page(browser, url, width, 900)
+    try:
+        loaded = await loaded_page.evaluate(sample)
+    finally:
+        await context.close()
+    fails = []
+    for key in skeleton:
+        if skeleton[key] is None or loaded[key] is None:
+            fails.append(dict(why=f"no {key} to compare", skeleton=skeleton[key], loaded=loaded[key]))
+        elif abs(skeleton[key] - loaded[key]) > 4:
+            fails.append(dict(why=f"skeleton {key} {skeleton[key]:.0f} vs loaded {loaded[key]:.0f}"))
+    return fails
+
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", required=True)
@@ -2285,6 +2458,7 @@ async def main():
         ("reset-confirm", "ready", 390, 844),
         ("empty", "empty", 1440, 900),
         ("loading", "loading", 1440, 900),
+        ("loading-wide", "loading", 1920, 1280),
         ("error", "error", 1440, 900),
         ("partial", "partial", 1440, 1000),
         ("stale", "stale", 1440, 1000),
@@ -2301,6 +2475,7 @@ async def main():
         ("burn-narrow", "burn", 390, 844),
         ("drain-narrow", "drain", 390, 844),
         ("refresh-error", "refresh-error", 1440, 1000),
+        ("refresh-error-narrow", "refresh-error", 390, 844),
         ("refresh-pending", "refresh-pending", 1440, 1000),
         ("ultra", "ultra", 1440, 1000),
         ("no-limit", "no-limit", 1440, 1000),
@@ -2624,6 +2799,10 @@ async def main():
                 results[name]["rosterToolbarFailures"] = await check_roster_toolbar(context, args.url, route_api, name, state)
                 results[name]["summaryFactFailures"] = await check_summary_facts(page, context, args.url, route_api, name, state)
                 results[name]["statusChipFailures"] = await check_status_chip(page, context, args.url, route_api, name, state)
+                results[name]["dateNavFailures"] = await check_date_nav(browser, args.url, name)
+                results[name]["statusTextFailures"] = await check_status_text(page, name)
+                results[name]["pillHeightFailures"] = await check_pill_heights(page, name, width)
+                results[name]["bannerFailures"] = await check_banner(page, name)
                 if args.capture_only:
                     accounts = page.locator('article section[class*="__accounts___"]').first
                     if await accounts.count():
@@ -2743,9 +2922,10 @@ async def main():
                     assert len(geometry)==2, geometry
                     if width>=360: assert all(abs(c['y']-geometry[0]['y'])<1 for c in geometry), geometry
                     else: assert all(abs(c['x']-geometry[0]['x'])<1 for c in geometry), geometry
-                    # Every action names itself beside its icon at every width: 32px tall, 44px on touch.
+                    # Every action names itself beside its icon at every width: 36px tall from 901px (H1-T, one
+                    # pill height with the rest; pillHeightFailures), 32px between, 44px on touch.
                     assert all(c['text'].strip() for c in geometry), geometry
-                    assert all(abs(c['h']-(44 if width<600 else 32))<1 for c in geometry), geometry
+                    assert all(abs(c['h']-(44 if width<600 else 36 if width>=901 else 32))<1 for c in geometry), geometry
                     interaction["subtle_icons_aligned_beside_reorder"] = "passed"
                     view = page.get_by_role('combobox',name='Chart view',exact=True)
                     await view.select_option('stacked')
@@ -2779,10 +2959,17 @@ async def main():
                     }''')
                     assert not overlaps, "Header controls must not cover countdown"
                     interaction["visible_countdown_ticks_without_duplicate_refresh"] = "passed"
+                    # H1-T: a range that ends today shows "Current" instead of a dead Today button. Stepping back
+                    # brings the button; pressing it returns to the label and focus follows it.
                     today = page.get_by_role("button", name="Today", exact=True)
-                    assert await today.get_attribute("aria-disabled") == "true"
+                    current = page.locator('[class*="__todayState___"]')
+                    assert await today.count() == 0 and await current.inner_text() == "Current"
+                    await page.get_by_role("button", name="Previous day", exact=True).click()
+                    await today.wait_for()
+                    assert await today.is_enabled() and await current.count() == 0
                     await today.focus(); await today.press("Enter")
-                    assert await today.evaluate("b => document.activeElement === b"), "Today must keep focus"
+                    await current.wait_for()
+                    assert await current.evaluate("e => document.activeElement === e"), "Focus must follow Today to its label"
                     interaction["today_keeps_focus_when_current"] = "passed"
                 chart = page.locator('article svg[tabindex="0"]').first
                 if await chart.count():
@@ -2862,7 +3049,7 @@ async def main():
             errors=result["errors"],
         )
     for name, result in results.items():
-        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS})
+        summary[name].update({key: len(result.get(key, [])) for key in C1_KEYS + P1_KEYS + G_KEYS + H_KEYS + R_KEYS + A_KEYS + B_KEYS + T_KEYS})
     if args.compact_baseline:
         baseline = json.loads((ROOT / "docs/evidence/hillclimb" / args.compact_baseline / "measurements.json").read_text())
         for name, result in results.items():

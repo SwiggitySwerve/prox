@@ -2841,3 +2841,120 @@ $pool-error: #ff5252;
     }
   }
 }
+
+/* H1-T */
+// Controls: from 641px the pool tabs and the date navigator share the first row, the navigator at
+// the content's right edge whatever the view or width; the view settings take the row below. Phones
+// keep their stacked rows (tabs, date and Options, then the overlay's anchor).
+@media (min-width: 641px) {
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    .providerBar {
+      flex: 1 1 auto;
+      margin-bottom: 0;
+    }
+    .dateNavigation {
+      margin-left: auto;
+    }
+    .toolbar {
+      flex: 1 0 100%;
+    }
+  }
+}
+.dateNavigation {
+  // It no longer sits inside the toolbar, which set the 13px.
+  font-size: 13px;
+}
+// Today does nothing when the range already ends today, so the slot shows that state as plain text.
+.dateNavigation > span.todayState {
+  margin-right: 0;
+  padding-inline: 10px;
+  color: var(--text-secondary);
+}
+// A step at its limit fades out and drops its outline, so it never passes for an enabled one.
+.page .dateNavigation .dateStep:disabled {
+  border-color: transparent;
+  opacity: 0.35;
+}
+// The auto-refresh countdown is status text: no outline, no fill, a quieter tone than the pills.
+.countdown {
+  padding-inline: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+// Labelled pills share one height at 901px up with a mouse (36px, the page's own); Show N more takes
+// Expand all's filled style.
+@media (min-width: 901px) and (pointer: fine) {
+  .page .reorder button,
+  .page .reorder button.graphToggle[aria-pressed='true'],
+  .page .pool .expandAccounts,
+  .page .pool[data-minimized='true'] .expandAccounts,
+  .page .combinedOptions select,
+  .privacy,
+  .accountLink {
+    height: 36px;
+    min-height: 36px;
+  }
+  .privacy,
+  .accountLink {
+    padding-block: 0;
+  }
+}
+// Expand all inherits its weight from the Accounts heading, so both pin it.
+.page .expandAccounts,
+.page .showAll {
+  font-weight: 500;
+}
+.page .showAll {
+  background: var(--bg-tertiary);
+}
+// Loading skeleton, 641px up: the date navigator sits at the end of the tabs row, as it does loaded.
+@media (min-width: 641px) {
+  .loadingControls {
+    position: relative;
+    margin-bottom: 8px;
+  }
+  .loadingControls .loadingDate {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+}
+@media (min-width: 901px) and (pointer: fine) {
+  .page .loadingControls .loadingRow > *:not(.loadingSelects),
+  .page .loadingControls .loadingDate {
+    height: 36px !important;
+  }
+  .page .loadingControls .loadingRow > .loadingSegment,
+  .page .loadingControls .loadingRow > .loadingSegmentWide {
+    height: 40px !important;
+  }
+}
+// The failed-refresh banner over saved data: one readable width, left-aligned with the content, an
+// equal inner padding on every side (Try again included) and a standard pill for its action.
+.errorNotice:not([data-alone]) {
+  max-width: 640px;
+  padding: 16px 18px;
+}
+.page .errorNotice:not([data-alone]) button {
+  min-height: 44px;
+  padding: 4px 14px;
+  border-color: var(--hairline);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+@media (min-width: 901px) and (pointer: fine) {
+  .page .errorNotice:not([data-alone]) button {
+    min-height: 36px;
+  }
+}

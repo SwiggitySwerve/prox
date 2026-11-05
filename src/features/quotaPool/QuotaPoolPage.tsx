@@ -39,6 +39,7 @@ export function QuotaPoolPage() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const optionsToggleRef = useRef<HTMLButtonElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
+  const todayPressedRef = useRef(false);
   const poolsRef = useRef<HTMLDivElement>(null);
   useSharedMinimizedTracks(poolsRef);
   const chipLine = usePhoneChipLine(poolsRef);
@@ -125,6 +126,13 @@ export function QuotaPoolPage() {
       document.removeEventListener('click', onClick);
     };
   }, [optionsOpen, toolbarShown]);
+  // Today unmounts once it has done its job, and so does the whole toolbar while the new range loads,
+  // so keyboard focus goes to the label when it next mounts.
+  const focusTodayState = useCallback((node: HTMLSpanElement | null) => {
+    if (!node || !todayPressedRef.current) return;
+    todayPressedRef.current = false;
+    node.focus();
+  }, []);
   // The Options button spells out the current choices; Future joins only when it applies and
   // differs from the default.
   const optionsSummary = [
@@ -192,7 +200,7 @@ export function QuotaPoolPage() {
         </div>
       </header>
       {!chartUnavailable && (
-        <>
+        <div className={styles.controls}>
           <div className={styles.providerBar} role="group" aria-label={t('quota_pool.providers')}>
             {(['all', 'claude', 'codex'] as const).map((item) => (
               <button
@@ -212,6 +220,65 @@ export function QuotaPoolPage() {
                 )}
               </button>
             ))}
+          </div>
+          <div className={styles.dateNavigation}>
+            <span>{range ? `${date(range.fromMs, true)} – ${date(range.toMs, true)}` : null}</span>
+            <button
+              type="button"
+              className={styles.dateStep}
+              aria-label={t('quota_pool.previous')}
+              disabled={query.offsetDays <= -14}
+              onClick={() => change('offsetDays', query.offsetDays - 1)}
+            >
+              <IconChevronLeft size={18} aria-hidden="true" />
+            </button>
+            {/* When the range already ends today, Today would do nothing, so the slot says so
+                  instead of showing a dim button. Pressing Today moves focus to that label. */}
+            {query.offsetDays === 0 ? (
+              <span
+                className={styles.todayState}
+                ref={focusTodayState}
+                tabIndex={-1}
+                title={t('quota_pool.today_current')}
+              >
+                {t('quota_pool.today_state')}
+              </span>
+            ) : (
+              <button
+                type="button"
+                className={styles.today}
+                onClick={() => {
+                  todayPressedRef.current = true;
+                  change('offsetDays', 0);
+                }}
+              >
+                {t('quota_pool.today')}
+              </button>
+            )}
+            <button
+              type="button"
+              className={styles.dateStep}
+              aria-label={t('quota_pool.next')}
+              disabled={query.offsetDays >= 14}
+              onClick={() => change('offsetDays', query.offsetDays + 1)}
+            >
+              <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
+            </button>
+            {/* Phones fold the view settings behind this button, which spells out the current
+                  choices; its name is that visible text, so "Options" is the description. */}
+            <button
+              type="button"
+              ref={optionsToggleRef}
+              className={styles.optionsToggle}
+              aria-expanded={optionsOpen}
+              aria-controls="pool-view-options"
+              title={t('quota_pool.view_options')}
+              onClick={() => setOptionsOpen((open) => !open)}
+            >
+              <IconSlidersHorizontal size={16} aria-hidden="true" />
+              <span>{optionsSummary}</span>
+              <IconChevronDown className={styles.optionsChevron} size={16} aria-hidden="true" />
+            </button>
           </div>
           <fieldset className={styles.toolbar} aria-label={t('quota_pool.chart_mode')}>
             {/* Phones fold everything below into one overlay under the Options button; from 641px
@@ -302,57 +369,8 @@ export function QuotaPoolPage() {
                 )}
               </div>
             </div>
-            <div className={styles.dateNavigation}>
-              <span>
-                {range ? `${date(range.fromMs, true)} – ${date(range.toMs, true)}` : null}
-              </span>
-              <button
-                type="button"
-                className={styles.dateStep}
-                aria-label={t('quota_pool.previous')}
-                disabled={query.offsetDays <= -14}
-                onClick={() => change('offsetDays', query.offsetDays - 1)}
-              >
-                <IconChevronLeft size={18} aria-hidden="true" />
-              </button>
-              {/* Off when the range already ends today, so its state shows at a glance. It stays
-                  focusable (aria-disabled, not disabled), so pressing it never drops keyboard focus. */}
-              <button
-                type="button"
-                className={styles.today}
-                aria-disabled={query.offsetDays === 0 || undefined}
-                title={query.offsetDays === 0 ? t('quota_pool.today_current') : undefined}
-                onClick={() => query.offsetDays !== 0 && change('offsetDays', 0)}
-              >
-                {t('quota_pool.today')}
-              </button>
-              <button
-                type="button"
-                className={styles.dateStep}
-                aria-label={t('quota_pool.next')}
-                disabled={query.offsetDays >= 14}
-                onClick={() => change('offsetDays', query.offsetDays + 1)}
-              >
-                <IconChevronLeft size={18} className={styles.nextIcon} aria-hidden="true" />
-              </button>
-              {/* Phones fold the view settings behind this button, which spells out the current
-                  choices; its name is that visible text, so "Options" is the description. */}
-              <button
-                type="button"
-                ref={optionsToggleRef}
-                className={styles.optionsToggle}
-                aria-expanded={optionsOpen}
-                aria-controls="pool-view-options"
-                title={t('quota_pool.view_options')}
-                onClick={() => setOptionsOpen((open) => !open)}
-              >
-                <IconSlidersHorizontal size={16} aria-hidden="true" />
-                <span>{optionsSummary}</span>
-                <IconChevronDown className={styles.optionsChevron} size={16} aria-hidden="true" />
-              </button>
-            </div>
           </fieldset>
-        </>
+        </div>
       )}
       {!state.connected && (
         <div className={styles.notice} role="status">

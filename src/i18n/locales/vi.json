@@ -2370,6 +2370,7 @@
     "title": "Quản lý hạn mức",
     "show_emails": "Hiện email",
     "auto_refresh_in": "Tự làm mới sau {{seconds}} giây",
+    "today_state": "Hiện tại",
     "refreshing": "Đang làm mới…",
     "providers": "Nhà cung cấp",
     "all": "Tất cả nhóm",
