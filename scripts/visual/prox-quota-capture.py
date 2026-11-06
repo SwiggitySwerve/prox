@@ -2864,8 +2864,13 @@ async def check_reset_dialog_facts(dialog):
     if not facts or any(f is None for f in facts):
         return [dict(why="the dialog has no label-above-value facts to measure")]
     labels = [f["label"] for f in facts]
-    if labels != ["Account", "Resets used", "Limits reset"]:
-        fails.append(dict(why="the dialog facts are not Account, Resets used, Limits reset", labels=labels))
+    # "Next to expire" (the soonest held expiry) follows Resets used whenever the account's resets have a known
+    # future expiry; it names a date and time in UTC.
+    if labels not in (["Account", "Resets used", "Limits reset"], ["Account", "Resets used", "Next to expire", "Limits reset"]):
+        fails.append(dict(why="the dialog facts are not Account, Resets used, [Next to expire,] Limits reset", labels=labels))
+    expiry = next((f["value"] for f in facts if f and f["label"] == "Next to expire"), None)
+    if expiry is not None and not re.search(r"\d{1,2}:\d{2}\s*[AP]M\s*UTC", expiry.replace("\u00a0", " ")):
+        fails.append(dict(why="Next to expire is not a date and time", value=expiry))
     for fact in facts:
         if not fact["above"] or not fact["aligned"]:
             fails.append(dict(why="a dialog fact's label is not above its value", label=fact["label"]))
