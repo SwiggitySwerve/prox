@@ -41,19 +41,22 @@ type FactProps = Props & {
   live?: boolean;
   disabled?: boolean;
   onClick?: () => void;
+  /** End of the reset a use would spend now, when the provider names it (Claude's live pick). */
+  nextAtMs?: number;
 };
 
 /**
  * Each held reset's expiry, soonest first, with the time left, so the operator can see how long
- * each one lasts before it lapses. For Claude the first is marked: its claim spends the grant that
- * ends first.
+ * each one lasts before it lapses. The one a use would spend is marked when the provider names it:
+ * Claude's claim picks the usable grant ending first. Codex's redeem call names no credit.
  */
-function ResetExpiries({ resets, marked }: { resets: AccountResets; marked: boolean }) {
+function ResetExpiries({ resets, nextAtMs }: { resets: AccountResets; nextAtMs?: number }) {
   const { t, i18n } = useTranslation();
   const now = useNow();
   const expiries = heldExpiries(resets, now);
   if (!expiries.length) return null;
   const undated = resets.available - expiries.length;
+  const marked = nextAtMs === undefined ? -1 : expiries.indexOf(nextAtMs);
   return (
     <Fact
       label={t('quota_pool.reset_expiries_label', { count: expiries.length })}
@@ -61,11 +64,11 @@ function ResetExpiries({ resets, marked }: { resets: AccountResets; marked: bool
       value={
         <ol className={styles.resetExpiries}>
           {expiries.map((at, index) => (
-            <li key={`${at}-${index}`} data-next={index === 0 && marked ? '' : undefined}>
+            <li key={`${at}-${index}`} data-next={index === marked ? '' : undefined}>
               <span>{formatPoolDate(at, i18n.language)}</span>
               <span className={styles.resetExpiryLeft}>
                 {formatRelativeInstant(at, now, i18n.language)}
-                {index === 0 && marked && ` · ${t('quota_pool.reset_expiry_next')}`}
+                {index === marked && ` · ${t('quota_pool.reset_expiry_next')}`}
               </span>
             </li>
           ))}
@@ -85,6 +88,7 @@ function ResetFact({
   live = false,
   disabled = true,
   onClick,
+  nextAtMs,
 }: FactProps) {
   const { t } = useTranslation();
   const resets = account.resets;
@@ -127,11 +131,7 @@ function ResetFact({
         value={t(status.valueKey, { count: resets.available })}
       />
       {/* Its own fact, so the dates read as values instead of wrapping inside the status. */}
-      {!spent && resets.available > 0 && (
-        // Only Claude's claim names the reset it spends (the one ending first); Codex's redeem call
-        // takes no credit, so its list is marked by nothing but its order.
-        <ResetExpiries resets={resets} marked={provider === 'claude'} />
-      )}
+      {!spent && resets.available > 0 && <ResetExpiries resets={resets} nextAtMs={nextAtMs} />}
     </FactSection>
   );
 }
@@ -258,6 +258,7 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent, ...fact
       spent={spent}
       disabled={reset.blocked || spent}
       onClick={reset.confirm}
+      nextAtMs={spent ? undefined : reset.nextEndsAtMs}
       live={!spent && !reset.message && reset.blocked && !reset.busy && reset.count !== null}
       reason={
         spent && !reset.busy
@@ -306,6 +307,17 @@ function CodexResetAction({
     };
   }, [session, store, onRefresh, accountId]);
   const actions = useQuotaActions(false, store, session);
+  // Both confirmations name the soonest expiry the account holds.
+  const soonest = fact.account.resets
+    ? heldExpiries(fact.account.resets, Date.now())[0]
+    : undefined;
+  const soonestFact = soonest !== undefined && (
+    <Fact
+      label={t('quota_pool.reset_dialog_soonest')}
+      state="known"
+      value={formatPoolDate(soonest, i18n.language)}
+    />
+  );
   return (
     <ResetFact
       {...fact}
@@ -323,6 +335,7 @@ function CodexResetAction({
           message: early ? (
             <div className={styles.resetDialog}>
               <p>{t('quota_pool.reset_early_intro', { name })}</p>
+              {soonestFact && <dl className={styles.resetFacts}>{soonestFact}</dl>}
               <section>
                 <h4>{t('quota_pool.reset_usage_left')}</h4>
                 <dl>
@@ -356,18 +369,7 @@ function CodexResetAction({
                       : '1'
                   }
                 />
-                {(() => {
-                  const first = fact.account.resets
-                    ? heldExpiries(fact.account.resets, Date.now())[0]
-                    : undefined;
-                  return first === undefined ? null : (
-                    <Fact
-                      label={t('quota_pool.reset_dialog_soonest')}
-                      state="known"
-                      value={formatPoolDate(first, i18n.language)}
-                    />
-                  );
-                })()}
+                {soonestFact}
                 {/* The reset lifts Codex's rate limits (credit type codex_rate_limits); the credit
                     doesn't list windows, so the dialog names the limits this account reports. */}
                 <Fact

@@ -147,6 +147,8 @@ export function useClaudeResetGrants(
   };
   return {
     count: status?.grants.reduce((sum, grant) => sum + grant.resetsLeft, 0) ?? null,
+    /** End of the grant a confirm would claim, when it has one. */
+    nextEndsAtMs: Number.isFinite(selectedEndMs) ? selectedEndMs : undefined,
     grants: status?.grants ?? [],
     busy,
     blocked,
