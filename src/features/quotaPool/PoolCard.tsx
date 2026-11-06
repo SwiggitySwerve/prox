@@ -625,7 +625,9 @@ export function PoolCard({
                 {/* Like the search field, the pill carries a visible prefix; the select inside keeps the
                     accessible name "Sort accounts", which starts with it. */}
                 <label className={styles.rosterSort}>
-                  <span className={styles.rosterSearchLabel}>{t('quota_pool.account_sort_label')}</span>
+                  <span className={styles.rosterSearchLabel}>
+                    {t('quota_pool.account_sort_label')}
+                  </span>
                   <select
                     value={rosterSort}
                     onChange={(event) => setRosterSort(event.target.value as AccountSort)}
@@ -672,7 +674,9 @@ export function PoolCard({
                 )}
                 {/* Off says what pressing does and what the count counts ("Show 40 …"); on says it is
                     filtering, and the × says a second press clears it (the blind A/B kept these words). */}
-                {t(lowOnly ? 'quota_pool.accounts_low_on' : 'quota_pool.accounts_low', { count: lowAccountCount })}
+                {t(lowOnly ? 'quota_pool.accounts_low_on' : 'quota_pool.accounts_low', {
+                  count: lowAccountCount,
+                })}
                 {lowOnly && <IconX size={14} aria-hidden="true" className={styles.rosterClear} />}
               </button>
             )}

@@ -714,7 +714,11 @@ $pool-error: #ff5252;
 // three-limit card has 50px ones; at 16px a low value's red fill is under 2px and can't be seen). For
 // three limit columns that is 671px with no slot, 725 with one, 779 with two and 833 with three, and the
 // grid's tier (data-slots) picks its width. A card with fewer columns uses the same widths.
-$table-tiers: (a: 725px, b: 779px, c: 833px);
+$table-tiers: (
+  a: 725px,
+  b: 779px,
+  c: 833px,
+);
 @mixin wide-table {
   @media (min-width: 901px) {
     @each $tier, $width in $table-tiers {
@@ -1653,9 +1657,7 @@ $table-tiers: (a: 725px, b: 779px, c: 833px);
       // (3.6em at 14px, 8px), plus the status slot (Low mark or Unavailable, 4px margin) in a column
       // that has one. Columns: chevron, Account, Plan, the limits and, when the counted limit has no
       // column of its own, the 128px total.
-      --fixed: calc(
-        20px + var(--plan-track) + (var(--limit-cols) + 3) * var(--col-gap) + 128px
-      );
+      --fixed: calc(20px + var(--plan-track) + (var(--limit-cols) + 3) * var(--col-gap) + 128px);
       --need: calc(var(--limit-cols) * 59px + var(--slotted-cols, 0) * 54px);
       --name-track: max(
         160px,
