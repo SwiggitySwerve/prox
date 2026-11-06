@@ -8,6 +8,7 @@ import json
 import hashlib
 import io
 import math
+import os
 import re
 import time
 from collections import Counter
@@ -69,7 +70,7 @@ def fixture(state):
                 billing=(dict(provider="claude", status="active", activeSinceMs=NOW-45*DAY, billingType="stripe_subscription") if provider == "claude" else
                     dict(provider="codex", plan="pro", renewsAtMs=NOW+17*DAY if i==0 else None, endsAtMs=None if i==0 else NOW+8*DAY, willRenew=i==0,
                          nextPlan=dict(plan="prolite", atMs=NOW+17*DAY) if i==0 else None, overdue=False, graceEndsAtMs=None)),
-                resets=(dict(available=2 if provider == "codex" else 1, usable=2 if provider == "codex" else 0, blocker=None if provider == "codex" else "not_limited", nextExpiryAtMs=NOW + 7 * DAY, observedAtMs=NOW) if i == 0 else None),
+                resets=(dict(available=2 if provider == "codex" else 1, usable=2 if provider == "codex" else 0, blocker=None if provider == "codex" else "not_limited", nextExpiryAtMs=NOW + 3 * DAY if provider == "codex" else NOW + 7 * DAY, expiries=[NOW + 3 * DAY, NOW + 9 * DAY] if provider == "codex" else [NOW + 7 * DAY], observedAtMs=NOW) if i == 0 else None),
                 label=f"{provider.title()} {i + 1}",
                 identifier=mask(provider, i),
                 disabled=False,
@@ -4021,6 +4022,10 @@ async def main():
                     color_scheme="dark",
                     reduced_motion="reduce",
                 )
+                # Opt-in: start the browser clock at the fixture's reading time, so dates the fixture
+                # places a few days out (reset expiries) read as future instead of already past.
+                if os.environ.get("PROX_CAPTURE_FIXTURE_CLOCK"):
+                    await context.clock.install(time=NOW / 1000)
                 page = await context.new_page()
                 errors = []
                 page.on("pageerror", lambda e: errors.append(str(e)))
