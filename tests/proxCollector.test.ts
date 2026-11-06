@@ -11,6 +11,7 @@ import {
   CLAUDE_REQUEST_HEADERS,
   CLAUDE_USAGE_URL,
   CODEX_USAGE_URL,
+  CODEX_RATE_LIMIT_RESET_CREDITS_URL,
 } from '../src/utils/quota/constants';
 
 const NOW = 1_800_000_000_000;
@@ -133,6 +134,7 @@ describe('QuotaCollector', () => {
       usable: 2,
       blocker: null,
       nextExpiryAtMs: RESET,
+      expiries: [RESET, RESET],
       observedAtMs: NOW,
     });
     expect(collector.resets.get(codex.id)).toEqual({
@@ -181,6 +183,66 @@ describe('QuotaCollector', () => {
     }
     // Exactly one usage request per account per poll; no reset-specific Codex request.
     expect(calls.filter((call) => call.body?.url === CODEX_USAGE_URL)).toHaveLength(6);
+  });
+
+  test('fills Codex credit expiries from the details endpoint, at a gated rate', async () => {
+    const credit = (at: number) => ({
+      id: `credit-${at}`,
+      reset_type: 'codex_rate_limits',
+      status: 'available',
+      expires_at: new Date(at).toISOString(),
+    });
+    let held = 2;
+    let listed = [credit(NOW + 9 * 86_400_000), credit(NOW + 3 * 86_400_000)];
+    const { collector, store, calls, advance } = harness((request) => {
+      if (request.url.pathname.endsWith('/credentials')) return respond(request);
+      if (request.body?.url === CLAUDE_PROFILE_URL)
+        return Response.json({ status_code: 200, body: {} });
+      if (request.body?.url === CODEX_RATE_LIMIT_RESET_CREDITS_URL)
+        return Response.json({
+          status_code: 200,
+          body: { available_count: held, applicable_available_count: 0, credits: listed },
+        });
+      return Response.json({
+        status_code: 200,
+        body:
+          request.provider === 'claude'
+            ? JSON.stringify(claudeBody)
+            : {
+                ...codexBody,
+                rate_limit_reset_credits: {
+                  available_count: held,
+                  applicable_available_count: 0,
+                },
+              },
+      });
+    });
+    const detailCalls = () =>
+      calls.filter((call) => call.body?.url === CODEX_RATE_LIMIT_RESET_CREDITS_URL).length;
+    await collector.refresh();
+    const codex = store.listAccounts().find((account) => account.provider === 'codex')!;
+    expect(collector.resets.get(codex.id)).toMatchObject({
+      available: 2,
+      nextExpiryAtMs: NOW + 3 * 86_400_000,
+      expiries: [NOW + 3 * 86_400_000, NOW + 9 * 86_400_000],
+    });
+    expect(detailCalls()).toBe(1);
+    // Within the hour, with the same count, the cached list is reused without a new request.
+    advance(MANUAL_REFRESH_INTERVAL_MS);
+    await collector.refresh();
+    expect(detailCalls()).toBe(1);
+    expect(collector.resets.get(codex.id)?.expiries).toHaveLength(2);
+    // A spent credit changes the count: the two-credit list no longer describes it.
+    held = 1;
+    listed = [credit(NOW + 9 * 86_400_000)];
+    advance(MANUAL_REFRESH_INTERVAL_MS);
+    await collector.refresh();
+    expect(collector.resets.get(codex.id)).toMatchObject({ available: 1, nextExpiryAtMs: null });
+    expect(collector.resets.get(codex.id)?.expiries).toBeUndefined();
+    // The retry floor has passed by the next poll, so the details are read again.
+    advance(15 * 60_000);
+    await collector.refresh();
+    expect(collector.resets.get(codex.id)?.expiries).toEqual([NOW + 9 * 86_400_000]);
   });
 
   test('polls every five minutes and stop cancels the scheduled poll', async () => {

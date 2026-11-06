@@ -67,3 +67,9 @@ export function poolResetStatus(
     early,
   };
 }
+
+/** Held resets with a known expiry that hasn't passed, soonest first, at most one per held reset. */
+export function heldExpiries(resets: AccountResets, now: number): number[] {
+  const all = resets.expiries ?? (resets.nextExpiryAtMs === null ? [] : [resets.nextExpiryAtMs]);
+  return all.filter((at) => at > now).slice(0, resets.available);
+}

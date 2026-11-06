@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { readAccountResets } from '../server/quota/resets';
+import { readAccountResets, withCodexCreditDetails } from '../server/quota/resets';
 
 const NOW = Date.UTC(2026, 10, 3);
 const grant = {
@@ -62,8 +62,12 @@ test('Claude counts all held resets but only started, unexpired, unpaused usable
     usable: 5,
     blocker: null,
     nextExpiryAtMs: NOW + 1000,
+    // One entry per held reset, soonest first: 'second' holds two that end together.
+    expiries: [NOW + 1000, NOW + 1000, NOW + 2000, NOW + 2000, NOW + 2000],
     observedAtMs: NOW,
   });
+  // Resets with no end date are held but list no expiry.
+  expect(claude()?.expiries).toBeUndefined();
 });
 
 test('Codex clamps applicability, reads earliest available credit expiry and rejects missing counts', () => {
@@ -91,4 +95,42 @@ test('Codex clamps applicability, reads earliest available credit expiry and rej
       ],
     })?.nextExpiryAtMs
   ).toBe(NOW + 1000);
+});
+
+test('Codex lists every credit expiry soonest first, and adopts detail only when it matches the count', () => {
+  const credit = (at: number) => ({
+    reset_type: 'codex_rate_limits',
+    status: 'available',
+    expires_at: new Date(at).toISOString(),
+  });
+  const listed = readAccountResets(
+    'codex',
+    {
+      rate_limit_reset_credits: {
+        available_count: 2,
+        applicable_available_count: 2,
+        credits: [credit(NOW + 2000), credit(NOW + 1000)],
+      },
+    },
+    NOW
+  );
+  expect(listed?.expiries).toEqual([NOW + 1000, NOW + 2000]);
+  // The usage reply often only counts credits; the details reply fills them in.
+  const counted = readAccountResets(
+    'codex',
+    { rate_limit_reset_credits: { available_count: 2, applicable_available_count: 0 } },
+    NOW
+  )!;
+  expect(counted).toMatchObject({ nextExpiryAtMs: null, blocker: 'not_applicable' });
+  expect(counted.expiries).toBeUndefined();
+  expect(withCodexCreditDetails(counted, [NOW + 5000, NOW + 9000])).toMatchObject({
+    available: 2,
+    usable: 0,
+    nextExpiryAtMs: NOW + 5000,
+    expiries: [NOW + 5000, NOW + 9000],
+  });
+  // A detail list for a different number of credits is stale and is not shown.
+  expect(withCodexCreditDetails(counted, [NOW + 5000])).toBe(counted);
+  expect(withCodexCreditDetails(counted, undefined)).toBe(counted);
+  expect(withCodexCreditDetails(listed!, [NOW + 7000, NOW + 8000])).toBe(listed!);
 });

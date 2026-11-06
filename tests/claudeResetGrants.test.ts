@@ -454,3 +454,20 @@ test('account reads map upstream 429 to a sanitized typed rate-limit failure', a
   }
   expect(calls).toBe(2); // Neither read retries.
 });
+
+test('card selection spends the usable grant that expires first, even over the recommendation', () => {
+  const base = status();
+  const later = { ...base.grants[0], id: 'later', endsAt: new Date(5 * 86400_000).toISOString() };
+  const sooner = { ...later, id: 'sooner', endsAt: new Date(2 * 86400_000).toISOString() };
+  const open = { ...later, id: 'open', endsAt: null };
+  const state = { ...base, grants: [open, later, sooner], nextGrantId: 'later' };
+  expect(selectResetGrant(state, 0)?.id).toBe('sooner');
+  // A grant with no end never lapses, so it is spent only when nothing dated is usable.
+  expect(selectResetGrant({ ...state, grants: [open, later] }, 0)?.id).toBe('later');
+  expect(selectResetGrant({ ...state, grants: [open] }, 0)?.id).toBe('open');
+  // Equal ends fall back to the recommendation.
+  const twin = { ...sooner, id: 'twin' };
+  expect(selectResetGrant({ ...state, grants: [sooner, twin], nextGrantId: 'twin' }, 0)?.id).toBe(
+    'twin'
+  );
+});

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import {
   findPoolResetFile,
+  heldExpiries,
   poolResetReasonKey,
   poolResetStatus,
   markSpent,
@@ -110,4 +111,15 @@ test('tab requests expire only when the server reading catches up', () => {
   markSpent('spent-fixture');
   expect(wasSpent('spent-fixture', before)).toBe(true);
   expect(wasSpent('spent-fixture', Date.now())).toBe(false);
+});
+
+test('held expiries list each future expiry soonest first, never more than the resets held', () => {
+  const base = { available: 3, usable: 3, blocker: null, nextExpiryAtMs: 200, observedAtMs: 1 };
+  expect(heldExpiries({ ...base, expiries: [200, 300, 400] }, 100)).toEqual([200, 300, 400]);
+  // An expiry that has passed since the reading is gone, and the list never outgrows the count.
+  expect(heldExpiries({ ...base, expiries: [200, 300, 400] }, 250)).toEqual([300, 400]);
+  expect(heldExpiries({ ...base, available: 1, expiries: [200, 300] }, 100)).toEqual([200]);
+  // A reading from before per-reset detail still shows its one known expiry.
+  expect(heldExpiries(base, 100)).toEqual([200]);
+  expect(heldExpiries({ ...base, nextExpiryAtMs: null }, 100)).toEqual([]);
 });

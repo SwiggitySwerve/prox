@@ -3365,3 +3365,22 @@ $table-tiers: (
     vertical-align: top;
   }
 }
+
+// Each held reset's expiry, soonest first: the date as the value, the time left beside it in the caption
+// colour, one reset per line so the list reads as a column of dates.
+.resetExpiries {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 8px;
+  }
+}
+.resetExpiryLeft {
+  color: var(--text-secondary);
+  font-weight: 400;
+}

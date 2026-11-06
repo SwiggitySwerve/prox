@@ -58,6 +58,11 @@ export interface AccountResets {
   blocker: AccountResetBlocker | null;
   /** Earliest expiry among held resets, if the provider gives one. */
   nextExpiryAtMs: number | null;
+  /**
+   * Expiry of each held reset whose expiry is known, soonest first, one entry per reset. A use
+   * spends the first. Absent when the reading carried no per-reset detail.
+   */
+  expiries?: number[];
   observedAtMs: number;
 }
 export interface AccountQuotaWindow {
