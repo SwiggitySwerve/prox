@@ -8,6 +8,7 @@ import json
 import hashlib
 import io
 import math
+import os
 import re
 import time
 from collections import Counter
@@ -69,7 +70,7 @@ def fixture(state):
                 billing=(dict(provider="claude", status="active", activeSinceMs=NOW-45*DAY, billingType="stripe_subscription") if provider == "claude" else
                     dict(provider="codex", plan="pro", renewsAtMs=NOW+17*DAY if i==0 else None, endsAtMs=None if i==0 else NOW+8*DAY, willRenew=i==0,
                          nextPlan=dict(plan="prolite", atMs=NOW+17*DAY) if i==0 else None, overdue=False, graceEndsAtMs=None)),
-                resets=(dict(available=2 if provider == "codex" else 1, usable=2 if provider == "codex" else 0, blocker=None if provider == "codex" else "not_limited", nextExpiryAtMs=NOW + 7 * DAY, observedAtMs=NOW) if i == 0 else None),
+                resets=(dict(available=2 if provider == "codex" else 1, usable=2 if provider == "codex" else 0, blocker=None if provider == "codex" else "not_limited", nextExpiryAtMs=NOW + 3 * DAY if provider == "codex" else NOW + 7 * DAY, expiries=[NOW + 3 * DAY, NOW + 9 * DAY] if provider == "codex" else [NOW + 7 * DAY], observedAtMs=NOW) if i == 0 else None),
                 label=f"{provider.title()} {i + 1}",
                 identifier=mask(provider, i),
                 disabled=False,
@@ -2863,8 +2864,13 @@ async def check_reset_dialog_facts(dialog):
     if not facts or any(f is None for f in facts):
         return [dict(why="the dialog has no label-above-value facts to measure")]
     labels = [f["label"] for f in facts]
-    if labels != ["Account", "Resets used", "Limits reset"]:
-        fails.append(dict(why="the dialog facts are not Account, Resets used, Limits reset", labels=labels))
+    # "Next to expire" (the soonest held expiry) follows Resets used whenever the account's resets have a known
+    # future expiry; it names a date and time in UTC.
+    if labels not in (["Account", "Resets used", "Limits reset"], ["Account", "Resets used", "Next to expire", "Limits reset"]):
+        fails.append(dict(why="the dialog facts are not Account, Resets used, [Next to expire,] Limits reset", labels=labels))
+    expiry = next((f["value"] for f in facts if f and f["label"] == "Next to expire"), None)
+    if expiry is not None and not re.search(r"\d{1,2}:\d{2}\s*[AP]M\s*UTC", expiry.replace("\u00a0", " ")):
+        fails.append(dict(why="Next to expire is not a date and time", value=expiry))
     for fact in facts:
         if not fact["above"] or not fact["aligned"]:
             fails.append(dict(why="a dialog fact's label is not above its value", label=fact["label"]))
@@ -4021,6 +4027,10 @@ async def main():
                     color_scheme="dark",
                     reduced_motion="reduce",
                 )
+                # Opt-in: start the browser clock at the fixture's reading time, so dates the fixture
+                # places a few days out (reset expiries) read as future instead of already past.
+                if os.environ.get("PROX_CAPTURE_FIXTURE_CLOCK"):
+                    await context.clock.install(time=NOW / 1000)
                 page = await context.new_page()
                 errors = []
                 page.on("pageerror", lambda e: errors.append(str(e)))

@@ -24,6 +24,7 @@ import {
   CLAUDE_REQUEST_HEADERS,
   CODEX_USAGE_URL,
   CODEX_SUBSCRIPTION_URL,
+  CODEX_RATE_LIMIT_RESET_CREDITS_URL,
   CODEX_REQUEST_HEADERS,
 } from '../../src/utils/quota/constants';
 import { parseClaudeUsagePayload, parseCodexUsagePayload } from '../../src/utils/quota/parsers';
@@ -31,7 +32,8 @@ import { isRecord } from '../../src/utils/helpers';
 import { planFromClaudeProfile, planFromCodexUsage } from './plans';
 import { QuotaStore } from './store';
 import type { InventorySourceState, InventorySourceStatus } from './inventory';
-import { readAccountResets } from './resets';
+import { codexCreditExpiries, readAccountResets, withCodexCreditDetails } from './resets';
+import { normalizeCodexResetCreditsPayload } from '../../src/utils/quota/resetCredits';
 import {
   ANTHROPIC_API_ORIGIN,
   ANTHROPIC_RESET_GRANT_STATUS_PATH,
@@ -47,6 +49,10 @@ import {
 } from './types';
 
 const PLAN_REFRESH_MS = 6 * 60 * 60 * 1000;
+/** Codex credit details are re-read at most this often while their count is unchanged. */
+const RESET_CREDITS_REFRESH_MS = 60 * 60 * 1000;
+/** Floor between credit-detail attempts, so a failing endpoint is not hit every collection. */
+const RESET_CREDITS_RETRY_MS = 15 * 60 * 1000;
 /** Inventory-only syncs start at least this far apart, so a burst cannot hammer CLI-Proxy. */
 const SYNC_FLOOR_MS = 1000;
 /**
@@ -290,6 +296,9 @@ export class QuotaCollector {
   private readonly latestBilling = new Map<string, AccountBilling>();
   private readonly latestWindows = new Map<string, AccountQuotaWindow[]>();
   private readonly latestResets = new Map<string, AccountResets>();
+  private readonly resetCreditAttempts = new Map<string, number>();
+  /** Codex credit expiries from the details endpoint, keyed by account, with the count they list. */
+  private readonly latestResetCredits = new Map<string, { expiries: number[]; atMs: number }>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private controller: AbortController | null = null;
@@ -499,6 +508,8 @@ export class QuotaCollector {
       this.latestBilling.delete(id);
       this.latestWindows.delete(id);
       this.latestResets.delete(id);
+      this.resetCreditAttempts.delete(id);
+      this.latestResetCredits.delete(id);
       this.pollControllers.get(id)?.forEach((controller) => controller.abort());
       this.pollControllers.delete(id);
     }
@@ -703,6 +714,57 @@ export class QuotaCollector {
     }
   }
 
+  /** Fills in each held Codex credit's expiry when the usage reply only counted them. */
+  private async recordCodexResetCredits(
+    accountId: string,
+    authIndex: string,
+    chatgptAccountId: string | null,
+    source: CollectionSource,
+    key: string,
+    signal: AbortSignal
+  ): Promise<void> {
+    const resets = this.latestResets.get(accountId);
+    if (!resets || resets.available === 0 || (resets.expiries?.length ?? 0) >= resets.available)
+      return;
+    const cached = this.latestResetCredits.get(accountId);
+    const fresh =
+      cached !== undefined &&
+      cached.expiries.length === resets.available &&
+      this.now() - cached.atMs < RESET_CREDITS_REFRESH_MS;
+    const last = this.resetCreditAttempts.get(accountId);
+    if (!fresh && (last === undefined || this.now() - last >= RESET_CREDITS_RETRY_MS)) {
+      this.resetCreditAttempts.set(accountId, this.now());
+      try {
+        const response = await this.request(source, 'requests/api-call', key, signal, {
+          authIndex,
+          method: 'GET',
+          url: CODEX_RATE_LIMIT_RESET_CREDITS_URL,
+          header: {
+            ...CODEX_REQUEST_HEADERS,
+            ...(chatgptAccountId ? { 'Chatgpt-Account-Id': chatgptAccountId } : {}),
+            Accept: 'application/json',
+            'OpenAI-Beta': 'codex-1',
+            Originator: 'Codex Desktop',
+          },
+        });
+        if (!signal.aborted && isRecord(response) && response.status_code === 200) {
+          const summary = normalizeCodexResetCreditsPayload(response.body);
+          if (!summary.invalidPayload && this.store.isLive(accountId))
+            this.latestResetCredits.set(accountId, {
+              expiries: codexCreditExpiries(summary.credits),
+              atMs: this.now(),
+            });
+        }
+      } catch {
+        // Expiry detail is best-effort: the counts from the usage reply still stand.
+      }
+    }
+    const details = this.latestResetCredits.get(accountId);
+    const current = this.latestResets.get(accountId);
+    if (details && current === resets)
+      this.latestResets.set(accountId, withCodexCreditDetails(resets, details.expiries));
+  }
+
   private addIssue(
     source: CollectionSource,
     provider: PoolProviderId,
@@ -842,8 +904,17 @@ export class QuotaCollector {
         this.addIssue(source, account.provider, 'quota-unavailable');
         throw new Error('Quota sample persistence failed');
       }
-      if (account.provider === 'codex')
+      if (account.provider === 'codex') {
+        await this.recordCodexResetCredits(
+          account.id,
+          authIndex,
+          chatgptAccountId,
+          source,
+          key,
+          signal
+        );
         await this.recordCodexBilling(account.id, authIndex, chatgptAccountId, source, key, signal);
+      }
       await this.recordPlan(account, authIndex, source, key, signal, usageBody, storedPlans);
     }
     return !signal.aborted && this.store.isLive(account.id);

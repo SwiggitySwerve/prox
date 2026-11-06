@@ -30,14 +30,13 @@ export function readAccountResets(
     )
       return null;
     const usable = Math.min(available, Math.max(0, applicable));
-    const expiries = summary.credits
-      .map((credit) => Date.parse(credit.expiresAt))
-      .filter(Number.isFinite);
+    const expiries = codexCreditExpiries(summary.credits);
     return {
       available,
       usable,
       blocker: available > 0 && usable === 0 ? 'not_applicable' : null,
-      nextExpiryAtMs: expiries.length ? Math.min(...expiries) : null,
+      nextExpiryAtMs: expiries.length ? expiries[0]! : null,
+      ...(expiries.length ? { expiries } : {}),
       observedAtMs,
     };
   }
@@ -58,7 +57,13 @@ export function readAccountResets(
             : sum,
         0
       );
-  const expiries = held.flatMap((grant) => (grant.endsAt ? [Date.parse(grant.endsAt)] : []));
+  // One entry per reset: a grant holding two resets that end together lists its end twice.
+  const expiries = held
+    .flatMap((grant) => {
+      const at = grant.endsAt ? Date.parse(grant.endsAt) : NaN;
+      return Number.isFinite(at) ? Array<number>(grant.resetsLeft).fill(at) : [];
+    })
+    .sort((a, b) => a - b);
   let blocker: AccountResets['blocker'] = null;
   if (!status.eligible) blocker = `ineligible:${status.ineligibleReason ?? 'unknown'}`;
   else if (available > 0 && usable === 0) {
@@ -71,7 +76,30 @@ export function readAccountResets(
     available,
     usable,
     blocker,
-    nextExpiryAtMs: expiries.length ? Math.min(...expiries) : null,
+    nextExpiryAtMs: expiries.length ? expiries[0]! : null,
+    ...(expiries.length ? { expiries } : {}),
     observedAtMs,
   };
+}
+
+/** Each available credit's expiry, soonest first; credits without a readable expiry are skipped. */
+export function codexCreditExpiries(credits: readonly { expiresAt: string }[]): number[] {
+  return credits
+    .map((credit) => Date.parse(credit.expiresAt))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+}
+
+/**
+ * Codex's usage reply counts credits but may not list them; the credit-details reply does. Adopt
+ * its expiries only when it lists exactly the credits this reading holds, so a stale list never
+ * describes resets that were spent or granted since.
+ */
+export function withCodexCreditDetails(
+  resets: AccountResets,
+  expiries: readonly number[] | undefined
+) {
+  if (!expiries || (resets.expiries?.length ?? 0) >= resets.available) return resets;
+  if (expiries.length !== resets.available) return resets;
+  return { ...resets, expiries: [...expiries], nextExpiryAtMs: expiries[0] ?? null };
 }

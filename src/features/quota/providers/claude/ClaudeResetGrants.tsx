@@ -8,7 +8,7 @@ import {
   type AnthropicResetGrantStatus,
 } from '@/services/api/claudeResetGrants';
 import type { AuthFileItem } from '@/types';
-import { normalizeAuthIndex } from '@/utils/quota';
+import { formatInstantShort, normalizeAuthIndex } from '@/utils/quota';
 import {
   RETRY_WINDOW_MS,
   ResetGrantPreflightError,
@@ -83,6 +83,8 @@ export function useClaudeResetGrants(
   const pending = operation && !operation.code ? operation : undefined;
   const expired = Boolean(pending && now - pending.createdAt >= RETRY_WINDOW_MS);
   const selected = pending?.grantId ?? (status ? selectResetGrant(status, now)?.id : undefined);
+  const selectedEnd = status?.grants.find((grant) => grant.id === selected)?.endsAt;
+  const selectedEndMs = selectedEnd ? Date.parse(selectedEnd) : NaN;
   const blocked = disabled || !sessionActive || !authIndex || busy || expired || !selected;
   const confirm = () => {
     if (blocked || lock.current || !selected || !authIndex) return;
@@ -91,9 +93,17 @@ export function useClaudeResetGrants(
       scope.current() && session === scope.revision() && version === generation.current;
     showConfirmation({
       title: t('claude_reset.title'),
-      message: t(pending ? 'claude_reset.retry_confirm' : 'claude_reset.confirm_text', {
-        name: file.name,
-      }),
+      message: [
+        t(pending ? 'claude_reset.retry_confirm' : 'claude_reset.confirm_text', {
+          name: file.name,
+        }),
+        // Name the grant being spent: the usable one that ends first.
+        !pending && Number.isFinite(selectedEndMs)
+          ? t('claude_reset.confirm_expiry', { date: formatInstantShort(selectedEndMs) })
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
       confirmText: t(pending ? 'claude_reset.retry' : 'claude_reset.confirm'),
       variant: 'primary',
       onConfirm: async () => {
@@ -137,6 +147,8 @@ export function useClaudeResetGrants(
   };
   return {
     count: status?.grants.reduce((sum, grant) => sum + grant.resetsLeft, 0) ?? null,
+    /** End of the grant a confirm would claim, when it has one. */
+    nextEndsAtMs: Number.isFinite(selectedEndMs) ? selectedEndMs : undefined,
     grants: status?.grants ?? [],
     busy,
     blocked,
