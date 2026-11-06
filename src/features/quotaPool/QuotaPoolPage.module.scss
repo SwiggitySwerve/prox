@@ -406,11 +406,13 @@ $pool-error: #ff5252;
     letter-spacing: 0;
   }
 }
-// A withheld total is a muted word a step below the number size, so it reads as a status.
+// A withheld total is a word in the headline number's weight, a step below its size so the context
+// label still fits beside it. It shares the number's baseline (the strong's strut) and keeps a muted
+// neutral colour, so it reads as a status rather than a value.
 .unavailableValue {
   color: var(--text-secondary);
-  font-size: 24px;
-  font-weight: 500;
+  font-size: 28px;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 .headlineContext {
@@ -530,8 +532,8 @@ $pool-error: #ff5252;
 .chartReadout {
   min-height: 24px;
   margin-top: 0;
-  color: #b5b5b5;
-  font-size: 13px;
+  color: var(--caption-color);
+  font-size: var(--caption-size);
   text-align: left;
   font-variant-numeric: tabular-nums;
 }
@@ -554,8 +556,8 @@ $pool-error: #ff5252;
     stroke-width: 1;
   }
   text {
-    fill: var(--text-tertiary);
-    font-size: 12px;
+    fill: var(--caption-color);
+    font-size: var(--caption-size);
   }
 }
 .nowLine {
@@ -584,8 +586,8 @@ $pool-error: #ff5252;
   stroke-linejoin: round;
 }
 .axisUnit {
-  fill: #b5b5b5;
-  font-size: 13px;
+  fill: var(--caption-color);
+  font-size: var(--caption-size);
 }
 .chartFooter {
   display: flex;
@@ -600,8 +602,8 @@ $pool-error: #ff5252;
   flex-wrap: wrap;
   align-items: center;
   gap: 16px;
-  color: #b5b5b5;
-  font-size: 13px;
+  color: var(--caption-color);
+  font-size: var(--caption-size);
   span {
     display: inline-flex;
     gap: 7px;
@@ -670,8 +672,9 @@ $pool-error: #ff5252;
 .accountSummary {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 16px;
-  font-size: 13px;
+  align-items: flex-start;
+  gap: 6px 24px;
+  margin-top: 4px;
   font-weight: 400;
 }
 .page .expandAccounts {
@@ -687,12 +690,67 @@ $pool-error: #ff5252;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
+  // The Accounts table switches layout by its own width, not the screen's (H2-X). The container's name
+  // is its width tier: a table with more status slots needs more room (see $table-tiers).
+  container: accounts-c / inline-size;
+  &[data-slots='0'],
+  &[data-slots='1'] {
+    container-name: accounts-a;
+  }
+  &[data-slots='2'] {
+    container-name: accounts-b;
+  }
 }
 // The roster is one bounded list: a single outline, rules between rows.
-.pool:not([data-minimized='true']) .accountGrid {
+.pool .accountGrid {
   margin: 4px 0 8px;
   border-block: 1px solid var(--hairline);
   overflow: clip;
+}
+// H2-X: from 901px the rows read as the table while the card's Accounts section has room for it and as
+// the phone limit blocks below that (900px and below always). The table needs 20 (chevron) + 134 (Plan)
+// + 2 gaps of 12 + 160 (Account) = 338px, then per limit column 12 (gap) + 59 (value) + its bar, and 54
+// for each status slot (a Low mark or Unavailable). A bar is at least 40px (the 1100px screen's
+// three-limit card has 50px ones; at 16px a low value's red fill is under 2px and can't be seen). For
+// three limit columns that is 671px with no slot, 725 with one, 779 with two and 833 with three, and the
+// grid's tier (data-slots) picks its width. A card with fewer columns uses the same widths.
+$table-tiers: (
+  a: 725px,
+  b: 779px,
+  c: 833px,
+);
+@mixin wide-table {
+  @media (min-width: 901px) {
+    @each $tier, $width in $table-tiers {
+      @container accounts-#{$tier} (width >= #{$width}) {
+        @content;
+      }
+    }
+  }
+}
+@mixin block-rows {
+  @media (max-width: 900px) {
+    @content;
+  }
+  @media (min-width: 901px) {
+    @each $tier, $width in $table-tiers {
+      @container accounts-#{$tier} (width < #{$width}) {
+        @content;
+      }
+    }
+  }
+}
+@mixin tablet-rows {
+  @media (min-width: 641px) and (max-width: 900px) {
+    @content;
+  }
+  @media (min-width: 901px) {
+    @each $tier, $width in $table-tiers {
+      @container accounts-#{$tier} (width < #{$width}) {
+        @content;
+      }
+    }
+  }
 }
 .accountHead {
   display: none;
@@ -740,8 +798,8 @@ $pool-error: #ff5252;
   }
   // A stale reading keeps the normal value colour and opacity; the amber "Stale" word, its clock
   // icon and the timestamp in .accountStatus say it is old.
-  // Wide tables tint an open row; phones keep dividers only, so no box sits in the card.
-  @media (min-width: 901px) {
+  // Wide tables tint an open row; phones fill only the open row's header (H1-P), with no box in the card.
+  @include wide-table {
     &[open] {
       background: var(--fill-soft);
     }
@@ -806,8 +864,8 @@ $pool-error: #ff5252;
   }
   small {
     grid-column: 1 / -1;
-    color: var(--text-tertiary);
-    font-size: 11px;
+    color: var(--caption-color);
+    font-size: var(--caption-size);
   }
   // Low keeps the value colour neutral: the red icon and bar plus the visible "Low" word carry it.
   li[data-low='true'] .limitBar > span {
@@ -818,12 +876,7 @@ $pool-error: #ff5252;
 .account:not([open]) .limits small {
   display: none;
 }
-// A compact row (a closed row of a minimized card) shows the counted limit as the row's value, so
-// it doesn't repeat it in the list. Phone rows with blocks list it first (the B block).
-@media (max-width: 900px) {
-  .account:not([open]):not([data-phone-blocks]) .limits li[data-counted='true'] {
-    display: none;
-  }
+@include block-rows {
   // The row's value is the limit the page is set to, so it leads: a step larger, named on the
   // line under it, and set apart from the per-limit bars, whose values drop to regular weight.
   .account > summary > strong {
@@ -851,7 +904,7 @@ $pool-error: #ff5252;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 400;
-  @media (min-width: 901px) {
+  @include wide-table {
     display: none;
   }
 }
@@ -1072,19 +1125,23 @@ $pool-error: #ff5252;
   grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
   align-items: start;
   gap: 20px;
-  // Phones list the facts as label/value rows under the headline, like the loaded card.
+  // Phones stack each fact label over value in two columns under the headline, like the loaded card.
   @media (max-width: 640px) {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    > .loadingNumber {
+      grid-column: 1 / -1;
+    }
   }
 }
 .loadingFact {
   display: grid;
   gap: 6px;
   @media (max-width: 640px) {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    // A placeholder never outgrows its column (320px is narrower than the 128px value bar plus a gap).
+    > * {
+      max-width: 100%;
+    }
   }
 }
 .loadingRows {
@@ -1493,44 +1550,6 @@ $pool-error: #ff5252;
   }
 }
 
-// A minimized provider card keeps a compact account roster. Opening a row restores
-// every limit, plan and reset detail; warnings remain visible even while closed.
-.pool[data-minimized='true'] {
-  --compact-account-width: 28rem;
-  --compact-account-gap: 20px;
-
-  .accountGrid {
-    gap: 0 var(--compact-account-gap);
-  }
-  .account:not([open]) {
-    // Phones and tablets keep a bounded row; from 901px the list spans the card (C3 block).
-    @media (max-width: 900px) {
-      max-inline-size: var(--compact-account-width);
-    }
-    .accountPlan {
-      display: none;
-    }
-    > summary {
-      min-height: 36px;
-      padding: 4px 0;
-    }
-  }
-  @media (min-width: 901px) {
-    .accounts > h3 {
-      padding: 4px 0;
-    }
-    .expandAccounts {
-      min-height: 32px;
-      padding: 4px 8px;
-    }
-  }
-  @media (max-width: 900px) {
-    .account:not([open]) > summary {
-      min-height: 44px;
-    }
-  }
-}
-
 .page .expandAccounts {
   white-space: nowrap;
   flex-shrink: 0;
@@ -1566,7 +1585,7 @@ $pool-error: #ff5252;
   white-space: nowrap;
 }
 // Phone labels say "remaining", so they may wrap inside their column instead of running into the bar.
-@media (max-width: 900px) {
+@include block-rows {
   .limits li > span:first-child {
     white-space: normal;
   }
@@ -1599,32 +1618,6 @@ $pool-error: #ff5252;
     align-self: end;
   }
 }
-.pool[data-minimized='true'] .account:not([open]) .limits {
-  .limitBar {
-    display: none;
-  }
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  margin: 2px 0;
-  gap: 2px;
-  &:not(:has([data-low='true'])) {
-    display: none;
-  }
-  li:not([data-low='true']) {
-    display: none;
-  }
-  li {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
-  }
-  strong {
-    flex-shrink: 0;
-    font-size: 13px;
-  }
-}
 @media (max-width: 640px) {
   .accounts > h3 {
     display: grid;
@@ -1650,30 +1643,55 @@ $pool-error: #ff5252;
 
 // Wide screens: one heading row, then one line per account with a column per limit.
 @media (min-width: 901px) {
-  .pool:not([data-minimized='true']) {
-    // Sized from the viewport, not the table, so every provider's limit columns start at the
-    // same x whatever its number of limits.
-    // Wide enough for an address plus its reset badge on one line.
-    --name-track: clamp(160px, 18vw, 330px);
-    --plan-track: clamp(110px, 10vw, 140px);
+  .pool {
+    // Sized from the table's own width, never from a row's content, so every row of a card has the
+    // same columns. Plan fits "Ultra · 2,000 points" (about 125px) with 16px to spare after the column
+    // gap. Account is as wide as an address and its reset badge (the cap), unless that would take the
+    // bars below their target (--bar-target, set by the width media blocks at the end).
+    --name-cap: clamp(160px, 18vw, 330px);
+    --plan-track: clamp(134px, 8vw, 140px);
+    --col-gap: 12px;
+    --bar-target: 0px;
+    .accountGrid {
+      // What a limit column needs besides its bar: the value column and the gap before the bar
+      // (3.6em at 14px, 8px), plus the status slot (Low mark or Unavailable, 4px margin) in a column
+      // that has one. Columns: chevron, Account, Plan, the limits and, when the counted limit has no
+      // column of its own, the 128px total.
+      --fixed: calc(20px + var(--plan-track) + (var(--limit-cols) + 3) * var(--col-gap) + 128px);
+      --need: calc(var(--limit-cols) * 59px + var(--slotted-cols, 0) * 54px);
+      --name-track: max(
+        160px,
+        min(
+          var(--name-cap),
+          calc(100% - var(--fixed) - var(--need) - var(--limit-cols) * var(--bar-target))
+        )
+      );
+      --limit-bar: calc(
+        (100% - var(--fixed) - var(--name-track) - var(--need)) / var(--limit-cols)
+      );
+      --limit-plain: calc(var(--limit-bar) + 59px);
+      --limit-slotted: calc(var(--limit-bar) + 59px + 54px);
+      &[data-balance-column='false'] {
+        --fixed: calc(20px + var(--plan-track) + (var(--limit-cols) + 2) * var(--col-gap));
+      }
+    }
+  }
+}
+// The tracks and cells below apply while the Accounts section has room for the table (H2-X).
+@include wide-table {
+  .pool {
     .accountHead,
     .account > summary {
       display: grid;
-      // Each limit track is a third of what's left, so a card with fewer limits keeps the same
-      // column edges as one with three and leaves the rest of the row empty. Providers report at
-      // most three limits; a fourth would need this divisor raised.
+      // The limit tracks share what's left after Account and Plan, so a card with two limits ends at
+      // the row's right edge like one with three. Each track is its column's needs plus an equal
+      // bar, so the bars of a card are as long as each other.
       grid-template-columns:
         20px var(--name-track) var(--plan-track)
-        repeat(
-          var(--limit-cols),
-          minmax(
-            104px,
-            calc((100% - 20px - var(--name-track) - var(--plan-track) - 128px - 96px) / 3)
-          )
-        )
+        var(--limit-tracks)
         128px;
       justify-content: start;
-      column-gap: 16px;
+      column-gap: var(--col-gap);
       align-items: center;
     }
     .accountHead {
@@ -1732,23 +1750,32 @@ $pool-error: #ff5252;
           grid-column: calc(var(--col) + 3);
           grid-row: 1;
           display: grid;
-          grid-template-columns: 3.6em minmax(24px, 1fr);
+          // Status slot (zero wide unless the column has a Low or Unavailable row), value, bar. The slot
+          // and value are the strong's own columns, so every row of a column starts its bar at one x.
+          grid-template-columns: max-content 3.6em minmax(24px, 1fr);
           align-items: center;
-          gap: 0 10px;
+          gap: 0;
           strong {
-            grid-column: 1;
+            grid-column: 1 / 3;
             grid-row: 1;
-            justify-content: flex-end;
+            display: grid;
+            grid-template-columns: subgrid;
+            column-gap: 0;
+            align-items: center;
+            justify-content: stretch;
           }
           .limitBar {
-            grid-column: 2;
+            grid-column: 3;
             grid-row: 1;
+            margin-inline-start: 8px;
           }
           small {
             grid-column: 1 / -1;
             grid-row: 2;
-            font-size: 12px;
-            white-space: nowrap;
+            font-size: var(--caption-size);
+            // At 13px a date no longer fits a 1100px column on one line; it wraps inside its own
+            // column ("Resets Oct 28," over "12:00 PM UTC") instead of running into the next one.
+            white-space: normal;
           }
           &[data-missing='true'] em {
             grid-column: 1 / -1;
@@ -1776,24 +1803,21 @@ $pool-error: #ff5252;
       font-weight: 600;
       small {
         display: block;
-        color: var(--text-tertiary);
-        font-size: 12px;
+        color: var(--caption-color);
+        font-size: var(--caption-size);
         font-weight: 400;
       }
     }
     [data-balance-column='false'] {
       .accountHead,
       .account > summary {
-        // As above: a third of the rest per limit, so every card's columns share their edges.
-        grid-template-columns:
-          20px var(--name-track) var(--plan-track)
-          repeat(
-            var(--limit-cols),
-            minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 80px) / 3))
-          );
+        // As above: the limits share the rest of the row.
+        grid-template-columns: 20px var(--name-track) var(--plan-track) var(--limit-tracks);
       }
+      // Here the last header is a limit's, not the balance's: it wraps inside its track like the others.
       .accountHead span:last-child {
         text-align: left;
+        white-space: normal;
       }
       .account > summary > strong {
         display: none;
@@ -1819,9 +1843,6 @@ $pool-error: #ff5252;
   gap: 8px 12px;
   padding: 4px 0 4px;
 }
-.rosterSearch::placeholder {
-  color: var(--text-tertiary);
-}
 .rosterSearch,
 .rosterTools select {
   box-sizing: border-box;
@@ -1835,7 +1856,7 @@ $pool-error: #ff5252;
   font-size: 13px;
 }
 .rosterSearch {
-  min-width: min(100%, 14rem);
+  min-width: min(100%, 18rem);
   padding-inline: 16px;
 }
 @media (min-width: 901px) and (pointer: fine) {
@@ -1887,7 +1908,7 @@ $pool-error: #ff5252;
 // On a phone a long roster shows the active window, plus any low limit in the same block the
 // short rosters use; the other limits open with the row.
 @media (max-width: 640px) {
-  .pool:not([data-minimized='true']) .accountGrid[data-large='true'] .account:not([open]) .limits {
+  .pool .accountGrid[data-large='true'] .account:not([open]) .limits {
     &:not(:has([data-low='true'], [data-counted='true'])) {
       display: none;
     }
@@ -2210,15 +2231,11 @@ $pool-error: #ff5252;
 }
 
 // At 1100px the account table's tracks (name 18vw = 198px, 16px gaps) left its columns 30px wider
-// than the grid, clipping it (found by the new laptop-1100 case). The name track's 160px floor and
-// 12px gaps fit. (Accounts are C3's: drop this if C3 reworks the tracks.)
+// than the grid, clipping it (found by the new laptop-1100 case). The name track's 160px cap keeps
+// it fitting. (Accounts are C3's: drop this if C3 reworks the tracks.)
 @media (min-width: 901px) and (max-width: 1199px) {
-  .pool:not([data-minimized='true']) {
-    --name-track: 160px;
-    .accountHead,
-    .account > summary {
-      column-gap: 12px;
-    }
+  .pool {
+    --name-cap: 160px;
   }
 }
 /* C3 */
@@ -2262,10 +2279,6 @@ $pool-error: #ff5252;
   padding: 6px 0 0;
   color: var(--text-secondary);
   font-size: 13px;
-}
-// Minimized wide list: the C block at the end of this file lays it out.
-.compactHead {
-  display: none;
 }
 /* C2 */
 // From 641px the options wrapper takes no part in layout: its controls stay toolbar items.
@@ -2318,14 +2331,7 @@ $pool-error: #ff5252;
   }
 }
 /* P1 */
-// Table cells: a low value is wider than the 3.6em value column, so its cell sizes the column to
-// the icon, word and percentage and leaves the bar whatever remains.
-@media (min-width: 901px) {
-  .pool:not([data-minimized='true']) .account > summary > .limits li[data-low='true'] {
-    grid-template-columns: max-content minmax(8px, 1fr);
-    column-gap: 6px;
-  }
-}
+// Table cells: a column's status slot (Low mark, Unavailable) is laid out by the H1-W block at the end.
 // Phone Options button: a trailing chevron-down that flips while the overlay is open, like the
 // app's other disclosure controls (Collapsible, Select).
 .optionsChevron {
@@ -2341,21 +2347,11 @@ $pool-error: #ff5252;
     transition: none;
   }
 }
-// 901-1199px, balance-less tables: 8px column gaps (instead of 12px) and a matching 56px reserve in
-// the limit tracks (5 gaps of 8px plus 16px of slack, so the last header label still fits) give a
-// low cell room for its icon, word and percentage and still a visible bar.
+// 901-1199px, balance-less tables: 8px column gaps (instead of 12px) give a low cell room for its
+// status slot, value and a visible bar.
 @media (min-width: 901px) and (max-width: 1199px) {
-  .pool:not([data-minimized='true']) [data-balance-column='false'] {
-    .accountHead,
-    .account > summary {
-      column-gap: 8px;
-      grid-template-columns:
-        20px var(--name-track) var(--plan-track)
-        repeat(
-          var(--limit-cols),
-          minmax(104px, calc((100% - 20px - var(--name-track) - var(--plan-track) - 56px) / 3))
-        );
-    }
+  .pool .accountGrid[data-balance-column='false'] {
+    --col-gap: 8px;
   }
 }
 /* G */
@@ -2420,11 +2416,11 @@ $pool-error: #ff5252;
   }
 }
 
-// Laptops (1100px and wider screens whose drawer is narrower than the panel's own 1100px threshold):
-// Usage, Billing and Manual resets sit side by side, in that order, the accent column a little wider.
-// From a 1100px drawer the panel's own layout (S3) takes over, so this never applies there.
+// Laptops (1100px and wider screens whose drawer is narrower than 920px): Usage, Billing and Manual
+// resets sit side by side, in that order. From a 920px drawer the three fact columns (S3) take over
+// (H2-B), so this never applies there.
 @media (min-width: 1100px) {
-  @container (max-width: 1099px) {
+  @container (max-width: 919px) {
     .accountFacts > div > div {
       grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.3fr);
       align-items: start;
@@ -2573,127 +2569,32 @@ $pool-error: #ff5252;
 }
 
 /* A */
-// Accounts summary: label/value pairs in one wrapping group. A pair wraps as a unit, never inside,
-// and its value keeps the Manual resets style (weight 500, tabular figures).
+// Accounts summary: label-above-value pairs, the card's Now and Forecast pattern one step smaller, in
+// one wrapping group. A pair wraps as a unit, never inside, and its value keeps weight 500 with
+// tabular figures.
 .summaryFact {
+  display: flex;
+  flex-direction: column;
   max-width: 100%;
   white-space: nowrap;
 }
 .accountSummary .summaryLabel {
-  color: var(--text-secondary);
+  color: var(--caption-color);
+  font-size: var(--caption-size);
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
 }
 .accountSummary .summaryValue {
   color: var(--text-primary);
+  font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-/* C */
-// Minimized wide list: Account | active window remaining | other low limits. Closed rows and their
-// header are left-aligned and content-sized; the tracks are measured once for the whole page
-// (useSharedMinimizedTracks) so every row in every card shares them. Opened rows span the card.
-@media (min-width: 901px) {
-  .pool[data-minimized='true'] {
-    --compact-cols: var(--compact-account-track, fit-content(40ch))
-      var(--compact-value-track, minmax(14ch, max-content)) minmax(0, 1fr);
-    .accountGrid {
-      margin: 4px 0 8px;
-      border-block: 1px solid var(--hairline);
-    }
-    .compactHead {
-      display: grid;
-      grid-template-columns: var(--compact-cols);
-      column-gap: 16px;
-      padding: 6px 0;
-      color: var(--text-tertiary);
-      font-size: 12px;
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-      span:first-child {
-        padding-inline-start: 28px;
-      }
-      span:nth-child(2) {
-        text-align: right;
-      }
-    }
-    // The name truncates beyond 28ch; its reset chip never wraps below it.
-    .account:not([open]) .accountLabel {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      flex-wrap: nowrap;
-    }
-    .account:not([open]) .accountText {
-      min-width: 0;
-      max-width: 28ch;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .account:not([open]) .accountResetMarker {
-      flex: none;
-      margin-left: 0;
-    }
-    .account:not([open]) > summary {
-      grid-template-columns: var(--compact-cols);
-      gap: 0 16px;
-      .accountDisclosure {
-        grid-column: 1;
-        grid-row: 1;
-      }
-      > .accountName {
-        grid-column: 1;
-        grid-row: 1;
-        align-self: center;
-        padding-inline-start: 28px;
-      }
-      // A status line sits under the row and takes no part in sizing the Account column.
-      > .accountStatus {
-        grid-column: 1 / -1;
-        grid-row: 2;
-        padding-inline-start: 28px;
-        contain: inline-size;
-      }
-      > strong {
-        grid-column: 2;
-        grid-row: 1;
-        align-self: center;
-        justify-self: end;
-        white-space: nowrap;
-      }
-      // Other low limits sit inline and wrap only when the card runs out of room.
-      > .limits {
-        grid-column: 3;
-        grid-row: 1;
-        align-self: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 2px 24px;
-        margin: 0;
-        li[data-counted='true'] {
-          display: none;
-        }
-        li {
-          flex: 0 1 auto;
-          min-width: 0;
-          flex-wrap: wrap;
-          > span:first-child {
-            white-space: normal;
-          }
-        }
-        strong {
-          margin-left: auto;
-          white-space: nowrap;
-        }
-      }
-    }
-  }
 }
 /* B */
 // Phone account rows (900px and below). The header holds the chevron, name, chip and plan. The
 // limits follow as blocks, the active window first: one line (label left, value right) over its
 // bar, and a limit's reset line directly under its bar. The list takes no box of its own, so the
-// stale line sits directly under the active block, and every bar track spans the block's full width.
-// A closed row of a minimized card keeps its compact list (no data-phone-blocks).
+// stale line sits under the name and plan (H1-P), and every bar track spans the block's full width.
 .unavailableWord {
   position: absolute;
   width: 1px;
@@ -2705,7 +2606,7 @@ $pool-error: #ff5252;
 .limitBar[data-empty] {
   display: none;
 }
-@media (min-width: 641px) and (max-width: 900px) {
+@include tablet-rows {
   // Rows without blocks keep label | bar | value on one line.
   .limits li strong {
     grid-column: 3;
@@ -2716,7 +2617,7 @@ $pool-error: #ff5252;
     grid-row: 1;
   }
 }
-@media (max-width: 900px) {
+@include block-rows {
   .account[data-phone-blocks] {
     > summary {
       grid-template-columns: 20px minmax(0, 1fr) minmax(4.6em, max-content);
@@ -2759,8 +2660,8 @@ $pool-error: #ff5252;
           }
           > small {
             grid-area: 3 / 1 / 4 / -1;
-            color: var(--text-tertiary);
-            font-size: 13px;
+            color: var(--caption-color);
+            font-size: var(--caption-size);
           }
           // The active value spans both columns, so a wide "Low" value never widens the shared column
           // and squeezes the other limits' labels. The active window's label and value keep weight 600,
@@ -2839,5 +2740,628 @@ $pool-error: #ff5252;
       grid-column: 1 / -1;
       justify-self: start;
     }
+  }
+}
+
+/* H1-D */
+// Laptop drawers (1100px+ screens, drawer under 920px): Usage and Billing share the width equally
+// with one fixed 24px gap, and Manual resets is the same compact column (300–420px). The gap is
+// narrower than the wide panel's so a 1100px screen's columns keep "Estimated · from start date" on
+// one line.
+@media (min-width: 1100px) {
+  @container (max-width: 919px) {
+    .accountFacts > div > div {
+      grid-template-columns: repeat(2, minmax(min-content, 1fr)) clamp(300px, 30cqi, 420px);
+      column-gap: 24px;
+    }
+  }
+}
+
+// A disabled Use reset keeps the panel's subdued solid outline; the page's own dimmed
+// `button:disabled` would otherwise repaint its border and text.
+.page .accountFacts section button:disabled {
+  border: 1px solid color-mix(in srgb, var(--text-secondary) 60%, transparent);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+/* H1-P */
+// Phone account rows, Forecast facts and the "counts toward total" cue (900px and below).
+// One line per card says what the bold limit is; the wide table says it under the column header.
+.phoneCountsNote {
+  margin: 0;
+  padding: 6px 10px 2px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  @include wide-table {
+    display: none;
+  }
+}
+@include block-rows {
+  // The stale line belongs to the account: directly under the name and plan, above the first block.
+  .account[data-phone-blocks][data-status='stale'] > summary {
+    > .accountStatus {
+      grid-row: 2;
+    }
+    > .limits > li[data-counted='true'] {
+      grid-row: 3;
+    }
+  }
+  // The whole header is the toggle (the summary): an open row's header carries a fill beyond the
+  // chevron's turn, and a press shows it before the row moves.
+  .account[open] > summary {
+    background: var(--fill-hover);
+  }
+  .account > summary:active {
+    background: var(--fill-hover);
+  }
+  // Now and Forecast facts read label over value, as on wide cards; the H2-C block lays them out.
+}
+
+/* H1-C */
+// One caption token for the small grey text under and beside the data: chart ticks and unit, legends,
+// "Latest reading", a limit's "Resets …" line and "counts toward total". 13px, and the brightest grey
+// so every caption reads at 5.5:1 or better on the card.
+.page {
+  --caption-size: 13px;
+  --caption-color: var(--text-secondary);
+}
+// Roster search: the visible label leads the field and stays once text is typed. The wrapper is the pill
+// (shared with sort and the chips); the input inside is borderless and takes the rest of the width.
+.rosterSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 0;
+  &:focus-within {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 3px;
+  }
+  // The input fills the pill's height, borders included, so its own target is the pill's 44px (36px
+  // with a mouse).
+  input {
+    align-self: stretch;
+    margin-block: -1px;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    color: var(--text-primary);
+    background: transparent;
+    border: 0;
+    outline: none;
+    // The pill carries the focus ring (above), so the input draws none of its own.
+    &:focus-visible {
+      outline: none;
+    }
+  }
+}
+.rosterSearchLabel {
+  flex: none;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* H1-T */
+// Controls: from 641px the pool tabs and the date navigator share the first row, the navigator at
+// the content's right edge whatever the view or width; the view settings take the row below. Phones
+// keep their stacked rows (tabs, date and Options, then the overlay's anchor).
+@media (min-width: 641px) {
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    .providerBar {
+      flex: 1 1 auto;
+      margin-bottom: 0;
+    }
+    .dateNavigation {
+      margin-left: auto;
+    }
+    .toolbar {
+      flex: 1 0 100%;
+    }
+  }
+}
+.dateNavigation {
+  // It no longer sits inside the toolbar, which set the 13px.
+  font-size: 13px;
+}
+// Today does nothing when the range already ends today, so the slot shows that state as plain text.
+.dateNavigation > span.todayState {
+  margin-right: 0;
+  padding-inline: 10px;
+  color: var(--text-secondary);
+}
+// The auto-refresh countdown is status text: no outline, no fill, a quieter tone than the pills.
+.countdown {
+  padding-inline: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+// Labelled pills share one height at 901px up with a mouse (36px, the page's own); Show N more takes
+// Expand all's filled style.
+@media (min-width: 901px) and (pointer: fine) {
+  .page .reorder button,
+  .page .reorder button.graphToggle[aria-pressed='true'],
+  .page .pool .expandAccounts,
+  .page .combinedOptions select,
+  .privacy,
+  .accountLink {
+    height: 36px;
+    min-height: 36px;
+  }
+  .privacy,
+  .accountLink {
+    padding-block: 0;
+  }
+}
+// Expand all inherits its weight from the Accounts heading, so both pin it.
+.page .expandAccounts,
+.page .showAll {
+  font-weight: 500;
+}
+.page .showAll {
+  background: var(--bg-tertiary);
+}
+// Loading skeleton, 641px up: the date navigator sits at the end of the tabs row, as it does loaded.
+@media (min-width: 641px) {
+  .loadingControls {
+    position: relative;
+    margin-bottom: 8px;
+  }
+  .loadingControls .loadingDate {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+}
+@media (min-width: 901px) and (pointer: fine) {
+  .page .loadingControls .loadingRow > *:not(.loadingSelects),
+  .page .loadingControls .loadingDate {
+    height: 36px !important;
+  }
+  .page .loadingControls .loadingRow > .loadingSegment,
+  .page .loadingControls .loadingRow > .loadingSegmentWide {
+    height: 40px !important;
+  }
+}
+// The failed-refresh banner over saved data: one readable width, left-aligned with the content, an
+// equal inner padding on every side. Try again keeps the error card's light primary style (H2-D), so the
+// same recovery action looks the same on every page state.
+.errorNotice:not([data-alone]) {
+  max-width: 640px;
+  padding: 16px 18px;
+}
+
+/* H1-W */
+// Wide limit cells. A column that shows a Low mark or "Unavailable" on any row has a status slot on
+// every row, as wide as its widest mark: the real mark sits in it, and hidden ghosts size the rest.
+// Phones keep the mark inline in the value, so the wrapper takes no box.
+.limitStatus {
+  display: contents;
+}
+.statusGhost {
+  display: none;
+}
+@include wide-table {
+  // "Unavailable" reads as on phones: the warning icon and word in the warning colour over a dashed
+  // empty track; the weight follows the column (the active window's is 600).
+  .unavailableWord {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    color: var(--warning-text);
+    // The Low word's size, so a column's status slot is no wider than it must be for the bars.
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .limits li .unavailableWord,
+  .limits li .unavailableGhost {
+    font-weight: 400;
+  }
+  .limits li[data-counted='true'] :is(.unavailableWord, .unavailableGhost) {
+    font-weight: 600;
+  }
+  // "Unavailable" has no value beside it, so it runs on through the value column and 4px into the gap
+  // before the bar: only what passes them (the value column, 3.6em of the cell's 14px = 50.4px, the
+  // slot's 4px margin and those 4px) counts toward the status slot's width.
+  .pool .account > summary > .limits li :is(.unavailableWord, .unavailableGhost) {
+    margin-inline-end: -58.4px;
+  }
+  .limitBar[data-empty] {
+    display: block;
+    border: 1px dashed var(--text-tertiary);
+    background: transparent;
+  }
+  // Hidden ghosts size a status slot to its widest mark: the same icon box, gap and word as the Low
+  // mark, and as the Unavailable word.
+  .pool .account > summary > .limits li {
+    .statusGhost {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      visibility: hidden;
+      white-space: nowrap;
+      pointer-events: none;
+      &::before {
+        content: '';
+        width: 14px;
+      }
+      &::after {
+        content: attr(data-word);
+        font-size: 13px;
+        font-weight: 600;
+      }
+    }
+    .unavailableGhost::after {
+      font-weight: inherit;
+    }
+  }
+  .pool .account > summary > .limits li {
+    .limitStatus {
+      display: grid;
+      align-items: center;
+      justify-items: start;
+      margin-inline-end: 4px;
+      > * {
+        grid-area: 1 / 1;
+      }
+    }
+    .limitValue {
+      grid-column: 2;
+      justify-self: start;
+    }
+  }
+  // The cell already says which limit is unavailable; the line under the name would say it twice.
+  .pool .account[data-unavailable-cell] {
+    &[data-status='error'],
+    &[data-status='missing-window'] {
+      > summary > .accountStatus {
+        display: none;
+      }
+    }
+  }
+}
+// Bars stay long (S13): each bar in the table is at least 100px from 1440 and 90px from 1280 (the
+// targets leave 2-4px for a slot a little wider than the 54px the tracks reserve). Account takes what
+// they leave, between its 160px floor and its cap; below 1280 the bars take what Account's cap leaves.
+@media (min-width: 1280px) {
+  .pool {
+    --bar-target: 94px;
+    --col-gap: 10px;
+  }
+}
+@media (min-width: 1440px) {
+  .pool {
+    --bar-target: 104px;
+    --col-gap: 12px;
+  }
+}
+
+/* H2-B */
+// Drawers of 920px and wider show the panel's wide layout (S3): three equal fact columns with one
+// 32px gap, and Manual resets as a compact 300–420px column on the right. FactPanel starts that layout
+// at 1100px; the page's 1440px drawer (about 980px) already has room for it, so the page repeats it.
+@container (min-width: 920px) and (max-width: 1099px) {
+  .accountFacts > div > div:has(> section[data-tone='accent']) {
+    grid-template-columns: repeat(3, minmax(min-content, 1fr)) clamp(300px, 30cqi, 420px);
+    max-width: calc(3 * (270px + 32px) + 420px);
+    column-gap: 32px;
+    align-items: start;
+    > section {
+      grid-column: 1 / 4;
+    }
+    > section dl {
+      column-gap: 32px;
+    }
+    > section[data-tone='accent'] {
+      grid-column: 4;
+      grid-row: 1 / span 2;
+      display: block;
+      dl {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  }
+}
+
+// The reset confirmation: the account, the reset it uses and the limits it restores as label-above-
+// value facts, then the irreversibility line on its own in the warning colour, then the buttons.
+.resetFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 0;
+}
+.resetWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 16px 0 0;
+  color: var(--warning-text);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+/* H2-D */
+// One boundary colour for the controls that act (date steps, card action pills): 3:1 or more on the page
+// (#050505, 3.5:1) and on a card (#101010, 3.3:1), so an action outranks the status chip beside it.
+.page {
+  --action-border: #666666;
+}
+// Date steps are bounded ghost icon buttons: 32px with a mouse, 44px on touch and phones. A step at its limit
+// keeps its box but fades, drops its hover and shows the default cursor, so it never passes for an enabled one.
+.page .dateNavigation .dateStep {
+  flex: none;
+  width: 32px;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid var(--action-border);
+  background: transparent;
+  color: var(--text-secondary);
+  &:hover:not(:disabled) {
+    border-color: var(--text-quaternary);
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+@media (pointer: coarse), (max-width: 640px) {
+  .page .dateNavigation .dateStep {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+}
+// Card actions get a boundary; status chips (Forecast ready) lose their fill, keeping icon and text colour.
+.page .reorder button,
+.page .reorder button.graphToggle[aria-pressed='true'] {
+  border-color: var(--action-border);
+}
+.badge,
+.badge[data-tone='warning'] {
+  background: transparent;
+  padding-inline: 0;
+}
+// Phones: the Combined title row and the chart-view select sit one standard row gap (4px, as the card
+// headers' rows) apart, not 16px.
+@media (max-width: 640px) {
+  .graphHeader {
+    row-gap: 4px;
+    > .combinedOptions {
+      margin: 0;
+    }
+  }
+}
+
+/* H2-E */
+// Roster sort: the same pill as the search field, with a visible "Sort" prefix before the choice.
+.rosterSort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  color: var(--text-primary);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  font-size: 13px;
+  &:focus-within {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 3px;
+  }
+  // The select fills the pill's height, borders included, so its own target is the pill's.
+  select {
+    align-self: stretch;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    margin-block: -1px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    outline: none;
+    &:focus-visible {
+      outline: none;
+    }
+  }
+}
+@media (min-width: 901px) and (pointer: fine) {
+  .rosterSort {
+    min-height: 36px;
+  }
+}
+// On phones the pill is full width but narrow: tighter padding leaves the choice room beside a long prefix.
+@media (max-width: 640px) {
+  .rosterSort {
+    gap: 6px;
+    padding: 0 8px 0 14px;
+  }
+}
+// A filter that is on shows a trailing x (decorative; pressing the chip again clears it).
+.page .rosterLow .rosterClear {
+  margin-inline-start: 2px;
+  color: var(--text-secondary);
+}
+// Phone stale line: the caption size and a gutter at the right; "Last reading ..." wraps as one unit.
+@media (max-width: 640px) {
+  .account[data-status='stale'] .accountStatus {
+    padding-inline-end: 12px;
+    font-size: var(--caption-size);
+  }
+  // One block under "Stale" (the separator dot is only for the inline wide layout); it wraps inside
+  // itself only when a line can't hold it.
+  .staleSince {
+    display: block;
+    max-width: 100%;
+  }
+  .staleDot {
+    display: none;
+  }
+}
+
+/* H2-C */
+// Now group in rate views: "248.4" in the value style, " of 300 points" in the headline unit's muted
+// style (same colour and weight as "points/h").
+.stats dd small {
+  color: #b5b5b5;
+  font-weight: 400;
+}
+// Phone cards (header container under 672px): every Now and Forecast fact reads label over value, in one
+// wrapping grid of two columns where the values fit; a date that doesn't fit takes a full row.
+@container poolHeader (max-width: 671px) {
+  .stats {
+    display: grid;
+    // 154px holds the longest date at the phone's 14px value size, so two columns form from a 320px
+    // fact area (a 390px phone has 324px) and a narrower one stacks single.
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 154px), 1fr));
+    gap: 8px 12px;
+    > div {
+      display: block;
+    }
+    dt {
+      margin-bottom: 4px;
+      white-space: nowrap;
+    }
+    dd {
+      font-size: 14px;
+      text-align: left;
+    }
+    small {
+      text-align: left;
+    }
+  }
+}
+// Phone summary facts sit in an even grid: two equal columns (three facts share one row) so none is left
+// alone on a second line. A pair that is wider than its column keeps its own width and wraps as a unit.
+@media (max-width: 640px) {
+  .accountSummary {
+    gap: 8px 16px;
+    > .summaryFact {
+      flex: 1 1 calc(50% - 8px);
+      min-width: max-content;
+    }
+    // Three pairs share one row when they fit; the spare width is split evenly.
+    &:has(> :nth-child(3):last-child) > .summaryFact {
+      flex-basis: max-content;
+    }
+  }
+}
+// Data collection: label-above-value pairs in one row, the Accounts summary facts' style.
+.footerFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  > div {
+    display: flex;
+    flex-direction: column;
+  }
+  dt {
+    color: var(--caption-color);
+    font-size: var(--caption-size);
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+  }
+  dd {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+  }
+}
+
+/* H2-F */
+// The account name's own element (capture checks click it). Minimize no longer truncates it: it wraps
+// within its label like the rest of the table.
+.accountText {
+  overflow-wrap: anywhere;
+}
+
+/* H2-G */
+// The card header's "N accounts" is a quiet link to the roster below the chart: same place and text as the
+// plain count it replaces, underlined on hover, 28px tall with a mouse and 44px on phones and touch.
+.page .poolMeta .accountsJump {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 28px;
+  margin-inline: -4px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #b5b5b5;
+  font-size: 13px;
+  line-height: 1.5;
+  text-underline-offset: 3px;
+  &:hover {
+    background: transparent;
+    color: var(--text-primary);
+    text-decoration: underline;
+  }
+}
+@media (max-width: 640px), (pointer: coarse) {
+  // The extra height is hit area only: negative block margins keep the header line as tall as before.
+  .page .poolMeta .accountsJump {
+    min-height: 44px;
+    margin-block: -8px;
+  }
+}
+// The heading takes focus from the jump; its ring shows for keyboard use only.
+.accounts > h3:focus:not(:focus-visible) {
+  outline: none;
+}
+// Phones: "Manual resets N" is longer than the chip it replaces, so it shares the plan's line under the name
+// (it wraps to a line of its own only when both don't fit) and a closed row keeps its two-line name cell.
+@media (max-width: 640px) {
+  .pool .account:not([open]) .accountName {
+    > .accountLabel {
+      display: contents;
+    }
+    .accountText {
+      flex-basis: 100%;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .accountPlan {
+      flex-basis: auto;
+      order: 1;
+    }
+    .accountResetMarker {
+      order: 2;
+      margin-left: 0;
+    }
+  }
+}
+
+/* H2-INT */
+// The usable reset chip ("Manual resets 2 · 2 usable") is wider than the 160px Account column the 901–1199px
+// table gives it. There it may break at its " · " (each part stays whole), so it never runs into the Plan
+// column; elsewhere it stays on one line.
+.resetChipPart {
+  white-space: nowrap;
+}
+@media (min-width: 901px) and (max-width: 1199px) {
+  .accountResetMarker[data-usable] {
+    max-width: 100%;
+    white-space: normal;
+    vertical-align: top;
   }
 }

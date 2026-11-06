@@ -57,8 +57,13 @@ export type FactSectionProps = {
 );
 export function FactSection({ title, tone, children, action, note }: FactSectionProps) {
   const id = useId();
+  const noteEl = note && (
+    <p id={id} role="status" className={styles.note}>
+      {note}
+    </p>
+  );
   return (
-    <section className={styles.section} data-tone={tone}>
+    <section className={styles.section} data-tone={tone} data-action={action ? '' : undefined}>
       {(title || action) && (
         <header>
           {title && <h4>{title}</h4>}
@@ -75,12 +80,10 @@ export function FactSection({ title, tone, children, action, note }: FactSection
           )}
         </header>
       )}
+      {/* With an action, its status or reason sits right under the button, not below the facts. */}
+      {action && noteEl}
       <dl>{children}</dl>
-      {note && (
-        <p id={id} role="status" className={styles.note}>
-          {note}
-        </p>
-      )}
+      {!action && noteEl}
     </section>
   );
 }

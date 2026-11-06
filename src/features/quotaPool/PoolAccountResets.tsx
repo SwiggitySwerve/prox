@@ -1,4 +1,5 @@
 import { Fact, FactSection } from '@/components/ui/FactPanel';
+import { IconAlertTriangle } from '@/components/ui/icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PoolAccount, PoolProviderId } from '@/domain/quotaPool/types';
@@ -301,7 +302,39 @@ function CodexResetAction({
               <p>{t('quota_pool.reset_early_outcome')}</p>
             </div>
           ) : (
-            t('quota_pool.reset_confirm_body', { name })
+            <div>
+              <dl className={styles.resetFacts}>
+                <Fact label={t('codex_quota.reset_dialog_account')} state="known" value={name} />
+                <Fact
+                  label={t('codex_quota.reset_dialog_used')}
+                  state="known"
+                  value={
+                    fact.account.resets
+                      ? t('codex_quota.reset_dialog_used_of', {
+                          held: fact.account.resets.available,
+                        })
+                      : '1'
+                  }
+                />
+                {/* The reset lifts Codex's rate limits (credit type codex_rate_limits); the credit
+                    doesn't list windows, so the dialog names the limits this account reports. */}
+                <Fact
+                  label={t('codex_quota.reset_dialog_limits')}
+                  state="known"
+                  value={
+                    fact.account.windows.length > 0
+                      ? fact.account.windows
+                          .map((limit) => t(limit.labelKey, limit.labelParams))
+                          .join(' · ')
+                      : t('codex_quota.reset_dialog_limits_unknown')
+                  }
+                />
+              </dl>
+              <p className={styles.resetWarning}>
+                <IconAlertTriangle size={14} aria-hidden="true" />
+                {t('codex_quota.reset_dialog_irreversible')}
+              </p>
+            </div>
           ),
         })
       }

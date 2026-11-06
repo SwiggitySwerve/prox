@@ -166,6 +166,7 @@ Settled after the council, from three rounds of reviewer notes. It replaces the 
 - **What ships:** every provider and Combined card shows the same `.reorder` group of labelled pills: "Minimize graph" / "Expand graph", and on provider cards "Move up" / "Move down". Each has an icon and a visible word at every width. Each is 32px tall, or 44px on coarse pointers and phones. The word is never truncated.
 - **Impossible moves:** the first card has no "Move up" and the last has no "Move down". They are not drawn, so the pills that remain sit against the card's right edge.
 - **Names:** each accessible name starts with its visible label, e.g. "Move up (Claude)".
+- **What Minimize does** (behaviour change, user-approved 2026-11-05): "Minimize graph" shrinks the graph only. The Accounts table stays exactly as it is unminimized, at every width (`06-accounts`, Minimized card).
 - **Why:**
   - Icon-only buttons below 1600px read as "fullscreen" (the diagonal arrows) or as nothing (the up and down arrows), in all six reviewers' notes over three rounds.
   - A menu would hide the one control that says what the card does, behind another icon.
@@ -237,3 +238,8 @@ These override the decisions above where they conflict.
 - **S5 Low quota.** The number stays neutral. A red warning icon and red bar mark it, with the visible word "Low" (`quota_pool.limit_low`) beside the icon. Meaning never relies on colour alone. Amends `02-foundations` (Critical row) and `06-accounts`.
 - **S6 Stale rows.** Stale values and bars use the normal colour and opacity. Staleness shows through the amber "Stale" word, a clock icon and the timestamp. Amends `02-foundations` ("Dimming (stale rows)") and `05-states`.
 - **S7 Estimated renewals.** On the Quota Management page only, each estimated renewal says "Estimated · from start date", and "annual plans differ" appears once per provider Accounts section, always on screen. Other pages keep the full sentence. Amends `15-fact-panel`.
+
+## User decisions, 2026-11-05 (round h2, job G)
+
+- **Accounts jump (behaviour change).** The provider card header's "N accounts" becomes a button that jumps to that card's Accounts section and focuses its heading. This lifts the earlier "no new navigation such as jump links" limit for this one control. Amends `04-components` (PoolCard).
+- **"Manual resets N" chip.** The row chip "Resets N" / "Resets N · N usable" is renamed "Manual resets N" / "Manual resets N · N usable" in all 6 locales, because the scheduled "Resets {date}" lines under the bars read the same way. Amends `02-foundations` (Exception A) and `06-accounts`.

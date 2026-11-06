@@ -3,7 +3,7 @@
 Closes: small grey text, icon button targets, focus visibility, live regions, colour-only status, masked email readability.
 
 - **Contrast** [R§12]: text ≥ 4.5:1 against its real background (including notice and error tints); bars, chart lines, control borders and the focus ring ≥ 3:1 [R§10]. Disabled controls are exempt; their reason text is not.
-- **Targets** [R§9]: 24px minimum; 44px on coarse pointers; icon buttons always sit in a 32/44px box.
+- **Targets** [R§9]: 24px minimum; 44px on coarse pointers; icon buttons always sit in a 32/44px box. Exception: the reset confirmation dialog's close button is 44px at every width.
 - **Focus**: a 2px white ring with 2px offset on every interactive element, including table rows and the chart.
 - **Names**: icon buttons have accessible names and visible tooltips ("Collapse Claude chart"). RefreshControl's name is fixed ("Refresh quotas"); its changing status is a description.
 - **Live regions** [R§6]: one persistent `role="status"` region for refresh and loading state changes, never countdown ticks; `role="alert"` only for a first-load failure.

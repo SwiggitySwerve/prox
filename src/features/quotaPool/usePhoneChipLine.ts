@@ -18,7 +18,7 @@ const naturalWidth = (element: HTMLElement) => {
 function fitsOneLine(title: HTMLElement) {
   const mark = title.firstElementChild;
   const heading = title.querySelector<HTMLElement>('h2');
-  const count = title.querySelector<HTMLElement>(`.${styles.poolMeta} > span:first-child`);
+  const count = title.querySelector<HTMLElement>(`.${styles.poolMeta} > :first-child`);
   const chip = title.querySelector<HTMLElement>(`.${styles.badge}`);
   const line = title.parentElement;
   if (!mark || !heading || !count || !chip || !line) return true;

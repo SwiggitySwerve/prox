@@ -2,6 +2,7 @@ import { Fact, FactPanel, FactSection } from '@/components/ui/FactPanel';
 import { BillingFacts } from '@/components/ui/FactPanel/BillingFacts';
 import { billingFacts } from '@/domain/accountBilling';
 import {
+  Fragment,
   useEffect,
   useId,
   useRef,
@@ -22,6 +23,7 @@ import {
   IconHistory,
   IconInfo,
   IconTimer,
+  IconX,
 } from '@/components/ui/icons';
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
@@ -105,8 +107,9 @@ export function PoolCard({
   // Bumped by the notice's action; the effect then brings the first affected row into focus.
   const [affectedFocus, setAffectedFocus] = useState(0);
   const accountsRef = useRef<HTMLElement>(null);
+  const accountsHeadingRef = useRef<HTMLHeadingElement>(null);
   const [showAll, setShowAll] = useState(false);
-  // Opening a row reveals reset details; minimization only compacts closed rows.
+  // Opening a row reveals reset details.
   const [openAccounts, setOpenAccounts] = useState<ReadonlySet<string>>(() => new Set());
   const allOpen = pool.accounts.length > 0 && pool.accounts.every((a) => openAccounts.has(a.id));
   const setAccountOpen = (accountId: string, open: boolean) =>
@@ -190,6 +193,12 @@ export function PoolCard({
     accountsRef.current?.scrollIntoView({ block: 'start' });
     accountsRef.current?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
   }, [affectedFocus]);
+  // The header's "N accounts" jumps past the chart to the roster. Focus goes to the Accounts heading, not
+  // the search box, so a phone's keyboard stays closed.
+  const jumpToAccounts = () => {
+    accountsRef.current?.scrollIntoView({ block: 'start' });
+    accountsHeadingRef.current?.focus({ preventScroll: true });
+  };
   const forecastWithheld = pool.forecastState !== 'ready' && pool.forecastState !== 'no-limit';
   // A withheld forecast with no burn rate has nothing measured to add beside the headline.
   const showNow = mode !== 'remaining' || !(forecastWithheld && pool.burnPointsPerHour === null);
@@ -239,6 +248,21 @@ export function PoolCard({
         ? 'seven-day'
         : 'weekly';
   const balanceHasColumn = limitColumns.some((column) => column.id === countedLimitId);
+  // A wide column that shows a Low mark or "Unavailable" on any row reserves a status slot, as wide as
+  // its widest mark, on every row, so the values and bars of the whole column start at one x.
+  const columnStatus = new Map<string, { low: boolean; unavailable: boolean }>();
+  pool.accounts.forEach((account) =>
+    account.windows.forEach((limit) => {
+      const low = isLowQuota(limit.remainingPercent);
+      const unavailable = limit.remainingPercent === null;
+      if (!low && !unavailable) return;
+      const seen = columnStatus.get(limit.id) ?? { low: false, unavailable: false };
+      columnStatus.set(limit.id, {
+        low: seen.low || low,
+        unavailable: seen.unavailable || unavailable,
+      });
+    })
+  );
   const resetSection = (account: (typeof pool.accounts)[number]) =>
     openAccounts.has(account.id) && (
       <PoolAccountResets
@@ -251,10 +275,10 @@ export function PoolCard({
       />
     );
   // At 900px and below a row reads as blocks: the active window leads the limit list instead of
-  // being the bold figure in the header. A closed row of a minimized card keeps its compact list,
-  // and an account that reports no windows (or a pool with no column for the active one) keeps the figure.
+  // being the bold figure in the header. An account that reports no windows (or a pool with no column
+  // for the active one) keeps the figure.
   const phoneBlocks = (account: (typeof pool.accounts)[number]) =>
-    balanceHasColumn && account.windows.length > 0 && (!minimized || openAccounts.has(account.id));
+    balanceHasColumn && account.windows.length > 0;
   const missingLimit = (
     account: (typeof pool.accounts)[number],
     column: (typeof limitColumns)[number]
@@ -341,7 +365,17 @@ export function PoolCard({
               {pool.sourceLabel && <small> · {pool.sourceLabel}</small>}
             </h2>
             <div className={styles.poolMeta}>
-              <span>{t('quota_pool.account_count', { count: pool.accountCount })}</span>
+              <button
+                type="button"
+                className={styles.accountsJump}
+                aria-describedby={`${id}-accounts-jump`}
+                onClick={jumpToAccounts}
+              >
+                {t('quota_pool.account_count', { count: pool.accountCount })}
+              </button>
+              <span id={`${id}-accounts-jump`} className={styles.srOnly}>
+                {t('quota_pool.accounts_jump')}
+              </span>
               <span
                 className={styles.badge}
                 data-state={chip.state}
@@ -435,6 +469,7 @@ export function PoolCard({
                 ) : (
                   <div>
                     <dt>{t('quota_pool.account_remaining', { window: windowLabel })}</dt>
+                    {/* The number takes the value style; "of 300 points" the headline unit's muted style. */}
                     <dd>
                       {number(pool.remainingPoints)}{' '}
                       <small>
@@ -503,7 +538,7 @@ export function PoolCard({
         />
       </PoolGraph>
       <section ref={accountsRef} className={styles.accounts} aria-labelledby={`${id}-accounts`}>
-        <h3 id={`${id}-accounts`}>
+        <h3 id={`${id}-accounts`} ref={accountsHeadingRef} tabIndex={-1}>
           <span className={styles.accountsHeading}>
             <span>
               <b className={styles.accountHeadingLabel}>{t('quota_pool.accounts')}</b>
@@ -514,9 +549,8 @@ export function PoolCard({
                 {resetTotals.available > 0 && (
                   <SummaryFact label={t('quota_pool.resets')}>{resetTotals.available}</SummaryFact>
                 )}
-                {/* Kept beside the total: a minimized card's rows don't show their own markers. */}
                 {resetTotals.available > 0 && resetTotals.usable > 0 && (
-                  <SummaryFact label={t('quota_pool.reset_usable')}>
+                  <SummaryFact label={t('quota_pool.reset_usable_summary')}>
                     {resetTotals.usable}
                   </SummaryFact>
                 )}
@@ -578,22 +612,31 @@ export function PoolCard({
           <div className={styles.rosterTools}>
             {showRosterControls && (
               <>
-                <input
-                  type="search"
-                  className={styles.rosterSearch}
-                  value={rosterQuery}
-                  onChange={(event) => setRosterQuery(event.target.value)}
-                  placeholder={t('quota_pool.account_search')}
-                  aria-label={t('quota_pool.account_search')}
-                />
-                <select
-                  value={rosterSort}
-                  onChange={(event) => setRosterSort(event.target.value as AccountSort)}
-                  aria-label={t('quota_pool.account_sort')}
-                >
-                  <option value="name">{t('quota_pool.sort_name')}</option>
-                  <option value="lowest">{t('quota_pool.sort_lowest')}</option>
-                </select>
+                {/* The label stays in view whatever is typed; it is the field's accessible name, so a
+                    placeholder would only repeat it. */}
+                <label className={styles.rosterSearch}>
+                  <span className={styles.rosterSearchLabel}>{t('quota_pool.account_search')}</span>
+                  <input
+                    type="search"
+                    value={rosterQuery}
+                    onChange={(event) => setRosterQuery(event.target.value)}
+                  />
+                </label>
+                {/* Like the search field, the pill carries a visible prefix; the select inside keeps the
+                    accessible name "Sort accounts", which starts with it. */}
+                <label className={styles.rosterSort}>
+                  <span className={styles.rosterSearchLabel}>
+                    {t('quota_pool.account_sort_label')}
+                  </span>
+                  <select
+                    value={rosterSort}
+                    onChange={(event) => setRosterSort(event.target.value as AccountSort)}
+                    aria-label={t('quota_pool.account_sort')}
+                  >
+                    <option value="name">{t('quota_pool.sort_name')}</option>
+                    <option value="lowest">{t('quota_pool.sort_lowest')}</option>
+                  </select>
+                </label>
               </>
             )}
             {(affectedOnly || (showRosterControls && affectedAccounts.length > 0)) && (
@@ -629,9 +672,12 @@ export function PoolCard({
                 ) : (
                   <IconAlertTriangle size={14} aria-hidden="true" />
                 )}
+                {/* Off says what pressing does and what the count counts ("Show 40 …"); on says it is
+                    filtering, and the × says a second press clears it (the blind A/B kept these words). */}
                 {t(lowOnly ? 'quota_pool.accounts_low_on' : 'quota_pool.accounts_low', {
                   count: lowAccountCount,
                 })}
+                {lowOnly && <IconX size={14} aria-hidden="true" className={styles.rosterClear} />}
               </button>
             )}
             {/* Always the last item: D of T shown; while filtering, D of F matches shown · T total.
@@ -661,15 +707,25 @@ export function PoolCard({
           className={styles.accountGrid}
           data-large={showRosterControls}
           data-balance-column={!balanceHasColumn}
-          style={{ '--limit-cols': Math.max(1, limitColumns.length) } as CSSProperties}
+          data-slots={limitColumns.filter((column) => columnStatus.has(column.id)).length}
+          style={
+            {
+              '--limit-cols': Math.max(1, limitColumns.length),
+              // A column with a status slot is that much wider than one without, so every bar is as long.
+              '--slotted-cols': limitColumns.filter((column) => columnStatus.has(column.id)).length,
+              '--limit-tracks': limitColumns
+                .map((column) =>
+                  columnStatus.has(column.id) ? 'var(--limit-slotted)' : 'var(--limit-plain)'
+                )
+                .join(' '),
+            } as CSSProperties
+          }
         >
-          {/* A minimized wide card lists the active window's remaining quota, then any other low limit. */}
-          {minimized && visibleAccounts.length > 0 && (
-            <div className={styles.compactHead} aria-hidden="true">
-              <span>{t('quota_pool.account_column')}</span>
-              <span>{t('quota_pool.account_remaining', { window: windowLabel })}</span>
-              <span>{t('quota_pool.other_low_limits')}</span>
-            </div>
+          {/* Phones have no column heading, so one line per card says what the bold limit is. */}
+          {visibleAccounts.length > 0 && (
+            <p className={styles.phoneCountsNote}>
+              {t('quota_pool.counts_toward_total_phone', { window: windowLabel })}
+            </p>
           )}
           {visibleAccounts.length > 0 && (
             <div className={styles.accountHead} aria-hidden="true">
@@ -702,10 +758,13 @@ export function PoolCard({
                 className={styles.account}
                 data-status={account.status}
                 data-phone-blocks={phoneBlocks(account) || undefined}
+                data-unavailable-cell={
+                  account.windows.some((limit) => limit.remainingPercent === null) || undefined
+                }
                 open={openAccounts.has(account.id)}
                 onToggle={(event) => setAccountOpen(account.id, event.currentTarget.open)}
               >
-                <summary>
+                <summary aria-expanded={openAccounts.has(account.id)}>
                   <IconChevronDown
                     className={styles.accountDisclosure}
                     size={20}
@@ -713,8 +772,6 @@ export function PoolCard({
                   />
                   <span className={styles.accountName}>
                     <span className={styles.accountLabel}>
-                      {/* A minimized wide row truncates the name beyond 28ch; useSharedMinimizedTracks
-                          then gives it a title with the whole name. */}
                       <span className={styles.accountText}>{accountName(account)}</span>
                       {/* One compact badge beside the name, so the Plan cell holds only the plan. */}
                       {account.resets &&
@@ -725,10 +782,21 @@ export function PoolCard({
                             data-usable={account.resets.usable > 0 || undefined}
                           >
                             {account.resets.usable > 0
-                              ? t('quota_pool.reset_chip_usable', {
+                              ? // Two unbreakable parts, so a column narrower than the chip (901–1199px)
+                                // breaks it only at its " · ", never across the Plan column.
+                                t('quota_pool.reset_chip_usable', {
                                   count: account.resets.available,
                                   usable: account.resets.usable,
                                 })
+                                  .split(' · ')
+                                  .map((part, index, parts) => (
+                                    <Fragment key={index}>
+                                      <span className={styles.resetChipPart}>
+                                        {index < parts.length - 1 ? `${part} ·` : part}
+                                      </span>
+                                      {index < parts.length - 1 && ' '}
+                                    </Fragment>
+                                  ))
                               : t('quota_pool.reset_chip', { count: account.resets.available })}
                           </span>
                         )}
@@ -751,8 +819,12 @@ export function PoolCard({
                           <IconClock className={styles.staleIcon} size={14} aria-hidden="true" />
                           {t('quota_pool.account_status.stale')}
                         </span>{' '}
-                        · {t('quota_pool.observed')}{' '}
-                        <span className={styles.nowrap}>{date(account.observedAtMs)}</span>
+                        {/* "Last reading …" wraps as one unit, never between its words. */}
+                        <span className={styles.staleSince}>
+                          <span className={styles.staleDot}>· </span>
+                          {t('quota_pool.observed')}{' '}
+                          <span className={styles.nowrap}>{date(account.observedAtMs)}</span>
+                        </span>
                       </>
                     ) : account.status === 'no-limit' ? (
                       t('quota_pool.no_window_limit', { window: windowLabel })
@@ -812,19 +884,36 @@ export function PoolCard({
                           >
                             <span>{limitLabel(limit)}</span>
                             <strong>
-                              {isLowQuota(limit.remainingPercent) && lowMark}
-                              {limit.remainingPercent === null ? (
-                                <>
-                                  <span className={styles.limitDash} aria-hidden="true">
-                                    —
-                                  </span>
-                                  <span className={styles.unavailableWord}>
-                                    <IconAlertTriangle size={14} aria-hidden="true" />
-                                    {t('quota_pool.value_unavailable')}
-                                  </span>
-                                </>
-                              ) : (
-                                percent(limit.remainingPercent)
+                              {/* The slot holds this row's mark; the hidden ghosts size it to the column's widest. */}
+                              {columnStatus.get(limit.id) && (
+                                <span className={styles.limitStatus}>
+                                  {isLowQuota(limit.remainingPercent) && lowMark}
+                                  {limit.remainingPercent === null && (
+                                    <span className={styles.unavailableWord}>
+                                      <IconAlertTriangle size={14} aria-hidden="true" />
+                                      {t('quota_pool.value_unavailable')}
+                                    </span>
+                                  )}
+                                  {columnStatus.get(limit.id)?.low && (
+                                    <span
+                                      className={styles.statusGhost}
+                                      data-word={t('quota_pool.limit_low')}
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                  {columnStatus.get(limit.id)?.unavailable && (
+                                    <span
+                                      className={`${styles.statusGhost} ${styles.unavailableGhost}`}
+                                      data-word={t('quota_pool.value_unavailable')}
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                </span>
+                              )}
+                              {limit.remainingPercent !== null && (
+                                <span className={styles.limitValue}>
+                                  {percent(limit.remainingPercent)}
+                                </span>
                               )}
                             </strong>
                             {/* A missing value gets an empty dashed track (phones), so it can't read as 0%. */}
@@ -880,7 +969,11 @@ export function PoolCard({
                         />
                       )}
                       <Fact
-                        label={t('quota_pool.predicted_empty')}
+                        label={t(
+                          dashboard.window === 'weekly'
+                            ? 'quota_pool.predicted_empty_weekly'
+                            : 'quota_pool.predicted_empty_five_hour'
+                        )}
                         {...(pool.forecastState === 'ready' && account.status === 'ok'
                           ? {
                               state: 'known' as const,

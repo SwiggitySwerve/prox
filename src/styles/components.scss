@@ -344,13 +344,16 @@ textarea {
   .btn {
     border-radius: $radius-full;
   }
-  // Touch screens get a 44px close button; the icon keeps its size.
-  @media (pointer: coarse) {
-    .modal-close-floating {
-      top: 8px;
-      right: 8px;
-      width: 44px;
-      height: 44px;
+  // The close button is a 44px target at every width and pointer; the icon keeps its size.
+  .modal-close-floating {
+    top: 8px;
+    right: 8px;
+    width: 44px;
+    height: 44px;
+
+    &:focus-visible {
+      outline: 2px solid var(--text-primary);
+      outline-offset: 2px;
     }
   }
 }

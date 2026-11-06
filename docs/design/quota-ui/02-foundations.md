@@ -32,6 +32,7 @@ Six styles. Nothing else. Line height is size + 4–6px [R§11].
 
 - `font-variant-numeric: tabular-nums` on every number [R§4].
 - Nothing is smaller than 13px.
+- Captions (chart axis ticks and unit, legends, "Latest reading", a limit's "Resets …" line, "counts toward total") take one token pair, `--caption-size` (13px) and `--caption-color` (`--text-secondary`). The capture's `captionFailures` measures each at 13px or more and 5.5:1 or better against its painted background.
 - Weight carries one meaning each: 600 = a title, a section heading or the headline number; 500 = a value; 400 = everything else. Weight never marks a column as special (use a text tag).
 - Sentence case everywhere; no colons after labels [R§1].
 
@@ -81,7 +82,7 @@ Stale values and bars use the normal colour and opacity, including every ancesto
 | `radius-card`    | 16px  | cards, notices, page panels, empty/error states     |
 | `radius-inset`   | 8px   | open-row band, plot area, skeleton blocks           |
 
-Exception (A): a read-only status chip, which is not a control (the "Resets N" chip in an account row), has no border, a subtle fill and `--radius-md` (8px) instead of `radius-control`. It keeps text of 13px or more at 4.5:1 on its fill.
+Exception (A): a read-only status chip, which is not a control (the "Manual resets N" chip in an account row), has no border, a subtle fill and `--radius-md` (8px) instead of `radius-control`. It keeps text of 13px or more at 4.5:1 on its fill.
 
 ## Control sizes
 

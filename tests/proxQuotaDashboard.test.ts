@@ -782,11 +782,15 @@ describe('stacked chart geometry', () => {
       );
     const long = render(10);
     expect(long).toContain('type="search"');
-    expect(long).toContain('aria-label="Search accounts"');
+    // The visible label is the field's accessible name, so it stays once text is typed.
+    expect(long).toMatch(/<label[^>]*><span[^>]*>Search accounts<\/span><input type="search"/);
     expect(long).toContain('Lowest limit remaining first');
-    expect(long).toContain('1 with a limit below 20%');
-    // The count is a toggle that filters the roster to accounts with a low limit.
-    expect(long).toMatch(/<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?1 with a limit below 20%/);
+    // The sort pill carries a visible "Sort" prefix ahead of the select.
+    expect(long).toMatch(/<label[^>]*><span[^>]*>Sort<\/span><select/);
+    // The low chip says what pressing it does and what its count counts ("Show N …").
+    expect(long).toMatch(
+      /<button[^>]*aria-pressed="false"[^>]*>[\s\S]*?Show 1 with a limit below 20%/
+    );
     expect(long).toContain('data-large="true"');
     const short = render(3);
     expect(short).not.toContain('type="search"');
@@ -845,8 +849,10 @@ describe('stacked chart geometry', () => {
       );
     // Remaining: the burn rate is the measured fact; the headline is the balance.
     expect(card(pool, 'remaining')).toMatch(/<p>Now<\/p><dl><div><dt>Burn rate \(3h\)<\/dt>/);
-    // Rate views: the balance moves to Now, because the headline is the rate.
-    expect(card(pool, 'burn')).toMatch(/<p>Now<\/p><dl><div><dt>Weekly remaining<\/dt>/);
+    // Rate views: the headline is the rate, so the balance is the one fact Now holds, label over value.
+    expect(card(pool, 'burn')).toMatch(
+      /<p[^>]*>Now<\/p><dl[^>]*><div><dt>Weekly remaining<\/dt><dd>73 <small>of 200 points<\/small><\/dd><\/div><\/dl>/
+    );
     // A withheld forecast with no burn rate has nothing measured to add, so Now is left out.
     expect(card({ ...pool, burnPointsPerHour: null }, 'remaining')).not.toContain('<p>Now</p>');
   });
@@ -999,7 +1005,7 @@ describe('pool presentation', () => {
     // Every reported limit is listed under its account; low ones are flagged.
     expect(markup).toContain('aria-label="Limits"');
     expect(markup).toMatch(
-      /<li data-limit-id="five-hour" data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span><span aria-hidden="true">[\s\S]*?<\/span><span>Low<\/span><\/span>12.0%/
+      /<li data-limit-id="five-hour" data-low="true"[^>]*><span>5-hour remaining<\/span>[\s\S]*?<strong><span><span><span aria-hidden="true">[\s\S]*?<\/span><span>Low<\/span><\/span>[\s\S]*?<span>12.0%<\/span>/
     );
     // The visible word is the accessible text: no second, hidden "Low" beside it.
     expect(markup.match(/>Low</g)).toHaveLength(1);
@@ -1016,7 +1022,8 @@ describe('pool presentation', () => {
     expect(chart).toContain('tabindex="0"');
     expect(chart).toMatch(/aria-describedby="[^"]*-readout"/);
     expect(markup).toContain('stroke-dasharray="7 5"');
-    expect(markup).toContain('<summary>');
+    // The summary is the row's toggle, so it carries its expanded state.
+    expect(markup).toContain('<summary aria-expanded="false">');
     const revealed = renderToStaticMarkup(
       createElement(PoolCard, { pool, dashboard, mode: 'remaining', reveal: true })
     );
@@ -1091,9 +1098,10 @@ describe('pool presentation', () => {
     expect(markup).toContain(
       '<span data-counted="true">Weekly remaining<small>counts toward total</small></span>'
     );
-    // The column heading and the row's own limit name it once each; the section heading doesn't
-    // repeat it and the table has no duplicate balance column.
-    expect(markup.match(/Weekly remaining/g)).toHaveLength(2);
+    // The column heading, the row's own limit and the phone note ("Weekly remaining counts toward total")
+    // name it once each; the section heading doesn't repeat it and the table has no duplicate balance column.
+    expect(markup.match(/Weekly remaining/g)).toHaveLength(3);
+    expect(markup).toContain('Weekly remaining counts toward total');
   });
   test('a low balance is marked on the row as well as on its limit', async () => {
     await i18n.changeLanguage('en');
@@ -1105,7 +1113,7 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toMatch(/<strong data-low="true">.*?12.0%<\/strong>/);
+    expect(markup).toMatch(/<strong data-low="true">.*?<span>Low<\/span>.*?12.0%/);
   });
   test('accounts without a 5-hour limit are counted as such, not as missing', async () => {
     await i18n.changeLanguage('en');
@@ -1129,7 +1137,7 @@ describe('pool presentation', () => {
         reveal: false,
       })
     );
-    expect(markup).toMatch(/>5-hour limit<\/span> <b[^>]*>1 of 2<\/b>/);
+    expect(markup).toMatch(/>With a 5-hour limit<\/span> <b[^>]*>1 of 2<\/b>/);
     expect(markup).not.toContain('loaded ·');
   });
   test('a partial pool counts the accounts missing data and offers to show them; the combined card offers one refresh', async () => {
@@ -1318,7 +1326,7 @@ describe('pool presentation', () => {
     expect(markup).not.toContain('Saved observation');
     expect(markup).not.toContain('Forecast ready');
     expect(markup).not.toContain('>Current<');
-    // Rate views keep the balance as the first pair of the remaining-quota forecast.
+    // Rate views keep the balance as the Now group's fact.
     expect(markup).toContain('<dt>Weekly remaining</dt><dd>73 <small>of 200 points</small></dd>');
     expect(markup).toContain('of 200 points');
     // Rates carry their unit on the number line.

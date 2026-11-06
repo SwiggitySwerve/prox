@@ -53,9 +53,10 @@
         var(--bg-tertiary)
       );
     }
-    // Disabled: an outline with readable text, plainly off; its reason is the note beneath.
+    // Disabled: a subdued solid outline (at least 3:1 against the section) with readable text and
+    // no fill, so it reads as a button that is off; its reason is the note beneath.
     &:disabled {
-      border-color: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+      border: 1px solid color-mix(in srgb, var(--text-secondary) 60%, transparent);
       background: transparent;
       color: var(--text-secondary);
       // Overrides the app's dimmed disabled button, which made this text unreadable on the fill.
@@ -74,6 +75,18 @@
     margin: 0;
     display: grid;
     gap: 12px 16px;
+  }
+}
+// An action's status or reason follows its header closely, so it reads as the button's own.
+.section[data-action] {
+  // The button follows the title instead of sitting at the far edge of a wide box, so the reason
+  // beneath both reads as the button's.
+  header {
+    justify-content: flex-start;
+    margin-bottom: 8px;
+  }
+  .note {
+    margin: 0 0 12px;
   }
 }
 .section[data-tone='accent'] {
@@ -171,11 +184,19 @@
   }
 }
 // Wide drawers: the facts keep three shared columns, and the accent section takes a fourth on
-// the right beside them, so no column is left empty and every fact row stays on one line.
+// the right beside them, so every fact row stays on one line. The accent box is a compact column
+// (300–420px) and the fact columns share the rest equally with one fixed gap, each capped at 270px
+// so no empty run between two columns passes about 160px. Width beyond the caps stays after the
+// box, at the row's end, never as a dead run before it.
 @container (min-width: 1100px) {
   .panel:has(> .section[data-tone='accent']) {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr);
+    grid-template-columns: repeat(3, minmax(min-content, 1fr)) clamp(300px, 30cqi, 420px);
+    max-width: calc(3 * (270px + 32px) + 420px);
+    column-gap: 32px;
     align-items: start;
+    > .section dl {
+      column-gap: 32px;
+    }
     > .section {
       grid-column: 1 / 4;
     }
