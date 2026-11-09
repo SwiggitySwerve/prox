@@ -459,6 +459,39 @@ export const serializeOauthModelAliases = (
     return payload;
   });
 
+/**
+ * An account's own excluded-models list from its credential file, read the way the backend reads it
+ * (CLIProxyAPI synthesizer/file.go ExtractExcludedModelsFromMetadata): canonical `excluded_models`
+ * wins whenever the key is present, `excluded-models` is the legacy alias, and a comma-separated
+ * string is accepted for hand-written files. Returns null when the file has no list (the account
+ * then follows the provider list). Only the list leaves this function; callers never see the file.
+ */
+export const extractAccountExcludedModels = (fileText: string): string[] | null => {
+  const parsed: unknown = JSON.parse(fileText);
+  if (!isRecord(parsed)) throw new Error('Invalid credential file');
+  const key = Object.prototype.hasOwnProperty.call(parsed, 'excluded_models')
+    ? 'excluded_models'
+    : 'excluded-models';
+  const raw = parsed[key];
+  if (raw === undefined || raw === null) return null;
+  const values =
+    typeof raw === 'string'
+      ? raw.split(',')
+      : Array.isArray(raw)
+        ? raw.filter((item): item is string => typeof item === 'string')
+        : null;
+  if (values === null) throw new Error(`Invalid ${key} in credential file`);
+  const seen = new Set<string>();
+  const rules: string[] = [];
+  for (const value of values) {
+    const rule = value.trim();
+    if (!rule || seen.has(rule.toLowerCase())) continue;
+    seen.add(rule.toLowerCase());
+    rules.push(rule);
+  }
+  return rules;
+};
+
 const OAUTH_MODEL_ALIAS_ENDPOINT = '/config/oauth/model-alias';
 const OAUTH_EXCLUDED_MODELS_ENDPOINT = '/config/oauth/excluded-models';
 
@@ -701,6 +734,36 @@ function buildAuthFilesApi(
 
     deleteOauthExcludedEntry: (provider: string) =>
       updateOauthProviderMap(OAUTH_EXCLUDED_MODELS_ENDPOINT, provider),
+
+    /** One provider's list; null when the provider has no entry. */
+    async readProviderExcludedModels(provider: string): Promise<string[] | null> {
+      const key = normalizeOAuthProviderKey(provider);
+      const lists = await api.getOauthExcludedModels();
+      const rules = lists[key] ?? [];
+      return rules.length > 0 ? rules : null;
+    },
+
+    /** Replace one provider's list; null or [] removes the entry. */
+    writeProviderExcludedModels: (provider: string, rules: string[] | null) =>
+      rules && rules.length > 0
+        ? updateOauthProviderMap(OAUTH_EXCLUDED_MODELS_ENDPOINT, provider, rules)
+        : updateOauthProviderMap(OAUTH_EXCLUDED_MODELS_ENDPOINT, provider),
+
+    /**
+     * An account's own list (null = none, it follows the provider list). The credential list does
+     * not carry this field, so the file is downloaded and discarded after the list is extracted.
+     */
+    async readAccountExcludedModels(name: string): Promise<string[] | null> {
+      return extractAccountExcludedModels(await api.downloadText(name));
+    },
+
+    /**
+     * Replace an account's own list. Always the canonical key: the backend normalizes stored
+     * metadata to `excluded_models` and only re-registers models when that key is patched.
+     * null or [] clears it, and the account follows the provider list again.
+     */
+    writeAccountExcludedModels: (name: string, rules: string[] | null) =>
+      api.patchFields(name, { excluded_models: rules ?? [] }),
 
     replaceOauthExcludedModels: (map: Record<string, string[]>) =>
       queueOauthMapWrite(OAUTH_EXCLUDED_MODELS_ENDPOINT, async () => {
