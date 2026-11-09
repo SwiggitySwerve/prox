@@ -17,6 +17,7 @@ import { buildMatrix, inventoryOf, type ListTarget } from '@/features/authFiles/
 import { useSourceFiles } from '@/stores/useCredentialInventoryStore';
 import { ModelAccessMatrix, type LockedCellInfo } from './ModelAccessMatrix';
 import { LockedCellDialog, ModelEditDialog } from './ModelEditDialog';
+import { ModelAliasesPanel } from './ModelAliasesPanel';
 import { ModelRulesPanel } from './ModelRulesPanel';
 import {
   countServed,
@@ -310,44 +311,6 @@ export function ModelsPage() {
     );
   };
 
-  const renderAliases = () => (
-    <section className={styles.rulesPanel}>
-      <h2>{t('model_access.aliases_title')}</h2>
-      <p className={styles.subtitle}>{t('model_access.aliases_body')}</p>
-      {inventory && inventory.aliases.length > 0 ? (
-        <ul className={styles.aliasList}>
-          {inventory.aliases.map((entry) => (
-            <li key={entry.alias}>
-              <span className={styles.modelId}>{entry.name}</span>
-              <span aria-hidden="true">→</span>
-              <span className={styles.aliasChip}>{entry.alias}</span>
-              {entry.fork && (
-                <span className={styles.metaNote}>{t('model_access.alias_fork')}</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className={styles.metaNote}>{t('model_access.aliases_none')}</p>
-      )}
-      <div className={styles.rulesActions}>
-        <Button
-          size="sm"
-          onClick={() =>
-            navigate(
-              `/auth-files/oauth-model-alias?source=${encodeURIComponent(
-                scope.source.instanceId
-              )}&provider=${encodeURIComponent(provider)}`,
-              { state: { fromAuthFiles: true, sourceOwner: scope.session.owner } }
-            )
-          }
-        >
-          {t('model_access.aliases_edit')}
-        </Button>
-      </div>
-    </section>
-  );
-
   let content: React.ReactNode;
   if (!provider) {
     content =
@@ -393,7 +356,7 @@ export function ModelsPage() {
       />
     );
   } else {
-    content = renderAliases();
+    content = <ModelAliasesPanel provider={provider} disabled={busy} />;
   }
 
   return (

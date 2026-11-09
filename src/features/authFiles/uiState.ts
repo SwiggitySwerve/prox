@@ -16,6 +16,8 @@ export type AuthFilesUiState = {
   regularPageSize?: number;
   compactPageSize?: number;
   sortMode?: AuthFilesSortMode;
+  /** Unified page only: the source filter ('all' or an instance id). */
+  source?: string;
 };
 
 const AUTH_FILES_UI_STATE_KEY = 'authFilesPage.uiState';

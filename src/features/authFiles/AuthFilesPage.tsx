@@ -1,22 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useInterval } from '@/hooks/useInterval';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { useRevealOnScroll } from '@/hooks/motion';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { IconRefreshCw, IconTrash2, IconUpload } from '@/components/ui/icons';
 import { copyToClipboard } from '@/utils/clipboard';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import {
   QUOTA_PROVIDER_TYPES,
-  clampCardPageSize,
   getTypeLabel,
   isProblemAuthFile,
   isRuntimeOnlyAuthFile,
-  normalizeProviderKey,
   type AuthFileQuotaFilter,
   type QuotaProviderType,
   type ResolvedTheme,
@@ -28,38 +26,39 @@ import { AuthFileRefreshResults } from '@/features/authFiles/components/AuthFile
 import { AuthFileModelsModal } from '@/features/authFiles/components/AuthFileModelsModal';
 import { AuthFilesToolbar } from '@/features/authFiles/components/AuthFilesToolbar';
 import { BatchActionBar } from '@/features/authFiles/components/BatchActionBar';
-import { OAuthExcludedCard } from '@/features/authFiles/components/OAuthExcludedCard';
-import { OAuthModelAliasCard } from '@/features/authFiles/components/OAuthModelAliasCard';
+import { ModelAccessSummary } from '@/features/authFiles/components/ModelAccessSummary';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
-import { VaultHeader } from '@/features/authFiles/components/VaultHeader';
 import { VaultPulse } from '@/features/authFiles/components/VaultPulse';
 import { invalidateAuthFileDerivedCaches } from '@/features/authFiles/cacheInvalidation';
-import {
-  buildWildcardSearch,
-  matchesAuthFileSearch,
-  sortAuthFiles,
-} from '@/features/authFiles/logic';
+import { sortAuthFiles } from '@/features/authFiles/logic';
 import { useAuthFilesData } from '@/features/authFiles/hooks/useAuthFilesData';
 import { useAuthFilesModels } from '@/features/authFiles/hooks/useAuthFilesModels';
 import { useAuthFilesOauth } from '@/features/authFiles/hooks/useAuthFilesOauth';
 import { useAuthFilesPrefixProxyEditor } from '@/features/authFiles/hooks/useAuthFilesPrefixProxyEditor';
 import { useAuthFilesStatusBarCache } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
+import { useAuthFilesFilters } from '@/features/authFiles/hooks/useAuthFilesFilters';
 import {
-  isAuthFilesStatusFilterMode,
-  isAuthFilesSortMode,
-  readAuthFilesUiState,
-  readPersistedAuthFilesCompactMode,
-  writeAuthFilesUiState,
-  writePersistedAuthFilesCompactMode,
-  type AuthFilesStatusFilterMode,
-  type AuthFilesSortMode,
-} from '@/features/authFiles/uiState';
+  filterAuthFiles,
+  groupByProvider,
+  listLoadState,
+  matchesStatusFilter,
+  providerOfAuthFile,
+  type AuthFilesFilters,
+} from '@/features/authFiles/unifiedList';
+import type { AuthFilesStatusFilterMode } from '@/features/authFiles/uiState';
 import { useThemeStore } from '@/stores';
-import { AuthFilesSourceNav } from '@/features/authFiles/components/AuthFilesSourceNav';
+import {
+  ALL_SOURCES,
+  AuthFilesSourceNav,
+} from '@/features/authFiles/components/AuthFilesSourceNav';
 import { useProviderSources } from '@/stores/useProviderSources';
 import { sourceOwnerKey } from '@/services/api/sourceSession';
-import { useCredentialInventoryStore } from '@/stores/useCredentialInventoryStore';
+import {
+  selectSourceFiles,
+  useCredentialInventoryStore,
+} from '@/stores/useCredentialInventoryStore';
 import type { SourceView } from '@/services/providerSources/registry';
+import type { AuthFileItem } from '@/types';
 import {
   AuthFilesSourceProvider,
   useAuthFilesSource,
@@ -67,29 +66,19 @@ import {
 } from './AuthFilesSourceContext';
 import styles from './AuthFilesPage.module.scss';
 
-const DEFAULT_REGULAR_PAGE_SIZE = 9;
-const DEFAULT_COMPACT_PAGE_SIZE = 12;
 const SKELETON_CARD_COUNT = 6;
-/** 首屏卡片级联入场总预算，与 useRevealGroup 同一 360ms 语汇。 */
+/** First-render cascade budget for cards, the same 360 ms vocabulary as useRevealGroup. */
 const CARD_ENTRANCE_BUDGET_MS = 360;
 
-const resolveStatusFilterMode = (
-  problemOnly: boolean,
-  disabledOnly: boolean
-): AuthFilesStatusFilterMode => {
-  if (problemOnly) return 'problem';
-  if (disabledOnly) return 'disabled';
-  return 'all';
-};
-
-const normalizePersistedStatusFilterMode = (value: unknown): AuthFilesStatusFilterMode | null => {
-  if (value === 'disabledProblem') return 'problem';
-  return isAuthFilesStatusFilterMode(value) ? value : null;
-};
-
+/**
+ * Auth Files across every source: one header, one filter bar, results grouped by source and then
+ * by provider. Each source group keeps its own actions, selection and pagination, because writes
+ * belong to one source; the filters and the credential data are shared.
+ */
 export function AuthFilesPage() {
   const { status, sources } = useProviderSources();
   const { t } = useTranslation();
+  const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const refreshers = useRef(new Map<string, () => Promise<void>>());
   const registerRefresh = useCallback((key: string, refresh: () => Promise<void>) => {
     refreshers.current.set(key, refresh);
@@ -102,19 +91,120 @@ export function AuthFilesPage() {
   }, []);
   useHeaderRefresh(refreshAllSources);
 
+  const filterState = useAuthFilesFilters(sources[0]?.source.instanceId);
+  const { filters } = filterState;
+
+  // One read of the shared credential store for the page-wide totals, chips and counts.
+  const inventorySources = useCredentialInventoryStore((state) => state.sources);
+  const filesBySource = useMemo(() => {
+    const result: Record<string, AuthFileItem[]> = {};
+    for (const view of sources) {
+      if (!view.session) continue;
+      result[view.source.instanceId] =
+        selectSourceFiles({ sources: inventorySources }, view.session.owner) ?? [];
+    }
+    return result;
+  }, [inventorySources, sources]);
+  const inScope = (instanceId: string) =>
+    filters.source === ALL_SOURCES || filters.source === instanceId;
+  const allFiles = Object.values(filesBySource).flat();
+  const scopedFiles = Object.entries(filesBySource)
+    .filter(([instanceId]) => inScope(instanceId))
+    .flatMap(([, files]) => files);
+  const statusFiltered = scopedFiles.filter((file) =>
+    matchesStatusFilter(file, filters.statusFilterMode)
+  );
+  const providerTypes = ['all', ...new Set(scopedFiles.map(providerOfAuthFile).filter(Boolean))];
+  const providerCounts: Record<string, number> = { all: statusFiltered.length };
+  statusFiltered.forEach((file) => {
+    const key = providerOfAuthFile(file);
+    if (key) providerCounts[key] = (providerCounts[key] ?? 0) + 1;
+  });
+  const sourceCounts: Record<string, number> = { [ALL_SOURCES]: allFiles.length };
+  Object.entries(filesBySource).forEach(([instanceId, files]) => {
+    sourceCounts[instanceId] = files.length;
+  });
+
+  const statusFilterOptions = useMemo(
+    () =>
+      [
+        { value: 'all', label: t('auth_files.problem_filter_all') },
+        { value: 'enabled', label: t('auth_files.problem_filter_enabled') },
+        { value: 'disabled', label: t('auth_files.problem_filter_disabled') },
+        { value: 'problem', label: t('auth_files.problem_filter_problem') },
+      ] satisfies Array<{ value: AuthFilesStatusFilterMode; label: string }>,
+    [t]
+  );
+  const sortOptions = useMemo(
+    () => [
+      { value: 'default', label: t('auth_files.sort_default') },
+      { value: 'az', label: t('auth_files.sort_az') },
+      { value: 'priority', label: t('auth_files.sort_priority') },
+    ],
+    [t]
+  );
+
+  const active = allFiles.filter((file) => file.disabled !== true).length;
+  const problem = allFiles.filter(isProblemAuthFile).length;
+
   return (
-    <div className={styles.sources}>
+    <div className={styles.page}>
+      <header className={styles.pageHeader}>
+        <h1>{t('auth_files.unified_title')}</h1>
+        <p className={styles.pageSummary}>
+          {t('auth_files.unified_summary', {
+            total: allFiles.length,
+            sources: sources.length,
+            active,
+            problem,
+          })}
+        </p>
+      </header>
       {status === 'loading' && <div role="status">{t('common.loading')}</div>}
       {(status === 'error' || status === 'disconnected') && (
         <div role="alert" className={styles.errorBanner}>
           {t('provider_sources.discovery_error')}
         </div>
       )}
-      <AuthFilesSourceNav sources={sources} />
+
+      <section className={styles.filterBar} aria-label={t('auth_files.unified_filters_label')}>
+        <AuthFilesSourceNav
+          sources={sources}
+          counts={sourceCounts}
+          active={filters.source}
+          onChange={filterState.setSource}
+        />
+        <ProviderTabs
+          types={providerTypes}
+          counts={providerCounts}
+          active={providerTypes.includes(filters.provider) ? filters.provider : 'all'}
+          resolvedTheme={resolvedTheme}
+          onChange={filterState.setProvider}
+        />
+        <AuthFilesToolbar
+          search={filters.search}
+          onSearchChange={filterState.setSearch}
+          statusFilterMode={filters.statusFilterMode}
+          statusFilterOptions={statusFilterOptions}
+          onStatusFilterChange={filterState.setStatusFilterMode}
+          sortMode={filters.sortMode}
+          sortOptions={sortOptions}
+          onSortModeChange={filterState.setSortMode}
+          pageSizeInput={filterState.pageSizeInput}
+          onPageSizeInputChange={filterState.handlePageSizeChange}
+          onPageSizeCommit={filterState.commitPageSizeInput}
+          compactMode={filters.compactMode}
+          onCompactModeChange={filterState.setCompactMode}
+        />
+      </section>
+
       {sources.map((view) => (
         <AuthFilesSourcePanel
           key={view.source.instanceId}
           view={view}
+          hidden={!inScope(view.source.instanceId)}
+          filters={filters}
+          onClearFilters={filterState.clear}
           registerRefresh={registerRefresh}
         />
       ))}
@@ -126,9 +216,15 @@ type RegisterRefresh = (key: string, refresh: () => Promise<void>) => () => void
 
 export function AuthFilesSourcePanel({
   view,
+  hidden,
+  filters,
+  onClearFilters,
   registerRefresh,
 }: {
   view: SourceView;
+  hidden: boolean;
+  filters: AuthFilesFilters;
+  onClearFilters: () => void;
   registerRefresh: RegisterRefresh;
 }) {
   const { t } = useTranslation();
@@ -137,29 +233,43 @@ export function AuthFilesSourcePanel({
       className={styles.sourcePanel}
       aria-label={view.source.label}
       data-source-id={view.source.instanceId}
+      hidden={hidden}
     >
-      <h2 className={styles.sourceHeading}>
-        <span>{t('quota_pool.runtime_source')}</span> {view.source.label}
-        <code>{view.source.instanceId}</code>
-      </h2>
       {view.status === 'ready' && view.session ? (
         <AuthFilesSourceProvider source={view.source} session={view.session}>
-          <AuthFilesSourceContent registerRefresh={registerRefresh} />
+          <AuthFilesSourceContent
+            filters={filters}
+            onClearFilters={onClearFilters}
+            registerRefresh={registerRefresh}
+          />
         </AuthFilesSourceProvider>
       ) : (
-        <div className={styles.errorBanner} role="alert">
-          {view.status === 'unauthorized'
-            ? t('provider_sources.authentication_required')
-            : t('auth_files.source_authentication_required', {
-                defaultValue: 'Sign in to this source to view its auth files.',
-              })}
-        </div>
+        <>
+          <h2 className={styles.sourceHeading}>
+            {view.source.label} <code>{view.source.instanceId}</code>
+          </h2>
+          <div className={styles.errorBanner} role="alert">
+            {view.status === 'unauthorized'
+              ? t('provider_sources.authentication_required')
+              : t('auth_files.source_authentication_required', {
+                  defaultValue: 'Sign in to this source to view its auth files.',
+                })}
+          </div>
+        </>
       )}
     </section>
   );
 }
 
-function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: RegisterRefresh }) {
+function AuthFilesSourceContent({
+  filters,
+  onClearFilters,
+  registerRefresh,
+}: {
+  filters: AuthFilesFilters;
+  onClearFilters: () => void;
+  registerRefresh: RegisterRefresh;
+}) {
   const { t } = useTranslation();
   const sourceScope = useAuthFilesSource();
   const { showNotification } = useAuthFilesNotifications();
@@ -167,20 +277,9 @@ function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: Register
   const pageTransitionLayer = usePageTransitionLayer();
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
   const navigate = useNavigate();
-
-  const [filter, setFilter] = useState<'all' | string>('all');
-  const [statusFilterMode, setStatusFilterMode] = useState<AuthFilesStatusFilterMode>('all');
-  const [compactMode, setCompactMode] = useState(false);
-  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSizeByMode, setPageSizeByMode] = useState({
-    regular: DEFAULT_REGULAR_PAGE_SIZE,
-    compact: DEFAULT_COMPACT_PAGE_SIZE,
-  });
-  const [pageSizeInput, setPageSizeInput] = useState('9');
-  const [viewMode, setViewMode] = useState<'diagram' | 'list'>('list');
-  const [sortMode, setSortMode] = useState<AuthFilesSortMode>('default');
-  const [uiStateHydrated, setUiStateHydrated] = useState(false);
+  // Every filter change returns this group to its first page.
+  useEffect(() => setPage(1), [filters.revision]);
 
   const {
     modelsModalOpen,
@@ -250,22 +349,11 @@ function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: Register
 
   const statusBarCache = useAuthFilesStatusBarCache(files);
 
-  const {
-    excluded,
-    excludedError,
-    modelAlias,
-    modelAliasError,
-    allProviderModels,
-    loadExcluded,
-    loadModelAlias,
-    deleteExcluded,
-    deleteModelAlias,
-    handleMappingUpdate,
-    handleDeleteLink,
-    handleToggleFork,
-    handleRenameAlias,
-    handleDeleteAlias,
-  } = useAuthFilesOauth({ viewMode, files });
+  // Only the provider lists and alias counts are needed here; edits happen on the Models screen.
+  const { excluded, excludedError, modelAlias, loadExcluded, loadModelAlias } = useAuthFilesOauth({
+    viewMode: 'list',
+    files,
+  });
 
   const {
     prefixProxyEditor,
@@ -282,187 +370,20 @@ function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: Register
   });
 
   const disableControls = !sourceScope.isCurrent() || refreshingAllCredentials;
-  const normalizedFilter = normalizeProviderKey(String(filter));
   const quotaFilterType: QuotaProviderType | null = QUOTA_PROVIDER_TYPES.has(
-    normalizedFilter as QuotaProviderType
+    filters.provider as QuotaProviderType
   )
-    ? (normalizedFilter as QuotaProviderType)
+    ? (filters.provider as QuotaProviderType)
     : null;
   const activeQuotaFilter: AuthFileQuotaFilter =
-    normalizedFilter === 'all' ? 'all' : (quotaFilterType ?? normalizedFilter) || null;
-  const pageSize = compactMode ? pageSizeByMode.compact : pageSizeByMode.regular;
-  const problemOnly = statusFilterMode === 'problem';
-  const disabledOnly = statusFilterMode === 'disabled';
-  const enabledOnly = statusFilterMode === 'enabled';
+    filters.provider === 'all' ? 'all' : (quotaFilterType ?? filters.provider) || null;
+  const problemOnly = filters.statusFilterMode === 'problem';
+  const disabledOnly = filters.statusFilterMode === 'disabled';
+  const enabledOnly = filters.statusFilterMode === 'enabled';
 
-  /* Source-local filters and pagination; compact density remains a shared display preference. */
-
-  useEffect(() => {
-    const persistedCompactMode = readPersistedAuthFilesCompactMode();
-    if (typeof persistedCompactMode === 'boolean') {
-      setCompactMode(persistedCompactMode);
-    }
-
-    const persisted = readAuthFilesUiState(sourceScope.source.instanceId);
-    if (persisted) {
-      if (typeof persisted.filter === 'string' && persisted.filter.trim()) {
-        setFilter(normalizeProviderKey(persisted.filter));
-      }
-      const persistedStatusFilterMode = normalizePersistedStatusFilterMode(
-        persisted.statusFilterMode
-      );
-      if (persistedStatusFilterMode) {
-        setStatusFilterMode(persistedStatusFilterMode);
-      } else if (
-        typeof persisted.problemOnly === 'boolean' ||
-        typeof persisted.disabledOnly === 'boolean'
-      ) {
-        setStatusFilterMode(
-          resolveStatusFilterMode(persisted.problemOnly === true, persisted.disabledOnly === true)
-        );
-      }
-      if (typeof persistedCompactMode !== 'boolean' && typeof persisted.compactMode === 'boolean') {
-        setCompactMode(persisted.compactMode);
-      }
-      if (typeof persisted.search === 'string') {
-        setSearch(persisted.search);
-      }
-      if (typeof persisted.page === 'number' && Number.isFinite(persisted.page)) {
-        setPage(Math.max(1, Math.round(persisted.page)));
-      }
-      const legacyPageSize =
-        typeof persisted.pageSize === 'number' && Number.isFinite(persisted.pageSize)
-          ? clampCardPageSize(persisted.pageSize)
-          : null;
-      const regularPageSize =
-        typeof persisted.regularPageSize === 'number' && Number.isFinite(persisted.regularPageSize)
-          ? clampCardPageSize(persisted.regularPageSize)
-          : (legacyPageSize ?? DEFAULT_REGULAR_PAGE_SIZE);
-      const compactPageSize =
-        typeof persisted.compactPageSize === 'number' && Number.isFinite(persisted.compactPageSize)
-          ? clampCardPageSize(persisted.compactPageSize)
-          : (legacyPageSize ?? DEFAULT_COMPACT_PAGE_SIZE);
-      setPageSizeByMode({
-        regular: regularPageSize,
-        compact: compactPageSize,
-      });
-      if (isAuthFilesSortMode(persisted.sortMode)) {
-        setSortMode(persisted.sortMode);
-      }
-    }
-
-    setUiStateHydrated(true);
-  }, [sourceScope.source.instanceId]);
-
-  useEffect(() => {
-    if (!uiStateHydrated) return;
-
-    writeAuthFilesUiState(
-      {
-        filter,
-        statusFilterMode,
-        problemOnly,
-        disabledOnly,
-        compactMode,
-        search,
-        page,
-        pageSize,
-        regularPageSize: pageSizeByMode.regular,
-        compactPageSize: pageSizeByMode.compact,
-        sortMode,
-      },
-      sourceScope.source.instanceId
-    );
-    writePersistedAuthFilesCompactMode(compactMode);
-  }, [
-    sourceScope.source.instanceId,
-    compactMode,
-    disabledOnly,
-    filter,
-    page,
-    pageSize,
-    pageSizeByMode,
-    problemOnly,
-    search,
-    sortMode,
-    statusFilterMode,
-    uiStateHydrated,
-  ]);
-
-  useEffect(() => {
-    setPageSizeInput(String(pageSize));
-  }, [pageSize]);
-
-  const setCurrentModePageSize = useCallback(
-    (next: number) => {
-      setPageSizeByMode((current) =>
-        compactMode ? { ...current, compact: next } : { ...current, regular: next }
-      );
-    },
-    [compactMode]
-  );
-
-  const commitPageSizeInput = useCallback(
-    (rawValue: string) => {
-      const trimmed = rawValue.trim();
-      if (!trimmed) {
-        setPageSizeInput(String(pageSize));
-        return;
-      }
-
-      const value = Number(trimmed);
-      if (!Number.isFinite(value)) {
-        setPageSizeInput(String(pageSize));
-        return;
-      }
-
-      const next = clampCardPageSize(value);
-      setCurrentModePageSize(next);
-      setPageSizeInput(String(next));
-      setPage(1);
-    },
-    [pageSize, setCurrentModePageSize]
-  );
-
-  const handlePageSizeChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const rawValue = event.currentTarget.value;
-      setPageSizeInput(rawValue);
-
-      const trimmed = rawValue.trim();
-      if (!trimmed) return;
-
-      const parsed = Number(trimmed);
-      if (!Number.isFinite(parsed)) return;
-
-      const rounded = Math.round(parsed);
-      // 超出 [MIN, MAX] 时不提交（clamp 后不等于原值即越界）
-      if (clampCardPageSize(rounded) !== rounded) return;
-
-      setCurrentModePageSize(rounded);
-      setPage(1);
-    },
-    [setCurrentModePageSize]
-  );
-
-  const handleSortModeChange = useCallback(
-    (value: string) => {
-      if (!isAuthFilesSortMode(value) || value === sortMode) return;
-      setSortMode(value);
-      setPage(1);
-    },
-    [sortMode]
-  );
-
-  const handleStatusFilterModeChange = useCallback((nextMode: AuthFilesStatusFilterMode) => {
-    setStatusFilterMode(nextMode);
-    setPage(1);
-  }, []);
-
-  /* ---------- 数据加载：首载前台（骨架屏），此后一律后台（不清空网格） ---------- */
+  /* ---------- loading: foreground the first time (skeletons), background afterwards ---------- */
 
   const initialLoadDoneRef = useRef(false);
-
   const handleHeaderRefresh = useCallback(async () => {
     await Promise.all([loadFiles({ background: true }), loadExcluded(), loadModelAlias()]);
   }, [loadFiles, loadExcluded, loadModelAlias]);
@@ -487,77 +408,35 @@ function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: Register
     isCurrentLayer ? 240_000 : null
   );
 
-  /* ---------- 过滤 / 排序 / 分页 memos ---------- */
+  /* ---------- filter / sort / group / paginate ---------- */
 
-  const existingTypes = useMemo(() => {
-    const types = new Set<string>(['all']);
-    files.forEach((file) => {
-      const type = normalizeProviderKey(String(file.type ?? file.provider ?? ''));
-      if (type) types.add(type);
-    });
-    return Array.from(types);
-  }, [files]);
-
-  const filesMatchingStatusFilters = useMemo(
-    () =>
-      files.filter((file) => {
-        if (enabledOnly && file.disabled === true) return false;
-        if (disabledOnly && file.disabled !== true) return false;
-        if (problemOnly && !isProblemAuthFile(file)) return false;
-        return true;
-      }),
-    [disabledOnly, enabledOnly, files, problemOnly]
+  const sorted = useMemo(
+    () => groupByProvider(sortAuthFiles(filterAuthFiles(files, filters), filters.sortMode)),
+    [files, filters]
   );
-
-  const statusFilterOptions = useMemo(
-    () =>
-      [
-        { value: 'all', label: t('auth_files.problem_filter_all') },
-        { value: 'enabled', label: t('auth_files.problem_filter_enabled') },
-        { value: 'disabled', label: t('auth_files.problem_filter_disabled') },
-        { value: 'problem', label: t('auth_files.problem_filter_problem') },
-      ] satisfies Array<{ value: AuthFilesStatusFilterMode; label: string }>,
-    [t]
-  );
-
-  const sortOptions = useMemo(
-    () => [
-      { value: 'default', label: t('auth_files.sort_default') },
-      { value: 'az', label: t('auth_files.sort_az') },
-      { value: 'priority', label: t('auth_files.sort_priority') },
-    ],
-    [t]
-  );
-
-  const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: filesMatchingStatusFilters.length };
-    filesMatchingStatusFilters.forEach((file) => {
-      const type = normalizeProviderKey(String(file.type ?? file.provider ?? ''));
-      if (!type) return;
-      counts[type] = (counts[type] || 0) + 1;
-    });
-    return counts;
-  }, [filesMatchingStatusFilters]);
-
-  const normalizedSearch = search.trim();
-  const wildcardSearch = useMemo(() => buildWildcardSearch(normalizedSearch), [normalizedSearch]);
-
-  const filtered = useMemo(
-    () =>
-      filesMatchingStatusFilters.filter((item) => {
-        const type = normalizeProviderKey(String(item.type ?? item.provider ?? ''));
-        const matchType = normalizedFilter === 'all' || type === normalizedFilter;
-        return matchType && matchesAuthFileSearch(item, normalizedSearch, wildcardSearch);
-      }),
-    [filesMatchingStatusFilters, normalizedFilter, normalizedSearch, wildcardSearch]
-  );
-
-  const sorted = useMemo(() => sortAuthFiles(filtered, sortMode), [filtered, sortMode]);
-
+  const pageSize = filters.pageSize;
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const start = (currentPage - 1) * pageSize;
   const pageItems = useMemo(() => sorted.slice(start, start + pageSize), [pageSize, sorted, start]);
+  const pageGroups = useMemo(() => {
+    const groups: Array<{ provider: string; items: AuthFileItem[] }> = [];
+    pageItems.forEach((file) => {
+      const key = providerOfAuthFile(file);
+      const last = groups[groups.length - 1];
+      if (last && last.provider === key) last.items.push(file);
+      else groups.push({ provider: key, items: [file] });
+    });
+    return groups;
+  }, [pageItems]);
+  const providerTotals = useMemo(() => {
+    const counts: Record<string, number> = {};
+    sorted.forEach((file) => {
+      const key = providerOfAuthFile(file);
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
+    return counts;
+  }, [sorted]);
   const selectablePageItems = useMemo(
     () => pageItems.filter((file) => !isRuntimeOnlyAuthFile(file)),
     [pageItems]
@@ -581,30 +460,25 @@ function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: Register
     batchStatusUpdating ||
     selectedHasStatusUpdating;
 
-  /* ---------- 头部遥测计数 ---------- */
-
   const activeCount = useMemo(() => files.filter((file) => file.disabled !== true).length, [files]);
   const problemCount = useMemo(() => files.filter(isProblemAuthFile).length, [files]);
+  const sourceProviders = useMemo(
+    () => [...new Set(files.map(providerOfAuthFile).filter((key) => key && key !== 'unknown'))],
+    [files]
+  );
 
-  /* ---------- 首屏卡片一次性级联入场 ----------
-   * 首批数据渲染后立即翻转 cardsAnimated；已挂载的卡片在挂载时捕获过
-   * 自己的延迟（AuthFileCard 内 useState 初始化），不受后续 null 影响，
-   * 而过滤/翻页/轮询新挂载的卡片拿到 null——不重播。 */
+  /* ---------- one-time card entrance cascade (see AuthFileCard) ---------- */
 
   const [cardsAnimated, setCardsAnimated] = useState(false);
   const enableCardEntrance = !cardsAnimated && isCurrentLayer && !loading && pageItems.length > 0;
   useEffect(() => {
-    if (enableCardEntrance) {
-      setCardsAnimated(true);
-    }
+    if (enableCardEntrance) setCardsAnimated(true);
   }, [enableCardEntrance]);
   const cardEntranceDelay = (index: number): number | null => {
     if (!enableCardEntrance) return null;
     if (pageItems.length <= 1) return 0;
     return Math.round((index / (pageItems.length - 1)) * CARD_ENTRANCE_BUDGET_MS);
   };
-
-  /* ---------- 杂项 ---------- */
 
   const copyTextWithNotification = useCallback(
     async (text: string) => {
@@ -619,90 +493,117 @@ function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: Register
     [showNotification, t]
   );
 
-  const openExcludedEditor = useCallback(
+  const openModels = useCallback(
     (provider?: string) => {
-      const providerValue = (provider || (filter !== 'all' ? String(filter) : '')).trim();
       sourceScope.assertCurrent();
       const params = new URLSearchParams({ source: sourceScope.source.instanceId });
-      if (providerValue) {
-        params.set('provider', providerValue);
-      }
-      const nextSearch = params.toString();
-      navigate(`/auth-files/oauth-excluded${nextSearch ? `?${nextSearch}` : ''}`, {
+      if (provider) params.set('provider', provider);
+      navigate(`/auth-files/models?${params.toString()}`, {
         state: { fromAuthFiles: true, sourceOwner: sourceScope.session.owner },
       });
     },
-    [filter, navigate, sourceScope]
+    [navigate, sourceScope]
   );
-
-  const openModelAliasEditor = useCallback(
-    (provider?: string) => {
-      const providerValue = (provider || (filter !== 'all' ? String(filter) : '')).trim();
-      sourceScope.assertCurrent();
-      const params = new URLSearchParams({ source: sourceScope.source.instanceId });
-      if (providerValue) {
-        params.set('provider', providerValue);
-      }
-      const nextSearch = params.toString();
-      navigate(`/auth-files/oauth-model-alias${nextSearch ? `?${nextSearch}` : ''}`, {
-        state: { fromAuthFiles: true, sourceOwner: sourceScope.session.owner },
-      });
-    },
-    [filter, navigate, sourceScope]
-  );
-
-  const clearFilters = useCallback(() => {
-    setFilter('all');
-    setStatusFilterMode('all');
-    setSearch('');
-    setPage(1);
-  }, []);
 
   const deleteAllButtonLabel = (() => {
-    if (enabledOnly || disabledOnly) {
-      return t('auth_files.delete_filtered_result_button');
-    }
+    if (enabledOnly || disabledOnly) return t('auth_files.delete_filtered_result_button');
     if (problemOnly) {
-      return normalizedFilter === 'all'
+      return filters.provider === 'all'
         ? t('auth_files.delete_problem_button')
         : t('auth_files.delete_problem_button_with_type', {
-            type: getTypeLabel(t, normalizedFilter),
+            type: getTypeLabel(t, filters.provider),
           });
     }
-    return normalizedFilter === 'all'
+    return filters.provider === 'all'
       ? t('auth_files.delete_all_button')
-      : `${t('common.delete')} ${getTypeLabel(t, normalizedFilter)}`;
+      : `${t('common.delete')} ${getTypeLabel(t, filters.provider)}`;
   })();
 
-  const oauthSectionRef = useRevealOnScroll<HTMLDivElement>();
-
-  const isFirstRunEmpty = !loading && files.length === 0 && !error;
+  const listState = listLoadState({ loading, refreshing, error, fileCount: files.length });
+  const isFirstRunEmpty = listState === 'empty';
   const isNoResults = !loading && files.length > 0 && pageItems.length === 0;
 
   const gridClasses = [
     styles.grid,
-    compactMode ? styles.gridCompact : '',
+    filters.compactMode ? styles.gridCompact : '',
     activeQuotaFilter ? styles.gridQuota : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <div className={styles.page}>
-      <VaultHeader
-        totalCount={files.length}
-        activeCount={activeCount}
-        problemCount={problemCount}
-        loading={loading}
-        refreshing={refreshing}
-        uploading={uploading}
-        disableControls={disableControls}
-        onUpload={handleUploadClick}
-        onRefresh={() => void handleHeaderRefresh()}
-        refreshingCredentials={refreshingAllCredentials}
-        credentialRefreshDisabled={Object.keys(manualRefreshing).length > 0}
-        onRefreshCredentials={handleRefreshAllCredentials}
-      />
+    <div className={styles.sourceGroup} data-machine="auth-files-list" data-state={listState}>
+      <header className={styles.groupHeader}>
+        <div className={styles.groupTitle}>
+          <h2 className={styles.sourceHeading}>
+            {sourceScope.source.label} <code>{sourceScope.source.instanceId}</code>
+          </h2>
+          <p className={styles.groupMeta}>
+            <span>
+              {t('auth_files.unified_group_count', { shown: sorted.length, total: files.length })}
+            </span>
+            <span>{t('auth_files.meta_active', { count: activeCount })}</span>
+            {problemCount > 0 && (
+              <span className={styles.groupProblem}>
+                {t('auth_files.meta_problem', { count: problemCount })}
+              </span>
+            )}
+            {refreshing && <span role="status">{t('common.loading')}</span>}
+          </p>
+        </div>
+        <div className={styles.groupActions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => openModels()}
+            aria-label={t('auth_files.unified_models_link_aria', {
+              source: sourceScope.source.label,
+            })}
+          >
+            {t('auth_files.unified_models_link')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefreshAllCredentials}
+            loading={refreshingAllCredentials}
+            disabled={disableControls || Object.keys(manualRefreshing).length > 0}
+          >
+            <IconRefreshCw size={14} aria-hidden="true" /> {t('auth_files.refresh_all_button')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleUploadClick}
+            loading={uploading}
+            disabled={disableControls || uploading}
+          >
+            <IconUpload size={14} aria-hidden="true" /> {t('auth_files.upload_button')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={styles.groupDelete}
+            disabled={disableControls || loading || deletingAll || files.length === 0}
+            loading={deletingAll}
+            onClick={() =>
+              handleDeleteAll({
+                filter: filters.provider,
+                problemOnly,
+                disabledOnly,
+                enabledOnly,
+                // The page owns the filters; they stay as they are after a delete.
+                onResetFilterToAll: () => {},
+                onResetProblemOnly: () => {},
+                onResetDisabledOnly: () => {},
+                onResetEnabledOnly: () => {},
+              })
+            }
+          >
+            <IconTrash2 size={14} aria-hidden="true" /> {deleteAllButtonLabel}
+          </Button>
+        </div>
+      </header>
       <AuthFileRefreshResults results={refreshResults} onClose={closeRefreshResults} />
       <input
         ref={fileInputRef}
@@ -715,189 +616,131 @@ function AuthFilesSourceContent({ registerRefresh }: { registerRefresh: Register
 
       <VaultPulse files={files} statusBarCache={statusBarCache} />
 
-      <section className={styles.workbench} aria-label={t('auth_files.title_section')}>
-        <ProviderTabs
-          types={existingTypes}
-          counts={typeCounts}
-          active={normalizedFilter}
-          resolvedTheme={resolvedTheme}
-          onChange={(type) => {
-            setFilter(type);
-            setPage(1);
-          }}
-        />
+      {error && (
+        <div className={styles.errorBanner} role="alert">
+          {error}
+        </div>
+      )}
 
-        <AuthFilesToolbar
-          search={search}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          statusFilterMode={statusFilterMode}
-          statusFilterOptions={statusFilterOptions}
-          onStatusFilterChange={handleStatusFilterModeChange}
-          sortMode={sortMode}
-          sortOptions={sortOptions}
-          onSortModeChange={handleSortModeChange}
-          pageSizeInput={pageSizeInput}
-          onPageSizeInputChange={handlePageSizeChange}
-          onPageSizeCommit={commitPageSizeInput}
-          compactMode={compactMode}
-          onCompactModeChange={setCompactMode}
-          deleteLabel={deleteAllButtonLabel}
-          deleteDisabled={disableControls || loading || deletingAll || files.length === 0}
-          deleteLoading={deletingAll}
-          onDelete={() =>
-            handleDeleteAll({
-              filter,
-              problemOnly,
-              disabledOnly,
-              enabledOnly,
-              onResetFilterToAll: () => setFilter('all'),
-              onResetProblemOnly: () => setStatusFilterMode('all'),
-              onResetDisabledOnly: () => setStatusFilterMode('all'),
-              onResetEnabledOnly: () => setStatusFilterMode('all'),
-            })
+      {loading ? (
+        <div className={gridClasses} aria-hidden="true">
+          {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+            <Skeleton key={index} height={206} rounded={14} />
+          ))}
+        </div>
+      ) : isFirstRunEmpty ? (
+        <EmptyState
+          title={t('auth_files.empty_title')}
+          description={t('auth_files.empty_desc')}
+          action={
+            <div className={styles.emptyActions}>
+              <Button size="sm" onClick={handleUploadClick} disabled={disableControls || uploading}>
+                {t('auth_files.upload_button')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  navigate(`/oauth?source=${encodeURIComponent(sourceScope.source.instanceId)}`, {
+                    state: { sourceOwner: sourceScope.session.owner },
+                  })
+                }
+              >
+                {t('auth_files.empty_oauth_link')}
+              </Button>
+            </div>
           }
         />
-
-        {error && (
-          <div className={styles.errorBanner} role="alert">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className={gridClasses} aria-hidden="true">
-            {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
-              <Skeleton key={index} height={206} rounded={14} />
-            ))}
-          </div>
-        ) : isFirstRunEmpty ? (
-          <EmptyState
-            title={t('auth_files.empty_title')}
-            description={t('auth_files.empty_desc')}
-            action={
-              <div className={styles.emptyActions}>
-                <Button
-                  size="sm"
-                  onClick={handleUploadClick}
-                  disabled={disableControls || uploading}
-                >
-                  {t('auth_files.upload_button')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    navigate(`/oauth?source=${encodeURIComponent(sourceScope.source.instanceId)}`, {
-                      state: { sourceOwner: sourceScope.session.owner },
-                    })
-                  }
-                >
-                  {t('auth_files.empty_oauth_link')}
-                </Button>
+      ) : isNoResults ? (
+        <EmptyState
+          title={t('auth_files.unified_group_filtered_out')}
+          action={
+            <Button variant="secondary" size="sm" onClick={onClearFilters}>
+              {t('auth_files.no_results_clear')}
+            </Button>
+          }
+        />
+      ) : (
+        pageGroups.map((group) => {
+          const offset = pageItems.indexOf(group.items[0]);
+          return (
+            <div key={group.provider} className={styles.providerGroup}>
+              {filters.provider === 'all' && (
+                <h3 className={styles.providerHeading}>
+                  {t('auth_files.unified_provider_heading', {
+                    provider: getTypeLabel(t, group.provider),
+                    count: providerTotals[group.provider] ?? group.items.length,
+                  })}
+                </h3>
+              )}
+              <div className={gridClasses}>
+                {group.items.map((file, index) => (
+                  <AuthFileCard
+                    key={getQuotaCacheKey(file)}
+                    file={file}
+                    compact={filters.compactMode}
+                    selected={selectedFiles.has(file.name)}
+                    resolvedTheme={resolvedTheme}
+                    disableControls={disableControls}
+                    deleting={deleting}
+                    statusUpdating={statusUpdating}
+                    manualRefreshing={manualRefreshing}
+                    cooldownResetting={cooldownResetting}
+                    quotaFilterType={activeQuotaFilter}
+                    statusBarCache={statusBarCache}
+                    entranceDelayMs={cardEntranceDelay(offset + index)}
+                    onShowModels={showModels}
+                    onDownload={handleDownload}
+                    onManualRefresh={handleManualRefresh}
+                    onCooldownReset={handleCooldownReset}
+                    onOpenPrefixProxyEditor={openPrefixProxyEditor}
+                    onDelete={handleDelete}
+                    onToggleStatus={handleStatusToggle}
+                    onToggleSelect={toggleSelect}
+                  />
+                ))}
               </div>
-            }
-          />
-        ) : isNoResults ? (
-          <EmptyState
-            title={t('auth_files.search_empty_title')}
-            description={t('auth_files.search_empty_desc')}
-            action={
-              <Button variant="secondary" size="sm" onClick={clearFilters}>
-                {t('auth_files.no_results_clear')}
-              </Button>
-            }
-          />
-        ) : (
-          <div className={gridClasses}>
-            {pageItems.map((file, index) => (
-              <AuthFileCard
-                key={getQuotaCacheKey(file)}
-                file={file}
-                compact={compactMode}
-                selected={selectedFiles.has(file.name)}
-                resolvedTheme={resolvedTheme}
-                disableControls={disableControls}
-                deleting={deleting}
-                statusUpdating={statusUpdating}
-                manualRefreshing={manualRefreshing}
-                cooldownResetting={cooldownResetting}
-                quotaFilterType={activeQuotaFilter}
-                statusBarCache={statusBarCache}
-                entranceDelayMs={cardEntranceDelay(index)}
-                onShowModels={showModels}
-                onDownload={handleDownload}
-                onManualRefresh={handleManualRefresh}
-                onCooldownReset={handleCooldownReset}
-                onOpenPrefixProxyEditor={openPrefixProxyEditor}
-                onDelete={handleDelete}
-                onToggleStatus={handleStatusToggle}
-                onToggleSelect={toggleSelect}
-              />
-            ))}
-          </div>
-        )}
-
-        {!loading && sorted.length > pageSize && (
-          <div className={styles.pagination}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage <= 1}
-            >
-              {t('auth_files.pagination_prev')}
-            </Button>
-            <div className={styles.pageInfo}>
-              {t('auth_files.pagination_info', {
-                current: currentPage,
-                total: totalPages,
-                count: sorted.length,
-              })}
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage >= totalPages}
-            >
-              {t('auth_files.pagination_next')}
-            </Button>
+          );
+        })
+      )}
+
+      {!loading && sorted.length > pageSize && (
+        <div className={styles.pagination}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage <= 1}
+          >
+            {t('auth_files.pagination_prev')}
+          </Button>
+          <div className={styles.pageInfo}>
+            {t('auth_files.pagination_info', {
+              current: currentPage,
+              total: totalPages,
+              count: sorted.length,
+            })}
           </div>
-        )}
-      </section>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage >= totalPages}
+          >
+            {t('auth_files.pagination_next')}
+          </Button>
+        </div>
+      )}
 
-      <div className={styles.configGrid} ref={oauthSectionRef}>
-        <OAuthExcludedCard
-          disableControls={disableControls}
-          excludedError={excludedError}
-          excluded={excluded}
-          onRetry={loadExcluded}
-          onAdd={() => openExcludedEditor()}
-          onEdit={openExcludedEditor}
-          onDelete={deleteExcluded}
-        />
-
-        <OAuthModelAliasCard
-          disableControls={disableControls}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onRetry={loadModelAlias}
-          onAdd={() => openModelAliasEditor()}
-          onEditProvider={openModelAliasEditor}
-          onDeleteProvider={deleteModelAlias}
-          modelAliasError={modelAliasError}
-          modelAlias={modelAlias}
-          allProviderModels={allProviderModels}
-          onUpdate={handleMappingUpdate}
-          onDeleteLink={handleDeleteLink}
-          onToggleFork={handleToggleFork}
-          onRenameAlias={handleRenameAlias}
-          onDeleteAlias={handleDeleteAlias}
-        />
-      </div>
+      <ModelAccessSummary
+        providers={sourceProviders}
+        excluded={excluded}
+        excludedError={excludedError}
+        modelAlias={modelAlias}
+        onRetry={loadExcluded}
+        onOpen={openModels}
+      />
 
       <AuthFileModelsModal
         open={modelsModalOpen}

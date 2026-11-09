@@ -5,14 +5,8 @@ import { Select } from '@/components/ui/Select';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconSearch, IconSlidersHorizontal, IconTrash2 } from '@/components/ui/icons';
-import {
-  MAX_CARD_PAGE_SIZE,
-  MIN_CARD_PAGE_SIZE,
-} from '@/features/authFiles/constants';
-import type {
-  AuthFilesSortMode,
-  AuthFilesStatusFilterMode,
-} from '@/features/authFiles/uiState';
+import { MAX_CARD_PAGE_SIZE, MIN_CARD_PAGE_SIZE } from '@/features/authFiles/constants';
+import type { AuthFilesSortMode, AuthFilesStatusFilterMode } from '@/features/authFiles/uiState';
 import styles from './AuthFilesToolbar.module.scss';
 
 export type AuthFilesToolbarProps = {
@@ -29,10 +23,11 @@ export type AuthFilesToolbarProps = {
   onPageSizeCommit: (rawValue: string) => void;
   compactMode: boolean;
   onCompactModeChange: (value: boolean) => void;
-  deleteLabel: string;
-  deleteDisabled: boolean;
-  deleteLoading: boolean;
-  onDelete: () => void;
+  /** Omit to render no delete action (the unified page deletes per source group). */
+  deleteLabel?: string;
+  deleteDisabled?: boolean;
+  deleteLoading?: boolean;
+  onDelete?: () => void;
 };
 
 /**
@@ -138,7 +133,7 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
           aria-expanded={displaySettingsOpen}
           aria-controls="auth-files-display-settings"
           title={t('auth_files.display_options_label')}
-        onClick={() => setDisplaySettingsOpen((open) => !open)}
+          onClick={() => setDisplaySettingsOpen((open) => !open)}
         >
           <IconSlidersHorizontal size={15} />
           <span>{t('auth_files.display_options_label')}</span>
@@ -177,15 +172,17 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
         )}
       </div>
 
-      <button
-        type="button"
-        className={styles.deleteAction}
-        onClick={onDelete}
-        disabled={deleteDisabled}
-      >
-        {deleteLoading ? <LoadingSpinner size={13} /> : <IconTrash2 size={14} />}
-        {deleteLabel}
-      </button>
+      {onDelete && (
+        <button
+          type="button"
+          className={styles.deleteAction}
+          onClick={onDelete}
+          disabled={deleteDisabled}
+        >
+          {deleteLoading ? <LoadingSpinner size={13} /> : <IconTrash2 size={14} />}
+          {deleteLabel}
+        </button>
+      )}
     </div>
   );
 }
