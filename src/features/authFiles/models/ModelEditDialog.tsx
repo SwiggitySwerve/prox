@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -29,6 +29,11 @@ type Props = {
 export function ModelEditDialog(props: Props) {
   const { t } = useTranslation();
   const { session, inventory } = props;
+  // Keep the Modal mounted and drive `open`, so it can move focus in, restore it on close and
+  // animate out; the last non-idle state stays on screen while it closes.
+  const [shown, setShown] = useState<EditSession>(session);
+  if (session.status !== 'idle' && session !== shown) setShown(session);
+  const view = session.status === 'idle' ? shown : session;
   const labelOf = (name: string) =>
     inventory?.accounts.find((account) => account.name === name)?.label ?? name;
   const names = (list: string[]) => list.map(labelOf).join(', ');
@@ -188,11 +193,14 @@ export function ModelEditDialog(props: Props) {
     </Button>
   );
 
-  switch (session.status) {
+  switch (view.status) {
     case 'idle':
-      return null;
+      title = '';
+      body = null;
+      footer = null;
+      break;
     case 'choosing': {
-      const intent = session.intent;
+      const intent = view.intent;
       const accountName = intent.type === 'account-model' ? intent.account : '';
       const inheriting =
         inventory?.accounts.filter(
@@ -229,7 +237,7 @@ export function ModelEditDialog(props: Props) {
     }
     case 'previewing':
       title = t('model_access.preview_title');
-      body = renderPlan(session.plan);
+      body = renderPlan(view.plan);
       footer = (
         <>
           <Button variant="secondary" onClick={props.onClose}>
@@ -237,10 +245,10 @@ export function ModelEditDialog(props: Props) {
           </Button>
           <Button
             onClick={props.onApply}
-            disabled={!session.plan.canApply}
+            disabled={!view.plan.canApply}
             data-testid="write-plan-apply"
           >
-            {t('model_access.apply', { count: session.plan.writes.length })}
+            {t('model_access.apply', { count: view.plan.writes.length })}
           </Button>
         </>
       );
@@ -248,7 +256,7 @@ export function ModelEditDialog(props: Props) {
     case 'saving':
     case 'rolling-back':
       title =
-        session.status === 'saving'
+        view.status === 'saving'
           ? t('model_access.saving_title')
           : t('model_access.rolling_back_title');
       body = <p role="status">{t('model_access.saving_body')}</p>;
@@ -259,25 +267,25 @@ export function ModelEditDialog(props: Props) {
       body = (
         <div className={styles.planBody}>
           <p>{t('model_access.saved_body')}</p>
-          {renderOutcomes(session.outcomes)}
+          {renderOutcomes(view.outcomes)}
         </div>
       );
       footer = close;
       break;
     case 'partial-failure':
-      title = session.rollback
+      title = view.rollback
         ? t('model_access.rollback_partial_title')
         : t('model_access.partial_title');
       body = (
         <div className={styles.planBody}>
           <p role="alert">{t('model_access.partial_body')}</p>
-          {renderOutcomes(session.outcomes)}
+          {renderOutcomes(view.outcomes)}
         </div>
       );
       footer = (
         <>
           {close}
-          {!session.rollback && (
+          {!view.rollback && (
             <Button
               variant="secondary"
               onClick={props.onRollback}
@@ -297,11 +305,11 @@ export function ModelEditDialog(props: Props) {
       body = (
         <div className={styles.planBody}>
           <p role="alert">
-            {session.message
-              ? t('model_access.failed_read', { message: session.message })
+            {view.message
+              ? t('model_access.failed_read', { message: view.message })
               : t('model_access.failed_body')}
           </p>
-          {session.outcomes.length > 0 && renderOutcomes(session.outcomes)}
+          {view.outcomes.length > 0 && renderOutcomes(view.outcomes)}
         </div>
       );
       footer = (
@@ -319,7 +327,7 @@ export function ModelEditDialog(props: Props) {
         <div className={styles.planBody}>
           <p role="alert">{t('model_access.stale_body')}</p>
           <ul className={styles.writeList}>
-            {session.stale.map((item) => (
+            {view.stale.map((item) => (
               <li key={targetLabel(item.target)}>
                 {t('model_access.stale_item', {
                   target: targetLabel(item.target),
@@ -346,13 +354,13 @@ export function ModelEditDialog(props: Props) {
       body = (
         <div className={styles.planBody}>
           <p>{t('model_access.rolled_back_body')}</p>
-          {renderOutcomes(session.outcomes)}
+          {renderOutcomes(view.outcomes)}
         </div>
       );
       footer = close;
       break;
     default: {
-      const unreachable: never = session;
+      const unreachable: never = view;
       return unreachable;
     }
   }
@@ -360,7 +368,7 @@ export function ModelEditDialog(props: Props) {
   const busy = session.status === 'saving' || session.status === 'rolling-back';
   return (
     <Modal
-      open
+      open={session.status !== 'idle'}
       title={title}
       onClose={props.onClose}
       footer={footer}
@@ -380,11 +388,13 @@ export function LockedCellDialog(props: {
   onEditRule: (info: LockedCellInfo) => void;
 }) {
   const { t } = useTranslation();
-  const { info } = props;
+  const [shown, setShown] = useState<LockedCellInfo | null>(props.info);
+  if (props.info && props.info !== shown) setShown(props.info);
+  const info = props.info ?? shown;
   if (!info) return null;
   return (
     <Modal
-      open
+      open={props.info !== null}
       title={t('model_access.locked_title')}
       onClose={props.onClose}
       footer={
@@ -398,7 +408,7 @@ export function LockedCellDialog(props: {
         </>
       }
     >
-      <p data-machine="locked-cell" data-state="open">
+      <p data-machine="locked-cell" data-state={props.info ? 'open' : 'closed'}>
         {t('model_access.locked_body', {
           model: info.model,
           account: info.account,

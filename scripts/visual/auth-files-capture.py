@@ -73,7 +73,8 @@ MEASURE = '''() => {
     hash:location.hash,
   };
 }'''
-CONTENT_HEIGHT = '''() => Math.max(innerHeight, ...[...document.querySelectorAll('*')]
+CONTENT_HEIGHT = '''() => Math.max(innerHeight, document.documentElement.scrollHeight,
+  ...[...document.querySelectorAll('*')]
   .filter(e=>e.scrollHeight>e.clientHeight+4&&getComputedStyle(e).overflowY!=='visible')
   .map(e=>e.scrollHeight+Math.max(0,e.getBoundingClientRect().top)))'''
 
