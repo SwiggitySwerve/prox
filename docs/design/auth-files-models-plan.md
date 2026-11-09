@@ -37,8 +37,8 @@ Baseline before any change (`eebab95d`): `bun run test` 2266 pass / 0 fail acros
 | M3 | OAuth config load (provider lists and aliases) | `hooks/useAuthFilesOauth.tsx` (`OAuthConfigLoadError = 'loading' \| 'load' \| 'unsupported' \| null` plus `excludedReadyRef`) | loading, ready, error, unsupported, *reloading with stale data* | `null` means "ready" inside a type called *Error*; the ready ref duplicates it. | **Document** on the type; the Auth Files summary exposes it as `data-machine="oauth-config" data-state`. No behaviour change. | DX/AX: state named and visible; UX unchanged. |
 | M4 | Per-account model list modal | `hooks/useAuthFilesModels.ts` | closed, loading, ready, unsupported, *cached* | Bug B2: the modal marks a model "Disabled" using only the provider list. | **Leave** the machine; report B2. The Models screen supersedes the modal's purpose. | — |
 | M5 | Credential detail editor (includes the account's excluded list) | `hooks/useAuthFilesPrefixProxyEditor.ts` (`loading`, `saving`, `error`, `json`, many `*Touched`) | closed, loading, load-error, editing, saving | Saving does not re-read the file first, so a concurrent change made in the Models screen is silently overwritten (B3). | **Leave**; report B3. A rewrite touches 800 lines and 5 test files. | — |
-| M6 | Provider-list editor page | `pages/AuthFilesOAuthExcludedEditPage.tsx` (`initialLoading`, `initialLoadError`, `baselineReady`, `excludedUnsupported`, `saving`, models `loading/error`) | loading, load-error, unsupported, editing, saving | Saving the provider list says nothing about accounts that ignore it (B4). | **Leave** the machine; embed it in the Models screen's Rules tab under a banner naming the accounts that ignore the provider list. | UX: the replace rule is visible where the list is edited. |
-| M7 | Alias editor page | `pages/AuthFilesOAuthModelAliasEditPage.tsx` | same shape as M6 | — | **Leave**; embedded in the Aliases tab. | — |
+| M6 | Provider-list editor page (removed) | `pages/AuthFilesOAuthExcludedEditPage.tsx` (`initialLoading`, `initialLoadError`, `baselineReady`, `excludedUnsupported`, `saving`, models `loading/error`) | loading, load-error, unsupported, editing, saving | Saving the provider list says nothing about accounts that ignore it (B4). | **Replaced** by the Rules tab, which edits any list through the edit session (M11): preview, stale check, partial-failure handling, and a banner naming the accounts that ignore the provider list. The route redirects there. | UX: the replace rule is visible where the list is edited; DX: one write path instead of two. |
+| M7 | Alias editor page | `pages/AuthFilesOAuthModelAliasEditPage.tsx` | same shape as M6 | — | **Leave**; keeps its own route, reached from the Aliases tab. Embedding was rejected: its global Escape-to-go-back handler would fight the Models dialogs. | — |
 | M8 | Account excluded-models field | `components/AuthFileExcludedModelsField.tsx` (`loading`, `loadFailed`) | loading, error, ready | Already collapsed to `ExcludedModelsCatalogState`. | **Already explicit** (union `ready \| loading \| unavailable \| error`). | — |
 | M9 | Excluded-models picker | `components/excludedModels/ExcludedModelsPicker.tsx` (`open`, `reservedHit`) | closed, open | — | **Leave** (UI-local). | — |
 | M10 | **Model inventory load** (new) | `modelAccess/inventoryState.ts`, `hooks/useModelAccessInventory.ts` | idle, loading, ready, error; per account: own list known/unknown, reported known/unknown | New code; replaces three separate fetch paths (M3 provider list, M4 per-account models, M5 account list). | **Model**: discriminated union, one reducer, transition table, request generation guard, `data-machine="model-inventory"`. | UX: one loading/error state per provider instead of three; DX/AX: table next to the code. |
@@ -53,6 +53,7 @@ Already explicit and left alone: the credential inventory store (`stores/useCred
 - **B3** The credential detail sheet writes `excluded_models` without re-reading the file, so it can overwrite a list changed elsewhere since the sheet opened.
 - **B4** The provider-list editor gives no hint that accounts with their own list ignore it. This is the UI half of today's incident.
 - **B5** The Auth Files "OAuth Model Disablement" card says "claude · 2 models disabled" while an account with its own list serves one of those models. Fixed by design: the card is replaced by the Models screen.
+- **B6 (likely)** The credential detail sheet writes `excluded-models` (the legacy key) when the file uses it (`useAuthFilesPrefixProxyEditor.ts:181-186`). The backend normalizes stored metadata to `excluded_models` on load (`sdk/cliproxy/auth/metadata_keys.go:38-49`), and re-registers models only when the `excluded_models` root is patched (`auth_files_fields.go:443`). Such an edit is then shadowed by the canonical key and not applied. The new write path always uses `excluded_models`. Not traced end to end against a running hub.
 
 ## 3. Unified data model
 
@@ -139,8 +140,8 @@ Any other (state, event) pair throws `InvalidTransitionError` naming the machine
 - Filter bar: search over models and accounts, view switch All / Served / Excluded, counts.
 - Access tab: matrix. Rows are models; columns are the provider list, then each account (label, inherits/own-list badge, column menu), then "Served by". Each cell is a button with an accessible name stating model, account, state and reason; `data-cell` and `data-state` attributes. Row menu: disable/enable everywhere, provider default. Single-account warning icon on the row.
 - Dialogs: inherit choice (edit provider list vs give this account its own list), preview (writes, blocked, notices, cell changes), result (saved, partial failure with retry/rollback, stale with re-preview).
-- Rules tab: the existing provider-list editor, embedded, under a banner naming the accounts that ignore the provider list.
-- Aliases tab: the existing alias editor, embedded.
+- Rules tab: pick a list (the provider list or any account's own list) and edit it with the existing `ExcludedModelsPicker`, wildcards included. Saving opens the same preview and edit session as a toggle. A banner names the accounts that ignore the provider list.
+- Aliases tab: the existing alias card (list and diagram, inline edits), moved off the Auth Files page; full edits open the alias editor at its own route.
 - Phone: the matrix scrolls horizontally inside its own container with the model column sticky; dialogs are full-width.
 
 **Auth Files** (`#/auth-files`)
@@ -148,7 +149,7 @@ Any other (state, event) pair throws `InvalidTransitionError` naming the machine
 - One filter bar for every source: search, provider chips with counts, status (All / Enabled / Disabled / Problem), source, sort, density.
 - Results grouped by source, then by provider. Each source group has a compact header (counts, upload, refresh, refresh credentials, delete filtered) and its own selection bar.
 - The two OAuth cards per source are replaced by one "Model access" row per provider, with rule and alias counts and links into the Models screen.
-- Old routes redirect: `/auth-files/oauth-excluded?…` → `/auth-files/models?…&tab=rules`, `/auth-files/oauth-model-alias?…` → `/auth-files/models?…&tab=aliases`; `source` and `provider` are kept.
+- Old routes: `/auth-files/oauth-excluded?…` redirects to `/auth-files/models?…&tab=rules`, keeping `source` and `provider` (and navigation state). `/auth-files/oauth-model-alias?…` still opens the alias editor unchanged.
 
 ## 7. Tests
 
@@ -170,3 +171,13 @@ Any other (state, event) pair throws `InvalidTransitionError` naming the machine
 - **Behaviour gap G4:** an account cannot serve a model the provider list excludes unless it has a non-empty own list (see §1).
 - **Open question Q1:** a literal cross-provider toggle ("disable `gemini-3-pro` on every provider that serves it, on every hub") is feasible as a second view over the same inventory, built per (source, provider) and grouped by model id. Confirm before it is built.
 - **Open question Q2:** aliases are matched after exclusions, so an excluded upstream model also removes its alias. The matrix shows alias chips on the upstream row only.
+
+## 9. Built and verified
+
+Branch `feat/auth-files-models`; every behaviour below runs against the synthetic hubs in `scripts/visual/fake_hub.py`, never a real hub.
+
+- Pure core (`src/features/authFiles/modelAccess/`): the rule, resolver, write plans, executor and both machines; 7 test files, about 230 tests.
+- Models screen (`src/features/authFiles/models/`, route `#/auth-files/models`), Auth Files page rework, API reader and writer for account lists.
+- Found and fixed during browser verification, before commit: a Sass selector that broke the build; a race where the Models inventory read the credential store before its runtime started (zero accounts shown); a refresh loop that the first fix for that race introduced on a failing source (now bounded: eight credential reads in the error case); StrictMode leaving the error case stuck in `loading`; focus not returned to the cell after a dialog closed.
+- Commands: `bun run verify` passes (tests, lint with 0 errors and the same 6 warnings as before, single-file build). Browser: `scripts/visual/auth-files-capture.sh build docs/evidence/auth-files-models/after` against `vite preview` of the production build, and `…capture.sh url=http://127.0.0.1:18399 docs/evidence/auth-files-models/container` against the production nginx image built from `deploy/Dockerfile` (listen lines changed only). `scripts/visual/models-keyboard-check.py` checks focus in and out of dialogs, roving tabs, accessible names, wildcard cells never writing, and reduced motion.
+

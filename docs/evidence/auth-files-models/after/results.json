@@ -1,0 +1,1001 @@
+{
+  "url": "http://127.0.0.1:5199",
+  "cases": {
+    "auth-files-1440": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 4",
+        "Claudemax-d@example.invalid",
+        "Claudepro-c@example.invalid",
+        "Claudeteam-a@example.invalid",
+        "Claudeteam-b@example.invalid",
+        "Model access",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid",
+        "Model access"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "oauth-config=ready",
+        "auth-files-list=ready",
+        "oauth-config=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 6,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-loading-1440": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Model access",
+        "GPT hub fixture beta",
+        "Model access"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=loading",
+        "oauth-config=ready",
+        "auth-files-list=loading",
+        "oauth-config=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "loading",
+      "writes": [],
+      "credentialReads": 6,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-empty-1440": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Model access",
+        "GPT hub fixture beta",
+        "Model access"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=empty",
+        "oauth-config=ready",
+        "auth-files-list=empty",
+        "oauth-config=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "empty",
+      "writes": [],
+      "credentialReads": 6,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-error-1440": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Model access",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid",
+        "Model access"
+      ],
+      "alerts": [
+        "Synthetic hub unreachable"
+      ],
+      "states": [
+        "auth-files-list=error",
+        "oauth-config=ready",
+        "auth-files-list=ready",
+        "oauth-config=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "error",
+      "writes": [],
+      "credentialReads": 6,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "oauth-excluded-legacy-1440": {
+      "headings": [
+        "Models",
+        "Exclusion rules"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude&tab=rules",
+      "errors": [],
+      "route": "/auth-files/oauth-excluded?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "oauth-alias-legacy-1440": {
+      "headings": [
+        "OAuth Model Aliases",
+        "Model aliases"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/oauth-model-alias?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/oauth-model-alias?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-loading-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=loading",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "loading",
+      "writes": [],
+      "credentialReads": 4,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-empty-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "empty",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-error-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=error",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "error",
+      "writes": [],
+      "credentialReads": 4,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-codex-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=beta&provider=codex",
+      "errors": [],
+      "route": "/auth-files/models?source=beta&provider=codex",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-excluded-only-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-wildcard-locked-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle",
+        "locked-cell=open"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-inherit-choice-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=choosing",
+        "model-edit-session=choosing"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-own-list-toggle-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=previewing",
+        "model-edit-session=previewing"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-preview-everywhere-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=previewing",
+        "model-edit-session=previewing"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-saved-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=saved",
+        "model-edit-session=saved"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "credentialReads": 4,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-partial-failure-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=partial-failure",
+        "model-edit-session=partial-failure"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "partial",
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": false
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "credentialReads": 4,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-stale-1440": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=stale",
+        "model-edit-session=stale"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-390": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 4",
+        "Claudemax-d@example.invalid",
+        "Claudepro-c@example.invalid",
+        "Claudeteam-a@example.invalid",
+        "Claudeteam-b@example.invalid",
+        "Model access",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid",
+        "Model access"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "oauth-config=ready",
+        "auth-files-list=ready",
+        "oauth-config=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 6,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-loading-390": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Model access",
+        "GPT hub fixture beta",
+        "Model access"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=loading",
+        "oauth-config=ready",
+        "auth-files-list=loading",
+        "oauth-config=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "loading",
+      "writes": [],
+      "credentialReads": 6,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-empty-390": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Model access",
+        "GPT hub fixture beta",
+        "Model access"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=empty",
+        "oauth-config=ready",
+        "auth-files-list=empty",
+        "oauth-config=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "empty",
+      "writes": [],
+      "credentialReads": 6,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-error-390": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Model access",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid",
+        "Model access"
+      ],
+      "alerts": [
+        "Synthetic hub unreachable"
+      ],
+      "states": [
+        "auth-files-list=error",
+        "oauth-config=ready",
+        "auth-files-list=ready",
+        "oauth-config=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "error",
+      "writes": [],
+      "credentialReads": 6,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "oauth-excluded-legacy-390": {
+      "headings": [
+        "Models",
+        "Exclusion rules"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude&tab=rules",
+      "errors": [],
+      "route": "/auth-files/oauth-excluded?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "oauth-alias-legacy-390": {
+      "headings": [
+        "OAuth Model Aliases",
+        "Model aliases"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/oauth-model-alias?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/oauth-model-alias?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-loading-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=loading",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "loading",
+      "writes": [],
+      "credentialReads": 4,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-empty-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "empty",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-error-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=error",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "error",
+      "writes": [],
+      "credentialReads": 4,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-codex-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=beta&provider=codex",
+      "errors": [],
+      "route": "/auth-files/models?source=beta&provider=codex",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-excluded-only-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-wildcard-locked-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle",
+        "locked-cell=open"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-inherit-choice-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=choosing",
+        "model-edit-session=choosing"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-own-list-toggle-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=previewing",
+        "model-edit-session=previewing"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-preview-everywhere-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=previewing",
+        "model-edit-session=previewing"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-saved-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=saved",
+        "model-edit-session=saved"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "credentialReads": 4,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-partial-failure-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=partial-failure",
+        "model-edit-session=partial-failure"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "partial",
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": false
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "credentialReads": 4,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-stale-390": {
+      "headings": [
+        "Models"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=stale",
+        "model-edit-session=stale"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    }
+  }
+}
