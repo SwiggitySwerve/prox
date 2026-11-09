@@ -19,7 +19,7 @@ const SCREENS: Record<string, string[]> = {
   'src/features/quotaPool/PoolAccountResets.tsx': ['useSourceFiles', 'ensureLoaded'],
   'src/features/dashboard/hooks/useDashboardOverview.ts': ['useSourceFiles', 'ensureLoaded'],
   'src/components/layout/MainLayout.tsx': ['selectSourceFiles', 'startCredentialInventory'],
-  'src/pages/AuthFilesOAuthExcludedEditPage.tsx': ['useSourceFiles', 'ensureLoaded'],
+  'src/features/authFiles/hooks/useModelAccessInventory.ts': ['selectSourceFiles', 'refresh()'],
   'src/pages/AuthFilesOAuthModelAliasEditPage.tsx': ['useSourceFiles', 'ensureLoaded'],
 };
 

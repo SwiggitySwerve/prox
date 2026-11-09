@@ -9,7 +9,7 @@ backend's model rule from CLIProxyAPI v8.0.44 sdk/cliproxy/service_models.go: an
 non-empty excluded_models list REPLACES the provider list; an empty or missing list inherits it;
 disabled accounts register no models. Exclusion patterns are case-insensitive, '*' = any run.
 
-Scenarios: default | loading | empty | error | partial | stale.
+Scenarios: default | loading | empty | error | partial. The stale case calls edit_elsewhere().
 """
 from __future__ import annotations
 
@@ -87,6 +87,11 @@ class FakeHubs:
         self.unexpected: list[str] = []
         self.blocked: list[str] = []
         self.provider_reads = 0
+        self.credential_reads = 0
+
+    def edit_elsewhere(self) -> None:
+        """Another operator edits the claude provider list (the stale-preview scenario)."""
+        self.hubs['alpha']['providerLists'].setdefault('claude', []).append('claude-haiku-4-5')
 
     def served(self, hub: dict, account: dict) -> list[str]:
         if account['disabled']:
@@ -141,6 +146,7 @@ class FakeHubs:
         find = lambda name: next((a for a in hub['accounts'] if a['name'] == name), None)
 
         if path == '/credentials' and method == 'get':
+            self.credential_reads += 1
             if self.scenario == 'loading':
                 await asyncio.sleep(3600)
             if self.scenario == 'error' and source == 'alpha':
@@ -184,9 +190,6 @@ class FakeHubs:
             return await self._json(route, {'status': 'ok', 'disabled': account['disabled']})
         if path == '/config/oauth/excluded-models' and method == 'get':
             self.provider_reads += 1
-            if self.scenario == 'stale' and self.provider_reads == 3 and source == 'alpha':
-                # Another operator edits the claude provider list after the page loaded.
-                hub['providerLists'].setdefault('claude', []).append('claude-haiku-4-5')
             return await self._json(route, hub['providerLists'])
         if path == '/config/oauth/excluded-models' and method == 'put':
             self.writes.append({'source': source, 'method': method, 'path': path, 'body': body, 'ok': True})

@@ -5,8 +5,9 @@ import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { ProvidersWorkbenchPage } from '@/features/providers/ProvidersWorkbenchPage';
 import { AuthFilesPage } from '@/features/authFiles/AuthFilesPage';
-import { AuthFilesOAuthExcludedEditPage } from '@/pages/AuthFilesOAuthExcludedEditPage';
 import { AuthFilesOAuthModelAliasEditPage } from '@/pages/AuthFilesOAuthModelAliasEditPage';
+import { LegacyModelsRedirect } from '@/features/authFiles/models/LegacyModelsRedirect';
+import { ModelsPage } from '@/features/authFiles/models/ModelsPage';
 import { OAuthPage } from '@/features/oauth/OAuthPage';
 import { QuotaPage } from '@/features/quota/QuotaPage';
 import { QuotaPoolPage } from '@/features/quotaPool/QuotaPoolPage';
@@ -29,13 +30,15 @@ const createMainRoutes = () => [
   { path: '/ai-providers/*', element: <Navigate to="/ai-providers" replace /> },
   { path: '/auth-files', element: <AuthFilesPage /> },
   {
-    path: '/auth-files/oauth-excluded',
+    path: '/auth-files/models',
     element: (
       <AuthFileEditorBoundary>
-        <AuthFilesOAuthExcludedEditPage />
+        <ModelsPage />
       </AuthFileEditorBoundary>
     ),
   },
+  // The provider-list editor is the Models screen's Rules tab now.
+  { path: '/auth-files/oauth-excluded', element: <LegacyModelsRedirect tab="rules" /> },
   {
     path: '/auth-files/oauth-model-alias',
     element: (

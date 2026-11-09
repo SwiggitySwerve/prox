@@ -28,7 +28,7 @@ fake_hub = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(fake_hub)
 
 M = '/auth-files/models?source=alpha&provider=claude'
-# slug, hash route, scenario, steps. A step is (action, selector).
+# slug, hash route, scenario, steps. A step is (click|wait, selector) or ('hub', FakeHubs method).
 CASES = [
     ('auth-files', '/auth-files', 'default', []),
     ('auth-files-loading', '/auth-files', 'loading', []),
@@ -52,8 +52,9 @@ CASES = [
     ('models-partial-failure', M, 'partial', [
         ('click', '[data-row-action="claude-haiku-4-5"]'), ('click', '[data-testid="write-plan-apply"]'),
         ('wait', '[data-machine="model-edit-session"][data-state="partial-failure"]')]),
-    ('models-stale', M, 'stale', [
-        ('click', '[data-row-action="claude-sonnet-4-5"]'), ('click', '[data-testid="write-plan-apply"]'),
+    ('models-stale', M, 'default', [
+        ('click', '[data-row-action="claude-sonnet-4-5"]'), ('hub', 'edit_elsewhere'),
+        ('click', '[data-testid="write-plan-apply"]'),
         ('wait', '[data-machine="model-edit-session"][data-state="stale"]')]),
 ]
 
@@ -81,7 +82,9 @@ async def login(page, base):
     await page.goto(f'{base}/#/login', wait_until='domcontentloaded', timeout=60000)
     await page.locator('input[type=password]').first.fill('synthetic-fixture-not-a-credential', timeout=30000)
     await page.locator('form button[type=submit], button:has-text("Login")').first.click()
-    await page.wait_for_function("!location.hash.startsWith('#/login')", timeout=30000)
+    # Login lands on #/ and then redirects to #/quota; navigate only after that settles.
+    await page.wait_for_function("location.hash.startsWith('#/quota')", timeout=30000)
+    await page.locator('main').wait_for()
 
 
 async def run_case(browser, base, origin, out, width, case):
@@ -102,12 +105,17 @@ async def run_case(browser, base, origin, out, width, case):
     try:
         await login(page, base)
         await page.evaluate('(hash) => { location.hash = hash; }', route)
+        path = route.split('?')[0]
+        await page.wait_for_function('(p) => location.hash.split("?")[0] === "#" + p || '
+                                     'location.hash.startsWith("#/auth-files")', arg=path)
         await page.locator('main').wait_for()
         await page.wait_for_timeout(1500)
         for action, selector in steps:
             if action == 'click':
                 await page.locator(selector).first.click()
                 await page.wait_for_timeout(600)
+            elif action == 'hub':
+                getattr(hubs, selector)()
             else:
                 await page.locator(selector).first.wait_for(timeout=20000)
                 await page.wait_for_timeout(300)
@@ -124,6 +132,7 @@ async def run_case(browser, base, origin, out, width, case):
         except Exception:  # noqa: BLE001
             pass
     result.update(errors=errors, route=route, scenario=scenario, writes=hubs.writes,
+                  credentialReads=hubs.credential_reads,
                   unexpected=hubs.unexpected, blocked=hubs.blocked)
     result['pass'] = not any(result.get(k) for k in
                              ['overflow', 'errors', 'blocked', 'harnessError', 'unexpected'])

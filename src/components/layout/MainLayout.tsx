@@ -639,7 +639,7 @@ export function MainLayout() {
     if (authFilesIndex !== -1) {
       if (normalizedPath === '/auth-files') return authFilesIndex;
       if (normalizedPath.startsWith('/auth-files/')) {
-        if (normalizedPath.startsWith('/auth-files/oauth-excluded')) return authFilesIndex + 0.1;
+        if (normalizedPath.startsWith('/auth-files/models')) return authFilesIndex + 0.1;
         if (normalizedPath.startsWith('/auth-files/oauth-model-alias')) return authFilesIndex + 0.2;
         return authFilesIndex + 0.05;
       }
@@ -1073,7 +1073,7 @@ export function MainLayout() {
               '/config',
               '/logs',
               '/system',
-              '/auth-files/oauth-excluded',
+              '/auth-files/models',
               '/auth-files/oauth-model-alias',
             ].includes(location.pathname) && <ManagementRuntime />}
             <PageTransition
