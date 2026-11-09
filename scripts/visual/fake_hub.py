@@ -1,0 +1,224 @@
+"""Two fake CLI-Proxy hubs answered at the network layer of a Playwright context.
+
+Works the same against `bun run dev`, `vite preview` of the single-file build, or the deployed
+container: every /v8/management, /prox and discovery request is fulfilled here and anything else
+that is not a same-origin static asset is aborted, so nothing reaches a real hub.
+
+All data is synthetic (example.invalid accounts, no token-like fields). The fake applies the
+backend's model rule from CLIProxyAPI v8.0.44 sdk/cliproxy/service_models.go: an account's own
+non-empty excluded_models list REPLACES the provider list; an empty or missing list inherits it;
+disabled accounts register no models. Exclusion patterns are case-insensitive, '*' = any run.
+
+Scenarios: default | loading | empty | error | partial | stale.
+"""
+from __future__ import annotations
+
+import asyncio
+import copy
+import json
+import re
+from urllib.parse import parse_qs, unquote, urlparse
+
+CATALOG = {
+    'claude': ['claude-opus-4-5', 'claude-opus-4-1', 'claude-sonnet-4-5', 'claude-sonnet-4-0',
+               'claude-haiku-4-5', 'claude-3-7-sonnet', 'claude-3-5-haiku'],
+    'codex': ['gpt-5.5', 'gpt-5.5-codex', 'gpt-5.4', 'gpt-5.4-mini'],
+}
+
+HUBS = {
+    'alpha': {
+        'label': 'Claude hub fixture',
+        'providerLists': {'claude': ['claude-3-*', 'claude-sonnet-4-0']},
+        'aliases': {'claude': [{'name': 'claude-opus-4-5', 'alias': 'opus'}]},
+        'accounts': [
+            {'name': 'claude-team-a.json', 'type': 'claude', 'email': 'team-a@example.invalid',
+             'disabled': False, 'own': None},
+            {'name': 'claude-team-b.json', 'type': 'claude', 'email': 'team-b@example.invalid',
+             'disabled': False, 'own': ['claude-3-*', 'claude-opus-4-1'], 'extra': ['claude-preview-x']},
+            {'name': 'claude-pro-c.json', 'type': 'claude', 'email': 'pro-c@example.invalid',
+             'disabled': True, 'own': None},
+            {'name': 'claude-max-d.json', 'type': 'claude', 'email': 'max-d@example.invalid',
+             'disabled': False, 'own': None, 'noAccess': ['claude-opus-4-5']},
+        ],
+    },
+    'beta': {
+        'label': 'GPT hub fixture',
+        'providerLists': {'codex': ['gpt-5.4-mini']},
+        'aliases': {},
+        'accounts': [
+            {'name': 'codex-main.json', 'type': 'codex', 'email': 'main@example.invalid',
+             'disabled': False, 'own': None},
+            {'name': 'codex-spare.json', 'type': 'codex', 'email': 'spare@example.invalid',
+             'disabled': False, 'own': ['gpt-5.4']},
+        ],
+    },
+}
+
+DISCOVERY = {
+    'schemaVersion': 1, 'revision': 'b' * 64, 'defaultInstanceId': 'alpha',
+    'sources': [
+        {'instanceId': 'alpha', 'label': HUBS['alpha']['label'], 'publicBasePath': '/alpha',
+         'aliases': [''], 'authScope': 'fixture'},
+        {'instanceId': 'beta', 'label': HUBS['beta']['label'], 'publicBasePath': '/beta',
+         'aliases': [], 'authScope': 'fixture'},
+    ],
+}
+
+STATIC = re.compile(r'^/(?:$|index\.html$|management\.html$|src/|node_modules/|@vite/|@react-refresh|@fs/|'
+                    r'@id/|assets/|favicon|logo|.*\.(?:js|mjs|css|scss|svg|png|jpg|woff2?|ttf|json|ts|tsx)$)')
+
+
+def matches(rule: str, model: str) -> bool:
+    pattern, value = rule.strip().lower(), model.lower()
+    if '*' not in pattern:
+        return pattern == value
+    regex = '.*'.join(re.escape(part) for part in pattern.split('*'))
+    return re.fullmatch(regex, value) is not None
+
+
+class FakeHubs:
+    def __init__(self, scenario: str = 'default'):
+        self.scenario = scenario
+        self.hubs = copy.deepcopy(HUBS)
+        if scenario == 'empty':
+            for hub in self.hubs.values():
+                hub['accounts'] = []
+        self.writes: list[dict] = []
+        self.unexpected: list[str] = []
+        self.blocked: list[str] = []
+        self.provider_reads = 0
+
+    def served(self, hub: dict, account: dict) -> list[str]:
+        if account['disabled']:
+            return []
+        own = account.get('own') or []
+        rules = own if own else hub['providerLists'].get(account['type'], [])
+        ids = CATALOG.get(account['type'], []) + account.get('extra', [])
+        return [i for i in ids if i not in account.get('noAccess', []) and not any(matches(r, i) for r in rules)]
+
+    async def handle(self, route, origin_netloc: str) -> None:
+        request = route.request
+        url = urlparse(request.url)
+        method = request.method.lower()
+        if url.netloc != origin_netloc:
+            self.blocked.append(f'{request.method} {url.netloc}{url.path}')
+            await route.abort()
+            return
+        path = url.path
+        if path == '/prox/sources.json':
+            await self._json(route, DISCOVERY)
+            return
+        api = re.match(r'^/(?:(alpha|beta)/)?v8/management(/.*)$', path)
+        prox = re.match(r'^/(?:(alpha|beta)/)?v8/management/prox(/.*)$', path) or re.match(r'^/prox(/.*)$', path)
+        if not api and not prox:
+            if STATIC.match(path):
+                await route.continue_()
+            else:
+                self.blocked.append(f'{request.method} {path}')
+                await route.abort()
+            return
+        source = (api.group(1) if api else None) or 'alpha'
+        sub = api.group(2) if api else '/prox' + prox.groups()[-1]
+        await asyncio.sleep(0.6 if self.scenario == 'slow' else 0.02)
+        await self._api(route, source, method, sub, parse_qs(url.query), request)
+
+    async def _json(self, route, body, status=200):
+        await route.fulfill(status=status, content_type='application/json', body=json.dumps(body),
+                            headers={'x-cpa-version': 'fixture-1.0.0', 'x-cpa-support-plugin': 'false'})
+
+    async def _fail(self, route, status, message):
+        await self._json(route, {'error': message}, status)
+
+    async def _api(self, route, source, method, path, query, request):
+        hub = self.hubs[source]
+        q = lambda key: (query.get(key) or [''])[0]
+        body = {}
+        if method in ('put', 'patch', 'post', 'delete') and request.post_data:
+            try:
+                body = json.loads(request.post_data)
+            except ValueError:
+                body = {}
+        find = lambda name: next((a for a in hub['accounts'] if a['name'] == name), None)
+
+        if path == '/credentials' and method == 'get':
+            if self.scenario == 'loading':
+                await asyncio.sleep(3600)
+            if self.scenario == 'error' and source == 'alpha':
+                return await self._fail(route, 502, 'Synthetic hub unreachable')
+            return await self._json(route, {'files': [
+                {'name': a['name'], 'type': a['type'], 'provider': a['type'], 'auth_index': f'{source}-{i}',
+                 'email': a['email'], 'disabled': a['disabled'],
+                 'status': 'disabled' if a['disabled'] else 'active', 'size': 512, 'source': 'file'}
+                for i, a in enumerate(hub['accounts'])]})
+        if path == '/credentials/models':
+            account = find(q('name'))
+            ids = self.served(hub, account) if account else []
+            return await self._json(route, {'models': [{'id': i, 'display_name': i} for i in ids]})
+        if path == '/credentials/download':
+            account = find(q('name'))
+            if not account:
+                return await self._fail(route, 404, 'not found')
+            file_body = {'type': account['type'], 'email': account['email']}
+            if account.get('own') is not None:
+                file_body['excluded_models'] = account['own']
+            return await route.fulfill(status=200, content_type='application/json', body=json.dumps(file_body))
+        if path == '/credentials/fields' and method == 'patch':
+            ok = not (self.scenario == 'partial' and body.get('name') == 'claude-team-b.json')
+            self.writes.append({'source': source, 'method': method, 'path': path, 'body': body, 'ok': ok})
+            if not ok:
+                return await self._fail(route, 500, 'Synthetic write failure')
+            account = find(body.get('name'))
+            if not account:
+                return await self._fail(route, 404, 'auth file not found')
+            key = 'excluded_models' if 'excluded_models' in body else 'excluded-models' if 'excluded-models' in body else None
+            if key:
+                value = body[key]
+                account['own'] = value if isinstance(value, list) and value else None
+            return await self._json(route, {'status': 'ok'})
+        if path == '/credentials/status' and method == 'patch':
+            account = find(body.get('name'))
+            self.writes.append({'source': source, 'method': method, 'path': path, 'body': body, 'ok': bool(account)})
+            if not account:
+                return await self._fail(route, 404, 'auth file not found')
+            account['disabled'] = body.get('disabled') is True
+            return await self._json(route, {'status': 'ok', 'disabled': account['disabled']})
+        if path == '/config/oauth/excluded-models' and method == 'get':
+            self.provider_reads += 1
+            if self.scenario == 'stale' and self.provider_reads == 3 and source == 'alpha':
+                # Another operator edits the claude provider list after the page loaded.
+                hub['providerLists'].setdefault('claude', []).append('claude-haiku-4-5')
+            return await self._json(route, hub['providerLists'])
+        if path == '/config/oauth/excluded-models' and method == 'put':
+            self.writes.append({'source': source, 'method': method, 'path': path, 'body': body, 'ok': True})
+            hub['providerLists'] = body
+            return await self._json(route, {'status': 'ok'})
+        if path == '/config/oauth/model-alias' and method == 'get':
+            return await self._json(route, hub['aliases'])
+        if path.startswith('/routing/model-definitions/'):
+            channel = unquote(path.rsplit('/', 1)[-1])
+            if channel not in CATALOG:
+                return await self._fail(route, 400, 'unknown channel')
+            return await self._json(route, {'channel': channel,
+                                            'models': [{'id': i, 'display_name': i} for i in CATALOG[channel]]})
+        if path == '/prox/inventory':
+            return await self._json(route, {'version': f'fixture-{len(self.writes)}'})
+        if path == '/prox/inventory/sync':
+            return await self._json(route, {'status': 'ok'})
+        if path.startswith('/prox/'):
+            return await self._fail(route, 503, 'Synthetic prox-history unavailable')
+        if path == '/config':
+            return await self._json(route, {'server': {'port': 8319 if source == 'alpha' else 8317},
+                                            'access': {'api-keys': []},
+                                            'observability': {'logs': {'logging-to-file': True, 'request-log': False}}})
+        if path == '/config.yaml':
+            return await route.fulfill(status=200, content_type='text/yaml', body='server:\n  port: 8317\n')
+        if path == '/config/access/api-keys':
+            return await self._json(route, [])
+        if path == '/observability/usage/api-keys':
+            return await self._json(route, {'providers': {}})
+        if path == '/plugins':
+            return await self._json(route, {'plugins_enabled': False, 'plugins': []})
+        if path == '/server/latest-version':
+            return await self._json(route, {'version': 'fixture-1.0.0'})
+        self.unexpected.append(f'{source} {method} {path}')
+        return await self._fail(route, 501, f'Missing synthetic response: {method} {path}')
