@@ -2,7 +2,6 @@ import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourc
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { AuthFileRefreshResult } from '@/services/api/authFiles';
 import { getAuthFileRefreshKey } from '@/features/authFiles/manualRefresh';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import { misplacedCredentialOwner } from '@/domain/providerSources/ownership';
@@ -44,9 +43,8 @@ export type UseAuthFilesDataResult = {
   statusUpdating: Record<string, boolean>;
   manualRefreshing: Record<string, boolean>;
   refreshingAllCredentials: boolean;
-  refreshResults: AuthFileRefreshResult[] | null;
-  closeRefreshResults: () => void;
-  handleRefreshAllCredentials: () => void;
+  /** Renews every eligible credential on the hub and reloads the list; no confirmation. */
+  handleRefreshAllCredentials: () => Promise<void>;
   cooldownResetting: Record<string, boolean>;
   batchStatusUpdating: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -86,9 +84,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
   const [statusUpdating, setStatusUpdating] = useState<Record<string, boolean>>({});
   const [manualRefreshing, setManualRefreshing] = useState<Record<string, boolean>>({});
   const [refreshingAllCredentials, setRefreshingAllCredentials] = useState(false);
-  const [refreshResults, setRefreshResults] = useState<AuthFileRefreshResult[] | null>(null);
   const refreshAllPendingRef = useRef(false);
-  const closeRefreshResults = useCallback(() => setRefreshResults(null), []);
   const [cooldownResetting, setCooldownResetting] = useState<Record<string, boolean>>({});
   const [batchStatusUpdating, setBatchStatusUpdating] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
@@ -507,56 +503,54 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
     [authFilesApi, invalidateInFlightLoads, loadFiles, showNotification, sourceScope, t]
   );
 
-  const handleRefreshAllCredentials = useCallback(() => {
+  /**
+   * One click, no dialog: asks the hub to renew every eligible credential, reports the outcome in
+   * one notification (failures named), then clears this source's derived caches and reloads the
+   * list. Resolves after the reload; returns at once while another refresh is pending.
+   */
+  const handleRefreshAllCredentials = useCallback(async () => {
     if (refreshAllPendingRef.current || manualRefreshPendingRef.current.size > 0) return;
     const connectionRevision = sourceScope.getRevision();
-    showConfirmation({
-      title: t('auth_files.refresh_all_button'),
-      message: t('auth_files.refresh_all_confirm'),
-      confirmText: t('auth_files.refresh_all_button'),
-      onConfirm: async () => {
-        if (
-          connectionRevision !== sourceScope.getRevision() ||
-          refreshAllPendingRef.current ||
-          manualRefreshPendingRef.current.size > 0
-        )
-          return;
-        refreshAllPendingRef.current = true;
-        setRefreshingAllCredentials(true);
-        setRefreshResults(null);
-        try {
-          const results = await authFilesApi.requestAllManualRefresh();
-          sourceScope.assertCurrent();
-          if (connectionRevision !== sourceScope.getRevision()) return;
-          setRefreshResults(results);
-        } catch (err: unknown) {
-          if (!sourceScope.isCurrent()) return;
-          if (connectionRevision !== sourceScope.getRevision()) return;
-          const message = err instanceof Error ? err.message : t('notification.update_failed');
-          showNotification(t('auth_files.refresh_all_failed', { message }), 'error');
-        } finally {
-          refreshAllPendingRef.current = false;
-          if (connectionRevision === sourceScope.getRevision()) {
-            setRefreshingAllCredentials(false);
-            // Even a timeout can follow partial backend mutations.
-            invalidateInFlightLoads();
-            onFilesMutatedRef.current?.();
-            void notifyAuthFilesChanged(sourceScope.session.owner);
-            await loadFiles({ background: true });
-            sourceScope.assertCurrent();
-          }
-        }
-      },
-    });
-  }, [
-    authFilesApi,
-    invalidateInFlightLoads,
-    loadFiles,
-    showConfirmation,
-    showNotification,
-    sourceScope,
-    t,
-  ]);
+    refreshAllPendingRef.current = true;
+    setRefreshingAllCredentials(true);
+    try {
+      const results = await authFilesApi.requestAllManualRefresh();
+      sourceScope.assertCurrent();
+      if (connectionRevision !== sourceScope.getRevision()) return;
+      const failed = results.filter((result) => !result.success);
+      // A notification, not a modal: a failed credential also shows its state on its card.
+      showNotification(
+        results.length === 0
+          ? t('auth_files.refresh_all_empty')
+          : [
+              t('auth_files.refresh_all_summary', {
+                success: results.length - failed.length,
+                failed: failed.length,
+              }),
+              ...failed.map(
+                (result) => `${result.id}: ${result.error || t('auth_files.refresh_result_failed')}`
+              ),
+            ].join(' '),
+        failed.length > 0 ? 'warning' : 'success'
+      );
+    } catch (err: unknown) {
+      if (!sourceScope.isCurrent()) return;
+      if (connectionRevision !== sourceScope.getRevision()) return;
+      const message = err instanceof Error ? err.message : t('notification.update_failed');
+      showNotification(t('auth_files.refresh_all_failed', { message }), 'error');
+    } finally {
+      refreshAllPendingRef.current = false;
+      if (connectionRevision === sourceScope.getRevision()) {
+        setRefreshingAllCredentials(false);
+        // Even a timeout can follow partial backend mutations.
+        invalidateInFlightLoads();
+        onFilesMutatedRef.current?.();
+        void notifyAuthFilesChanged(sourceScope.session.owner);
+        await loadFiles({ background: true });
+        sourceScope.assertCurrent();
+      }
+    }
+  }, [authFilesApi, invalidateInFlightLoads, loadFiles, showNotification, sourceScope, t]);
 
   const handleCooldownReset = useCallback(
     (item: AuthFileItem) => {
@@ -951,8 +945,6 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
     statusUpdating,
     manualRefreshing,
     refreshingAllCredentials,
-    refreshResults,
-    closeRefreshResults,
     handleRefreshAllCredentials,
     cooldownResetting,
     batchStatusUpdating,

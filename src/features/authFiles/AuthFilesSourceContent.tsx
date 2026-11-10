@@ -20,7 +20,6 @@ import { countCredentials } from '@/features/authFiles/credentialFacts';
 import { AuthFileCard, AuthFileCardSkeleton } from '@/features/authFiles/components/AuthFileCard';
 import { AuthFileDetailsSheet } from '@/features/authFiles/components/AuthFileDetailsSheet';
 import { getAuthFileRefreshKey } from '@/features/authFiles/manualRefresh';
-import { AuthFileRefreshResults } from '@/features/authFiles/components/AuthFileRefreshResults';
 import { AuthFileModelsModal } from '@/features/authFiles/components/AuthFileModelsModal';
 import { BatchActionBar } from '@/features/authFiles/components/BatchActionBar';
 import { invalidateAuthFileDerivedCaches } from '@/features/authFiles/cacheInvalidation';
@@ -32,6 +31,7 @@ import { useAuthFilesPrefixProxyEditor } from '@/features/authFiles/hooks/useAut
 import { useAuthFilesStatusBarCache } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
 import { quotaRefreshTargets } from '@/features/authFiles/quotaSlot';
 import { QUOTA_PAGE_SIZE } from '@/features/quota/constants';
+import type { QuotaFileEntry } from '@/features/quota/logic';
 import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
 import {
   OTHER_PROVIDER_GROUP,
@@ -241,8 +241,6 @@ export function AuthFilesSourceContent({
     statusUpdating,
     manualRefreshing,
     refreshingAllCredentials,
-    refreshResults,
-    closeRefreshResults,
     handleRefreshAllCredentials,
     cooldownResetting,
     batchStatusUpdating,
@@ -408,12 +406,24 @@ export function AuthFilesSourceContent({
     sourceScope.quotaStore,
     sourceScope.session
   );
+  // While the group's own Refresh runs, the page-wide button has nothing here to start: both share
+  // loadQuota, which drops a second batch while one is in flight.
+  const [groupRefreshing, setGroupRefreshing] = useState(false);
   const quotaTargets = useMemo(
     () =>
-      hidden || pageEmpty || loading || disableControls || filters.compactMode
+      hidden || pageEmpty || loading || disableControls || groupRefreshing || filters.compactMode
         ? []
         : quotaRefreshTargets(pageItems, activeQuotaFilter),
-    [activeQuotaFilter, disableControls, filters.compactMode, hidden, loading, pageEmpty, pageItems]
+    [
+      activeQuotaFilter,
+      disableControls,
+      filters.compactMode,
+      groupRefreshing,
+      hidden,
+      loading,
+      pageEmpty,
+      pageItems,
+    ]
   );
   // The runner reads the latest targets, so it is registered again only when the count changes
   // (each registration updates page state; re-registering per render would never settle).
@@ -421,15 +431,19 @@ export function AuthFilesSourceContent({
   useEffect(() => {
     quotaTargetsRef.current = quotaTargets;
   }, [quotaTargets]);
-  const runQuotaRefresh = useCallback(
-    async (onSettled: (ok: boolean) => void) => {
-      const targets = quotaTargetsRef.current;
+  /** Reads the targets' quota QUOTA_PAGE_SIZE at a time, stopping when this view goes away. */
+  const loadQuotaInPages = useCallback(
+    async (targets: readonly QuotaFileEntry[], onSettled?: (ok: boolean) => void) => {
       for (let start = 0; start < targets.length; start += QUOTA_PAGE_SIZE) {
         if (!sourceScope.isCurrent()) return;
         await loadQuota(targets.slice(start, start + QUOTA_PAGE_SIZE), onSettled);
       }
     },
     [loadQuota, sourceScope]
+  );
+  const runQuotaRefresh = useCallback(
+    (onSettled: (ok: boolean) => void) => loadQuotaInPages(quotaTargetsRef.current, onSettled),
+    [loadQuotaInPages]
   );
   useEffect(
     () =>
@@ -439,6 +453,31 @@ export function AuthFilesSourceContent({
       }),
     [quotaTargets.length, registerQuotaRefresh, runQuotaRefresh, sourceScope.session.owner]
   );
+
+  /* ---------- the group's one-click Refresh: credentials, list, then every card's quota ---------- */
+
+  const handleGroupRefresh = useCallback(async () => {
+    // The cards shown at the click, as a bulk delete captures its targets (see RULES.md); the
+    // credential refresh below disables controls, which empties quotaTargets meanwhile.
+    const targets = filters.compactMode ? [] : quotaRefreshTargets(pageItems, activeQuotaFilter);
+    const revision = sourceScope.getRevision();
+    setGroupRefreshing(true);
+    try {
+      // Its reload clears this source's quota cache, so quota is read after it, not alongside.
+      await handleRefreshAllCredentials();
+      if (sourceScope.getRevision() !== revision) return;
+      await loadQuotaInPages(targets);
+    } finally {
+      setGroupRefreshing(false);
+    }
+  }, [
+    activeQuotaFilter,
+    filters.compactMode,
+    handleRefreshAllCredentials,
+    loadQuotaInPages,
+    pageItems,
+    sourceScope,
+  ]);
 
   /* ---------- one-time card entrance cascade (see AuthFileCard) ---------- */
 
@@ -611,8 +650,9 @@ export function AuthFilesSourceContent({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleRefreshAllCredentials}
-            loading={refreshingAllCredentials}
+            // A view that goes away mid-refresh rejects; there is nothing left to update.
+            onClick={() => void handleGroupRefresh().catch(() => {})}
+            loading={groupRefreshing}
             disabled={groupActionsDisabled || Object.keys(manualRefreshing).length > 0}
             title={t('auth_files.refresh_all_button')}
             aria-label={t('auth_files.refresh_all_button')}
@@ -643,7 +683,6 @@ export function AuthFilesSourceContent({
           />
         </div>
       </header>
-      <AuthFileRefreshResults results={refreshResults} onClose={closeRefreshResults} />
       {fileInput}
 
       {error && listState === 'error-stale' && errorBanner}

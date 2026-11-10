@@ -1,11 +1,7 @@
 import { describe, expect, spyOn, test } from 'bun:test';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import i18n from '../src/i18n/index';
 import { authFilesApi, normalizeAuthFileRefreshResults } from '../src/services/api/authFiles';
 import { apiClient } from '../src/services/api/client';
 import { getAuthFileRefreshKey } from '../src/features/authFiles/manualRefresh';
-import { AuthFileRefreshResultsContent } from '../src/features/authFiles/components/AuthFileRefreshResults';
 
 const results = [
   { id: 'one.json', success: true },
@@ -79,30 +75,5 @@ describe('credential refresh operations', () => {
     } finally {
       post.mockRestore();
     }
-  });
-});
-
-describe('refresh result presentation', () => {
-  test('shows individual successes and failures even when HTTP succeeded', () => {
-    const html = renderToStaticMarkup(createElement(AuthFileRefreshResultsContent, { results }));
-    expect(html).toContain(i18n.t('auth_files.refresh_all_summary', { success: 1, failed: 1 }));
-    expect(html).toContain('one.json');
-    expect(html).toContain('two.json');
-    expect(html).toContain('Refresh rejected');
-    expect(html).toContain('role="status"');
-  });
-
-  test('shows empty eligibility explicitly and escapes error markup', () => {
-    const empty = renderToStaticMarkup(
-      createElement(AuthFileRefreshResultsContent, { results: [] })
-    );
-    expect(empty).toContain(i18n.t('auth_files.refresh_all_empty'));
-    const html = renderToStaticMarkup(
-      createElement(AuthFileRefreshResultsContent, {
-        results: [{ id: 'fixture', success: false, error: '<script>fixture</script>' }],
-      })
-    );
-    expect(html).not.toContain('<script>');
-    expect(html).toContain('&lt;script&gt;');
   });
 });

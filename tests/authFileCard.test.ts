@@ -80,7 +80,8 @@ describe('auth file card presentation contract', () => {
     ]) {
       expect(source).toContain(handler);
     }
-    expect(source).toContain('rawStatusMessage && hasStatusWarning');
+    expect(source).toContain('{statusWarning && (');
+    expect(source).toContain('title={rawStatusMessage}');
     expect(source).toContain('showManualRefreshButton');
     expect(source).toContain('file.disabled ||');
   });

@@ -67,6 +67,8 @@ export interface AuthFileItem {
   unavailable?: boolean;
   status?: string;
   statusMessage?: string;
+  /** ISO time the hub will next try this blocked credential (`next_retry_after`); absent if none. */
+  nextRetryAfter?: string;
   lastRefresh?: string | number;
   modified?: number;
   priority?: number;

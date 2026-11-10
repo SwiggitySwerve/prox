@@ -275,6 +275,7 @@ const normalizeAuthFileEntry = (
   const declaredStatusMessage =
     typeof entry.statusMessage === 'string' ? entry.statusMessage.trim() : '';
   const statusMessage = readTextField(entry, 'status_message') || declaredStatusMessage;
+  const nextRetryAfter = normalizeCooldownTimestamp(entry['next_retry_after']);
   const note = readTextField(entry, 'note');
   const email = readTextField(entry, 'email');
   // Never normalize account/account_type: API-key credentials expose secrets there.
@@ -304,6 +305,7 @@ const normalizeAuthFileEntry = (
     successCount: normalizeUsageTotal(entry.success),
     failureCount: normalizeUsageTotal(entry.failed),
     ...(statusMessage ? { statusMessage } : {}),
+    ...(nextRetryAfter ? { nextRetryAfter } : {}),
     ...(modified > 0 ? { modified } : {}),
     priority,
     weight,

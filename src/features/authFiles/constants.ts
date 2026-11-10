@@ -126,7 +126,7 @@ export const getAuthFileStatusMessage = (file: AuthFileItem): string => {
 
 export type AuthFileStatusSummary =
   | { kind: 'usage_limit'; window: 'weekly' | 'five_hour' | null; resetsAt: number | null }
-  | { kind: 'rate_limit' }
+  | { kind: 'rate_limit'; resetsAt: number | null }
   | { kind: 'message'; text: string };
 
 /** Upstream errors arrive as raw JSON; reduce them to what the card should say. */
@@ -153,7 +153,7 @@ export const summarizeAuthFileStatusMessage = (raw: string): AuthFileStatusSumma
       resetsAt: typeof resetsAt === 'number' ? resetsAt * 1000 : null,
     };
   }
-  if (type === 'rate_limit_error') return { kind: 'rate_limit' };
+  if (type === 'rate_limit_error') return { kind: 'rate_limit', resetsAt: null };
   return { kind: 'message', text: typeof message === 'string' && message ? message : raw };
 };
 
@@ -170,6 +170,19 @@ export const HEALTHY_AUTH_FILE_STATUS_MESSAGES = new Set([
 export const hasAuthFileStatusWarning = (file: AuthFileItem): boolean => {
   const message = getAuthFileStatusMessage(file);
   return Boolean(message) && !HEALTHY_AUTH_FILE_STATUS_MESSAGES.has(message.toLowerCase());
+};
+
+/**
+ * The card's warning, or null when the status message is empty or healthy. A usage or rate
+ * limit whose upstream error carries no reset time takes the hub's own retry time for the
+ * credential (`nextRetryAfter`), so the card says when it resets instead of "try again later".
+ */
+export const authFileStatusWarning = (file: AuthFileItem): AuthFileStatusSummary | null => {
+  if (!hasAuthFileStatusWarning(file)) return null;
+  const summary = summarizeAuthFileStatusMessage(getAuthFileStatusMessage(file));
+  if (summary.kind === 'message' || summary.resetsAt !== null) return summary;
+  const retryAt = Date.parse(file.nextRetryAfter ?? '');
+  return Number.isFinite(retryAt) ? { ...summary, resetsAt: retryAt } : summary;
 };
 
 /**
