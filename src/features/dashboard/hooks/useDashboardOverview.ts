@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createAnalyticsApi } from '@/services/api/analytics';
 import { apiClient } from '@/services/api/client';
+import {
+  countCredentials,
+  isNamedProvider,
+  providerOfCredential,
+} from '@/features/authFiles/credentialFacts';
 import { useCredentialInventoryStore, useSourceFiles } from '@/stores/useCredentialInventoryStore';
 import { useProviderSource } from '@/features/providers/ProviderSourceContext';
 import { useAuthStore } from '@/stores';
@@ -48,11 +53,28 @@ const apiKeyFromCompositeKey = (compositeKey: string): string => {
   return separatorIndex < 0 ? '' : compositeKey.slice(separatorIndex + 1).trim();
 };
 
-const providerIdOfAuthFile = (file: AuthFileItem): string => {
-  const candidate = String(file.type ?? file.provider ?? '')
-    .trim()
-    .toLowerCase();
-  return candidate && candidate !== 'empty' ? candidate : 'unknown';
+export const providerIdOfAuthFile = (file: AuthFileItem): string => {
+  const provider = providerOfCredential(file);
+  return isNamedProvider(provider) ? provider : 'unknown';
+};
+
+/** Active, with-problems and disabled always add up to the total, as on the Auth Files header. */
+export const summarizeCredentials = (authFiles: readonly AuthFileItem[]): CredentialHealth => {
+  const { total, active, problem, disabled } = countCredentials(authFiles);
+  const countsByType = new Map<string, number>();
+  authFiles.forEach((file) => {
+    const type = providerIdOfAuthFile(file);
+    countsByType.set(type, (countsByType.get(type) ?? 0) + 1);
+  });
+  return {
+    total,
+    active,
+    problem,
+    disabled,
+    byType: Array.from(countsByType.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type)),
+  };
 };
 
 const buildTrafficWindow = (bucketGroups: RecentRequestBucket[][]): TrafficWindow => {
@@ -339,33 +361,10 @@ export function useDashboardOverview() {
     [fromAnalytics, recent.providers]
   );
 
-  const credentials = useMemo<CredentialHealth | null>(() => {
-    if (!authFiles) return null;
-
-    let disabled = 0;
-    let unavailable = 0;
-    const countsByType = new Map<string, number>();
-
-    authFiles.forEach((file) => {
-      if (file.disabled) {
-        disabled += 1;
-      } else if (file.unavailable) {
-        unavailable += 1;
-      }
-      const type = providerIdOfAuthFile(file);
-      countsByType.set(type, (countsByType.get(type) ?? 0) + 1);
-    });
-
-    return {
-      total: authFiles.length,
-      active: authFiles.length - disabled - unavailable,
-      disabled,
-      unavailable,
-      byType: Array.from(countsByType.entries())
-        .map(([type, count]) => ({ type, count }))
-        .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type)),
-    };
-  }, [authFiles]);
+  const credentials = useMemo<CredentialHealth | null>(
+    () => (authFiles ? summarizeCredentials(authFiles) : null),
+    [authFiles]
+  );
 
   const counts = useMemo<DashboardCounts>(
     () => ({

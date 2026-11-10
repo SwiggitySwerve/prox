@@ -42,7 +42,8 @@ export interface CredentialHealth {
   total: number;
   active: number;
   disabled: number;
-  unavailable: number;
+  /** 有问题（出错、不可用或状态异常）的凭证，与认证文件页的统计一致 */
+  problem: number;
   /** 按供应商类型分组的凭证数，按数量降序 */
   byType: Array<{ type: string; count: number }>;
 }

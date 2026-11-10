@@ -43,6 +43,10 @@ describe('pool reset credential matching', () => {
     expect(findPoolResetFile([credential], 's', 'codex', id('s', 'codex', '42'))).toBe(credential);
     expect(findPoolResetFile([file(' 42 ')], 's', 'codex', id('s', 'codex', '42'))).toBeDefined();
   });
+  test('reads the provider the way every other screen does, ignoring case and spelling', () => {
+    const credential = file('42', ' Codex ');
+    expect(findPoolResetFile([credential], 's', 'codex', id('s', 'codex', '42'))).toBe(credential);
+  });
   test('rejects missing indices, wrong providers and ambiguous credentials', () => {
     const account = id('s', 'codex', '42');
     expect(findPoolResetFile([file(null)], 's', 'codex', account)).toBeUndefined();

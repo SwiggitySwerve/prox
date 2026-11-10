@@ -1,29 +1,16 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import '../src/i18n/index';
-import { OAuthExcludedCard } from '../src/features/authFiles/components/OAuthExcludedCard';
+import i18n from '../src/i18n/index';
 import { OAuthModelAliasCard } from '../src/features/authFiles/components/OAuthModelAliasCard';
 
 const noop = () => {};
 const noopAsync = async () => {};
 
 describe('OAuth configuration load guards', () => {
-  test('disables excluded-model writes and exposes retry after a load failure', () => {
-    const markup = renderToStaticMarkup(
-      createElement(OAuthExcludedCard, {
-        disableControls: false,
-        excludedError: 'load',
-        excluded: {},
-        onRetry: noop,
-        onAdd: noop,
-        onEdit: noop,
-        onDelete: noop,
-      })
-    );
-
-    expect(markup).toContain('disabled=""');
-    expect(markup).toContain('empty-action');
+  // Assertions read English copy; do not depend on another test having switched the language.
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
   });
 
   test('disables model-alias writes and exposes retry after a load failure', () => {

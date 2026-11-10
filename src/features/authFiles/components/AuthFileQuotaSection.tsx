@@ -1,6 +1,6 @@
 import { AccountDetails } from '@/features/quota/components/AccountDetails';
 import { useClaudeResetGrants } from '@/features/quota/providers/claude/ClaudeResetGrants';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { captureQuotaCacheGeneration, commitIfQuotaCacheCurrent } from '@/stores';
 import type { AuthFileItem, ClaudeQuotaState } from '@/types';
@@ -13,6 +13,11 @@ import { bindQuotaClasses } from '@/features/quota/types';
 import type { QuotaCardState } from '@/features/quota/providers';
 import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import { hasClaudeUsageData } from '@/features/quota/providers/claude/data';
+import {
+  selectQuotaSlotState,
+  type QuotaSlotState,
+  type QuotaUnavailableReason,
+} from '@/features/authFiles/quotaSlot';
 import styles from './AuthFileQuota.module.scss';
 
 /** Bind the auth-file host's compact styles to the quota rendering contract. */
@@ -175,47 +180,71 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     refreshQuotaForFile,
     adapter.resetGrants
   );
-  // Idle state already renders a clickable "click to refresh" prompt; only offer the
-  // explicit refresh button once quota has been requested so it can be refreshed again.
-  const showRefreshQuotaAction = quotaStatus !== 'idle';
+  // A plain boolean: handing the store-derived value on directly costs the compiler's memoization.
+  const hasQuotaData = quotaStatus === 'success' || retainedClaudeUsage === true;
+  const slot = selectQuotaSlotState({ reason: null, status: quotaStatus, hasData: hasQuotaData });
   const quotaErrorMessage = resolveQuotaErrorMessage(
     t,
     quota?.errorStatus,
     quota?.error || t('common.unknown_error')
   );
+  const failureText = t(`${adapter.i18nPrefix}.load_failed`, { message: quotaErrorMessage });
+  // A refresh mid-claim would drop the claim's result and its follow-up refresh.
+  const refreshDisabled = !canRefreshQuota || quotaStatus === 'loading' || claudeReset.busy;
+  const refresh = () => {
+    if (!claudeReset.busy) void refreshQuotaForFile();
+  };
+  // Account details belong to read quota; Claude's reset grants are read even after a failure.
+  const showDetails = slot.kind === 'loaded' || (slot.kind === 'failed' && quotaType === 'claude');
 
   return (
-    <div className={styles.quotaSection}>
-      {quotaStatus === 'loading' ? (
-        <div className={styles.quotaMessage}>{t(`${adapter.i18nPrefix}.loading`)}</div>
-      ) : quotaStatus === 'idle' ? (
-        <button
-          type="button"
-          className={`${styles.quotaMessage} ${styles.quotaMessageAction}`}
-          onClick={() => void refreshQuotaForFile()}
-          disabled={!canRefreshQuota}
-        >
-          {t(`${adapter.i18nPrefix}.idle`)}
-        </button>
-      ) : quotaStatus === 'error' ? (
-        <div className={styles.quotaError}>
-          {t(`${adapter.i18nPrefix}.load_failed`, {
-            message: quotaErrorMessage,
-          })}
+    <QuotaSlotFrame
+      state={slot.kind}
+      stateText={
+        slot.kind === 'idle'
+          ? t('auth_files.quota_not_loaded')
+          : slot.kind === 'loading' || (slot.kind === 'loaded' && slot.refreshing)
+            ? t('common.loading')
+            : slot.kind === 'failed' || (slot.kind === 'loaded' && slot.stale)
+              ? t('auth_files.quota_failed')
+              : ''
+      }
+      stateTitle={slot.kind === 'failed' || slot.kind === 'loaded' ? failureText : undefined}
+      danger={slot.kind === 'failed' || (slot.kind === 'loaded' && slot.stale)}
+      refresh={{
+        disabled: refreshDisabled,
+        spinning: quotaStatus === 'loading',
+        title: t('auth_files.quota_refresh_hint'),
+        onClick: refresh,
+      }}
+    >
+      {slot.kind === 'idle' && <QuotaPlaceholderRows />}
+      {slot.kind === 'loading' && <QuotaPlaceholderRows loading />}
+      {slot.kind === 'failed' && (
+        <div className={styles.quotaFailure} role="alert">
+          <p className={styles.quotaError} title={failureText}>
+            {failureText}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={refresh}
+            disabled={refreshDisabled}
+          >
+            {t('auth_files.retry')}
+          </Button>
         </div>
-      ) : quota && !retainedClaudeUsage ? (
-        <adapter.Body quota={quota} classes={compactQuotaClasses} factsInPanel />
-      ) : !retainedClaudeUsage ? (
-        <div className={styles.quotaMessage}>{t(`${adapter.i18nPrefix}.idle`)}</div>
-      ) : null}
-      {retainedClaudeUsage && quota && (
-        <adapter.Body quota={quota} classes={compactQuotaClasses} factsInPanel />
       )}
-      {((quota && (quotaStatus === 'success' || retainedClaudeUsage)) ||
-        (quotaType === 'claude' && quotaStatus !== 'idle')) && (
+      {slot.kind === 'loaded' && quota && (
+        <div className={styles.quotaBody}>
+          <adapter.Body quota={quota} classes={compactQuotaClasses} factsInPanel />
+        </div>
+      )}
+      {showDetails && (
         <AccountDetails
           provider={quotaType}
-          quota={quotaStatus === 'success' || retainedClaudeUsage ? quota : undefined}
+          quota={slot.kind === 'loaded' ? quota : undefined}
           name={file.name}
           claudeReset={quotaType === 'claude' ? claudeReset : undefined}
           reset={
@@ -232,28 +261,107 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
           }
         />
       )}
-      {showRefreshQuotaAction && (
-        <div className={styles.quotaCardActions}>
-          {showRefreshQuotaAction && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className={styles.quotaResetCreditButton}
-              onClick={() => {
-                if (!claudeReset.busy) void refreshQuotaForFile();
-              }}
-              // A refresh mid-claim would drop the claim's result and its follow-up refresh.
-              disabled={!canRefreshQuota || quotaStatus === 'loading' || claudeReset.busy}
-              loading={quotaStatus === 'loading'}
-              title={t('auth_files.quota_refresh_hint')}
-            >
-              {quotaStatus !== 'loading' && <IconRefreshCw size={14} />}
-              {t('auth_files.quota_refresh_single')}
-            </Button>
-          )}
-        </div>
-      )}
+    </QuotaSlotFrame>
+  );
+}
+
+/** "No quota for this credential": the same frame and size as every other quota state. */
+export function AuthFileQuotaUnavailable({ reason }: { reason: QuotaUnavailableReason }) {
+  const { t } = useTranslation();
+  const why = t(`auth_files.quota_none_${reason}`);
+  return (
+    <QuotaSlotFrame
+      state="unavailable"
+      stateText=""
+      refresh={{ disabled: true, spinning: false, title: why, onClick: () => {} }}
+    >
+      <div className={styles.quotaUnavailable}>
+        <p className={styles.quotaUnavailableTitle}>{t('auth_files.quota_none')}</p>
+        <p className={styles.quotaUnavailableReason}>{why}</p>
+      </div>
+    </QuotaSlotFrame>
+  );
+}
+
+/** The quota slot of a loading card skeleton. */
+export function AuthFileQuotaSkeleton() {
+  return (
+    <QuotaSlotFrame
+      state="loading"
+      stateText=""
+      refresh={{ disabled: true, spinning: false, title: '', onClick: () => {} }}
+    >
+      <QuotaPlaceholderRows loading />
+    </QuotaSlotFrame>
+  );
+}
+
+/** The fixed header of the quota slot: label, state, and the card's own refresh icon. */
+function QuotaSlotFrame({
+  state,
+  stateText,
+  stateTitle,
+  danger = false,
+  refresh,
+  children,
+}: {
+  state: QuotaSlotState['kind'];
+  stateText: string;
+  stateTitle?: string;
+  danger?: boolean;
+  refresh: { disabled: boolean; spinning: boolean; title: string; onClick: () => void };
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <section
+      className={styles.quotaSection}
+      data-quota-state={state}
+      aria-label={t('auth_files.quota_slot_label')}
+      aria-busy={state === 'loading' || undefined}
+    >
+      <div className={styles.quotaHead}>
+        <span className={styles.quotaEyebrow}>{t('auth_files.quota_slot_label')}</span>
+        <span
+          className={`${styles.quotaState} ${danger ? styles.quotaStateDanger : ''}`}
+          title={stateTitle}
+        >
+          {stateText}
+        </span>
+        <button
+          type="button"
+          className={styles.quotaRefreshIcon}
+          onClick={refresh.onClick}
+          disabled={refresh.disabled}
+          title={refresh.title}
+          aria-label={t('auth_files.quota_refresh_hint')}
+        >
+          <IconRefreshCw
+            size={13}
+            aria-hidden="true"
+            className={refresh.spinning ? styles.quotaRefreshSpin : undefined}
+          />
+        </button>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** Empty tracks (not loaded) or shimmering ones (loading), in the shape of read quota. */
+function QuotaPlaceholderRows({ loading = false }: { loading?: boolean }) {
+  return (
+    <div
+      className={`${styles.quotaPlaceholder} ${loading ? styles.quotaPlaceholderLoading : ''}`}
+      aria-hidden="true"
+    >
+      <span className={styles.placeholderChip} />
+      {[0, 1, 2].map((row) => (
+        <span key={row} className={styles.placeholderRow}>
+          <span className={styles.placeholderLabel} />
+          <span className={styles.placeholderTrack} />
+        </span>
+      ))}
     </div>
   );
 }

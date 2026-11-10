@@ -6,6 +6,7 @@
  */
 
 import type { TFunction } from 'i18next';
+import type { QuotaProviderType } from '@/features/authFiles/constants';
 import type {
   AntigravityQuotaState,
   AuthFileItem,
@@ -20,8 +21,8 @@ import type {
 
 export type QuotaUpdater<T> = T | ((prev: T) => T);
 
-export type QuotaProviderType =
-  'antigravity' | 'claude' | 'codex' | 'devin' | 'kimi' | 'meta' | 'plugin' | 'xai';
+/** One definition, shared with Auth Files; type-only, so this module stays free of runtime code. */
+export type { QuotaProviderType };
 
 /** useQuotaStore 的结构契约（storeSelector/storeSetter 依赖）。 */
 export interface QuotaStore {

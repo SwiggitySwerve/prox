@@ -87,7 +87,7 @@ const source = (
     total: 2,
     active: 1,
     disabled: brand === 'codex' ? 1 : 0,
-    unavailable: brand === 'claude' ? 1 : 0,
+    problem: brand === 'claude' ? 1 : 0,
     byType: [{ type: brand, count: 2 }],
   },
   ...overrides,
@@ -208,7 +208,7 @@ describe('buildDashboardView', () => {
       total: 4,
       active: 2,
       disabled: 1,
-      unavailable: 1,
+      problem: 1,
       byType: [
         { type: 'claude', count: 2 },
         { type: 'codex', count: 2 },

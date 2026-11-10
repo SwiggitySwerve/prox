@@ -37,10 +37,12 @@ import {
   IconSidebarStore,
   IconSidebarSystem,
   IconChevronDown,
+  IconModelCluster,
 } from '@/components/ui/icons';
 import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
 import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore } from '@/stores';
 import { startCredentialInventory } from '@/features/authFiles/credentialInventoryRuntime';
+import { useModelAccessStore } from '@/stores/useModelAccessStore';
 import {
   collectPluginResourceEntries,
   PLUGIN_RESOURCES_REFRESH_EVENT,
@@ -59,6 +61,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   quickStart: <IconSidebarQuickStart size={18} />,
   aiProviders: <IconSidebarProviders size={18} />,
   authFiles: <IconSidebarAuthFiles size={18} />,
+  models: <IconModelCluster size={18} />,
   oauth: <IconSidebarOauth size={18} />,
   quota: <IconSidebarQuota size={18} />,
   plugins: <IconSidebarPlugins size={18} />,
@@ -437,7 +440,11 @@ export function MainLayout() {
   useEffect(() => {
     const inventory = useCredentialInventoryStore.getState();
     if (registry.status === 'ready') void inventory.refresh();
-    else inventory.reset();
+    else {
+      inventory.reset();
+      // Model-access data belongs to the sessions that just went away.
+      useModelAccessStore.getState().reset();
+    }
     // Keyed on the resolution: a source's view changing (a version header, say) is not a new
     // connection and must not refetch everything.
   }, [registry.status, registry.resolution]);
@@ -552,6 +559,12 @@ export function MainLayout() {
           icon: sidebarIcons.authFiles,
         },
         {
+          path: '/auth-files/models',
+          labelKey: 'nav.models',
+          metaKey: 'nav_meta.models',
+          icon: sidebarIcons.models,
+        },
+        {
           path: '/oauth',
           labelKey: 'nav.oauth',
           metaKey: 'nav_meta.oauth',
@@ -635,18 +648,17 @@ export function MainLayout() {
       pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
     const normalizedPath = trimmedPath === '/' ? '/quota' : trimmedPath;
 
+    const exactIndex = navOrder.indexOf(normalizedPath);
+    if (exactIndex !== -1) return exactIndex;
+
     const authFilesIndex = navOrder.indexOf('/auth-files');
     if (authFilesIndex !== -1) {
-      if (normalizedPath === '/auth-files') return authFilesIndex;
       if (normalizedPath.startsWith('/auth-files/')) {
-        if (normalizedPath.startsWith('/auth-files/oauth-excluded')) return authFilesIndex + 0.1;
         if (normalizedPath.startsWith('/auth-files/oauth-model-alias')) return authFilesIndex + 0.2;
         return authFilesIndex + 0.05;
       }
     }
 
-    const exactIndex = navOrder.indexOf(normalizedPath);
-    if (exactIndex !== -1) return exactIndex;
     const nestedIndex = navOrder.findIndex(
       (path) => path !== '/' && normalizedPath.startsWith(`${path}/`)
     );
@@ -785,8 +797,24 @@ export function MainLayout() {
       </>
     ) : null;
 
+  // A parent route (Auth Files) is not highlighted on a child that has its own item (Models).
+  const isShadowedByChild = (path: string) =>
+    navOrder.some(
+      (other) =>
+        other !== path &&
+        other.startsWith(`${path}/`) &&
+        (location.pathname === other || location.pathname.startsWith(`${other}/`))
+    );
+
+  // The alias editor is opened from the Models screen, so it belongs to that item.
+  const onModelsRoute = ['/auth-files/models', '/auth-files/oauth-model-alias'].some(
+    (path) => location.pathname === path || location.pathname.startsWith(`${path}/`)
+  );
+
   const renderNavLink = (item: SidebarNavLinkItem, className = 'nav-item') => {
     const itemLabel = item.label ?? (item.labelKey ? t(item.labelKey) : '');
+    const adopted = item.path === '/auth-files/models' && onModelsRoute;
+    const shadowed = isShadowedByChild(item.path) || (item.path === '/auth-files' && onModelsRoute);
     const itemMeta = item.meta ?? (item.metaKey ? t(item.metaKey) : '');
     const accessibleLabel = item.badgeLabel ? `${itemLabel}, ${item.badgeLabel}` : itemLabel;
 
@@ -794,7 +822,10 @@ export function MainLayout() {
       <NavLink
         key={item.path}
         to={item.path}
-        className={({ isActive }) => `${className} ${isActive ? 'active' : ''}`}
+        className={({ isActive }) =>
+          `${className} ${(isActive && !shadowed) || adopted ? 'active' : ''}`
+        }
+        aria-current={shadowed ? false : adopted ? 'page' : undefined}
         onClick={() => {
           focusedRailItemRef.current = null;
           setSidebarOpen(false);
@@ -1068,14 +1099,9 @@ export function MainLayout() {
               isPluginResourcePage ? ' main-content-plugin-resource' : ''
             }`}
           >
-            {[
-              '/oauth',
-              '/config',
-              '/logs',
-              '/system',
-              '/auth-files/oauth-excluded',
-              '/auth-files/oauth-model-alias',
-            ].includes(location.pathname) && <ManagementRuntime />}
+            {['/oauth', '/config', '/logs', '/system'].includes(location.pathname) && (
+              <ManagementRuntime />
+            )}
             <PageTransition
               render={(location) => <MainRoutes location={location} />}
               getRouteOrder={getRouteOrder}

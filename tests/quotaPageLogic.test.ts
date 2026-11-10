@@ -12,6 +12,8 @@ import {
   sortQuotaEntries,
   type QuotaFileEntry,
 } from '@/features/quota/logic';
+import { providerOfCredential } from '@/features/authFiles/credentialFacts';
+import { resolveAuthProvider } from '@/utils/quota';
 import type { AuthFileItem } from '@/types';
 
 const file = (name: string, provider: string, extra: Partial<AuthFileItem> = {}): AuthFileItem =>
@@ -53,9 +55,31 @@ describe('resolveQuotaProviderType', () => {
       'plugin'
     );
   });
+
+  test('quota family: shared provider aliases, and kimi-ai shares the Kimi quota card', () => {
+    expect(resolveQuotaProviderType(file('a', 'kimi-ai'))).toBe('kimi');
+    expect(resolveQuotaProviderType(file('a', 'Kimi_AI'))).toBe('kimi');
+    expect(resolveQuotaProviderType(file('a', 'muse'))).toBe('meta');
+    expect(resolveQuotaProviderType(file('a', 'anti-gravity'))).toBe('antigravity');
+    expect(resolveQuotaProviderType(file('a', 'x.ai'))).toBe('xai');
+    expect(resolveAuthProvider(file('a', 'kimi-ai'))).toBe('kimi');
+    expect(resolveAuthProvider(file('a', 'x-ai'))).toBe('xai');
+    // The credential's own provider key keeps kimi-ai; only the quota family merges it.
+    expect(providerOfCredential(file('a', 'kimi-ai'))).toBe('kimi-ai');
+  });
 });
 
 describe('classifyQuotaFiles', () => {
+  test('a runtime-only credential has no quota card, as on Auth Files', () => {
+    const entries = classifyQuotaFiles([
+      file('claude-cfg', 'claude', { runtime_only: true }),
+      file('codex-cfg', 'codex', { runtimeOnly: 'true' }),
+      file('claude-real.json', 'claude', { runtime_only: false }),
+      file('kiro-plugin', 'kiro', { supportsQuota: true, runtime_only: true }),
+    ]);
+    expect(entries.map((entry) => entry.file.name)).toEqual(['claude-real.json']);
+  });
+
   test('drops unsupported and disabled files', () => {
     const entries = classifyQuotaFiles(FILES);
     expect(entries.map((entry) => entry.file.name)).not.toContain('gemini-a.json');

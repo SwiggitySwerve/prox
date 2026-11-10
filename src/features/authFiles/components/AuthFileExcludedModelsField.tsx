@@ -1,104 +1,106 @@
 import { useAuthFilesSource } from '../AuthFilesSourceContext';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, type MouseEvent, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  ExcludedModelsPicker,
-  formatExcludedRulesText,
-  parseExcludedRulesText,
-  type ExcludedModelsCatalogState,
-} from '@/components/excludedModels';
+import { accountRefOf, IDLE_LOAD, loadData } from '@/features/authFiles/modelAccess';
+import { modelAccess } from '@/features/authFiles/modelAccessRuntime';
+import { modelsScreenPath } from '@/features/authFiles/unifiedList';
+import { useSourceModelAccess } from '@/stores/useModelAccessStore';
+import { useSourceFiles } from '@/stores/useCredentialInventoryStore';
+import styles from './AuthFileDetailsSheet.module.scss';
 
-import type { AuthFileModelItem } from '@/features/authFiles/constants';
+/** Up to this many rules are listed by name; more are only counted. */
+const LISTED_RULES = 6;
 
 interface AuthFileExcludedModelsFieldProps {
   fileName: string;
-  /** 换行分隔的规则文本——凭证编辑器的 dirty diff 依赖这个形状，不要改成数组。 */
-  value: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
+  /** Normalized provider key of the credential: selects the provider list. */
+  providerKey: string;
+  /** Leaves the sheet for the Models screen (the sheet confirms unsaved edits first). */
+  onNavigate: (path: string) => void;
 }
 
+/**
+ * The credential's exclusion list, read-only. It has one editor, the Models screen's Rules tab
+ * (preview, stale check, rollback); this summary reads the same model-access store slices.
+ */
 export function AuthFileExcludedModelsField({
   fileName,
-  value,
-  disabled,
-  onChange,
+  providerKey,
+  onNavigate,
 }: AuthFileExcludedModelsFieldProps) {
-  const sourceScope = useAuthFilesSource();
-  const authFilesApi = sourceScope.api;
+  const { source, session } = useAuthFilesSource();
+  const owner = session.owner;
   const { t } = useTranslation();
-  // 凭证文件名可能含点/斜杠等字符，不适合直接当 HTML id。
-  const labelId = `${useId()}-excluded-models-label`;
-  const latestValueRef = useRef(value);
-  const [models, setModels] = useState<AuthFileModelItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const access = useSourceModelAccess(owner);
+  const file = useSourceFiles(owner)?.find((item) => item.name === fileName);
 
   useEffect(() => {
-    latestValueRef.current = value;
-  }, [value]);
+    const store = modelAccess();
+    void store.ensureConfig(owner);
+    if (file) void store.ensureAccounts(owner, [accountRefOf(file)]);
+  }, [file, owner]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setModels([]);
-    setLoading(true);
-    setLoadFailed(false);
+  const ownList = access?.accountLists[fileName] ?? IDLE_LOAD;
+  const rules = loadData(ownList);
+  const providerRules = loadData(access?.providerLists ?? IDLE_LOAD)?.[providerKey];
+  const path = modelsScreenPath(source.instanceId, providerKey, fileName);
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    onNavigate(path);
+  };
 
-    void authFilesApi
-      .getModelsForAuthFile(fileName)
-      .then((items) => {
-        if (cancelled) return;
-        const byId = new Map<string, AuthFileModelItem>();
-        items.forEach((item) => {
-          const id = item.id?.trim();
-          if (id) byId.set(id.toLowerCase(), { ...item, id });
-        });
-        // 已配置但目录里没有的精确规则也塞进候选，否则它们会在列表里凭空消失。
-        parseExcludedRulesText(latestValueRef.current).forEach((rule) => {
-          if (!rule.includes('*') && !byId.has(rule.toLowerCase())) {
-            byId.set(rule.toLowerCase(), { id: rule });
-          }
-        });
-        setModels(
-          [...byId.values()].sort((left, right) =>
-            left.id.localeCompare(right.id, undefined, { sensitivity: 'base' })
-          )
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setLoadFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authFilesApi, fileName]);
-
-  const rules = useMemo(() => parseExcludedRulesText(value), [value]);
-  const candidates = useMemo(
-    () => models.map((model) => ({ id: model.id, displayName: model.display_name })),
-    [models]
-  );
-  const catalogState: ExcludedModelsCatalogState = loading
-    ? 'loading'
-    : loadFailed
-      ? 'error'
-      : 'ready';
+  let summary: ReactNode;
+  if (rules === null && ownList.status !== 'ready') {
+    summary = (
+      // The same box as the read summary, so "Edit in Models" stays put when the list arrives.
+      <p
+        className={styles.listSummary}
+        data-list={ownList.status === 'error' ? 'error' : 'loading'}
+        role={ownList.status === 'error' ? 'alert' : 'status'}
+      >
+        {ownList.status === 'error'
+          ? t('auth_files.excluded_models_error')
+          : t('auth_files.excluded_models_loading')}
+      </p>
+    );
+  } else if (!rules || rules.length === 0) {
+    summary = (
+      <p className={styles.listSummary} data-list="inherits">
+        {providerRules
+          ? t('auth_files.excluded_models_follows', { count: providerRules.length })
+          : t('auth_files.excluded_models_follows_plain')}
+      </p>
+    );
+  } else {
+    summary = (
+      <div className={styles.listSummary} data-list="own">
+        <p>{t('auth_files.excluded_models_own', { count: rules.length })}</p>
+        {rules.length <= LISTED_RULES && (
+          <ul className={styles.ruleList}>
+            {rules.map((rule) => (
+              <li key={rule}>
+                <code>{rule}</code>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="form-group">
-      <label id={labelId}>{t('auth_files.excluded_models_label')}</label>
-      <ExcludedModelsPicker
-        value={rules}
-        onChange={(next) => onChange(formatExcludedRulesText(next))}
-        candidates={candidates}
-        catalogState={catalogState}
-        disabled={disabled}
-        labelledBy={labelId}
-      />
+      <h3 className={styles.fieldLabel}>{t('auth_files.excluded_models_label')}</h3>
+      {summary}
+      <Link
+        className={styles.settingsLink}
+        to={path}
+        state={{ fromAuthFiles: true, sourceOwner: owner }}
+        onClick={handleClick}
+      >
+        {t('auth_files.edit_in_models')}
+      </Link>
     </div>
   );
 }

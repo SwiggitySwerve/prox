@@ -127,6 +127,26 @@
   }
 }
 
+/* Same box as a tab (padding, icon, label line), shown while the providers are unknown. */
+.tabPlaceholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 8px 12px 11px;
+
+  .tabIconWrap {
+    background: var(--bg-tertiary);
+  }
+}
+
+.tabPlaceholderLabel {
+  width: 64px;
+  height: 18px;
+  border-radius: $radius-full;
+  background: var(--bg-tertiary);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tab,
   .tab::after {

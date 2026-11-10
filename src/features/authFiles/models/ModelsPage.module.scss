@@ -1,0 +1,1052 @@
+@use '../../../styles/mixins' as *;
+
+/* ============================================================
+ * Models screen: which models each account serves, and why.
+ * ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  min-width: 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- header ---------- */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.titleBlock {
+  min-width: 0;
+
+  h1 {
+    margin: 2px 0 4px;
+    font-size: 28px;
+    line-height: 1.15;
+    color: var(--text-primary);
+  }
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+
+  a {
+    color: var(--text-secondary);
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--text-primary);
+      text-decoration: underline;
+    }
+  }
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* ---------- filter bar: hub pills, provider tabs, then view switch, filters and counter ---------- */
+
+/* Same bar as Auth Files (AuthFilesPage.module.scss .filterBar). */
+.filterBar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  min-width: 0;
+}
+
+/* The tab strip (and its rule) keeps a tab's height when there is no provider to show. */
+.providerStrip {
+  min-width: 0;
+
+  > [role='group'] {
+    min-height: 39px;
+  }
+}
+
+/* On Rules and Aliases the filters stay in place, visibly off. */
+.controls {
+  min-width: 0;
+
+  button:disabled,
+  input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+/* ---------- one section per hub ---------- */
+
+.hubSection,
+.hubBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hubHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+
+  code {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 400;
+  }
+}
+
+/* Loading, empty, error, unsupported and no-match: the table's frame and height, never a line. */
+.stateBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+
+  > :global(.empty-state) {
+    width: 100%;
+    border: 0;
+    background: none;
+  }
+
+  &[data-kind='loading'] {
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 12px;
+  }
+}
+
+.skeletons {
+  display: grid;
+  gap: 8px;
+}
+
+/* ---------- counter, notes, banners ---------- */
+
+.counts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin-left: auto;
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* The legend, and at its end the note that more model columns are scrolled out of view. */
+.legendRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 14px;
+  min-height: 20px;
+}
+
+.scrollNote {
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.banner {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+
+  &[data-tone='warning'] {
+    border-color: var(--warning-border);
+    background: var(--warning-bg);
+    color: var(--warning-text);
+  }
+
+  &[data-tone='danger'] {
+    border-color: var(--warning-border);
+    background: var(--bg-error-light);
+    color: var(--danger-color);
+  }
+}
+
+/* One line: swatch + word per cell state. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+/* ---------- matrix: models across the top, grouped account rows down the left ---------- */
+
+.matrixFrame {
+  --head-col: 260px;
+  --model-col: 140px;
+  --row-height: 44px;
+  --fade-width: 32px;
+
+  position: relative;
+  min-width: 0;
+
+  /* Model columns hidden to the left (under the sticky account column) or to the right. */
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    z-index: 5;
+    width: var(--fade-width);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--dur-hover) var(--ease-out-strong);
+  }
+
+  &::before {
+    left: calc(var(--head-col) + 1px);
+    background: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--text-primary) 12%, transparent),
+      transparent
+    );
+  }
+
+  &::after {
+    right: 1px;
+    border-radius: 0 11px 11px 0;
+    background: linear-gradient(
+      to left,
+      var(--bg-primary),
+      color-mix(in srgb, var(--bg-primary) 0%, transparent)
+    );
+    box-shadow: inset -1px 0 0 color-mix(in srgb, var(--text-primary) 10%, transparent);
+  }
+
+  &[data-fade-left='true']::before,
+  &[data-fade-right='true']::after {
+    opacity: 1;
+  }
+}
+
+/* Scrolls both ways, so the header row sticks to its top and the account column to its left. */
+.matrixScroll {
+  max-width: 100%;
+  max-height: max(360px, calc(100dvh - 300px));
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Fixed layout: the account column and every model column have exact widths (the sticky offsets
+ * and the alignment rely on it). The last, unnamed column takes what is left, so every row and
+ * its border run the full width when the models do not fill it.
+ */
+.matrix {
+  table-layout: fixed;
+  width: max(100%, calc(var(--head-col) + var(--model-col) * var(--model-count, 1)));
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+
+  th,
+  td {
+    height: var(--row-height);
+    padding: 0 4px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  thead th,
+  thead td {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    height: auto;
+    padding: 8px 6px;
+    background: var(--bg-secondary);
+    font-weight: 600;
+    color: var(--text-secondary);
+    vertical-align: top;
+  }
+
+  /* Same specificity as the rule above, later: the corner stays over everything scrolled. */
+  thead th.corner {
+    left: 0;
+    z-index: 4;
+    padding: 8px 10px;
+    border-right: 1px solid var(--border-color);
+  }
+
+  tbody:last-child tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  th[data-served='no'] .modelId {
+    color: var(--text-tertiary);
+  }
+}
+
+.headCol {
+  width: var(--head-col);
+}
+
+.modelCol {
+  width: var(--model-col);
+}
+
+/* The unnamed last column: no padding, so it is exactly what the model columns leave. */
+.matrix .fill {
+  padding: 0;
+}
+
+.corner {
+  position: sticky;
+}
+
+/* "Model →" at the top right, "Account ↓" at the bottom left: which way each axis runs. */
+.cornerModels,
+.cornerAccounts {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.cornerModels {
+  text-align: right;
+}
+
+.cornerAccounts {
+  margin-top: 44px;
+}
+
+/* A model column's header cell; its parts sit in .modelHeadInner. */
+.modelHead {
+  min-width: 0;
+}
+
+/* Model column header: id (two lines), meta line, action; each always in the same place. */
+.modelHeadInner {
+  display: grid;
+  grid-template-rows: 30px 18px 24px;
+  gap: 5px;
+  min-width: 0;
+
+  .modelId {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 15px;
+  }
+
+  .modelMeta {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .rowAction {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+/* Narrower than on Auth Files, so the view switch, both filters and the counter share a line. */
+.controls > .filterField {
+  flex: 1 1 160px;
+  min-width: 150px;
+  max-width: 260px;
+}
+
+.modelId {
+  display: block;
+  font-family: $font-mono;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.modelMeta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* A group label is a full-width row; its text stays in view while the models scroll. */
+.groupRow > th {
+  height: 28px;
+  padding: 0;
+  background: var(--bg-secondary);
+}
+
+.groupLabel {
+  position: sticky;
+  left: 0;
+  display: inline-block;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.rowHead {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-color);
+}
+
+.matrix th.rowHead {
+  padding: 0 10px;
+  font-weight: 400;
+}
+
+/*
+ * Row header, two lines: label and badge, then the file name (only when two accounts share a
+ * label) and the actions. Each line lays out on its own, so the actions never narrow the label;
+ * empty slots keep their size.
+ */
+.rowHeadInner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  &:first-child {
+    height: 18px;
+  }
+
+  &:last-child {
+    height: 20px;
+  }
+}
+
+.rowLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowBadge {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  max-width: 120px;
+}
+
+.rowSub {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowFile {
+  font-family: $font-mono;
+  font-size: 10.5px;
+}
+
+.rowActions {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 4px;
+
+  .accountActions {
+    flex-wrap: nowrap;
+  }
+
+  .miniButton {
+    min-height: 20px;
+    padding: 0 7px;
+    font-size: 10.5px;
+  }
+}
+
+.aliasChip {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  font-family: $font-mono;
+  font-size: 10.5px;
+  line-height: 16px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaNote {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.onlyOne,
+.servedCount,
+.notServed {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.onlyOne {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.servedCount {
+  color: var(--text-secondary);
+}
+
+.notServed {
+  color: var(--text-tertiary);
+}
+
+/* Compact buttons: the row action and the account actions. */
+.rowAction,
+.miniButton {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) var(--ease-out-strong),
+    border-color var(--dur-hover) var(--ease-out-strong);
+
+  &:hover:not(:disabled) {
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    color: var(--text-quaternary);
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+
+.rowAction[data-action='edit-rule'] {
+  border-style: dashed;
+}
+
+/* Phone picker: the selected account's badge and actions (kept empty for the provider list). */
+.accountMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 24px;
+}
+
+.accountBadge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &[data-list='own'] {
+    border-color: var(--primary-color);
+    color: var(--text-primary);
+    background: var(--primary-10);
+  }
+
+  &[data-list='runtime'] {
+    border-style: dashed;
+  }
+
+  &[data-list='disabled'],
+  &[data-list='unknown'] {
+    border-color: var(--warning-border);
+    color: var(--warning-text);
+  }
+}
+
+.accountActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Every cell is the same chip: full width, 32px tall, short text that names its state. */
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.3;
+  text-align: left;
+  white-space: nowrap;
+
+  &:is(button) {
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      border-color: var(--border-hover);
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 1px;
+    }
+  }
+
+  /* The hub has not caught up with the lists yet. */
+  &[data-drift='true']::after {
+    content: '';
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    margin-left: auto;
+    border-radius: 50%;
+    background: var(--warning-text);
+  }
+}
+
+.cellText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lockGlyph {
+  flex-shrink: 0;
+}
+
+.cell,
+.legendSwatch {
+  &[data-kind='served'],
+  &[data-kind='open'] {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--viz-success) 14%, transparent);
+  }
+
+  &[data-kind='excluded-own'],
+  &[data-kind='excluded-provider'] {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--viz-failure) 14%, transparent);
+  }
+
+  &[data-kind='wildcard'] {
+    color: var(--text-primary);
+    border-style: dashed;
+    border-color: var(--viz-failure);
+  }
+
+  &[data-kind='disabled'],
+  &[data-kind='no-access'],
+  &[data-kind='not-served'],
+  &[data-kind='unknown'] {
+    color: var(--text-tertiary);
+    background: var(--bg-secondary);
+  }
+}
+
+.cell[data-kind='wildcard'] .cellText {
+  font-family: $font-mono;
+  font-size: 11.5px;
+}
+
+.legendSwatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+
+  &[data-kind='no-access'] {
+    border-color: var(--border-color);
+  }
+
+  &[data-kind='disabled'] {
+    border-color: var(--border-color);
+    border-style: dotted;
+  }
+}
+
+/* ---------- phone: one account at a time ---------- */
+
+.phoneView {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.phonePicker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phonePickerLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.phoneRows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+
+  li {
+    display: grid;
+    // The model id gets a line of its own: ids are long and must stay readable on a phone.
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  li[data-served='no'] .modelId {
+    color: var(--text-tertiary);
+  }
+}
+
+.phoneModel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  grid-column: 1 / -1;
+
+  .modelId {
+    overflow-wrap: anywhere;
+  }
+}
+
+.phoneSub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.phoneCell {
+  min-width: 0;
+}
+
+/* ---------- dialogs ---------- */
+
+.planBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+
+  p {
+    margin: 0;
+  }
+
+  h3 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+}
+
+.writeList,
+.changeList,
+.notices,
+.aliasList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  strong {
+    color: var(--text-primary);
+  }
+}
+
+.notices li {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.changeList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.diffAdded {
+  color: var(--text-primary);
+}
+
+.diffRemoved {
+  color: var(--danger-color);
+}
+
+.choiceGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+
+  strong {
+    color: var(--text-primary);
+    font-size: 13.5px;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--primary-color);
+    outline: none;
+  }
+}
+
+/* ---------- rules / aliases ---------- */
+
+.rulesPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-primary);
+  }
+}
+
+.rulesHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rulesActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 599px) {
+  .titleBlock h1 {
+    font-size: 24px;
+  }
+
+  /* Three wrapped rows would cover most of a phone screen. */
+  .filterBar {
+    position: static;
+  }
+
+  .counts {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .changeList li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rowAction,
+  .miniButton,
+  .matrixFrame::before,
+  .matrixFrame::after {
+    transition: none;
+  }
+}
+
+.matrixNote {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+
+  a {
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}

@@ -1,5 +1,6 @@
 import type { AuthFileItem, MetaQuotaData } from '@/types';
 import type { ApiCallRequest, ApiCallResult } from '@/services/api/apiCall';
+import { isRuntimeOnlyAuthFile } from '@/features/authFiles/constants';
 import { parseMetaQuotaPayload } from '@/services/api/metaQuota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 
@@ -56,12 +57,7 @@ export function createMetaQuotaFetcher(deps: MetaQuotaDependencies) {
   return async (file: AuthFileItem): Promise<MetaQuotaData> => {
     const authIndex = normalizeAuthIndex(file.authIndex ?? file.auth_index);
     if (!authIndex) throw new MetaQuotaError('missing_auth_index');
-    if (
-      !file.name?.trim() ||
-      file.runtimeOnly === true ||
-      file.runtime_only === true ||
-      file.runtime_only === 'true'
-    ) {
+    if (!file.name?.trim() || isRuntimeOnlyAuthFile(file)) {
       throw new MetaQuotaError('missing_file');
     }
     const isCurrent = deps.captureCurrent(file.name);

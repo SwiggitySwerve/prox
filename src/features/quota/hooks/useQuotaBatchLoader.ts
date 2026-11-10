@@ -41,7 +41,8 @@ export function useQuotaBatchLoader(
   const requestIdRef = useRef(0);
 
   const loadQuota = useCallback(
-    async (targets: QuotaFileEntry[]) => {
+    /** onSettled: called once per target after its provider group's results are committed. */
+    async (targets: QuotaFileEntry[], onSettled?: (ok: boolean) => void) => {
       if (loadingRef.current || !isQuotaSourceCurrent(session)) return;
       if (targets.length === 0) return;
       loadingRef.current = true;
@@ -114,6 +115,7 @@ export function useQuotaBatchLoader(
               });
               return nextState;
             });
+            results.forEach((result) => onSettled?.(result.status === 'success'));
             results.forEach((result, index) => {
               const state = committedStates.get(result.cacheKey);
               if (result.status === 'success' && state) {

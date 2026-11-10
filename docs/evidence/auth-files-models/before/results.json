@@ -1,0 +1,283 @@
+{
+  "url": "http://127.0.0.1:5199",
+  "cases": {
+    "auth-files-1440": {
+      "headings": [
+        "Management source Claude hub fixturealpha",
+        "Auth Files Management",
+        "Claudemax-d@example.invalid",
+        "Claudepro-c@example.invalid",
+        "Claudeteam-a@example.invalid",
+        "Claudeteam-b@example.invalid",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases",
+        "Management source GPT hub fixturebeta",
+        "Auth Files Management",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "default",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-loading-1440": {
+      "headings": [
+        "Quota Management",
+        "Could not load quotas"
+      ],
+      "alerts": [
+        "Could not load quotasThe server did not return quota data. Try again in a moment; if it keeps failing, check that the Prox service is running.Error code HTTP 503Try again"
+      ],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/quota",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "loading",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-empty-1440": {
+      "headings": [
+        "Management source Claude hub fixturealpha",
+        "Auth Files Management",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases",
+        "Management source GPT hub fixturebeta",
+        "Auth Files Management",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "empty",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-error-1440": {
+      "headings": [
+        "Management source Claude hub fixturealpha",
+        "Auth Files Management",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases",
+        "Management source GPT hub fixturebeta",
+        "Auth Files Management",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases"
+      ],
+      "alerts": [
+        "Synthetic hub unreachable"
+      ],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "error",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "oauth-excluded-legacy-1440": {
+      "headings": [
+        "OAuth Model Disablement",
+        "Models to disable"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/oauth-excluded?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/oauth-excluded?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "oauth-alias-legacy-1440": {
+      "headings": [
+        "OAuth Model Aliases",
+        "Model aliases"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/oauth-model-alias?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/oauth-model-alias?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-390": {
+      "headings": [
+        "Management source Claude hub fixturealpha",
+        "Auth Files Management",
+        "Claudemax-d@example.invalid",
+        "Claudepro-c@example.invalid",
+        "Claudeteam-a@example.invalid",
+        "Claudeteam-b@example.invalid",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases",
+        "Management source GPT hub fixturebeta",
+        "Auth Files Management",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "default",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-loading-390": {
+      "headings": [
+        "Management source Claude hub fixturealpha",
+        "Auth Files Management",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases",
+        "Management source GPT hub fixturebeta",
+        "Auth Files Management",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "loading",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-empty-390": {
+      "headings": [
+        "Quota Management",
+        "Could not load quotas"
+      ],
+      "alerts": [
+        "Could not load quotasThe server did not return quota data. Try again in a moment; if it keeps failing, check that the Prox service is running.Error code HTTP 503Try again"
+      ],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/quota",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "empty",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-error-390": {
+      "headings": [
+        "Management source Claude hub fixturealpha",
+        "Auth Files Management",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases",
+        "Management source GPT hub fixturebeta",
+        "Auth Files Management",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid",
+        "OAuth Model Disablement",
+        "OAuth Model Aliases"
+      ],
+      "alerts": [
+        "Synthetic hub unreachable"
+      ],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "error",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "oauth-excluded-legacy-390": {
+      "headings": [
+        "Quota Management",
+        "Could not load quotas"
+      ],
+      "alerts": [
+        "Could not load quotasThe server did not return quota data. Try again in a moment; if it keeps failing, check that the Prox service is running.Error code HTTP 503Try again"
+      ],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/quota",
+      "errors": [],
+      "route": "/auth-files/oauth-excluded?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "oauth-alias-legacy-390": {
+      "headings": [
+        "OAuth Model Aliases",
+        "Model aliases"
+      ],
+      "alerts": [],
+      "states": [],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/oauth-model-alias?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/oauth-model-alias?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    }
+  }
+}

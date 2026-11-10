@@ -19,7 +19,7 @@ describe('auth file card presentation contract', () => {
     expect(source).not.toContain('stateBadge');
     expect(source).toContain('<h3');
     expect(source).toContain('{identity.primary}');
-    expect(source).toContain('{identity.secondary}');
+    expect(source).toContain('{identity.secondary ?? identity.fullName}');
   });
 
   test('uses one footer toggle and credential-specific accessible names', () => {
@@ -32,9 +32,14 @@ describe('auth file card presentation contract', () => {
     expect(footer).toContain('<ToggleSwitch');
     expect(footer).toContain("t('auth_files.card_toggle', { name: file.name })");
     expect(footer).toContain('checked={!file.disabled}');
-    expect(footer).toContain('statusUpdating[getAuthFileRefreshKey(file)] === true ||');
-    expect(footer).toContain('isManualRefreshing');
-    expect(footer).toContain('!isRuntimeOnly &&');
+    expect(source).toContain(
+      'const statusBusy = statusUpdating[getAuthFileRefreshKey(file)] === true;'
+    );
+    expect(footer).toContain(
+      'disabled={disableControls || isRuntimeOnly || statusBusy || isManualRefreshing}'
+    );
+    // A runtime credential's switch is shown disabled with the reason, never removed.
+    expect(footer).toContain("t('auth_files.toggle_unavailable_runtime')");
   });
 
   test('dims disabled card content but keeps the re-enable controls clear', () => {

@@ -4,22 +4,26 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { IconSearch, IconSlidersHorizontal, IconTrash2 } from '@/components/ui/icons';
 import {
-  MAX_CARD_PAGE_SIZE,
-  MIN_CARD_PAGE_SIZE,
-} from '@/features/authFiles/constants';
-import type {
-  AuthFilesSortMode,
-  AuthFilesStatusFilterMode,
-} from '@/features/authFiles/uiState';
+  IconRefreshCw,
+  IconSearch,
+  IconSlidersHorizontal,
+  IconTrash2,
+} from '@/components/ui/icons';
+import { MAX_CARD_PAGE_SIZE, MIN_CARD_PAGE_SIZE } from '@/features/authFiles/constants';
+import type { AuthFilesSortMode, AuthFilesStatusFilterMode } from '@/features/authFiles/uiState';
 import styles from './AuthFilesToolbar.module.scss';
 
 export type AuthFilesToolbarProps = {
   search: string;
   onSearchChange: (value: string) => void;
   statusFilterMode: AuthFilesStatusFilterMode;
-  statusFilterOptions: Array<{ value: AuthFilesStatusFilterMode; label: string }>;
+  /** count: null while unknown (shown as "–"); omit to show no count. */
+  statusFilterOptions: Array<{
+    value: AuthFilesStatusFilterMode;
+    label: string;
+    count?: number | null;
+  }>;
   onStatusFilterChange: (mode: AuthFilesStatusFilterMode) => void;
   sortMode: AuthFilesSortMode;
   sortOptions: Array<{ value: string; label: string }>;
@@ -29,10 +33,21 @@ export type AuthFilesToolbarProps = {
   onPageSizeCommit: (rawValue: string) => void;
   compactMode: boolean;
   onCompactModeChange: (value: boolean) => void;
-  deleteLabel: string;
-  deleteDisabled: boolean;
-  deleteLoading: boolean;
-  onDelete: () => void;
+  /** One quota refresh for every card shown; omit to render none. */
+  quotaRefresh?: {
+    label: string;
+    title: string;
+    running: boolean;
+    disabled: boolean;
+    onClick: () => void;
+    /** Announced once a refresh finishes; failures are shown on the cards. */
+    outcome: string;
+  };
+  /** Omit to render no delete action (the unified page deletes per source group). */
+  deleteLabel?: string;
+  deleteDisabled?: boolean;
+  deleteLoading?: boolean;
+  onDelete?: () => void;
 };
 
 /**
@@ -54,6 +69,7 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
     onPageSizeCommit,
     compactMode,
     onCompactModeChange,
+    quotaRefresh,
     deleteLabel,
     deleteDisabled,
     deleteLoading,
@@ -93,7 +109,8 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={t('auth_files.search_placeholder')}
           aria-label={t('auth_files.search_label')}
-          rightElement={<IconSearch className={styles.searchIcon} size={16} />}
+          title={t('auth_files.search_hint')}
+          rightElement={<IconSearch className={styles.searchIcon} size={16} aria-hidden="true" />}
         />
       </div>
 
@@ -116,6 +133,9 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
               onClick={() => onStatusFilterChange(option.value)}
             >
               {option.label}
+              {option.count !== undefined && (
+                <span className={styles.segmentCount}>{option.count ?? '–'}</span>
+              )}
             </button>
           );
         })}
@@ -131,6 +151,26 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
         />
       </div>
 
+      {quotaRefresh && (
+        <button
+          type="button"
+          className={styles.quotaRefreshButton}
+          data-testid="auth-files-refresh-quota"
+          onClick={quotaRefresh.onClick}
+          disabled={quotaRefresh.disabled}
+          title={quotaRefresh.title}
+          aria-busy={quotaRefresh.running || undefined}
+        >
+          {quotaRefresh.running ? <LoadingSpinner size={13} /> : <IconRefreshCw size={14} />}
+          <span>{quotaRefresh.label}</span>
+        </button>
+      )}
+      {quotaRefresh && (
+        <span role="status" className={styles.srOnly}>
+          {quotaRefresh.outcome}
+        </span>
+      )}
+
       <div className={styles.display} ref={displaySettingsRef}>
         <button
           type="button"
@@ -138,7 +178,7 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
           aria-expanded={displaySettingsOpen}
           aria-controls="auth-files-display-settings"
           title={t('auth_files.display_options_label')}
-        onClick={() => setDisplaySettingsOpen((open) => !open)}
+          onClick={() => setDisplaySettingsOpen((open) => !open)}
         >
           <IconSlidersHorizontal size={15} />
           <span>{t('auth_files.display_options_label')}</span>
@@ -177,15 +217,17 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
         )}
       </div>
 
-      <button
-        type="button"
-        className={styles.deleteAction}
-        onClick={onDelete}
-        disabled={deleteDisabled}
-      >
-        {deleteLoading ? <LoadingSpinner size={13} /> : <IconTrash2 size={14} />}
-        {deleteLabel}
-      </button>
+      {onDelete && (
+        <button
+          type="button"
+          className={styles.deleteAction}
+          onClick={onDelete}
+          disabled={deleteDisabled}
+        >
+          {deleteLoading ? <LoadingSpinner size={13} /> : <IconTrash2 size={14} />}
+          {deleteLabel}
+        </button>
+      )}
     </div>
   );
 }

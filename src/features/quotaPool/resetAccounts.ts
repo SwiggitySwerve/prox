@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import type { AccountResetBlocker, AccountResets, PoolProviderId } from '@/domain/quotaPool/types';
+import { providerOfCredential } from '@/features/authFiles/credentialFacts';
 import type { AuthFileItem } from '@/types';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 
@@ -17,7 +18,7 @@ export function findPoolResetFile(
     const authIndex = normalizeAuthIndex(file.auth_index ?? file.authIndex);
     if (
       !authIndex ||
-      (file.provider ?? file.type) !== provider ||
+      providerOfCredential(file) !== provider ||
       (file.provider !== undefined && file.type !== undefined && file.provider !== file.type)
     )
       return false;

@@ -2,24 +2,44 @@
 
 /* 「支持的模型」弹窗：可点击复制的 mono 模型清单 */
 
+/* One grid for the list so the type and state columns line up across rows (rows are subgrids). */
 .list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  row-gap: 4px;
+  align-content: start;
   max-height: min(52dvh, 480px);
   overflow-y: auto;
   padding-right: 2px;
 }
 
+.listSource {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: 8px;
+  width: 100%;
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid transparent;
+  background: none;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
   transition:
     background-color $transition-fast,
     border-color $transition-fast,
@@ -37,8 +57,22 @@
   }
 }
 
-.itemExcluded {
-  opacity: 0.55;
+.itemExcluded .modelId,
+.itemExcluded .modelDisplayName {
+  opacity: 0.6;
+}
+
+.modelName {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.modelTypeCell {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .modelId {
@@ -67,8 +101,19 @@
   border: 1px solid var(--border-color);
 }
 
+.servedBadge {
+  justify-self: end;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
 .excludedBadge {
-  margin-left: auto;
+  justify-self: end;
   font-size: 10.5px;
   font-weight: 600;
   color: var(--failure-badge-text);
@@ -86,5 +131,52 @@
 
   .item:active {
     transform: none;
+  }
+}
+
+/* Title: "Served models · <account>" with the source beneath it. */
+.title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.subtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+/* Rows copy the model id on click: the icon says so on hover and keyboard focus. */
+.copyIcon {
+  flex: none;
+  align-self: center;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-hover, 160ms) var(--ease-out-strong, ease-out);
+}
+
+.item:focus-visible .copyIcon {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .item:hover .copyIcon {
+    opacity: 1;
+  }
+}
+
+/* Touch screens have no hover: keep the copy affordance visible there. */
+@media (hover: none) {
+  .copyIcon {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copyIcon {
+    transition: none;
   }
 }
