@@ -13,6 +13,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AuthFileFieldsPatch } from '@/services/api/authFiles';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
+import { checkAccountListFresh } from '@/features/authFiles/modelAccess/staleCheck';
 import type { AuthFileItem } from '@/types';
 
 import {
@@ -764,6 +765,23 @@ export function useAuthFilesPrefixProxyEditor(
     });
 
     try {
+      // The sheet edits the list as it was when it opened. If the hub's copy changed since (the
+      // Models screen, another operator), saving would undo that change: stop and say so.
+      const freshness = await checkAccountListFresh({
+        touched: payload.excluded_models !== undefined || payload['excluded-models'] !== undefined,
+        openedWith: readExcludedModels(prefixProxyEditor.json),
+        read: () => authFilesApi.readAccountExcludedModels(name),
+      });
+      sourceScope.assertCurrent();
+      if (!isCurrentEditor()) return;
+      if (freshness.status === 'stale') {
+        showNotification(t('auth_files.excluded_models_stale', { name }), 'error');
+        setPrefixProxyEditor((prev) => {
+          if (!prev || prev.fileName !== name) return prev;
+          return { ...prev, saving: false };
+        });
+        return;
+      }
       await authFilesApi.patchFields(name, payload);
       sourceScope.assertCurrent();
       if (!isCurrentEditor()) return;

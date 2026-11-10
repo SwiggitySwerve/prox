@@ -915,6 +915,20 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         }
 
         deselectAll();
+      } catch (err: unknown) {
+        if (!sourceScope.isCurrent()) return;
+        if (revision !== sourceScope.getRevision()) return;
+        // Same recovery as a single toggle: put back what was shown before the attempt.
+        setFiles((prev) =>
+          prev.map((file) => {
+            const key = getAuthFileRefreshKey(file);
+            return originalDisabled.has(key)
+              ? { ...file, disabled: originalDisabled.get(key) === true }
+              : file;
+          })
+        );
+        const errorMessage = err instanceof Error ? err.message : '';
+        showNotification(`${t('notification.update_failed')}: ${errorMessage}`, 'error');
       } finally {
         if (revision === sourceScope.getRevision()) {
           batchStatusPendingRef.current = false;
