@@ -104,6 +104,25 @@ describe('one model-access store for every screen', () => {
     expect(h.calls).toEqual(['models:key:1']);
   });
 
+  test('after a write only the named models are re-read, a few at a time', async () => {
+    const h = hub();
+    await h.store.getState().ensureProvider(OWNER, 'claude', REFS);
+    h.calls.length = 0;
+    let running = 0;
+    let peak = 0;
+    const names = Array.from({ length: 10 }, (_, index) => `n${index}.json`);
+    h.api.getAccountModels = async (name) => {
+      peak = Math.max(peak, ++running);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      running -= 1;
+      h.calls.push(`models:${name}`);
+      return [];
+    };
+    await h.store.getState().ensureAccountsModels(OWNER, ['a.json', ...names], { force: true });
+    expect(h.calls.sort()).toEqual(['a.json', ...names].map((name) => `models:${name}`).sort());
+    expect(peak).toBeLessThanOrEqual(4);
+  });
+
   test('concurrent asks share one request', async () => {
     const h = hub();
     await Promise.all([
@@ -237,13 +256,19 @@ describe('what screens derive from the store', () => {
     expect(inventory.providerList).toEqual(['claude-3-*']);
     expect(inventory.aliases).toEqual([{ name: 'claude-opus-4-5', alias: 'opus' }]);
     const rows = new Map(buildMatrix(inventory).map((row) => [row.model, row]));
-    // a.json follows the provider list; b.json's own list replaces it; the API key serves opus.
+    // a.json follows the provider list; b.json's own list replaces it; the runtime credential
+    // (no file) follows the provider list too.
     expect(rows.get('claude-opus-4-5')!.cells).toEqual({
       'a.json': { kind: 'served', via: 'provider' },
       'b.json': { kind: 'excluded-own', rule: 'claude-opus-4-5', drift: false },
-      'key:1': { kind: 'served', via: 'none' },
+      'key:1': { kind: 'served', via: 'provider' },
     });
-    expect(rows.get('claude-3-7-sonnet')!.cells['key:1']).toEqual({ kind: 'not-served' });
+    expect(rows.get('claude-3-7-sonnet')!.cells['key:1']).toEqual({
+      kind: 'wildcard',
+      rule: 'claude-3-*',
+      list: 'provider',
+      drift: false,
+    });
     expect(rows.get('claude-opus-4-5')!.servedBy).toEqual(['a.json', 'key:1']);
   });
 
@@ -330,8 +355,6 @@ describe('every screen reads model access through the one store', () => {
       /\.\s*readAccountExcludedModels\s*\(/.test(readFileSync(join(root, path), 'utf8'))
     );
     expect(callers.sort()).toEqual([
-      // the credential sheet's stale check before it saves
-      'src/features/authFiles/hooks/useAuthFilesPrefixProxyEditor.ts',
       // the Models edit session's stale check
       'src/features/authFiles/hooks/useModelAccessInventory.ts',
       'src/features/authFiles/modelAccessRuntime.ts',

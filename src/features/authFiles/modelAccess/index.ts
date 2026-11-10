@@ -5,4 +5,3 @@ export * from './execute';
 export * from './editSession';
 export * from './loadState';
 export * from './inventory';
-export * from './staleCheck';

@@ -17,9 +17,11 @@ export type ReportedRead =
 
 /**
  * `file`: an OAuth credential file; its own list or the provider list decides, and both are
- * editable here. `runtime`: a credential without a file (a config API key); its exclusions live
- * in its config entry (AI Providers), the provider list never applies to it
- * (service_models.go:645-655), and it is read-only on the Models screen.
+ * editable here. `runtime`: a credential the hub holds in memory only (`runtime_only`, e.g. an
+ * AI Studio websocket channel, service_auth.go:376). It has no file, so it cannot have a list of
+ * its own and always follows the provider list; its column is read-only. Config API keys are a
+ * different thing: the hub does not list them as credentials at all (auth_files.go:654-662) and
+ * the provider list never applies to them (service_models.go:645-655).
  */
 export type AccountKind = 'file' | 'runtime';
 
@@ -53,8 +55,6 @@ export type CellState =
   | { kind: 'wildcard'; rule: string; list: 'account' | 'provider'; drift: boolean }
   | { kind: 'disabled' }
   | { kind: 'no-access' }
-  /** A runtime credential that does not report the model; the reason is in its config entry. */
-  | { kind: 'not-served' }
   | { kind: 'unknown' };
 
 export type CellKind = CellState['kind'];
@@ -66,7 +66,6 @@ export const CELL_KINDS: readonly CellKind[] = [
   'wildcard',
   'disabled',
   'no-access',
-  'not-served',
   'unknown',
 ];
 
@@ -74,7 +73,7 @@ export const CELL_KINDS: readonly CellKind[] = [
 export const isCellToggleable = (cell: CellState): boolean =>
   cell.kind === 'served' || cell.kind === 'excluded-own' || cell.kind === 'excluded-provider';
 
-/** Runtime credentials are edited in their config entry, never from the matrix. */
+/** A runtime credential has no file to hold a list of its own: only the provider list moves it. */
 export const isAccountEditable = (account: AccountAccess): boolean => account.kind === 'file';
 
 export const isCellExcluded = (cell: CellState): boolean =>
@@ -88,12 +87,6 @@ export function resolveCell(
   modelId: string
 ): CellState {
   if (account.disabled) return { kind: 'disabled' };
-  if (account.kind === 'runtime') {
-    if (account.reported.status !== 'known') return { kind: 'unknown' };
-    return account.reported.ids.some((id) => lower(id) === lower(modelId))
-      ? { kind: 'served', via: 'none' }
-      : { kind: 'not-served' };
-  }
   if (account.ownList.status !== 'known') return { kind: 'unknown' };
   const { source, rules } = rulesInEffect(providerList, account.ownList.rules);
   const reported =

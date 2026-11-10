@@ -3,6 +3,7 @@ import {
   EDIT_SESSION_TRANSITIONS,
   INITIAL_EDIT_SESSION,
   InvalidTransitionError,
+  pendingWrites,
   transitionEditSession,
   type EditSession,
   type EditSessionEvent,
@@ -36,22 +37,36 @@ const bad = (index: number): WriteOutcome => ({
   message: 'no',
 });
 
+const applying = { plan, operation: 'apply' as const, undo: [] };
+const undoing = { plan, operation: 'rollback' as const, outcomes: [bad(0), ok(1)] };
 const STATES: Record<EditSessionStatus, EditSession> = {
   idle: INITIAL_EDIT_SESSION,
   choosing: { status: 'choosing', intent },
   previewing: { status: 'previewing', plan },
-  saving: { status: 'saving', plan, operation: 'apply', outcomes: [] },
-  saved: { status: 'saved', plan, outcomes: [ok(0), ok(1)] },
+  saving: { status: 'saving', ...applying, outcomes: [] },
+  saved: { status: 'saved', ...applying, outcomes: [ok(0), ok(1)], refresh: 'ok' },
   'partial-failure': {
     status: 'partial-failure',
-    plan,
+    ...applying,
     outcomes: [bad(0), ok(1)],
-    rollback: false,
+    message: null,
+    refresh: 'ok',
   },
-  failed: { status: 'failed', plan, outcomes: [bad(0), bad(1)], message: null },
-  stale: { status: 'stale', plan, stale: [] },
-  'rolling-back': { status: 'rolling-back', plan, outcomes: [bad(0), ok(1)] },
-  'rolled-back': { status: 'rolled-back', plan, outcomes: [ok(1)] },
+  failed: {
+    status: 'failed',
+    ...applying,
+    outcomes: [bad(0), bad(1)],
+    message: null,
+    refresh: 'ok',
+  },
+  stale: { status: 'stale', ...applying, outcomes: [], stale: [], refresh: 'ok' },
+  'rolling-back': { status: 'rolling-back', ...undoing, undo: [] },
+  'rolled-back': {
+    status: 'rolled-back',
+    ...undoing,
+    undo: [{ write: { ...plan.writes[1], before: ['m'], after: null }, status: 'ok' }],
+    refresh: 'ok',
+  },
 };
 const EVENTS: EditSessionEvent[] = [
   { type: 'START', intent, plan },
@@ -64,6 +79,8 @@ const EVENTS: EditSessionEvent[] = [
   { type: 'ROLLBACK' },
   { type: 'REPLAN', plan },
   { type: 'DISMISS' },
+  { type: 'REFRESH' },
+  { type: 'REFRESHED', ok: false },
 ];
 
 describe('model edit session', () => {
@@ -97,7 +114,7 @@ describe('model edit session', () => {
     });
     expect(state.status).toBe('partial-failure');
     state = transitionEditSession(state, { type: 'RETRY' });
-    expect(state).toMatchObject({ status: 'saving', operation: 'retry' });
+    expect(state).toMatchObject({ status: 'saving', operation: 'apply' });
     state = transitionEditSession(state, {
       type: 'SETTLED',
       result: { status: 'saved', outcomes: [ok(0)] },
@@ -106,12 +123,7 @@ describe('model edit session', () => {
   });
 
   test('a retry that fails again stays a partial failure', () => {
-    const retrying: EditSession = {
-      status: 'saving',
-      plan,
-      operation: 'retry',
-      outcomes: [bad(0), ok(1)],
-    };
+    const retrying: EditSession = { status: 'saving', ...applying, outcomes: [bad(0), ok(1)] };
     const state = transitionEditSession(retrying, {
       type: 'SETTLED',
       result: { status: 'failed', outcomes: [bad(0)] },
@@ -119,7 +131,7 @@ describe('model edit session', () => {
     expect(state.status).toBe('partial-failure');
   });
 
-  test('rollback: all undone is rolled-back; an undo that fails is a partial failure', () => {
+  test('rollback: all undone is rolled-back; an undo that fails is a failed rollback', () => {
     const undone = transitionEditSession(STATES['rolling-back'], {
       type: 'SETTLED',
       result: { status: 'saved', outcomes: [ok(1)] },
@@ -129,7 +141,7 @@ describe('model edit session', () => {
       type: 'SETTLED',
       result: { status: 'failed', outcomes: [bad(1)] },
     });
-    expect(stuck).toMatchObject({ status: 'partial-failure', rollback: true });
+    expect(stuck).toMatchObject({ status: 'failed', operation: 'rollback' });
   });
 
   test('stale aborts to stale; replan returns to preview', () => {
@@ -138,6 +150,7 @@ describe('model edit session', () => {
       result: {
         status: 'stale',
         stale: [{ target: { kind: 'provider' }, expected: null, actual: ['x'] }],
+        outcomes: [],
       },
     });
     expect(state.status).toBe('stale');
@@ -153,13 +166,113 @@ describe('model edit session', () => {
     });
   });
 
+  // "Exclude X everywhere": the account write landed, the provider write failed; Roll back.
+  const partlyApplied = (): EditSession =>
+    transitionEditSession(STATES.saving, {
+      type: 'SETTLED',
+      result: { status: 'partial-failure', outcomes: [ok(0), bad(1)] },
+    });
+  const undoAccount = { target: plan.writes[0].target, before: ['m'], after: null };
+
+  test('a rollback whose check throws stays a rollback: retry re-runs the undo only', () => {
+    let state = transitionEditSession(partlyApplied(), { type: 'ROLLBACK' });
+    state = transitionEditSession(state, { type: 'ERROR', message: 'read refused' });
+    expect(state).toMatchObject({
+      status: 'failed',
+      operation: 'rollback',
+      message: 'read refused',
+    });
+    // Never the forward provider write the user was undoing.
+    expect(pendingWrites(state)).toEqual([undoAccount]);
+    state = transitionEditSession(state, { type: 'RETRY' });
+    expect(state.status).toBe('rolling-back');
+  });
+
+  test('a retried rollback that completes ends in rolled-back, not saved', () => {
+    let state = transitionEditSession(partlyApplied(), { type: 'ROLLBACK' });
+    state = transitionEditSession(state, {
+      type: 'SETTLED',
+      result: {
+        status: 'failed',
+        outcomes: [{ write: undoAccount, status: 'failed', message: 'no' }],
+      },
+    });
+    expect(state).toMatchObject({ status: 'failed', operation: 'rollback' });
+    // A rollback cannot be rolled back.
+    const partlyUndone = { ...state, status: 'partial-failure' } as EditSession;
+    expect(() => transitionEditSession(partlyUndone, { type: 'ROLLBACK' })).toThrow(
+      InvalidTransitionError
+    );
+    state = transitionEditSession(state, { type: 'RETRY' });
+    state = transitionEditSession(state, {
+      type: 'SETTLED',
+      result: { status: 'saved', outcomes: [{ write: undoAccount, status: 'ok' }] },
+    });
+    expect(state.status).toBe('rolled-back');
+  });
+
+  test('a stale check during a retry keeps what earlier writes did', () => {
+    let state = transitionEditSession(partlyApplied(), { type: 'RETRY' });
+    const stale = [{ target: plan.writes[1].target, expected: null, actual: ['x'] }];
+    state = transitionEditSession(state, {
+      type: 'SETTLED',
+      result: { status: 'stale', stale, outcomes: [{ write: plan.writes[1], status: 'skipped' }] },
+    });
+    expect(state).toMatchObject({ status: 'stale', operation: 'apply', stale });
+    expect(state).toMatchObject({ outcomes: [ok(0), { status: 'skipped' }] });
+  });
+
+  test('a stale rollback keeps knowing it is a rollback and cannot replan the forward intent', () => {
+    let state = transitionEditSession(partlyApplied(), { type: 'ROLLBACK' });
+    state = transitionEditSession(state, {
+      type: 'SETTLED',
+      result: {
+        status: 'stale',
+        stale: [{ target: undoAccount.target, expected: ['m'], actual: ['m', 'y'] }],
+        outcomes: [{ write: undoAccount, status: 'skipped' }],
+      },
+    });
+    expect(state).toMatchObject({
+      status: 'stale',
+      operation: 'rollback',
+      outcomes: [ok(0), bad(1)],
+    });
+    expect(() => transitionEditSession(state, { type: 'REPLAN', plan })).toThrow(
+      InvalidTransitionError
+    );
+  });
+
+  test('a read that throws after earlier writes landed is a partial failure, not "nothing written"', () => {
+    let state = transitionEditSession(partlyApplied(), { type: 'RETRY' });
+    state = transitionEditSession(state, { type: 'ERROR', message: 'read refused' });
+    expect(state).toMatchObject({
+      status: 'partial-failure',
+      operation: 'apply',
+      message: 'read refused',
+      outcomes: [ok(0), bad(1)],
+    });
+  });
+
+  test('a failed re-read of the table after a write keeps the write saved', () => {
+    let state = transitionEditSession(STATES.saving, {
+      type: 'SETTLED',
+      result: { status: 'saved', outcomes: [ok(0), ok(1)] },
+    });
+    expect(state).toMatchObject({ status: 'saved', refresh: 'running' });
+    state = transitionEditSession(state, { type: 'REFRESHED', ok: false });
+    expect(state).toMatchObject({ status: 'saved', refresh: 'failed', outcomes: [ok(0), ok(1)] });
+    state = transitionEditSession(state, { type: 'REFRESH' });
+    expect(state).toMatchObject({ status: 'saved', refresh: 'running' });
+  });
+
   // Exhaustive: every (state, event) pair is either in the table or throws a named error.
   for (const [status, state] of Object.entries(STATES) as Array<[EditSessionStatus, EditSession]>) {
     for (const event of EVENTS) {
       const allowed = EDIT_SESSION_TRANSITIONS[status][event.type];
       test(`${status} + ${event.type} ${allowed ? `-> ${allowed.join('|')}` : 'throws'}`, () => {
         if (allowed) {
-          expect(allowed).toContain(transitionEditSession(state, event).status);
+          const result = transitionEditSession(state, event).status;
+          expect(allowed).toContain(result === status ? 'self' : result);
           return;
         }
         let error: unknown;

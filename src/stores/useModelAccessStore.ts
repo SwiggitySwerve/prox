@@ -67,6 +67,12 @@ export interface ModelAccessState {
   ): Promise<void>;
   /** Only what the hub reports for one credential (no file read). */
   ensureAccountModels(owner: SourceOwner, name: string, options?: EnsureOptions): Promise<void>;
+  /** Only what the hub reports for these credentials, a few at a time (after a write). */
+  ensureAccountsModels(
+    owner: SourceOwner,
+    names: readonly string[],
+    options?: EnsureOptions
+  ): Promise<void>;
   /** Everything one provider's screens need: config, catalog and its accounts. */
   ensureProvider(
     owner: SourceOwner,
@@ -288,6 +294,11 @@ export function createModelAccessStore() {
           { group: 'accountModels', key: name },
           (api) => api.getAccountModels(name),
           options
+        ),
+
+      ensureAccountsModels: (owner, names, options) =>
+        eachLimited(names, ACCOUNT_READ_CONCURRENCY, (name) =>
+          get().ensureAccountModels(owner, name, options)
         ),
 
       ensureProvider: async (owner, provider, accounts, options) => {

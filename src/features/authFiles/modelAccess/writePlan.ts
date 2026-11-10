@@ -9,7 +9,7 @@ import {
   normalizeExcludedRules,
   toggleExcludedRule,
 } from '@/components/excludedModels/excludedModelRules';
-import { blockingRule, followsProviderList, sameRuleSet } from './accessRule';
+import { blockingRule, followsProviderList, rulesInEffect, sameRuleSet } from './accessRule';
 import {
   buildMatrix,
   modelUnion,
@@ -26,6 +26,16 @@ export interface ListWrite {
   before: string[] | null;
   /** null = remove the list (provider entry deleted; account follows the provider list). */
   after: string[] | null;
+}
+
+/**
+ * A list the plan does not write but whose current value its outcome depends on: an account
+ * that inherits needs no write for "exclude everywhere", but if it gets its own list before Apply
+ * it keeps serving the model. The executor re-reads it with the targets and stops if it changed.
+ */
+export interface ListGuard {
+  target: ListTarget;
+  expected: string[] | null;
 }
 
 export type WriteIntent =
@@ -54,11 +64,6 @@ export type PlanNotice =
   | { code: 'starts-inheriting'; account: string; stillExcluded: string[] }
   /** The account cannot serve the model: an empty own list means "inherit" (backend rule). */
   | { code: 'cannot-override-provider'; account: string; model: string }
-  /**
-   * After this plan the model is still served by these runtime credentials (config API keys);
-   * their exclusions are edited in AI Providers, not here.
-   */
-  | { code: 'still-served-by'; model: string; accounts: string[] }
   /** These accounts' lists could not be read; the plan cannot be applied safely. */
   | { code: 'unreadable'; accounts: string[] }
   /** Nothing to write: the lists already say this. */
@@ -80,6 +85,8 @@ export interface CellChange {
 export interface WritePlan {
   intent: WriteIntent;
   writes: ListWrite[];
+  /** Read-only checks that run with the stale check; a mismatch writes nothing. */
+  guards: ListGuard[];
   blocked: BlockedTarget[];
   notices: PlanNotice[];
   changes: CellChange[];
@@ -156,8 +163,13 @@ function editList(
   if (!sameRuleSet(after, current)) draft.writes.push({ target, before, after: asList(after) });
 }
 
+/** Everyone the provider list decides for: inheriting files and runtime credentials alike. */
 const inheritingNames = (inventory: ModelAccessInventory) =>
-  inventory.accounts.filter(inherits).map((account) => account.name);
+  inventory.accounts
+    .filter(
+      (account) => account.ownList.status === 'known' && followsProviderList(account.ownList.rules)
+    )
+    .map((account) => account.name);
 const ownListNames = (inventory: ModelAccessInventory) =>
   inventory.accounts.filter(hasOwnList).map((account) => account.name);
 const unreadableNames = (inventory: ModelAccessInventory) =>
@@ -218,6 +230,46 @@ export function diffCells(before: ModelAccessInventory, after: ModelAccessInvent
     }
   }
   return changes;
+}
+
+/**
+ * The lists a plan's outcome depends on without writing them:
+ * - every unwritten account list, when the provider list is written or the intent is "everywhere"
+ *   (an inheriting account is covered by the provider list only while it keeps inheriting);
+ * - the provider list, when it is not written but the plan assumed its content: "everywhere"
+ *   relies on it for inheriting accounts, an own list copied from it, an account that starts
+ *   inheriting it.
+ */
+function planGuards(
+  inventory: ModelAccessInventory,
+  intent: WriteIntent,
+  writes: readonly ListWrite[],
+  providerBefore: string[] | null
+): ListGuard[] {
+  if (writes.length === 0) return [];
+  const writesProvider = writes.some((write) => write.target.kind === 'provider');
+  const writtenAccounts = new Set(
+    writes.flatMap((write) => (write.target.kind === 'account' ? [write.target.name] : []))
+  );
+  const guards: ListGuard[] = [];
+  if (writesProvider || intent.type === 'model-everywhere') {
+    for (const account of inventory.accounts) {
+      if (account.kind !== 'file' || account.ownList.status !== 'known') continue;
+      if (writtenAccounts.has(account.name)) continue;
+      guards.push({ target: { kind: 'account', name: account.name }, expected: ownRules(account) });
+    }
+  }
+  const assumesProvider =
+    intent.type === 'model-everywhere' ||
+    writes.some(
+      (write) =>
+        write.target.kind === 'account' &&
+        (followsProviderList(write.before) || followsProviderList(write.after))
+    );
+  if (!writesProvider && assumesProvider) {
+    guards.push({ target: { kind: 'provider' }, expected: providerBefore });
+  }
+  return guards;
 }
 
 export function buildWritePlan(inventory: ModelAccessInventory, intent: WriteIntent): WritePlan {
@@ -322,7 +374,11 @@ export function buildWritePlan(inventory: ModelAccessInventory, intent: WriteInt
       const target: ListTarget = { kind: 'account', name: account.name };
       const before = ownRules(account);
       if (intent.exclude) {
-        const after = asList(modelUnion(inventory));
+        // Keep the rules in effect (wildcards included, so models added later stay excluded)
+        // and add every known model they do not already block.
+        const base = rulesInEffect(inventory.providerList, before).rules;
+        const missing = modelUnion(inventory).filter((id) => !blockingRule(base, id));
+        const after = missing.length > 0 ? asList([...base, ...missing]) : null;
         if (after && !sameRuleSet(before, after)) {
           draft.writes.push({ target, before, after });
           if (!hasOwnList(account))
@@ -371,23 +427,6 @@ export function buildWritePlan(inventory: ModelAccessInventory, intent: WriteInt
     }
   }
 
-  // "Disable everywhere" and a provider default cannot reach runtime credentials: say so.
-  if ((intent.type === 'model-everywhere' || intent.type === 'provider-model') && intent.exclude) {
-    const lower = intent.model.trim().toLowerCase();
-    const runtime = inventory.accounts
-      .filter(
-        (account) =>
-          account.kind === 'runtime' &&
-          !account.disabled &&
-          account.reported.status === 'known' &&
-          account.reported.ids.some((id) => id.trim().toLowerCase() === lower)
-      )
-      .map((account) => account.name);
-    if (runtime.length > 0) {
-      draft.notices.push({ code: 'still-served-by', model: intent.model, accounts: runtime });
-    }
-  }
-
   const unreadable = requiresAllReadable ? unreadableNames(inventory) : [];
   if (unreadable.length > 0) draft.notices.push({ code: 'unreadable', accounts: unreadable });
   const hasUnreadable = draft.notices.some((notice) => notice.code === 'unreadable');
@@ -401,6 +440,7 @@ export function buildWritePlan(inventory: ModelAccessInventory, intent: WriteInt
   return {
     intent,
     writes: draft.writes,
+    guards: planGuards(inventory, intent, draft.writes, providerBefore),
     blocked: draft.blocked,
     notices: draft.notices,
     changes,

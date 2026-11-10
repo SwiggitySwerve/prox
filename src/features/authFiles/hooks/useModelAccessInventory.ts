@@ -3,11 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   accountRefs,
   accountRefsKey,
+  buildInventory,
   deriveInventoryLoad,
   inventoryOf,
+  refreshScope,
   type AccountRef,
   type InventoryLoad,
   type ListIo,
+  type ListTarget,
   type ModelAccessInventory,
 } from '@/features/authFiles/modelAccess';
 import { modelAccess } from '@/features/authFiles/modelAccessRuntime';
@@ -18,13 +21,19 @@ import {
 } from '@/stores/useCredentialInventoryStore';
 import { selectSourceModelAccess, useModelAccessStore } from '@/stores/useModelAccessStore';
 
+export type ReloadOptions = { credentials?: boolean; written?: readonly ListTarget[] };
+
 export type UseModelAccessInventoryResult = {
   load: InventoryLoad;
   /**
    * Re-read everything from the hub; `credentials: true` also re-lists the credential files
    * first. Resolves with the new inventory, or null when it could not be read.
+   *
+   * `written`: after a write, re-read only what it can have changed (refreshScope): the provider
+   * lists, the written accounts, and the models of the accounts whose rules in effect changed.
+   * Resolves with null when any of those reads failed.
    */
-  reload: (options?: { credentials?: boolean }) => Promise<ModelAccessInventory | null>;
+  reload: (options?: ReloadOptions) => Promise<ModelAccessInventory | null>;
   io: ListIo;
 };
 
@@ -68,12 +77,51 @@ export function useModelAccessInventory(provider: string): UseModelAccessInvento
     return files ? accountRefs(files, provider) : undefined;
   }, [owner, provider, scope]);
 
+  /** The after-write re-read; true when every read it made succeeded. */
+  const reloadWritten = useCallback(
+    async (refs: AccountRef[], written: readonly ListTarget[]): Promise<boolean> => {
+      const store = modelAccess();
+      const before = selectSourceModelAccess(useModelAccessStore.getState(), owner);
+      const accounts = before ? buildInventory(before, provider, refs).accounts : [];
+      const { lists, models } = refreshScope(written, accounts);
+      const force = { force: true };
+      await Promise.all([
+        store.ensureConfig(owner, force),
+        store.ensureAccounts(
+          owner,
+          refs.filter((ref) => lists.includes(ref.name)),
+          force
+        ),
+        store.ensureAccountsModels(
+          owner,
+          models.filter((name) => !lists.includes(name)),
+          force
+        ),
+      ]);
+      const after = selectSourceModelAccess(useModelAccessStore.getState(), owner);
+      if (!after) return false;
+      const read = [
+        after.providerLists,
+        after.aliases,
+        ...lists.map((name) => after.accountLists[name]),
+        ...models.map((name) => after.accountModels[name]),
+      ];
+      return read.every((state) => state?.status !== 'error');
+    },
+    [owner, provider]
+  );
+
   const reload = useCallback(
-    async (options?: { credentials?: boolean }): Promise<ModelAccessInventory | null> => {
+    async (options?: ReloadOptions): Promise<ModelAccessInventory | null> => {
       let refs = accountsRef.current;
       if (options?.credentials || !refs) refs = await listCredentials();
       if (!refs || !scope.isCurrent()) return null;
-      await modelAccess().ensureProvider(owner, provider, refs, { force: true });
+      if (options?.written) {
+        const ok = await reloadWritten(refs, options.written);
+        if (!ok) return null;
+      } else {
+        await modelAccess().ensureProvider(owner, provider, refs, { force: true });
+      }
       if (!scope.isCurrent()) return null;
       return inventoryOf(
         deriveInventoryLoad({
@@ -83,7 +131,7 @@ export function useModelAccessInventory(provider: string): UseModelAccessInvento
         })
       );
     },
-    [listCredentials, owner, provider, scope]
+    [listCredentials, owner, provider, reloadWritten, scope]
   );
 
   // Automatic loads read the credential store's files and never re-list credentials, so a failing

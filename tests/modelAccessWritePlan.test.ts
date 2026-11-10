@@ -303,6 +303,40 @@ describe('(c) one account across every model', () => {
     });
   });
 
+  test('exclude all on an account whose own list already blocks everything changes nothing', () => {
+    const inv = inventory({ accounts: [account('wild.json', ['*'])] });
+    const plan = buildWritePlan(inv, { type: 'account-all', account: 'wild.json', exclude: true });
+    expect(plan.writes).toEqual([]);
+    expect(codes(plan)).toEqual(['no-change']);
+  });
+
+  test('exclude all keeps the wildcard rules already in effect', () => {
+    const own = buildWritePlan(inventory(), {
+      type: 'account-all',
+      account: 'team-b.json',
+      exclude: true,
+    });
+    expect(own.writes).toHaveLength(1);
+    expect(own.writes[0].after).toContain('claude-3-*');
+    expect(own.writes[0].after).not.toContain('claude-3-7-sonnet');
+    expect(own.writes[0].after).toContain('claude-opus-4-5');
+    // An inheriting account copies the provider list's wildcard into its own list.
+    const inheriting = buildWritePlan(inventory(), {
+      type: 'account-all',
+      account: 'team-a.json',
+      exclude: true,
+    });
+    expect(inheriting.writes[0].after).toContain('claude-3-*');
+    expect(inheriting.writes[0].after).not.toContain('claude-3-5-haiku');
+  });
+
+  test('exclude all on an inheriting account whose provider list blocks everything changes nothing', () => {
+    const inv = inventory({ providerList: ['claude-*'], accounts: [account('a.json', null)] });
+    const plan = buildWritePlan(inv, { type: 'account-all', account: 'a.json', exclude: true });
+    expect(plan.writes).toEqual([]);
+    expect(codes(plan)).toEqual(['no-change']);
+  });
+
   test('include all on an inheriting account changes nothing', () => {
     const plan = buildWritePlan(inventory(), {
       type: 'account-all',
@@ -349,45 +383,108 @@ describe('replace a list', () => {
   });
 });
 
-describe('runtime credentials (config API keys) are read-only here', () => {
-  const withKey = () => {
+describe('guards: lists a plan relies on without writing them', () => {
+  const guarded = (plan: WritePlan) =>
+    plan.guards.map((guard) => [
+      guard.target.kind === 'provider' ? 'provider' : guard.target.name,
+      guard.expected,
+    ]);
+
+  test('exclude everywhere guards every account list it does not write', () => {
+    const plan = buildWritePlan(inventory(), {
+      type: 'model-everywhere',
+      model: 'claude-haiku-4-5',
+      exclude: true,
+    });
+    expect(guarded(plan)).toEqual([
+      ['team-a.json', null],
+      ['pro-c.json', null],
+      ['max-d.json', null],
+    ]);
+  });
+
+  test('exclude everywhere that only writes account lists also guards the provider list', () => {
+    const plan = buildWritePlan(inventory(), {
+      type: 'model-everywhere',
+      model: 'claude-sonnet-4-0',
+      exclude: true,
+    });
+    expect(writesOf(plan).map((write) => write.target)).toEqual(['team-b.json']);
+    expect(guarded(plan)).toContainEqual(['provider', PROVIDER_LIST]);
+    expect(guarded(plan)).toContainEqual(['team-a.json', null]);
+  });
+
+  test('a provider default guards every account list', () => {
+    const plan = buildWritePlan(inventory(), {
+      type: 'provider-model',
+      model: 'claude-haiku-4-5',
+      exclude: true,
+    });
+    expect(guarded(plan)).toEqual([
+      ['team-a.json', null],
+      ['team-b.json', ['claude-3-*', 'claude-opus-4-1']],
+      ['pro-c.json', null],
+      ['max-d.json', null],
+    ]);
+  });
+
+  test('an own list copied from the provider list guards the provider list', () => {
+    const plan = buildWritePlan(inventory(), {
+      type: 'account-model',
+      account: 'team-a.json',
+      model: 'claude-opus-4-5',
+      exclude: true,
+      mode: 'own',
+    });
+    expect(guarded(plan)).toEqual([['provider', PROVIDER_LIST]]);
+  });
+
+  test('an account that starts inheriting guards the provider list', () => {
+    const plan = buildWritePlan(inventory(), {
+      type: 'account-all',
+      account: 'team-b.json',
+      exclude: false,
+    });
+    expect(guarded(plan)).toEqual([['provider', PROVIDER_LIST]]);
+  });
+
+  test('an edit of one own list that stays an own list needs no guard', () => {
+    const plan = buildWritePlan(inventory(), {
+      type: 'account-model',
+      account: 'team-b.json',
+      model: 'claude-haiku-4-5',
+      exclude: true,
+    });
+    expect(plan.guards).toEqual([]);
+  });
+});
+
+describe('runtime credentials (held in memory, no file)', () => {
+  const withRuntime = () => {
     const base = inventory();
     return inventory({
-      accounts: [...base.accounts, runtimeAccount('claude:apikey:1', ['claude-haiku-4-5'])],
+      accounts: [...base.accounts, runtimeAccount('runtime:1', ['claude-haiku-4-5'])],
     });
   };
 
-  test('disable everywhere says which API-key credentials still serve the model', () => {
-    const plan = buildWritePlan(withKey(), {
+  test('exclude everywhere reaches it through the provider list, with no write of its own', () => {
+    const plan = buildWritePlan(withRuntime(), {
       type: 'model-everywhere',
       model: 'claude-haiku-4-5',
       exclude: true,
     });
-    expect(plan.notices).toContainEqual({
-      code: 'still-served-by',
-      model: 'claude-haiku-4-5',
-      accounts: ['claude:apikey:1'],
-    });
-    // Its exclusions live in its config entry: no write and no claimed change for it.
     expect(plan.writes.map((write) => write.target)).not.toContainEqual({
       kind: 'account',
-      name: 'claude:apikey:1',
+      name: 'runtime:1',
     });
-    expect(plan.changes.map((change) => change.account)).not.toContain('claude:apikey:1');
+    expect(plan.changes).toContainEqual(
+      expect.objectContaining({ account: 'runtime:1', model: 'claude-haiku-4-5' })
+    );
     expect(plan.canApply).toBe(true);
   });
 
-  test('no notice when the API-key credential does not serve the model', () => {
-    const plan = buildWritePlan(withKey(), {
-      type: 'model-everywhere',
-      model: 'claude-opus-4-5',
-      exclude: true,
-    });
-    expect(codes(plan)).not.toContain('still-served-by');
-  });
-
-  test('a provider-list change never lists an API-key credential as following it', () => {
-    const plan = buildWritePlan(withKey(), {
+  test('a provider-list change lists it among the accounts that follow the list', () => {
+    const plan = buildWritePlan(withRuntime(), {
       type: 'provider-model',
       model: 'claude-opus-4-5',
       exclude: true,
@@ -395,22 +492,19 @@ describe('runtime credentials (config API keys) are read-only here', () => {
     const affects = plan.notices.find((notice) => notice.code === 'provider-affects');
     expect(affects).toEqual({
       code: 'provider-affects',
-      accounts: ['team-a.json', 'pro-c.json', 'max-d.json'],
+      accounts: ['team-a.json', 'pro-c.json', 'max-d.json', 'runtime:1'],
     });
   });
 
-  test('a toggle on an API-key credential is refused, never planned', () => {
+  test('a toggle on it is refused, never planned: it has no file to hold a list', () => {
     expect(() =>
-      buildWritePlan(withKey(), {
+      buildWritePlan(withRuntime(), {
         type: 'account-model',
-        account: 'claude:apikey:1',
+        account: 'runtime:1',
         model: 'claude-haiku-4-5',
         exclude: true,
         mode: 'own',
       })
-    ).toThrow(ReadOnlyAccountError);
-    expect(() =>
-      buildWritePlan(withKey(), { type: 'account-all', account: 'claude:apikey:1', exclude: true })
     ).toThrow(ReadOnlyAccountError);
   });
 });

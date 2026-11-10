@@ -7,7 +7,8 @@
  * these slices, so two screens can never disagree about the same list.
  */
 import type { AuthFileModelItem } from '@/features/authFiles/constants';
-import { isRuntimeOnlyAuthFile, normalizeProviderKey } from '@/features/authFiles/constants';
+import { isRuntimeOnlyAuthFile } from '@/features/authFiles/constants';
+import { providerOfCredential } from '@/features/authFiles/credentialFacts';
 import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
 import { IDLE_LOAD, isLoadBusy, loadData, type InventoryLoad, type LoadState } from './loadState';
@@ -36,8 +37,7 @@ export interface AccountRef {
   kind: AccountKind;
 }
 
-export const providerOfFile = (file: AuthFileItem): string =>
-  normalizeProviderKey(String(file.type ?? file.provider ?? ''));
+export const providerOfFile = providerOfCredential;
 
 export const accountRefOf = (file: AuthFileItem): AccountRef => ({
   name: file.name,
@@ -46,7 +46,7 @@ export const accountRefOf = (file: AuthFileItem): AccountRef => ({
   kind: isRuntimeOnlyAuthFile(file) ? 'runtime' : 'file',
 });
 
-/** One provider's accounts: credential files first, then runtime credentials (config API keys). */
+/** One provider's accounts: credential files first, then runtime (in-memory) credentials. */
 export function accountRefs(files: readonly AuthFileItem[], provider: string): AccountRef[] {
   const refs = files.filter((file) => providerOfFile(file) === provider).map(accountRefOf);
   return [

@@ -165,36 +165,45 @@ describe('matrix', () => {
   });
 });
 
-describe('runtime credentials (config API keys)', () => {
-  const key = runtimeAccount('claude:apikey:1', ['claude-sonnet-4-0', 'claude-3-7-sonnet']);
+describe('runtime credentials (held in memory, no file)', () => {
+  const channel = runtimeAccount('runtime:1', ['claude-opus-4-5']);
 
-  test('the provider list never applies: only what the hub reports decides', () => {
-    // Both models are excluded by PROVIDER_LIST for OAuth accounts; the API key serves them.
-    expect(resolveCell(PROVIDER_LIST, key, 'claude-sonnet-4-0')).toEqual({
+  test('it follows the provider list like any account without a list of its own', () => {
+    expect(resolveCell(PROVIDER_LIST, channel, 'claude-opus-4-5')).toEqual({
       kind: 'served',
-      via: 'none',
+      via: 'provider',
     });
-    expect(resolveCell(PROVIDER_LIST, key, 'claude-3-7-sonnet')).toEqual({
-      kind: 'served',
-      via: 'none',
+    expect(resolveCell(PROVIDER_LIST, channel, 'claude-sonnet-4-0')).toEqual({
+      kind: 'excluded-provider',
+      rule: 'claude-sonnet-4-0',
+      drift: false,
     });
-    expect(resolveCell(PROVIDER_LIST, key, 'claude-opus-4-5')).toEqual({ kind: 'not-served' });
+    expect(resolveCell(PROVIDER_LIST, channel, 'claude-3-7-sonnet')).toEqual({
+      kind: 'wildcard',
+      rule: 'claude-3-*',
+      list: 'provider',
+      drift: false,
+    });
+    expect(resolveCell(PROVIDER_LIST, channel, 'claude-haiku-4-5')).toEqual({ kind: 'no-access' });
   });
 
   test('disabled and unreadable runtime credentials', () => {
     expect(resolveCell([], runtimeAccount('k', ['m'], true), 'm')).toEqual({ kind: 'disabled' });
     expect(
-      resolveCell([], { ...key, reported: { status: 'unknown', message: '500' } }, 'm')
+      resolveCell([], { ...channel, reported: { status: 'unknown', message: '500' } }, 'm')
     ).toEqual({ kind: 'unknown' });
   });
 
-  test('a model served only through an API key counts as served by one account', () => {
-    const base = inventory();
-    const rows = buildMatrix({ ...base, accounts: [...base.accounts, key] });
+  test('it counts as serving the model, and its column is read-only', () => {
+    const base = inventory({ providerList: [] });
+    const rows = buildMatrix({
+      ...base,
+      accounts: [runtimeAccount('runtime:1', ['claude-3-7-sonnet'])],
+    });
     const row = rows.find((item) => item.model === 'claude-3-7-sonnet')!;
-    expect(row.servedBy).toEqual(['claude:apikey:1']);
-    expect(isCellToggleable(row.cells['claude:apikey:1'])).toBe(true);
-    // The cell kind is toggleable in general; the account is what makes it read-only.
-    expect(isAccountEditable(key)).toBe(false);
+    expect(row.servedBy).toEqual(['runtime:1']);
+    // The cell kind is toggleable in general; having no file is what makes the column read-only.
+    expect(isCellToggleable(row.cells['runtime:1'])).toBe(true);
+    expect(isAccountEditable(channel)).toBe(false);
   });
 });

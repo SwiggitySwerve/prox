@@ -61,7 +61,7 @@ export function inventory(overrides: Partial<ModelAccessInventory> = {}): ModelA
   };
 }
 
-/** A config API-key credential: no file, read-only here, serves exactly `ids`. */
+/** A runtime (in-memory) credential: no file, follows the provider list; the hub reports `ids`. */
 export function runtimeAccount(name: string, ids: string[], disabled = false): AccountAccess {
   return {
     name,
