@@ -29,14 +29,8 @@ const createMainRoutes = () => [
   { path: '/ai-providers', element: <ProvidersWorkbenchPage /> },
   { path: '/ai-providers/*', element: <Navigate to="/ai-providers" replace /> },
   { path: '/auth-files', element: <AuthFilesPage /> },
-  {
-    path: '/auth-files/models',
-    element: (
-      <AuthFileEditorBoundary>
-        <ModelsPage />
-      </AuthFileEditorBoundary>
-    ),
-  },
+  // Every hub at once (or the one `?source=` names); each section mounts its own hub scope.
+  { path: '/auth-files/models', element: <ModelsPage /> },
   // The provider-list editor is the Models screen's Rules tab now.
   { path: '/auth-files/oauth-excluded', element: <LegacyModelsRedirect tab="rules" /> },
   {

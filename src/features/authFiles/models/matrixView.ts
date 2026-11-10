@@ -1,5 +1,6 @@
 /** Pure view helpers for the Models screen: filters, counts and labels. */
-import { isNamedProvider } from '@/features/authFiles/credentialFacts';
+import { isNamedProvider, providerOfCredential } from '@/features/authFiles/credentialFacts';
+import type { AuthFileItem } from '@/types';
 import { normalizeOAuthProviderKey } from '@/utils/providerKeys';
 import {
   isCellExcluded,
@@ -44,6 +45,118 @@ export function filterAccounts(accounts: AccountAccess[], query: string): Accoun
 
 export function countServed(rows: MatrixRow[]) {
   return { served: rows.filter((row) => row.servedBy.length > 0).length, total: rows.length };
+}
+
+/** What one hub section shows: model columns, how many of them are served, account rows. */
+export type VisibleCounts = { models: number; served: number; accounts: number };
+
+export function sumCounts(counts: readonly VisibleCounts[]): VisibleCounts {
+  return counts.reduce(
+    (sum, item) => ({
+      models: sum.models + item.models,
+      served: sum.served + item.served,
+      accounts: sum.accounts + item.accounts,
+    }),
+    { models: 0, served: 0, accounts: 0 }
+  );
+}
+
+/**
+ * Row groups of the access table, in display order. `follows`: no list of its own (runtime
+ * credentials included); `own`: its own list replaces the provider list; `unknown`: its list could
+ * not be read; `off`: disabled, whatever its list says.
+ */
+export const ACCOUNT_GROUPS = ['follows', 'own', 'unknown', 'off'] as const;
+export type AccountGroupKey = (typeof ACCOUNT_GROUPS)[number];
+
+export function accountGroupOf(account: AccountAccess): AccountGroupKey {
+  if (account.disabled) return 'off';
+  const kind = accountListKind(account);
+  return kind === 'own' ? 'own' : kind === 'unknown' ? 'unknown' : 'follows';
+}
+
+/** The non-empty groups, each keeping the inventory order of its accounts. */
+export function groupAccounts(
+  accounts: readonly AccountAccess[]
+): Array<{ key: AccountGroupKey; accounts: AccountAccess[] }> {
+  return ACCOUNT_GROUPS.map((key) => ({
+    key,
+    accounts: accounts.filter((account) => accountGroupOf(account) === key),
+  })).filter((group) => group.accounts.length > 0);
+}
+
+/** One hub's credential files as the page sees them; undefined until they have been read. */
+export type HubFiles = { id: string; files: readonly AuthFileItem[] | undefined };
+
+/**
+ * Credentials per named provider over the hubs in scope. `complete` is false while any of them has
+ * not been read (or its read failed): a provider only that hub has may still exist.
+ */
+export function providerCountsAcross(hubs: readonly HubFiles[]): {
+  counts: Record<string, number>;
+  complete: boolean;
+} {
+  const counts: Record<string, number> = {};
+  let complete = true;
+  for (const hub of hubs) {
+    if (!hub.files) {
+      complete = false;
+      continue;
+    }
+    for (const file of hub.files) {
+      const key = providerOfCredential(file);
+      if (isNamedProvider(key)) counts[key] = (counts[key] ?? 0) + 1;
+    }
+  }
+  return { counts, complete };
+}
+
+/**
+ * The provider tab shown across hubs. With every hub read, resolveProviderParam decides. While one
+ * is unknown a named request stands (that hub may have it); without one, the first provider a
+ * known hub has is shown, without writing the URL.
+ */
+export function resolveProviderAcross(
+  requested: string | null,
+  providers: readonly string[],
+  complete: boolean
+): { provider: string; param: string | null } {
+  if (complete) return resolveProviderParam(requested, providers);
+  const standing = resolveProviderParam(requested, undefined);
+  if (standing.provider) return standing;
+  return { provider: providers[0] ?? '', param: null };
+}
+
+/** Hubs that get a section for a provider: those that have it, and those not read yet. */
+export function hubsForProvider(hubs: readonly HubFiles[], provider: string): string[] {
+  if (!provider) return [];
+  return hubs
+    .filter(
+      (hub) => !hub.files || hub.files.some((file) => providerOfCredential(file) === provider)
+    )
+    .map((hub) => hub.id);
+}
+
+/** `?source=` as a filter: a known hub when there is more than one, otherwise every hub (null). */
+export function resolveSourceScope(requested: string | null, hubIds: readonly string[]) {
+  return requested && hubIds.length > 1 && hubIds.includes(requested) ? requested : null;
+}
+
+/**
+ * The hub whose Rules view opens `?list=`: the hub named by `?source=`, else the first hub (in
+ * section order) that has that account. A provider list key, or an account no read hub has, has no
+ * owner; every section then shows its provider list.
+ */
+export function listOwner(
+  list: string | null,
+  source: string | null,
+  hubs: readonly HubFiles[]
+): string | null {
+  if (!list) return null;
+  if (source && hubs.some((hub) => hub.id === source)) return source;
+  const target = targetOfListKey(list);
+  if (target.kind === 'provider') return null;
+  return hubs.find((hub) => hub.files?.some((file) => file.name === target.name))?.id ?? null;
 }
 
 /** i18n key (under model_access.) for a cell's state. */

@@ -18,6 +18,10 @@ export type ProviderTabsProps = {
   active: string;
   resolvedTheme: ResolvedTheme;
   onChange: (type: string) => void;
+  /** Accessible name of the strip (default: the "All" label). */
+  ariaLabel?: string;
+  /** While the providers are unknown: this many tab-sized placeholders instead of `types`. */
+  placeholders?: number;
 };
 
 /**
@@ -30,6 +34,8 @@ export function ProviderTabs({
   active,
   resolvedTheme,
   onChange,
+  ariaLabel,
+  placeholders = 0,
 }: ProviderTabsProps) {
   const { t } = useTranslation();
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -44,8 +50,20 @@ export function ProviderTabs({
   }, []);
 
   return (
-    <div ref={tabsRef} className={styles.tabs} role="group" aria-label={t('auth_files.filter_all')}>
-      {types.map((type) => {
+    <div
+      ref={tabsRef}
+      className={styles.tabs}
+      role="group"
+      aria-label={ariaLabel ?? t('auth_files.filter_all')}
+      aria-busy={placeholders > 0 || undefined}
+    >
+      {Array.from({ length: placeholders }, (_, index) => (
+        <span key={`placeholder-${index}`} className={styles.tabPlaceholder} aria-hidden="true">
+          <span className={styles.tabIconWrap} />
+          <span className={styles.tabPlaceholderLabel} />
+        </span>
+      ))}
+      {(placeholders > 0 ? [] : types).map((type) => {
         const isActive = active === type;
         const label = type === 'all' ? t('auth_files.filter_all') : getTypeLabel(t, type);
         const iconSrc = type === 'all' ? null : getAuthFileIcon(type, resolvedTheme);

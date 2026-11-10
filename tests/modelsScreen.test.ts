@@ -2,22 +2,33 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { buildMatrix, CELL_KINDS } from '../src/features/authFiles/modelAccess/resolve';
 import {
+  accountGroupOf,
   accountListKind,
   cellLabelKey,
   cellShortKey,
   countServed,
   filterAccounts,
   filterRows,
+  groupAccounts,
+  hubsForProvider,
   legacyModelsTarget,
   listDiff,
   listKeyOf,
+  listOwner,
   listSignature,
+  providerCountsAcross,
   resolveListKey,
+  resolveProviderAcross,
   resolveProviderParam,
+  resolveSourceScope,
   rowActionFor,
   sharedLabels,
+  sumCounts,
   targetOfListKey,
+  type HubFiles,
 } from '../src/features/authFiles/models/matrixView';
+import { modelsScreenPath } from '../src/features/authFiles/unifiedList';
+import type { AuthFileItem } from '../src/types';
 import { account, inventory, runtimeAccount } from './fixtures/modelAccess';
 
 const rows = buildMatrix(inventory());
@@ -121,10 +132,15 @@ describe('routes', () => {
     expect(routes).toContain('<AuthFilesOAuthModelAliasEditPage />');
   });
 
+  test('the Models route handles hubs itself: no single-hub boundary around it', () => {
+    const routes = readFileSync('src/router/MainRoutes.tsx', 'utf8');
+    expect(routes).toContain("{ path: '/auth-files/models', element: <ModelsPage /> }");
+  });
+
   test('the Models screen exposes its machines to tests and agents', () => {
-    const page = readFileSync('src/features/authFiles/models/ModelsPage.tsx', 'utf8');
-    expect(page).toContain('data-machine="model-inventory"');
-    expect(page).toContain('data-machine="model-edit-session"');
+    const section = readFileSync('src/features/authFiles/models/ModelsHubSection.tsx', 'utf8');
+    expect(section).toContain('data-machine="model-inventory"');
+    expect(section).toContain('data-machine="model-edit-session"');
     const dialog = readFileSync('src/features/authFiles/models/ModelEditDialog.tsx', 'utf8');
     expect(dialog).toContain('data-machine="model-edit-session"');
   });
@@ -247,8 +263,13 @@ describe('Models screen wiring', () => {
     expect(page).not.toContain("t('common.refresh')");
   });
 
-  test('the source switcher is the Auth Files pill nav, without "All sources"', () => {
-    expect(page).toMatch(/<AuthFilesSourceNav[\s\S]*?showAll=\{false\}/);
+  test('the hub filter is the Auth Files pill nav with "All sources"; providers are its tabs', () => {
+    expect(page).toMatch(/<AuthFilesSourceNav[\s\S]*?active=\{scope \?\? ALL_SOURCES\}/);
+    expect(page).not.toContain('showAll={false}');
+    expect(page).toMatch(/<ProviderTabs[\s\S]*?placeholders=/);
+    // One view switch, with the tab semantics the keyboard check relies on.
+    expect(page).toContain('role="tablist"');
+    expect(page).toContain('id={`models-tab-${key}`}');
     // Neither Models nor its alias editor gets the boxed runtime switcher any more.
     expect(layout).toMatch(/\['\/oauth', '\/config', '\/logs', '\/system'\]\.includes\(/);
   });
@@ -258,5 +279,110 @@ describe('Models screen wiring', () => {
       /path: '\/auth-files',[\s\S]*?path: '\/auth-files\/models',\s*labelKey: 'nav.models'/
     );
     expect(layout).toContain('isShadowedByChild');
+  });
+});
+
+const file = (name: string, type: string): AuthFileItem => ({ name, type }) as AuthFileItem;
+const HUBS: HubFiles[] = [
+  {
+    id: 'alpha',
+    files: [file('a.json', 'claude'), file('b.json', 'claude'), file('c.json', 'grok')],
+  },
+  { id: 'beta', files: [file('x.json', 'codex'), file('b.json', 'claude')] },
+];
+
+describe('access table rows', () => {
+  test('accounts group as follows (runtime included), own list, unreadable, off; empty groups drop', () => {
+    const accounts = [
+      ...inventory().accounts,
+      runtimeAccount('key-1', ['claude-opus-4-5']),
+      { ...account('own-off.json', ['x']), disabled: true },
+    ];
+    expect(
+      groupAccounts(accounts).map((group) => [group.key, group.accounts.map((item) => item.name)])
+    ).toEqual([
+      ['follows', ['team-a.json', 'max-d.json', 'key-1']],
+      ['own', ['team-b.json']],
+      ['off', ['pro-c.json', 'own-off.json']],
+    ]);
+    const unreadable = {
+      ...account('u.json', null),
+      ownList: { status: 'unknown' as const, message: 'x' },
+    };
+    expect(accountGroupOf(unreadable)).toBe('unknown');
+    expect(groupAccounts([])).toEqual([]);
+  });
+
+  test('the model filter and Served switch narrow columns; the account filter narrows rows', () => {
+    const columns = filterRows(rows, 'haiku', 'served').map((row) => row.model);
+    expect(columns).toEqual(['claude-haiku-4-5']);
+    const visible = filterAccounts(inventory().accounts, 'team');
+    expect(visible.map((item) => item.name)).toEqual(['team-a.json', 'team-b.json']);
+    expect(
+      sumCounts([
+        { models: 1, served: 1, accounts: 2 },
+        { models: 4, served: 2, accounts: 1 },
+      ])
+    ).toEqual({ models: 5, served: 3, accounts: 3 });
+  });
+});
+
+describe('hubs and providers', () => {
+  test('provider tabs count credentials on every hub in scope; an unread hub leaves them incomplete', () => {
+    expect(providerCountsAcross(HUBS)).toEqual({
+      counts: { claude: 3, xai: 1, codex: 1 },
+      complete: true,
+    });
+    expect(providerCountsAcross([...HUBS, { id: 'gamma', files: undefined }]).complete).toBe(false);
+  });
+
+  test('a request stands while a hub is unread; otherwise the first provider is shown', () => {
+    expect(resolveProviderAcross('gemini', ['claude'], false)).toEqual({
+      provider: 'gemini',
+      param: 'gemini',
+    });
+    expect(resolveProviderAcross(null, ['claude'], false)).toEqual({
+      provider: 'claude',
+      param: null,
+    });
+    expect(resolveProviderAcross('gemini', ['claude'], true)).toEqual({
+      provider: 'claude',
+      param: 'claude',
+    });
+  });
+
+  test('a provider gets one section per hub that has it, plus hubs not read yet', () => {
+    expect(hubsForProvider(HUBS, 'claude')).toEqual(['alpha', 'beta']);
+    expect(hubsForProvider(HUBS, 'codex')).toEqual(['beta']);
+    expect(hubsForProvider([...HUBS, { id: 'gamma', files: undefined }], 'codex')).toEqual([
+      'beta',
+      'gamma',
+    ]);
+    expect(hubsForProvider(HUBS, '')).toEqual([]);
+  });
+
+  test('?source= is an optional filter: absent, unknown or the only hub means every hub', () => {
+    expect(resolveSourceScope(null, ['alpha', 'beta'])).toBeNull();
+    expect(resolveSourceScope('beta', ['alpha', 'beta'])).toBe('beta');
+    expect(resolveSourceScope('gone', ['alpha', 'beta'])).toBeNull();
+    expect(resolveSourceScope('alpha', ['alpha'])).toBeNull();
+  });
+
+  test('?list= belongs to the hub ?source= names, else the first hub with that account', () => {
+    expect(listOwner('account:b.json', 'beta', HUBS)).toBe('beta');
+    expect(listOwner('account:b.json', null, HUBS)).toBe('alpha');
+    expect(listOwner('account:x.json', null, HUBS)).toBe('beta');
+    expect(listOwner('account:gone.json', null, HUBS)).toBeNull();
+    expect(listOwner('provider', null, HUBS)).toBeNull();
+    expect(listOwner(null, 'alpha', HUBS)).toBeNull();
+  });
+
+  test('links built by modelsScreenPath still open the right hub, provider and list', () => {
+    const params = new URLSearchParams(modelsScreenPath('beta', 'claude', 'b.json').split('?')[1]);
+    const source = params.get('source');
+    expect(resolveSourceScope(source, ['alpha', 'beta'])).toBe('beta');
+    expect(resolveProviderAcross(params.get('provider'), ['claude'], true).provider).toBe('claude');
+    expect(params.get('tab')).toBe('rules');
+    expect(listOwner(params.get('list'), source, HUBS)).toBe('beta');
   });
 });

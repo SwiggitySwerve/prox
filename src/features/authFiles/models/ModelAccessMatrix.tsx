@@ -16,9 +16,11 @@ import {
   cellLabelKey,
   cellRule,
   cellShortKey,
+  groupAccounts,
   nextExcludeFor,
   rowActionFor,
   sharedLabels,
+  type AccountGroupKey,
 } from './matrixView';
 import styles from './ModelsPage.module.scss';
 
@@ -35,7 +37,9 @@ export type LockedCellInfo = {
 type Props = {
   /** Display name of the provider. */
   provider: string;
+  /** One per model column (table) or model row (phone list). */
   rows: MatrixRow[];
+  /** One per account row (table) or picker option (phone list). */
   accounts: AccountAccess[];
   /** Writes are blocked (a session is open, or the inventory is refreshing). */
   disabled: boolean;
@@ -48,7 +52,7 @@ type Props = {
   onAccountAll: (account: AccountAccess, exclude: boolean) => void;
   /** Every account that could serve the model is locked by a wildcard: open that rule. */
   onEditRule: (target: ListTarget) => void;
-  /** The table is wider than its frame (some account columns are scrolled out of view). */
+  /** The table is wider than its frame (some model columns are scrolled out of view). */
   onOverflowChange?: (overflow: boolean) => void;
 };
 
@@ -108,6 +112,7 @@ export function ModelAccessMatrix(props: Props) {
   const { t } = useTranslation();
   const { provider, rows, accounts, disabled, layout } = props;
   const shared = sharedLabels(accounts);
+  const groups = groupAccounts(accounts);
 
   /** The full sentence for a cell: aria-label and tooltip. */
   const stateText = (cell: CellState) => {
@@ -342,7 +347,7 @@ export function ModelAccessMatrix(props: Props) {
     const full = t(`model_access.badge_${kind}`);
     return (
       <span className={styles.accountBadge} data-list={kind} title={full}>
-        {kind === 'runtime' ? t('model_access.badge_runtime_short') : full}
+        {kind === 'runtime' || kind === 'inherits' ? t(`model_access.badge_${kind}_short`) : full}
       </span>
     );
   };
@@ -364,86 +369,141 @@ export function ModelAccessMatrix(props: Props) {
     );
   }
 
+  const columnCount = rows.length + 2;
+  const groupLabel = (key: AccountGroupKey, count: number) =>
+    t(`model_access.group_${key}`, { count });
+
   return (
     <MatrixTable
       provider={provider}
-      accountCount={accounts.length}
+      modelCount={rows.length}
       onOverflowChange={props.onOverflowChange}
     >
+      <colgroup>
+        <col className={styles.headCol} />
+        {rows.map((row) => (
+          <col key={row.model} className={styles.modelCol} />
+        ))}
+        <col />
+      </colgroup>
       <thead>
         <tr>
-          <th scope="col" className={styles.modelColumn}>
-            {t('model_access.column_model')}
+          <th scope="col" className={styles.corner}>
+            <span className={styles.cornerModels}>
+              {t('model_access.column_model')} <span aria-hidden="true">→</span>
+            </span>
+            <span className={styles.cornerAccounts}>
+              {t('model_access.column_account')} <span aria-hidden="true">↓</span>
+            </span>
           </th>
-          <th scope="col" className={styles.providerColumn}>
-            {t('model_access.column_provider')}
-          </th>
-          {accounts.map((account) => {
-            const kind = account.disabled ? 'disabled' : accountListKind(account);
-            const twin = shared.has(account.label);
-            return (
-              <th key={account.name} scope="col" className={styles.accountColumn} data-list={kind}>
-                <span
-                  className={styles.accountLabel}
-                  title={twin ? `${account.label}\n${account.name}` : account.label}
-                >
-                  {account.label}
+          {rows.map((row) => (
+            <th
+              key={row.model}
+              scope="col"
+              className={styles.modelHead}
+              data-model={row.model}
+              data-served={row.servedBy.length ? 'yes' : 'no'}
+            >
+              <span className={styles.modelHeadInner}>
+                <span className={styles.modelId} title={row.model}>
+                  {row.model}
                 </span>
-                {twin && (
-                  <span className={styles.accountFile} title={account.name}>
-                    {account.name}
-                  </span>
-                )}
-                <span className={styles.accountMeta}>
-                  {renderBadge(account)}
-                  {renderAccountActions(account)}
-                </span>
-              </th>
-            );
-          })}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.model}
-            data-model={row.model}
-            data-served={row.servedBy.length ? 'yes' : 'no'}
-          >
-            <th scope="row" className={styles.modelColumn}>
-              <span className={styles.modelLine}>
-                <span className={styles.modelText}>
-                  <span className={styles.modelId} title={row.model}>
-                    {row.model}
-                  </span>
-                  {renderRowMeta(row)}
-                </span>
+                {renderRowMeta(row)}
                 {renderRowAction(row)}
               </span>
             </th>
-            <td className={styles.providerColumn}>{renderProviderCell(row)}</td>
-            {accounts.map((account) => (
-              <td key={account.name}>{renderAccountCell(account, row)}</td>
-            ))}
-          </tr>
-        ))}
+          ))}
+          <td className={styles.fill} aria-hidden="true" />
+        </tr>
+      </thead>
+      <tbody>
+        <tr className={styles.groupRow}>
+          <th scope="rowgroup" colSpan={columnCount}>
+            <span className={styles.groupLabel}>{t('model_access.group_provider')}</span>
+          </th>
+        </tr>
+        <tr data-provider-row="true">
+          <th scope="row" className={styles.rowHead}>
+            <span className={styles.rowHeadInner}>
+              <span className={styles.rowLine}>
+                <span className={styles.rowLabel} title={t('model_access.column_provider')}>
+                  {t('model_access.column_provider')}
+                </span>
+                <span className={styles.rowBadge} />
+              </span>
+              <span className={styles.rowLine}>
+                <span className={styles.rowSub}>{t('model_access.provider_row_desc')}</span>
+                <span className={styles.rowActions} />
+              </span>
+            </span>
+          </th>
+          {rows.map((row) => (
+            <td key={row.model}>{renderProviderCell(row)}</td>
+          ))}
+          <td className={styles.fill} aria-hidden="true" />
+        </tr>
       </tbody>
+      {groups.map((group) => (
+        <tbody key={group.key} data-group={group.key}>
+          <tr className={styles.groupRow}>
+            <th scope="rowgroup" colSpan={columnCount}>
+              <span className={styles.groupLabel}>
+                {groupLabel(group.key, group.accounts.length)}
+              </span>
+            </th>
+          </tr>
+          {group.accounts.map((account) => {
+            const kind = account.disabled ? 'disabled' : accountListKind(account);
+            const twin = shared.has(account.label);
+            return (
+              <tr key={account.name} data-account={account.name} data-list={kind}>
+                <th scope="row" className={styles.rowHead}>
+                  <span className={styles.rowHeadInner}>
+                    <span className={styles.rowLine}>
+                      <span
+                        className={styles.rowLabel}
+                        title={twin ? `${account.label}\n${account.name}` : account.label}
+                      >
+                        {account.label}
+                      </span>
+                      <span className={styles.rowBadge}>{renderBadge(account)}</span>
+                    </span>
+                    <span className={styles.rowLine}>
+                      <span
+                        className={`${styles.rowSub} ${styles.rowFile}`}
+                        title={twin ? account.name : undefined}
+                      >
+                        {twin ? account.name : ''}
+                      </span>
+                      <span className={styles.rowActions}>{renderAccountActions(account)}</span>
+                    </span>
+                  </span>
+                </th>
+                {rows.map((row) => (
+                  <td key={row.model}>{renderAccountCell(account, row)}</td>
+                ))}
+                <td className={styles.fill} aria-hidden="true" />
+              </tr>
+            );
+          })}
+        </tbody>
+      ))}
     </MatrixTable>
   );
 }
 
 /**
- * The scrolling frame. Edge fades (data attributes, no re-render) say columns are hidden to the
- * left or right; `onOverflowChange` lets the page add a text note for the same fact.
+ * The scrolling frame. Edge fades (data attributes, no re-render) say model columns are hidden to
+ * the left or right; `onOverflowChange` lets the section add a text note for the same fact.
  */
 function MatrixTable({
   provider,
-  accountCount,
+  modelCount,
   onOverflowChange,
   children,
 }: {
   provider: string;
-  accountCount: number;
+  modelCount: number;
   onOverflowChange?: (overflow: boolean) => void;
   children: ReactNode;
 }) {
@@ -500,7 +560,7 @@ function MatrixTable({
         <table
           ref={tableRef}
           className={styles.matrix}
-          style={{ '--account-count': accountCount } as CSSProperties}
+          style={{ '--model-count': modelCount } as CSSProperties}
         >
           {children}
         </table>
@@ -571,12 +631,11 @@ function ModelAccessList({
           size="sm"
           fullWidth
         />
-        {account && (
-          <span className={styles.accountMeta}>
-            {renderBadge(account)}
-            {renderAccountActions(account)}
-          </span>
-        )}
+        {/* Kept (empty) for the provider list, so the rows below never move. */}
+        <span className={styles.accountMeta}>
+          {account && renderBadge(account)}
+          {account && renderAccountActions(account)}
+        </span>
       </div>
       <ul className={styles.phoneRows} aria-label={t('model_access.matrix_label', { provider })}>
         {rows.map((row) => (
@@ -590,11 +649,11 @@ function ModelAccessList({
                 {row.model}
               </span>
               {renderRowMeta(row)}
-              {account && (
-                <span className={styles.phoneSub}>
-                  {t('model_access.phone_provider_state', { state: providerStateText(row) })}
-                </span>
-              )}
+              <span className={styles.phoneSub}>
+                {account
+                  ? t('model_access.phone_provider_state', { state: providerStateText(row) })
+                  : t('model_access.provider_row_desc')}
+              </span>
             </span>
             <span className={styles.phoneCell}>
               {account ? renderAccountCell(account, row) : renderProviderCell(row)}
