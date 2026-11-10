@@ -75,6 +75,8 @@ export function ModelsPage() {
           Object.entries(changes).forEach(([key, value]) =>
             value === null ? next.delete(key) : next.set(key, value)
           );
+          // `listHub` says which hub `list` belongs to; it goes when the list goes.
+          if (changes.list === null) next.delete('listHub');
           return next;
         },
         { replace: true }
@@ -187,7 +189,7 @@ export function ModelsPage() {
   // ---------- Rules list link ----------
   const requestedList = params.get('list');
   const namedSource = sourceParam && hubIds.includes(sourceParam) ? sourceParam : null;
-  const owner = listOwner(requestedList, namedSource, hubFiles);
+  const owner = listOwner(requestedList, namedSource, hubFiles, params.get('listHub'));
   const orphanList =
     complete &&
     requestedList !== null &&

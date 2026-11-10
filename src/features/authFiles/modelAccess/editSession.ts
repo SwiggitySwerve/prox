@@ -33,7 +33,7 @@ import {
   type StaleTarget,
   type WriteOutcome,
 } from './execute';
-import type { ListTarget, ListWrite, WriteIntent, WritePlan } from './writePlan';
+import type { ListGuard, ListTarget, ListWrite, WriteIntent, WritePlan } from './writePlan';
 
 export const EDIT_SESSION_MACHINE = 'model-edit-session';
 
@@ -158,6 +158,21 @@ export function pendingWrites(session: SessionProgress): ListWrite[] {
   return session.operation === 'apply'
     ? unfinished(session.plan.writes, session.outcomes)
     : unfinished(rollbackWrites(session.outcomes), session.undo);
+}
+
+/**
+ * What a RETRY must find unchanged: the plan's guards plus the lists that already landed (another
+ * operator may have undone one since; writing the rest would then report a result that is not on
+ * the hub). A rollback restores lists as they were and depends on no other list.
+ */
+export function pendingGuards(session: SessionProgress): ListGuard[] {
+  if (session.operation !== 'apply') return [];
+  return [
+    ...session.plan.guards,
+    ...session.outcomes
+      .filter((outcome) => outcome.status === 'ok')
+      .map(({ write }) => ({ target: write.target, expected: write.after })),
+  ];
 }
 
 /** Every list a session touched or found changed: what the table must re-read. */

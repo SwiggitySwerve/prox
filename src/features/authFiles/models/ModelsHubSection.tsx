@@ -145,7 +145,9 @@ export function ModelsHubSection({
   const busy =
     edit.session.status !== 'idle' || load.status === 'refreshing' || load.status === 'loading';
 
-  const openRules = (target: ListTarget) => setParam({ tab: 'rules', list: listKeyOf(target) });
+  // The hub goes with the list: another hub may hold a credential file of the same name.
+  const openRules = (target: ListTarget) =>
+    setParam({ tab: 'rules', list: listKeyOf(target), listHub: hubId });
   const goToRule = (info: LockedCellInfo) => {
     setLocked(null);
     openRules(
@@ -274,7 +276,7 @@ export function ModelsHubSection({
       <ModelRulesPanel
         inventory={inventory}
         listKey={listKey}
-        onListKeyChange={(key) => setParam({ list: key })}
+        onListKeyChange={(key) => setParam({ list: key, listHub: hubId })}
         disabled={busy}
         onReview={(target, rules) => edit.start({ type: 'replace-list', target, rules })}
       />

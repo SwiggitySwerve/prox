@@ -5,6 +5,7 @@ import {
   INITIAL_EDIT_SESSION,
   InvalidTransitionError,
   needsInheritChoice,
+  pendingGuards,
   pendingWrites,
   sessionTargets,
   transitionEditSession,
@@ -128,14 +129,14 @@ export function useModelEditSession(
 
   /**
    * Retry the operation that did not finish: the plan's unfinished writes while applying (with
-   * the plan's guards), the unfinished undo while rolling back (a rollback restores the lists as
+   * the plan's guards and the lists that already landed), the unfinished undo while rolling back (a rollback restores the lists as
    * they were, so it depends on no other list). Never the forward writes of a rollback.
    */
   const retry = useCallback(async () => {
     const current = sessionRef.current;
     if (current.status === 'partial-failure' || current.status === 'failed') {
       const writes = pendingWrites(current);
-      const guards = current.operation === 'apply' ? current.plan.guards : [];
+      const guards = pendingGuards(current);
       if (send({ type: 'RETRY' })) await run(writes, guards);
       return;
     }

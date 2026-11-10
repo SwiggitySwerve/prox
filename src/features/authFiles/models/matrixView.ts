@@ -150,9 +150,12 @@ export function resolveSourceScope(requested: string | null, hubIds: readonly st
 export function listOwner(
   list: string | null,
   source: string | null,
-  hubs: readonly HubFiles[]
+  hubs: readonly HubFiles[],
+  /** `?listHub=`: the hub section the list was opened from; two hubs may hold the same file name. */
+  listHub: string | null = null
 ): string | null {
   if (!list) return null;
+  if (listHub && hubs.some((hub) => hub.id === listHub)) return listHub;
   if (source && hubs.some((hub) => hub.id === source)) return source;
   const target = targetOfListKey(list);
   if (target.kind === 'provider') return null;

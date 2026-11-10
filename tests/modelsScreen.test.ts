@@ -377,6 +377,16 @@ describe('hubs and providers', () => {
     expect(listOwner(null, 'alpha', HUBS)).toBeNull();
   });
 
+  test('a list opened from a hub section stays in that hub, even when another hub has the file', () => {
+    // b.json exists on alpha and beta; "Edit rule" in beta's section must not open alpha's list.
+    expect(listOwner('account:b.json', null, HUBS, 'beta')).toBe('beta');
+    expect(listOwner('provider', null, HUBS, 'beta')).toBe('beta');
+    // A hub that is gone falls back to the old lookup.
+    expect(listOwner('account:b.json', null, HUBS, 'gone')).toBe('alpha');
+    const section = readFileSync('src/features/authFiles/models/ModelsHubSection.tsx', 'utf8');
+    expect(section.match(/listHub: hubId/g)).toHaveLength(2);
+  });
+
   test('links built by modelsScreenPath still open the right hub, provider and list', () => {
     const params = new URLSearchParams(modelsScreenPath('beta', 'claude', 'b.json').split('?')[1]);
     const source = params.get('source');

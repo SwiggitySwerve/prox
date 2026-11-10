@@ -3,6 +3,7 @@ import {
   EDIT_SESSION_TRANSITIONS,
   INITIAL_EDIT_SESSION,
   InvalidTransitionError,
+  pendingGuards,
   pendingWrites,
   transitionEditSession,
   type EditSession,
@@ -120,6 +121,19 @@ describe('model edit session', () => {
       result: { status: 'saved', outcomes: [ok(0)] },
     });
     expect(state).toMatchObject({ status: 'saved', outcomes: [ok(0), ok(1)] });
+  });
+
+  test('a retry guards the lists that already landed, on top of the plan guards', () => {
+    // b.json was written, the provider write failed. If someone undoes b.json before the retry,
+    // retrying only the provider write must not report "saved".
+    const guard = { target: { kind: 'account' as const, name: 'c.json' }, expected: null };
+    const partial = { ...applying, plan: { ...plan, guards: [guard] }, outcomes: [ok(0), bad(1)] };
+    expect(pendingGuards(partial)).toEqual([
+      guard,
+      { target: { kind: 'account', name: 'b.json' }, expected: ['m'] },
+    ]);
+    // A rollback restores lists as they were and depends on no other list.
+    expect(pendingGuards({ ...undoing, undo: [] })).toEqual([]);
   });
 
   test('a retry that fails again stays a partial failure', () => {
