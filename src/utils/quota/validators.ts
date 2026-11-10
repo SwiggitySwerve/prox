@@ -2,15 +2,17 @@
  * Validation and type checking functions for quota management.
  */
 
+import { providerOfCredential } from '@/features/authFiles/credentialFacts';
 import type { AuthFileItem } from '@/types';
 
+/**
+ * Quota family of a credential: its provider key (see `providerOfCredential`) with `kimi-ai`
+ * merged into `kimi`, because Kimi International accounts (kimi.ai) share Kimi's quota API on
+ * another host. Use `providerOfCredential` where the hub's own provider name matters.
+ */
 export function resolveAuthProvider(file: AuthFileItem): string {
-  const raw = file.provider ?? file.type ?? '';
-  const key = String(raw).trim().toLowerCase().replace(/_/g, '-');
-  if (key === 'x-ai' || key === 'grok') return 'xai';
-  // Kimi International (kimi.ai) accounts share Kimi's quota API on another host.
-  if (key === 'kimi-ai') return 'kimi';
-  return key;
+  const provider = providerOfCredential(file);
+  return provider === 'kimi-ai' ? 'kimi' : provider;
 }
 
 export function isAntigravityFile(file: AuthFileItem): boolean {

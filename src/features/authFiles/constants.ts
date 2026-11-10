@@ -182,8 +182,14 @@ export const isProblemAuthFile = (file: AuthFileItem): boolean => {
   return file.unavailable === true || status === 'error' || hasAuthFileStatusWarning(file);
 };
 
+/** Label, icon and colour of Kimi International (`kimi-ai`) are Kimi's; its provider key is not. */
+const displayProviderKey = (type: string): string => {
+  const key = normalizeProviderKey(type);
+  return key === 'kimi-ai' ? 'kimi' : key;
+};
+
 export const getTypeLabel = (t: TFunction, type: string): string => {
-  const providerKey = normalizeProviderKey(type);
+  const providerKey = displayProviderKey(type);
   const key = `auth_files.filter_${providerKey}`;
   const translated = t(key);
   if (translated !== key) return translated;
@@ -192,12 +198,12 @@ export const getTypeLabel = (t: TFunction, type: string): string => {
 };
 
 export const getTypeColor = (type: string, resolvedTheme: ResolvedTheme): ThemeColors => {
-  const set = TYPE_COLORS[normalizeProviderKey(type)] || TYPE_COLORS.unknown;
+  const set = TYPE_COLORS[displayProviderKey(type)] || TYPE_COLORS.unknown;
   return resolvedTheme === 'dark' && set.dark ? set.dark : set.light;
 };
 
 export const getAuthFileIcon = (type: string, resolvedTheme: ResolvedTheme): string | null => {
-  const iconEntry = AUTH_FILE_ICONS[normalizeProviderKey(type)];
+  const iconEntry = AUTH_FILE_ICONS[displayProviderKey(type)];
   if (!iconEntry) return null;
   return typeof iconEntry === 'string'
     ? iconEntry
@@ -211,7 +217,7 @@ export const getAuthFileIcon = (type: string, resolvedTheme: ResolvedTheme): str
 export const THEME_SURFACE_ICON_PROVIDERS = new Set(['kimi']);
 
 export const isThemeSurfaceIconProvider = (type: string): boolean =>
-  THEME_SURFACE_ICON_PROVIDERS.has(normalizeProviderKey(type));
+  THEME_SURFACE_ICON_PROVIDERS.has(displayProviderKey(type));
 
 export const getThemeSurfaceIconBackground = (resolvedTheme: ResolvedTheme): string =>
   resolvedTheme === 'dark' ? '#ffffff' : '#000000';

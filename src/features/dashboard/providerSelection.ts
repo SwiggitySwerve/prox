@@ -225,7 +225,7 @@ function combineCredentials(sources: DashboardSource[]): CredentialHealth | null
     total: known.reduce((sum, entry) => sum + entry.total, 0),
     active: known.reduce((sum, entry) => sum + entry.active, 0),
     disabled: known.reduce((sum, entry) => sum + entry.disabled, 0),
-    unavailable: known.reduce((sum, entry) => sum + entry.unavailable, 0),
+    problem: known.reduce((sum, entry) => sum + entry.problem, 0),
     byType: Array.from(byType, ([type, count]) => ({ type, count })).sort(
       (a, b) => b.count - a.count || a.type.localeCompare(b.type)
     ),

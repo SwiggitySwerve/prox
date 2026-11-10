@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { formatCompactNumber, formatPercent } from '../src/utils/format';
-import { getProviderKeyCounts } from '../src/features/dashboard/hooks/useDashboardOverview';
+import {
+  getProviderKeyCounts,
+  providerIdOfAuthFile,
+  summarizeCredentials,
+} from '../src/features/dashboard/hooks/useDashboardOverview';
+import { countCredentials } from '../src/features/authFiles/credentialFacts';
+import type { AuthFileItem } from '../src/types';
 import {
   axisMax,
   formatBucketLength,
@@ -143,5 +149,61 @@ describe('formatBucketLength', () => {
     expect(formatBucketLength(60, 'en')).toBe('1 hour');
     expect(formatBucketLength(120, 'en')).toBe('2 hours');
     expect(formatBucketLength(60, 'ko')).toBe('1시간');
+  });
+});
+
+describe('summarizeCredentials', () => {
+  const file = (fields: Record<string, unknown>): AuthFileItem =>
+    ({ name: 'f.json', type: 'claude', ...fields }) as AuthFileItem;
+  // 10 credentials: 1 disabled, 2 unavailable, 1 with a warning message, 1 in error status.
+  const files = [
+    ...Array.from({ length: 5 }, () => file({})),
+    file({ disabled: true }),
+    file({ unavailable: true }),
+    file({ unavailable: true }),
+    file({ status: 'error', status_message: 'token expired' }),
+    file({ status: 'active', status_message: 'quota exceeded, retrying' }),
+  ];
+
+  test('active, problem and disabled add up to the total and match the Auth Files counts', () => {
+    const health = summarizeCredentials(files);
+    const counts = countCredentials(files);
+    expect(health.total).toBe(10);
+    expect(health.active + health.problem + health.disabled).toBe(health.total);
+    expect({ active: health.active, problem: health.problem, disabled: health.disabled }).toEqual({
+      active: counts.active,
+      problem: counts.problem,
+      disabled: counts.disabled,
+    });
+    expect(health.disabled).toBe(1);
+    expect(health.problem).toBeGreaterThanOrEqual(3);
+  });
+
+  test('a disabled credential that also reports a problem is counted once, as disabled', () => {
+    const health = summarizeCredentials([file({ disabled: true, unavailable: true })]);
+    expect(health).toMatchObject({ total: 1, active: 0, problem: 0, disabled: 1 });
+  });
+
+  test('groups by the shared provider key, with unnamed ones under unknown', () => {
+    const health = summarizeCredentials([
+      file({ type: 'grok' }),
+      file({ type: 'x-ai' }),
+      file({ type: 'Gemini_CLI' }),
+      file({ type: '' }),
+      file({ type: 'empty' }),
+    ]);
+    expect(health.byType).toEqual([
+      { type: 'unknown', count: 2 },
+      { type: 'xai', count: 2 },
+      { type: 'gemini-cli', count: 1 },
+    ]);
+  });
+});
+
+describe('providerIdOfAuthFile', () => {
+  test('uses the shared provider key and unknown for unnamed credentials', () => {
+    expect(providerIdOfAuthFile({ name: 'a', type: 'Muse' } as AuthFileItem)).toBe('meta');
+    expect(providerIdOfAuthFile({ name: 'a', provider: 'x_ai' } as AuthFileItem)).toBe('xai');
+    expect(providerIdOfAuthFile({ name: 'a' } as AuthFileItem)).toBe('unknown');
   });
 });

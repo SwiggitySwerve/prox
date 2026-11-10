@@ -3,6 +3,7 @@
  * React-free —— 由 tests/quotaPageLogic.test.ts 直接消费。
  */
 
+import { isRuntimeOnlyAuthFile } from '@/features/authFiles/constants';
 import type { AuthFileItem } from '@/types';
 import {
   isAntigravityQuotaFile,
@@ -60,6 +61,9 @@ export function classifyQuotaFiles(files: AuthFileItem[]): QuotaFileEntry[] {
     QUOTA_TAB_ORDER.map((type) => [type, []])
   );
   for (const file of files) {
+    // Runtime-only credentials have no auth file to read quota from; Auth Files hides the quota
+    // section for them too.
+    if (isRuntimeOnlyAuthFile(file)) continue;
     const type = resolveQuotaProviderType(file);
     if (!type) continue;
     groups.get(type)?.push({ file, type });

@@ -5,12 +5,22 @@ import { Trans, useTranslation } from 'react-i18next';
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
 import type { AuthFileModelItem, OAuthConfigLoadError } from '@/features/authFiles/constants';
 import { normalizeProviderKey } from '@/features/authFiles/constants';
+import { providerOfCredential } from '@/features/authFiles/credentialFacts';
 import { configLoadError, IDLE_LOAD, loadData } from '@/features/authFiles/modelAccess';
 import { modelAccess } from '@/features/authFiles/modelAccessRuntime';
 import { useSourceModelAccess } from '@/stores/useModelAccessStore';
 type ViewMode = 'diagram' | 'list';
 const NO_LISTS: Record<string, string[]> = {};
 const NO_ALIASES: Record<string, OAuthModelAliasEntry[]> = {};
+
+/** Providers with aliases or credentials, spelled as the model-access store keys them. */
+export const oauthProviderKeys = (aliasKeys: readonly string[], files: readonly AuthFileItem[]) => {
+  const providers = new Set<string>();
+  aliasKeys.forEach((provider) => providers.add(normalizeProviderKey(provider)));
+  files.forEach((file) => providers.add(providerOfCredential(file)));
+  providers.delete('');
+  return Array.from(providers);
+};
 
 export type UseAuthFilesOauthResult = {
   excluded: Record<string, string[]>;
@@ -85,26 +95,10 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     }
   }, [modelAliasError, showNotification, t]);
 
-  const providerList = useMemo(() => {
-    const providers = new Set<string>();
-
-    Object.keys(modelAlias).forEach((provider) => {
-      const key = provider.trim().toLowerCase();
-      if (key) providers.add(key);
-    });
-
-    files.forEach((file) => {
-      if (typeof file.type === 'string') {
-        const key = file.type.trim().toLowerCase();
-        if (key) providers.add(key);
-      }
-      if (typeof file.provider === 'string') {
-        const key = file.provider.trim().toLowerCase();
-        if (key) providers.add(key);
-      }
-    });
-    return Array.from(providers);
-  }, [files, modelAlias]);
+  const providerList = useMemo(
+    () => oauthProviderKeys(Object.keys(modelAlias), files),
+    [files, modelAlias]
+  );
 
   const catalogs = access?.catalogs;
   const allProviderModels = useMemo(() => {

@@ -268,7 +268,8 @@ function UnifiedDashboard({
       hint: credentials
         ? t('dashboard.stat_credentials_hint', {
             active: credentials.active,
-            disabled: credentials.disabled + credentials.unavailable,
+            problem: credentials.problem,
+            disabled: credentials.disabled,
           })
         : t('dashboard.stat_credentials_empty'),
       meter:
@@ -607,10 +608,10 @@ function UnifiedDashboard({
                     style={{ flexGrow: credentials.active }}
                   />
                 )}
-                {credentials.unavailable > 0 && (
+                {credentials.problem > 0 && (
                   <span
-                    className={`${styles.healthSegment} ${styles.healthUnavailable}`}
-                    style={{ flexGrow: credentials.unavailable }}
+                    className={`${styles.healthSegment} ${styles.healthProblem}`}
+                    style={{ flexGrow: credentials.problem }}
                   />
                 )}
                 {credentials.disabled > 0 && (
@@ -627,12 +628,9 @@ function UnifiedDashboard({
                   <b>{credentials.active.toLocaleString()}</b>
                 </li>
                 <li>
-                  <i
-                    className={`${styles.healthKey} ${styles.healthUnavailable}`}
-                    aria-hidden="true"
-                  />
-                  {t('dashboard.health_unavailable')}
-                  <b>{credentials.unavailable.toLocaleString()}</b>
+                  <i className={`${styles.healthKey} ${styles.healthProblem}`} aria-hidden="true" />
+                  {t('dashboard.health_problem')}
+                  <b>{credentials.problem.toLocaleString()}</b>
                 </li>
                 <li>
                   <i

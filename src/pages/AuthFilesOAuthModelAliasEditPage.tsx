@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { IconInfo, IconNetwork, IconPlus } from '@/components/ui/icons';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { IconInfo, IconPlus } from '@/components/ui/icons';
 import { OAuthEditorProviderCard } from '@/features/authFiles/components/OAuthEditorProviderCard';
 import { OAuthAliasMappingRow } from '@/features/authFiles/components/OAuthAliasMappingRow';
-import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
 import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useAuthStore } from '@/stores';
@@ -15,7 +15,9 @@ import {
   useAuthFilesSource,
   useAuthFilesNotifications,
 } from '@/features/authFiles/AuthFilesSourceContext';
-import { buildOAuthProviderOptions, normalizeProviderKey } from '@/features/authFiles/constants';
+import { getTypeLabel, normalizeProviderKey } from '@/features/authFiles/constants';
+import { isNamedProvider } from '@/features/authFiles/credentialFacts';
+import { oauthProviderKeys } from '@/features/authFiles/hooks/useAuthFilesOauth';
 import {
   getModelAliasDraftSignature,
   isOAuthEditorDirty,
@@ -32,9 +34,11 @@ import {
   useSourceModelAccess,
 } from '@/stores/useModelAccessStore';
 import styles from '@/features/authFiles/components/OAuthEditor.module.scss';
+import pageStyles from './AuthFilesOAuthModelAliasEditPage.module.scss';
 
 const NO_FILES: AuthFileItem[] = [];
 const NO_MODELS: AuthFileModelItem[] = [];
+const NO_LISTS: Record<string, string[]> = {};
 const IDLE_CATALOG: LoadState<AuthFileModelItem[]> = IDLE_LOAD;
 
 type LocationState = { fromAuthFiles?: boolean } | null;
@@ -68,18 +72,19 @@ export function AuthFilesOAuthModelAliasEditPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { showConfirmation, showNotification } = useAuthFilesNotifications();
-  const { api: authFilesApi, session } = useAuthFilesSource();
+  const { api: authFilesApi, session, source } = useAuthFilesSource();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const disableControls = connectionStatus !== 'connected';
 
   const [searchParams, setSearchParams] = useSearchParams();
   const providerFromParams = searchParams.get('provider') ?? '';
   const [initialProviderKey] = useState(() => normalizeProviderKey(providerFromParams));
+  // A provider in the link is the one being edited; the picker is only for a link without one.
+  const providerLocked = initialProviderKey !== '';
 
   const [provider, setProvider] = useState(providerFromParams);
   // Credential files come from the one inventory store, not a list of this page's own.
   const files: AuthFileItem[] = useSourceFiles(session.owner) ?? NO_FILES;
-  const [excluded, setExcluded] = useState<Record<string, string[]>>({});
   const [modelAlias, setModelAlias] = useState<Record<string, OAuthModelAliasEntry[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
   const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
@@ -96,28 +101,23 @@ export function AuthFilesOAuthModelAliasEditPage() {
     setProvider(providerFromParams);
   }, [providerFromParams]);
 
-  const providerOptions = useMemo(() => {
-    const extraProviders = new Set<string>();
-    Object.keys(excluded).forEach((value) => extraProviders.add(value));
-    Object.keys(modelAlias).forEach((value) => extraProviders.add(value));
-    files.forEach((file) => {
-      if (typeof file.type === 'string') {
-        extraProviders.add(file.type);
-      }
-      if (typeof file.provider === 'string') {
-        extraProviders.add(file.provider);
-      }
-    });
-
-    return buildOAuthProviderOptions(extraProviders);
-  }, [excluded, files, modelAlias]);
+  // Providers this hub has credentials, aliases or an exclusion list for; the lists are read
+  // from the shared model-access store rather than copied.
+  const modelAccessSlices = useSourceModelAccess(session.owner);
+  const excluded = (modelAccessSlices && loadData(modelAccessSlices.providerLists)) ?? NO_LISTS;
+  const providerOptions = useMemo(
+    () =>
+      oauthProviderKeys([...Object.keys(excluded), ...Object.keys(modelAlias)], files)
+        .filter(isNamedProvider)
+        .sort(),
+    [excluded, files, modelAlias]
+  );
 
   const resolvedProviderKey = useMemo(() => normalizeProviderKey(provider), [provider]);
   // The catalog is read live from the shared model-access store. The alias baseline above is a
   // snapshot taken from the same store at load time: a later refresh by another screen must not
   // replace a draft that is being edited.
-  const catalog =
-    useSourceModelAccess(session.owner)?.catalogs[resolvedProviderKey] ?? IDLE_CATALOG;
+  const catalog = modelAccessSlices?.catalogs[resolvedProviderKey] ?? IDLE_CATALOG;
   const catalogWanted = Boolean(resolvedProviderKey) && !modelAliasUnsupported;
   const modelsList = useMemo(
     () => (catalogWanted ? (loadData(catalog) ?? NO_MODELS) : NO_MODELS),
@@ -173,14 +173,21 @@ export function AuthFilesOAuthModelAliasEditPage() {
     return t('oauth_model_alias.model_source_loaded', { count: modelsList.length });
   }, [modelsError, modelsList.length, modelsLoading, provider, t]);
 
+  const modelsHref = useMemo(() => {
+    const params = new URLSearchParams({ source: source.instanceId });
+    if (resolvedProviderKey) params.set('provider', resolvedProviderKey);
+    params.set('tab', 'aliases');
+    return `/auth-files/models?${params.toString()}`;
+  }, [resolvedProviderKey, source.instanceId]);
+
   const handleBack = useCallback(() => {
     const state = location.state as LocationState;
     if (state?.fromAuthFiles) {
       navigate(-1);
       return;
     }
-    navigate('/auth-files', { replace: true });
-  }, [location.state, navigate]);
+    navigate(modelsHref, { replace: true });
+  }, [location.state, modelsHref, navigate]);
 
   const swipeRef = useEdgeSwipeBack({ onBack: handleBack });
 
@@ -210,9 +217,6 @@ export function AuthFilesOAuthModelAliasEditPage() {
       if (requestId !== loadRequestRef.current) return;
 
       const access = selectSourceModelAccess(useModelAccessStore.getState(), session.owner);
-      const lists = access ? loadData(access.providerLists) : null;
-      if (lists) setExcluded(lists);
-
       const aliases = access?.aliases;
       if (aliases?.status === 'ready') {
         setModelAlias(aliases.data);
@@ -386,24 +390,43 @@ export function AuthFilesOAuthModelAliasEditPage() {
     !modelAliasUnsupported &&
     initialLoadError === null;
 
-  return (
-    <SecondaryScreenShell
-      ref={swipeRef}
-      title={title}
-      onBack={handleBack}
-      backLabel={t('common.back')}
-      backAriaLabel={t('common.back')}
-      contentClassName={styles.pageContent}
-      topBarClassName={styles.topBar}
-      rightAction={
+  const header = (
+    <header className={pageStyles.header}>
+      <div className={pageStyles.titleBlock}>
+        <p className={pageStyles.eyebrow}>
+          <Link to="/auth-files">{t('nav.auth_files')}</Link>
+          <span aria-hidden="true"> / </span>
+          {source.label}
+          <span aria-hidden="true"> / </span>
+          <Link to={modelsHref}>{t('model_access.title')}</Link>
+          <span aria-hidden="true"> / </span>
+          <span aria-current="page">{t('model_access.tab_aliases')}</span>
+        </p>
+        <h1>{title}</h1>
+        <p className={pageStyles.subtitle}>{t('oauth_model_alias.editor_description')}</p>
+      </div>
+      <div className={pageStyles.headerActions}>
         <Button size="sm" onClick={handleSave} loading={saving} disabled={!canSave}>
-          {t('oauth_model_alias.save')}
+          {t('common.save')}
         </Button>
-      }
-      isLoading={initialLoading}
-      loadingLabel={t('common.loading')}
-    >
-      {modelAliasUnsupported ? (
+      </div>
+    </header>
+  );
+
+  const loadingState = (
+    <div className={pageStyles.skeletons} role="status" aria-label={t('common.loading')}>
+      {Array.from({ length: 4 }, (_, index) => (
+        <Skeleton key={index} height={40} rounded={8} />
+      ))}
+    </div>
+  );
+
+  return (
+    <div className={pageStyles.page} ref={swipeRef}>
+      {header}
+      {initialLoading ? (
+        loadingState
+      ) : modelAliasUnsupported ? (
         <Card>
           <EmptyState
             title={t('oauth_model_alias.upgrade_required_title')}
@@ -424,29 +447,28 @@ export function AuthFilesOAuthModelAliasEditPage() {
         </Card>
       ) : (
         <>
-          <div className={styles.intro}>
-            <span className={styles.introIcon}>
-              <IconNetwork size={22} aria-hidden="true" />
-            </span>
-            <div>
-              <h1 className={styles.introTitle}>{t('oauth_model_alias.title')}</h1>
-              <p className={styles.description}>{t('oauth_model_alias.editor_description')}</p>
+          {providerLocked ? (
+            <div className={pageStyles.provider}>
+              <span id="alias-provider-label">{t('oauth_model_alias.provider_label')}</span>
+              <span className={pageStyles.providerChip}>
+                {getTypeLabel(t, resolvedProviderKey)}
+              </span>
             </div>
-          </div>
-
-          <OAuthEditorProviderCard
-            provider={provider}
-            options={providerOptions}
-            onChange={updateProvider}
-            disabled={disableControls || saving}
-            translationPrefix="oauth_model_alias"
-          />
+          ) : (
+            <OAuthEditorProviderCard
+              provider={provider}
+              options={providerOptions}
+              onChange={updateProvider}
+              disabled={disableControls || saving}
+              translationPrefix="oauth_model_alias"
+            />
+          )}
 
           <Card className={styles.settingsCard}>
             <div className={styles.editorHeader}>
               <div className={styles.sectionHeading}>
                 <span className={styles.stepNumber} aria-hidden="true">
-                  02
+                  {providerLocked ? '01' : '02'}
                 </span>
                 <div className={styles.headingCopy}>
                   <h2 className={styles.sectionTitle}>{t('oauth_model_alias.alias_label')}</h2>
@@ -492,6 +514,6 @@ export function AuthFilesOAuthModelAliasEditPage() {
           </Card>
         </>
       )}
-    </SecondaryScreenShell>
+    </div>
   );
 }
