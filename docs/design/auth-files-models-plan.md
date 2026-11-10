@@ -16,6 +16,8 @@ The hubs run `localhost/cli-proxy-api:analytics-85eabdce`. The image label `org.
 | At model registration the provider list `oauth-excluded-models[provider]` is the default, and a **non-empty** own list replaces it. | `sdk/cliproxy/service_models.go:74-82`; same rule in `service_executors.go:630-641` (plugin path) and `antigravity_models.go:670-673` |
 | An empty own list, a whitespace-only list or `null` leaves the attribute unset, so the account **inherits** the provider list. | `helpers.go:83-85`; tests `auth_files_excluded_models_test.go:53-58` ("empty clears", "null clears") |
 | The provider list does not apply to API-key credentials. | `service_models.go:645-655` |
+| Config API keys are not listed as credentials at all (an entry with no file path that is not `runtime_only` is skipped). | `auth_files.go:654-662` |
+| `runtime_only` means "held in memory, no file" (for example an AI Studio websocket channel). Such a credential is not API-key kind, so the provider list applies to it; it has no file, so it cannot have a list of its own. | `service_auth.go:376`, `classification.go:30-50` |
 | Matching is case-insensitive; `*` matches any run of characters, including none; every other character is literal. | `service_models.go:657-690`, `753-795` |
 | Disabled credentials are unregistered and serve nothing. | `service_models.go:47-53` |
 | `GET /credentials/models` returns the registry's models for that credential **after** exclusions (and after aliases and prefixes). | `internal/api/handlers/management/auth_files.go:335-380` |
@@ -199,7 +201,44 @@ A contract test (`tests/modelAccessStore.test.ts`) fails if any file other than 
 
 **Bug fixes in this pass:** B1 (batch enable/disable now has a catch), B2 (the dialog, above), B3 (the credential sheet re-reads the account's list before saving and refuses if it changed since the sheet opened). B4 and B5 were fixed by design in the first pass. B6 is retracted.
 
-**New in the model:** config API-key credentials (`runtime_only` entries) of the provider are accounts of kind `runtime`. The provider list never applies to them and their exclusions live in their config entry, so they are read-only columns here, and "Disable everywhere" names the ones that keep serving the model. Without this the matrix under-counted "served by".
+**New in the model (corrected in section 11):** `runtime_only` credentials of the provider are accounts of kind `runtime`, shown as read-only columns. This pass described them as config API keys that the provider list never reaches. That was wrong; see section 11.
 
 **Not unified, and why:** the Dashboard and System pages read the hub's public `/v1/models` list through the per-source `modelsStore`; that is a different dataset (what an API key sees) and already has one store. AI Providers edits API-key provider entries through the config store and its own resource model (`providers/adapters.ts`); those entries are shown here read-only rather than edited through a second path.
 
+## 11. Review pass: making the screens agree (third pass)
+
+Three independent reviews (screens at 1440 and 390 px, cross-screen data, and the branch diff) produced about 55 findings. What changed:
+
+**A fact corrected.** Section 10 treated `runtime_only` credentials as config API keys outside the provider list's reach. The backend says otherwise (rows added to the table in section 1): a `runtime_only` credential is held in memory with no file, follows the provider list, and cannot have a list of its own; config API keys never appear in the credential list. So `resolveCell` no longer special-cases `runtime`, the `not-served` cell kind and the `still-served-by` notice are gone, "Exclude everywhere" counts runtime credentials among the accounts the provider list reaches, and the Models screen carries a one-line note that API keys from AI Providers are not listed and are not covered by exclusion lists. The card label is "Runtime only".
+
+**Write safety** (`editSession.ts`, `execute.ts`, `writePlan.ts`, `useModelEditSession.ts`):
+
+- A session now knows whether it is applying or rolling back. A rollback that fails stays a rollback: Retry re-runs the undo, never the forward write (this was the high-severity finding: Retry after a failed rollback completed the change the user was undoing).
+- `stale` and `failed` keep the outcomes of earlier writes, and the dialog says what is on the hub. "Nothing was written" appears only when that is true. A completed rollback always ends in `rolled-back`; a stale rollback cannot be re-planned as the forward change.
+- A plan carries `guards`: lists it depends on but does not write (every other file account's own list for provider-wide plans; the provider list when a plan relied on it). A guard that changed since the preview is `stale` with nothing written.
+- Each target is re-read immediately before it is written. Without an atomic backend endpoint a one-request window remains; guards are checked once, before the first write.
+- "Exclude all" keeps the rules already in effect (wildcards included) and adds only what they do not block; when everything is already blocked the plan is a no-change.
+- After a write only the provider lists, the written accounts and the accounts whose rules in effect changed are re-read. A failed re-read no longer turns a saved write into an error; the dialog offers "Read again".
+
+Transition table as built (`'self'` = the state keeps its name with new data; RERUN = `REFRESH`/`REFRESHED` for the table re-read):
+
+```
+idle            START -> choosing | previewing
+choosing        CHOOSE -> previewing          CANCEL -> idle
+previewing      APPLY -> saving               CANCEL -> idle
+saving          SETTLED -> saved | partial-failure | failed | stale     ERROR -> failed | partial-failure
+saved           DISMISS -> idle               RERUN
+partial-failure RETRY -> saving | rolling-back    ROLLBACK -> rolling-back    DISMISS -> idle    RERUN
+failed          RETRY -> saving | rolling-back    DISMISS -> idle             RERUN
+stale           REPLAN -> previewing (apply only) CANCEL -> idle              RERUN
+rolling-back    SETTLED -> rolled-back | partial-failure | failed | stale   ERROR -> failed | partial-failure
+rolled-back     DISMISS -> idle               RERUN
+```
+
+**One definition per fact.** `credentialFacts.ts` defines a credential's provider (`providerOfCredential`), whether a provider key is a real name (`isNamedProvider`) and its health (`credentialHealth`: exactly one of active, problem, disabled; `countCredentials`). The Auth Files header, groups and status chips, the Dashboard, the Models provider list and the Quota "family" (`resolveAuthProvider` = the shared key plus `kimi-ai` to `kimi` for the shared quota API) all use it. Enable/disable, batch enable/disable and cooldown reset now publish to the shared credential inventory, so the header, Models and Dashboard change with the card. Quota no longer offers a quota card for a runtime-only credential.
+
+**One editor per thing.** An account's exclusion list is edited on the Models screen only (cells or the Rules tab, both with preview, stale check and rollback). The credential sheet shows a read-only summary with a link; its save never sends `excluded_models`, so the B3 stale check and `staleCheck.ts` are gone. The Models screen is reached from the sidebar, from each provider heading on Auth Files ("Models") and from the per-account "Served models" dialog; the source-level button and the bottom summary panel are removed.
+
+**Screens.** Models: sticky model and provider-list columns, fixed-width account columns with an overflow cue, rows of about 44 px, a legend above the table, a per-account list under 600 px, the same source pills as Auth Files, the top-bar refresh, no ghost provider chip after switching hub, normalised `?provider=`. Auth Files: truthful loading and unreachable states with retry, counts that add up, "Delete N shown" deletes exactly the cards shown (it used to ignore the search box), group actions in one row with an overflow menu, one page-level empty state, an "Other" group for credentials without a usable type. Alias editor: same header pattern as Models, provider fixed when given.
+
+**Left alone, reported.** One quota store shared by Auth Files and the Quota page (today each page keeps its own, so a quota refreshed on one does not show on the other): it contradicts `src/features/quota/RULES.md` ("each source section owns a separate quota store") and a disposal test, so it needs a decision. One shared "selected hub" across pages (Auth Files filters, Dashboard pills and the `?source=` pages each keep their own). `src/services/api/kimiQuota.ts:72` parses runtime-only itself.

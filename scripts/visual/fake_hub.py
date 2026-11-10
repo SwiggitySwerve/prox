@@ -6,10 +6,12 @@ that is not a same-origin static asset is aborted, so nothing reaches a real hub
 
 All data is synthetic (example.invalid accounts, no token-like fields). The fake applies the
 backend's model rule from CLIProxyAPI v8.0.44 sdk/cliproxy/service_models.go: an account's own
-non-empty excluded_models list REPLACES the provider list; an empty or missing list inherits it;
-disabled accounts register no models. Exclusion patterns are case-insensitive, '*' = any run.
+non-empty excluded_models list REPLACES the provider list; an empty or missing list inherits it
+(a runtime_only credential has no file, so it always inherits); disabled accounts register no
+models. Exclusion patterns are case-insensitive, '*' = any run.
 
-Scenarios: default | loading | empty | error | partial. The stale case calls edit_elsewhere().
+Scenarios: default | loading | empty | error | partial | many (12 Claude accounts). The stale case
+calls edit_elsewhere().
 """
 from __future__ import annotations
 
@@ -39,10 +41,10 @@ HUBS = {
              'disabled': True, 'own': None},
             {'name': 'claude-max-d.json', 'type': 'claude', 'email': 'max-d@example.invalid',
              'disabled': False, 'own': None, 'noAccess': ['claude-opus-4-5']},
-            # A config API key: no file, its exclusions live in its config entry, the provider
-            # list never applies to it. It serves exactly `serves`.
-            {'name': 'claude:apikey:fixture', 'type': 'claude', 'email': None, 'disabled': False,
-             'own': None, 'runtime': True, 'serves': ['claude-opus-4-5', 'claude-haiku-4-5']},
+            # runtime_only: held in memory by the hub (e.g. a websocket channel), no file. It has
+            # no list of its own and follows the provider list; config API keys are never listed.
+            {'name': 'runtime-channel-fixture', 'type': 'claude', 'email': None, 'disabled': False,
+             'own': None, 'runtime': True, 'noAccess': ['claude-opus-4-1', 'claude-sonnet-4-5']},
         ],
     },
     'beta': {
@@ -87,6 +89,12 @@ class FakeHubs:
         if scenario == 'empty':
             for hub in self.hubs.values():
                 hub['accounts'] = []
+        if scenario == 'many':
+            self.hubs['alpha']['accounts'][4:4] = [
+                {'name': f'claude-seat-{n:02d}.json', 'type': 'claude',
+                 'email': f'seat-{n:02d}@example.invalid', 'disabled': False,
+                 'own': ['claude-opus-4-1'] if n % 4 == 0 else None}
+                for n in range(1, 9)]
         self.writes: list[dict] = []
         self.unexpected: list[str] = []
         self.blocked: list[str] = []
@@ -101,8 +109,6 @@ class FakeHubs:
     def served(self, hub: dict, account: dict) -> list[str]:
         if account['disabled']:
             return []
-        if account.get('runtime'):
-            return list(account['serves'])
         own = account.get('own') or []
         rules = own if own else hub['providerLists'].get(account['type'], [])
         ids = CATALOG.get(account['type'], []) + account.get('extra', [])

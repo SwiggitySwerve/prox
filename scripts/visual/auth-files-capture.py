@@ -28,7 +28,9 @@ fake_hub = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(fake_hub)
 
 M = '/auth-files/models?source=alpha&provider=claude'
-# slug, hash route, scenario, steps. A step is (click|wait, selector) or ('hub', FakeHubs method).
+# slug, hash route, scenario, steps. A step is (click|wait, selector), ('hub', FakeHubs method),
+# ('goto', hash route) or ('pick-account', label): on a phone the matrix is a per-account list, so
+# pick the account first; a no-op where the table shows every account.
 CASES = [
     ('auth-files', '/auth-files', 'default', []),
     ('auth-files-loading', '/auth-files', 'loading', []),
@@ -42,9 +44,20 @@ CASES = [
     ('models-error', M, 'error', []),
     ('models-codex', '/auth-files/models?source=beta&provider=codex', 'default', []),
     ('models-excluded-only', M, 'default', [('click', '[data-testid="models-view-excluded"]')]),
-    ('models-wildcard-locked', M, 'default', [('click', '[data-cell="claude-team-a.json::claude-3-7-sonnet"]')]),
-    ('models-inherit-choice', M, 'default', [('click', '[data-cell="claude-team-a.json::claude-opus-4-5"]')]),
-    ('models-own-list-toggle', M, 'default', [('click', '[data-cell="claude-team-b.json::claude-opus-4-1"]')]),
+    ('models-wildcard-locked', M, 'default', [
+        ('pick-account', 'team-a@example.invalid'),
+        ('click', '[data-cell="claude-team-a.json::claude-3-7-sonnet"]')]),
+    ('models-inherit-choice', M, 'default', [
+        ('pick-account', 'team-a@example.invalid'),
+        ('click', '[data-cell="claude-team-a.json::claude-opus-4-5"]')]),
+    ('models-own-list-toggle', M, 'default', [
+        ('pick-account', 'team-b@example.invalid'),
+        ('click', '[data-cell="claude-team-b.json::claude-opus-4-1"]')]),
+    ('models-many-accounts', M, 'many', []),
+    ('models-rules', M + '&tab=rules', 'default', []),
+    ('models-aliases', M + '&tab=aliases', 'default', []),
+    ('auth-files-group-menu', '/auth-files', 'default', [
+        ('click', '[data-source-id="alpha"] [aria-haspopup="menu"]')]),
     ('models-preview-everywhere', M, 'default', [('click', '[data-row-action="claude-haiku-4-5"]')]),
     ('models-saved', M, 'default', [
         ('click', '[data-row-action="claude-haiku-4-5"]'), ('click', '[data-testid="write-plan-apply"]'),
@@ -127,6 +140,12 @@ async def run_case(browser, base, origin, out, width, case):
                 await page.wait_for_timeout(600)
             elif action == 'hub':
                 getattr(hubs, selector)()
+            elif action == 'pick-account':
+                picker = page.locator('[data-layout="list"] [aria-haspopup="listbox"]')
+                if await picker.count():
+                    await picker.first.click()
+                    await page.locator(f'[role=option]:has-text("{selector}")').first.click()
+                    await page.wait_for_timeout(300)
             elif action == 'goto':
                 await page.evaluate('(hash) => { location.hash = hash; }', selector)
                 await page.wait_for_timeout(600)
