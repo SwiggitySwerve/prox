@@ -459,7 +459,10 @@
     "unified_group_filtered_out": "이 소스에는 필터와 일치하는 자격 증명이 없습니다.",
     "unified_models_link": "모델 및 접근",
     "unified_models_link_aria": "{{source}}의 모델 및 접근 규칙 열기",
-    "unified_provider_heading": "{{provider}} · {{count}}"
+    "unified_provider_heading": "{{provider}} · {{count}}",
+    "excluded_models_own_hint": "이 목록은 이 계정의 공급자 목록을 대체합니다. 이 계정에 적용되지 않는 공급자 규칙: {{count}}.",
+    "excluded_models_inherit_hint": "자체 목록 없음: 이 계정은 공급자 목록을 따릅니다(규칙: {{count}}). 여기에 규칙을 추가하면 더 이상 공급자 목록을 따르지 않습니다.",
+    "excluded_models_stale": "{{name}}: 이 시트를 연 뒤 허브에서 제외 모델이 변경되었습니다. 아무것도 저장되지 않았습니다. 시트를 다시 열어 현재 목록을 편집하세요."
   },
   "model_access": {
     "title": "모델",
@@ -491,7 +494,6 @@
     "matrix_label": "{{provider}}의 모델 접근",
     "column_model": "모델",
     "column_provider": "공급자 목록",
-    "column_served_by": "제공 계정",
     "badge_inherits": "공급자 목록 따름",
     "badge_own": "자체 목록",
     "badge_disabled": "비활성화됨",
@@ -610,7 +612,11 @@
     "summary_loading": "모델 규칙을 불러오는 중…",
     "summary_error": "모델 규칙을 불러오지 못했습니다.",
     "summary_unsupported": "이 백엔드는 모델 규칙을 지원하지 않습니다.",
-    "open_models": "모델"
+    "open_models": "모델",
+    "cell_not_served": "이 키는 제공 안 함",
+    "kind_not_served": "제공 안 함",
+    "badge_runtime": "API 키 · AI 공급자에서 편집",
+    "notice_still_served_by": "{{model}}은(는) 여기서 편집할 수 없는 API 키 자격 증명을 통해 계속 제공됩니다: {{accounts}}. AI 공급자에서 변경하세요."
   },
   "antigravity_subscription": {
     "plan_unknown": "알 수 없음",

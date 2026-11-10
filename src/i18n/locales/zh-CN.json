@@ -457,7 +457,10 @@
     "unified_group_filtered_out": "此来源上没有符合筛选条件的凭证。",
     "unified_models_link": "模型与访问",
     "unified_models_link_aria": "打开 {{source}} 的模型与访问规则",
-    "unified_provider_heading": "{{provider}} · {{count}}"
+    "unified_provider_heading": "{{provider}} · {{count}}",
+    "excluded_models_own_hint": "此列表会替换该账号的提供商列表。未对其生效的提供商规则：{{count}}。",
+    "excluded_models_inherit_hint": "没有自有列表：该账号跟随提供商列表（规则：{{count}}）。在此添加规则后，它将不再跟随提供商列表。",
+    "excluded_models_stale": "{{name}}：打开此面板后，排除模型已在服务端发生变化。未保存任何内容。请重新打开面板以编辑当前列表。"
   },
   "model_access": {
     "title": "模型",
@@ -489,7 +492,6 @@
     "matrix_label": "{{provider}} 的模型访问",
     "column_model": "模型",
     "column_provider": "提供商列表",
-    "column_served_by": "提供方",
     "badge_inherits": "跟随提供商列表",
     "badge_own": "自有列表",
     "badge_disabled": "已停用",
@@ -608,7 +610,11 @@
     "summary_loading": "正在加载模型规则…",
     "summary_error": "无法加载模型规则。",
     "summary_unsupported": "此后端不支持模型规则。",
-    "open_models": "模型"
+    "open_models": "模型",
+    "cell_not_served": "此密钥未提供",
+    "kind_not_served": "未提供",
+    "badge_runtime": "API 密钥 · 在 AI 提供商中编辑",
+    "notice_still_served_by": "{{model}} 仍会通过 API 密钥凭证提供，这些凭证无法在此编辑：{{accounts}}。请在 AI 提供商中修改。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",

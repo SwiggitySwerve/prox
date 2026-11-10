@@ -52,15 +52,17 @@ export function ModelRulesPanel({
       value: 'provider',
       label: t('model_access.target_provider', { provider: inventory.provider }),
     },
-    ...inventory.accounts.map((item) => ({
-      value: `account:${item.name}`,
-      label: t(
-        accountListKind(item) === 'own'
-          ? 'model_access.rules_option_own'
-          : 'model_access.rules_option_inherits',
-        { account: item.label }
-      ),
-    })),
+    ...inventory.accounts
+      .filter((item) => item.kind === 'file')
+      .map((item) => ({
+        value: `account:${item.name}`,
+        label: t(
+          accountListKind(item) === 'own'
+            ? 'model_access.rules_option_own'
+            : 'model_access.rules_option_inherits',
+          { account: item.label }
+        ),
+      })),
   ];
   const candidates = useMemo(() => modelUnion(inventory).map((id) => ({ id })), [inventory]);
   const dirty = !sameRuleSet(draft, saved);

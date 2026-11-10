@@ -2,10 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildWritePlan,
   InheritChoiceRequiredError,
+  ReadOnlyAccountError,
   needsInheritChoice,
   type WritePlan,
 } from '../src/features/authFiles/modelAccess/writePlan';
-import { account, inventory, PROVIDER_LIST } from './fixtures/modelAccess';
+import { account, inventory, PROVIDER_LIST, runtimeAccount } from './fixtures/modelAccess';
 
 const writesOf = (plan: WritePlan) =>
   plan.writes.map((write) => ({
@@ -345,5 +346,71 @@ describe('replace a list', () => {
     });
     expect(plan.writes).toEqual([]);
     expect(plan.canApply).toBe(false);
+  });
+});
+
+describe('runtime credentials (config API keys) are read-only here', () => {
+  const withKey = () => {
+    const base = inventory();
+    return inventory({
+      accounts: [...base.accounts, runtimeAccount('claude:apikey:1', ['claude-haiku-4-5'])],
+    });
+  };
+
+  test('disable everywhere says which API-key credentials still serve the model', () => {
+    const plan = buildWritePlan(withKey(), {
+      type: 'model-everywhere',
+      model: 'claude-haiku-4-5',
+      exclude: true,
+    });
+    expect(plan.notices).toContainEqual({
+      code: 'still-served-by',
+      model: 'claude-haiku-4-5',
+      accounts: ['claude:apikey:1'],
+    });
+    // Its exclusions live in its config entry: no write and no claimed change for it.
+    expect(plan.writes.map((write) => write.target)).not.toContainEqual({
+      kind: 'account',
+      name: 'claude:apikey:1',
+    });
+    expect(plan.changes.map((change) => change.account)).not.toContain('claude:apikey:1');
+    expect(plan.canApply).toBe(true);
+  });
+
+  test('no notice when the API-key credential does not serve the model', () => {
+    const plan = buildWritePlan(withKey(), {
+      type: 'model-everywhere',
+      model: 'claude-opus-4-5',
+      exclude: true,
+    });
+    expect(codes(plan)).not.toContain('still-served-by');
+  });
+
+  test('a provider-list change never lists an API-key credential as following it', () => {
+    const plan = buildWritePlan(withKey(), {
+      type: 'provider-model',
+      model: 'claude-opus-4-5',
+      exclude: true,
+    });
+    const affects = plan.notices.find((notice) => notice.code === 'provider-affects');
+    expect(affects).toEqual({
+      code: 'provider-affects',
+      accounts: ['team-a.json', 'pro-c.json', 'max-d.json'],
+    });
+  });
+
+  test('a toggle on an API-key credential is refused, never planned', () => {
+    expect(() =>
+      buildWritePlan(withKey(), {
+        type: 'account-model',
+        account: 'claude:apikey:1',
+        model: 'claude-haiku-4-5',
+        exclude: true,
+        mode: 'own',
+      })
+    ).toThrow(ReadOnlyAccountError);
+    expect(() =>
+      buildWritePlan(withKey(), { type: 'account-all', account: 'claude:apikey:1', exclude: true })
+    ).toThrow(ReadOnlyAccountError);
   });
 });

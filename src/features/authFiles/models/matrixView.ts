@@ -59,6 +59,8 @@ export function cellLabelKey(cell: CellState): string {
       return 'cell_disabled';
     case 'no-access':
       return 'cell_no_access';
+    case 'not-served':
+      return 'cell_not_served';
     case 'unknown':
       return 'cell_unknown';
     default: {
@@ -80,13 +82,16 @@ export const cellDrift = (cell: CellState): boolean =>
 /** Toggling a toggleable cell flips it: an excluded cell is served, a served one excluded. */
 export const nextExcludeFor = (cell: CellState): boolean => !isCellExcluded(cell);
 
-export type AccountListKind = 'own' | 'inherits' | 'unknown';
+/** `runtime` = a config API key: read-only here, edited in AI Providers. */
+export type AccountListKind = 'own' | 'inherits' | 'unknown' | 'runtime';
 export const accountListKind = (account: AccountAccess): AccountListKind =>
-  account.ownList.status !== 'known'
-    ? 'unknown'
-    : account.ownList.rules && account.ownList.rules.some((rule) => rule.trim())
-      ? 'own'
-      : 'inherits';
+  account.kind === 'runtime'
+    ? 'runtime'
+    : account.ownList.status !== 'known'
+      ? 'unknown'
+      : account.ownList.rules && account.ownList.rules.some((rule) => rule.trim())
+        ? 'own'
+        : 'inherits';
 
 const lowerRule = (value: string) => value.toLowerCase();
 

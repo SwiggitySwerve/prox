@@ -66,6 +66,11 @@ export function ModelEditDialog(props: Props) {
           account: labelOf(notice.account),
           model: notice.model,
         });
+      case 'still-served-by':
+        return t('model_access.notice_still_served_by', {
+          model: notice.model,
+          accounts: names(notice.accounts),
+        });
       case 'unreadable':
         return t('model_access.notice_unreadable', { accounts: names(notice.accounts) });
       case 'no-change':

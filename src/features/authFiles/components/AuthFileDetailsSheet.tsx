@@ -262,6 +262,7 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                   )}
                   <AuthFileExcludedModelsField
                     fileName={editor.fileName}
+                    providerKey={editor.providerKey}
                     value={editor.excludedModelsText}
                     disabled={disableControls || editor.saving || !editor.json}
                     onChange={(value) => onChange('excludedModelsText', value)}

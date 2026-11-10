@@ -41,6 +41,7 @@ import {
 import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
 import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore } from '@/stores';
 import { startCredentialInventory } from '@/features/authFiles/credentialInventoryRuntime';
+import { useModelAccessStore } from '@/stores/useModelAccessStore';
 import {
   collectPluginResourceEntries,
   PLUGIN_RESOURCES_REFRESH_EVENT,
@@ -437,7 +438,11 @@ export function MainLayout() {
   useEffect(() => {
     const inventory = useCredentialInventoryStore.getState();
     if (registry.status === 'ready') void inventory.refresh();
-    else inventory.reset();
+    else {
+      inventory.reset();
+      // Model-access data belongs to the sessions that just went away.
+      useModelAccessStore.getState().reset();
+    }
     // Keyed on the resolution: a source's view changing (a version header, say) is not a new
     // connection and must not refetch everything.
   }, [registry.status, registry.resolution]);

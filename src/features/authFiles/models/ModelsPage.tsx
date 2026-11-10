@@ -8,12 +8,14 @@ import { IconRefreshCw } from '@/components/ui/icons';
 import { useAuthFilesSource } from '@/features/authFiles/AuthFilesSourceContext';
 import { getTypeLabel } from '@/features/authFiles/constants';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
-import {
-  providerOfFile,
-  useModelAccessInventory,
-} from '@/features/authFiles/hooks/useModelAccessInventory';
+import { useModelAccessInventory } from '@/features/authFiles/hooks/useModelAccessInventory';
 import { useModelEditSession } from '@/features/authFiles/hooks/useModelEditSession';
-import { buildMatrix, inventoryOf, type ListTarget } from '@/features/authFiles/modelAccess';
+import {
+  buildMatrix,
+  inventoryOf,
+  providerOfFile,
+  type ListTarget,
+} from '@/features/authFiles/modelAccess';
 import { useSourceFiles } from '@/stores/useCredentialInventoryStore';
 import { ModelAccessMatrix, type LockedCellInfo } from './ModelAccessMatrix';
 import { LockedCellDialog, ModelEditDialog } from './ModelEditDialog';
@@ -96,7 +98,9 @@ export function ModelsPage() {
   );
   const counts = countServed(rows);
   const unreadable =
-    inventory?.accounts.filter((account) => account.ownList.status !== 'known') ?? [];
+    inventory?.accounts.filter(
+      (account) => account.kind === 'file' && account.ownList.status !== 'known'
+    ) ?? [];
   const busy =
     edit.session.status !== 'idle' || load.status === 'refreshing' || load.status === 'loading';
 

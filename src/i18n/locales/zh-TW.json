@@ -457,7 +457,10 @@
     "unified_group_filtered_out": "此來源上沒有符合篩選條件的憑證。",
     "unified_models_link": "模型與存取",
     "unified_models_link_aria": "開啟 {{source}} 的模型與存取規則",
-    "unified_provider_heading": "{{provider}} · {{count}}"
+    "unified_provider_heading": "{{provider}} · {{count}}",
+    "excluded_models_own_hint": "此清單會取代該帳號的供應商清單。未對其生效的供應商規則：{{count}}。",
+    "excluded_models_inherit_hint": "沒有自有清單：該帳號跟隨供應商清單（規則：{{count}}）。在此新增規則後，它將不再跟隨供應商清單。",
+    "excluded_models_stale": "{{name}}：開啟此面板後，排除模型已在伺服端發生變化。未儲存任何內容。請重新開啟面板以編輯目前的清單。"
   },
   "model_access": {
     "title": "模型",
@@ -489,7 +492,6 @@
     "matrix_label": "{{provider}} 的模型存取",
     "column_model": "模型",
     "column_provider": "供應商清單",
-    "column_served_by": "提供方",
     "badge_inherits": "跟隨供應商清單",
     "badge_own": "自有清單",
     "badge_disabled": "已停用",
@@ -608,7 +610,11 @@
     "summary_loading": "正在載入模型規則…",
     "summary_error": "無法載入模型規則。",
     "summary_unsupported": "此後端不支援模型規則。",
-    "open_models": "模型"
+    "open_models": "模型",
+    "cell_not_served": "此金鑰未提供",
+    "kind_not_served": "未提供",
+    "badge_runtime": "API 金鑰 · 在 AI 供應商中編輯",
+    "notice_still_served_by": "{{model}} 仍會透過 API 金鑰憑證提供，這些憑證無法在此編輯：{{accounts}}。請在 AI 供應商中修改。"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",

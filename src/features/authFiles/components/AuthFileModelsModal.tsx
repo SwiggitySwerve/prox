@@ -1,28 +1,155 @@
 import { useAuthFilesSource } from '../AuthFilesSourceContext';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import type { AuthFileModelItem } from '@/features/authFiles/constants';
-import { isModelExcluded } from '@/features/authFiles/constants';
+import {
+  accountRefOf,
+  buildMatrix,
+  deriveInventoryLoad,
+  IDLE_LOAD,
+  loadData,
+  providerOfFile,
+  type CellState,
+} from '@/features/authFiles/modelAccess';
+import {
+  accountListKind,
+  cellDrift,
+  cellLabelKey,
+  cellRule,
+} from '@/features/authFiles/models/matrixView';
+import { useSourceModelAccess } from '@/stores/useModelAccessStore';
+import type { AuthFileItem } from '@/types';
 import styles from './AuthFileModelsModal.module.scss';
 
 export type AuthFileModelsModalProps = {
   open: boolean;
-  fileName: string;
-  fileType: string;
-  loading: boolean;
-  error: 'unsupported' | null;
-  models: AuthFileModelItem[];
-  excluded: Record<string, string[]>;
+  file: AuthFileItem | null;
   onClose: () => void;
+  onRetry: () => void;
   onCopyText: (text: string) => void;
 };
 
+const servedKinds: ReadonlySet<CellState['kind']> = new Set(['served']);
+
+/**
+ * One credential's models with the effective state of each, read from the shared model-access
+ * store and resolved by the same function as the Models matrix. An excluded model is listed
+ * with the list and rule that exclude it instead of silently missing.
+ */
 export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
-  const { source } = useAuthFilesSource();
+  const { source, session } = useAuthFilesSource();
   const { t } = useTranslation();
-  const { open, fileName, fileType, loading, error, models, excluded, onClose, onCopyText } = props;
+  const { open, file, onClose, onRetry, onCopyText } = props;
+  const access = useSourceModelAccess(session.owner);
+
+  const provider = file ? providerOfFile(file) : '';
+  const view = useMemo(() => {
+    if (!file) return null;
+    const ref = accountRefOf(file);
+    const load = deriveInventoryLoad({ access, provider, accounts: [ref] });
+    const inventory = loadData(load);
+    const models = access?.accountModels[ref.name] ?? IDLE_LOAD;
+    const details = new Map<string, AuthFileModelItem>();
+    [...(loadData(access?.catalogs[provider] ?? IDLE_LOAD) ?? []), ...(loadData(models) ?? [])]
+      .filter((item) => item.id)
+      .forEach((item) => details.set(item.id.toLowerCase(), item));
+    return {
+      status: load.status,
+      message:
+        load.status === 'error' ? load.message : models.status === 'error' ? models.message : '',
+      unsupported: models.status === 'error' && models.unsupported,
+      modelsFailed: !ref.disabled && models.status === 'error' && loadData(models) === null,
+      account: inventory?.accounts[0] ?? null,
+      rows: inventory ? buildMatrix(inventory) : [],
+      details,
+    };
+  }, [access, file, provider]);
+
+  const stateText = (cell: CellState) => {
+    const base = t(`model_access.${cellLabelKey(cell)}`, { rule: cellRule(cell) ?? '' });
+    return cellDrift(cell) ? `${base} · ${t('model_access.cell_drift')}` : base;
+  };
+
+  let body: React.ReactNode = null;
+  if (view) {
+    if (view.status === 'loading' || view.status === 'idle') {
+      body = (
+        <div className="hint" role="status">
+          {t('auth_files.models_loading', { defaultValue: '正在加载模型列表...' })}
+        </div>
+      );
+    } else if (view.unsupported) {
+      body = (
+        <EmptyState
+          title={t('auth_files.models_unsupported', { defaultValue: '当前版本不支持此功能' })}
+          description={t('auth_files.models_unsupported_desc', {
+            defaultValue: '请更新 CLI Proxy API 到最新版本后重试',
+          })}
+        />
+      );
+    } else if ((view.status === 'error' && !view.account) || view.modelsFailed) {
+      body = (
+        <EmptyState
+          title={t('model_access.error_title')}
+          description={view.message}
+          action={
+            <Button variant="secondary" size="sm" onClick={onRetry}>
+              {t('model_access.retry_load')}
+            </Button>
+          }
+        />
+      );
+    } else if (view.rows.length === 0) {
+      body = (
+        <EmptyState
+          title={t('auth_files.models_empty', { defaultValue: '该凭证暂无可用模型' })}
+          description={t('auth_files.models_empty_desc', {
+            defaultValue: '该认证凭证可能尚未被服务器加载或没有绑定任何模型',
+          })}
+        />
+      );
+    } else {
+      const account = view.account;
+      body = (
+        <>
+          {account && (
+            <p className={styles.listSource}>
+              {t(`model_access.badge_${account.disabled ? 'disabled' : accountListKind(account)}`)}
+            </p>
+          )}
+          <div className={styles.list}>
+            {view.rows.map((row) => {
+              const cell: CellState = (account && row.cells[account.name]) || { kind: 'unknown' };
+              const detail = view.details.get(row.model.toLowerCase());
+              const served = servedKinds.has(cell.kind);
+              return (
+                <button
+                  type="button"
+                  key={row.model}
+                  className={`${styles.item} ${served ? '' : styles.itemExcluded}`}
+                  data-state={cell.kind}
+                  onClick={() => onCopyText(row.model)}
+                  title={t('common.copy', { defaultValue: '点击复制' })}
+                >
+                  <span className={styles.modelId}>{row.model}</span>
+                  {detail?.display_name && detail.display_name !== row.model && (
+                    <span className={styles.modelDisplayName}>{detail.display_name}</span>
+                  )}
+                  {detail?.type && <span className={styles.modelType}>{detail.type}</span>}
+                  <span className={served ? styles.servedBadge : styles.excludedBadge}>
+                    {stateText(cell)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      );
+    }
+  }
 
   return (
     <Modal
@@ -32,7 +159,7 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
         source.label +
         ' · ' +
         t('auth_files.models_title', { defaultValue: '支持的模型' }) +
-        ` - ${fileName}`
+        ` - ${file?.name ?? ''}`
       }
       footer={
         <Button variant="secondary" onClick={onClose}>
@@ -40,58 +167,9 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
         </Button>
       }
     >
-      {loading ? (
-        <div className="hint">
-          {t('auth_files.models_loading', { defaultValue: '正在加载模型列表...' })}
-        </div>
-      ) : error === 'unsupported' ? (
-        <EmptyState
-          title={t('auth_files.models_unsupported', { defaultValue: '当前版本不支持此功能' })}
-          description={t('auth_files.models_unsupported_desc', {
-            defaultValue: '请更新 CLI Proxy API 到最新版本后重试',
-          })}
-        />
-      ) : models.length === 0 ? (
-        <EmptyState
-          title={t('auth_files.models_empty', { defaultValue: '该凭证暂无可用模型' })}
-          description={t('auth_files.models_empty_desc', {
-            defaultValue: '该认证凭证可能尚未被服务器加载或没有绑定任何模型',
-          })}
-        />
-      ) : (
-        <div className={styles.list}>
-          {models.map((model) => {
-            const excludedModel = isModelExcluded(model.id, fileType, excluded);
-            return (
-              <div
-                key={model.id}
-                className={`${styles.item} ${excludedModel ? styles.itemExcluded : ''}`}
-                onClick={() => {
-                  onCopyText(model.id);
-                }}
-                title={
-                  excludedModel
-                    ? t('auth_files.models_excluded_hint', {
-                        defaultValue: '此 OAuth 模型已被禁用',
-                      })
-                    : t('common.copy', { defaultValue: '点击复制' })
-                }
-              >
-                <span className={styles.modelId}>{model.id}</span>
-                {model.display_name && model.display_name !== model.id && (
-                  <span className={styles.modelDisplayName}>{model.display_name}</span>
-                )}
-                {model.type && <span className={styles.modelType}>{model.type}</span>}
-                {excludedModel && (
-                  <span className={styles.excludedBadge}>
-                    {t('auth_files.models_excluded_badge', { defaultValue: '已禁用' })}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div data-machine="model-inventory" data-state={view?.status ?? 'idle'}>
+        {body}
+      </div>
     </Modal>
   );
 }

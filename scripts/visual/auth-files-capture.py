@@ -52,6 +52,16 @@ CASES = [
     ('models-partial-failure', M, 'partial', [
         ('click', '[data-row-action="claude-haiku-4-5"]'), ('click', '[data-testid="write-plan-apply"]'),
         ('wait', '[data-machine="model-edit-session"][data-state="partial-failure"]')]),
+    # The same store feeds the dialog and the credential sheet on Auth Files.
+    ('auth-files-models-dialog', '/auth-files', 'default', [
+        ('click', '[data-source-id="alpha"] [data-card-models="claude-team-b.json"]'),
+        ('wait', '[role=dialog] [data-machine="model-inventory"][data-state="ready"]')]),
+    ('auth-files-sheet-exclusions', '/auth-files', 'default', [
+        ('click', '[data-source-id="alpha"] [data-card-settings="claude-team-a.json"]'),
+        ('wait', '[data-list="inherits"]')]),
+    # Auth Files first, then Models in the same session: the provider lists are not fetched twice.
+    ('models-after-auth-files', '/auth-files', 'default', [
+        ('goto', M), ('wait', '[data-machine="model-inventory"][data-state="ready"]')]),
     ('models-stale', M, 'default', [
         ('click', '[data-row-action="claude-sonnet-4-5"]'), ('hub', 'edit_elsewhere'),
         ('click', '[data-testid="write-plan-apply"]'),
@@ -117,6 +127,9 @@ async def run_case(browser, base, origin, out, width, case):
                 await page.wait_for_timeout(600)
             elif action == 'hub':
                 getattr(hubs, selector)()
+            elif action == 'goto':
+                await page.evaluate('(hash) => { location.hash = hash; }', selector)
+                await page.wait_for_timeout(600)
             else:
                 await page.locator(selector).first.wait_for(timeout=20000)
                 await page.wait_for_timeout(300)
@@ -133,7 +146,7 @@ async def run_case(browser, base, origin, out, width, case):
         except Exception:  # noqa: BLE001
             pass
     result.update(errors=errors, route=route, scenario=scenario, writes=hubs.writes,
-                  credentialReads=hubs.credential_reads,
+                  credentialReads=hubs.credential_reads, reads=hubs.reads,
                   unexpected=hubs.unexpected, blocked=hubs.blocked)
     result['pass'] = not any(result.get(k) for k in
                              ['overflow', 'errors', 'blocked', 'harnessError', 'unexpected'])

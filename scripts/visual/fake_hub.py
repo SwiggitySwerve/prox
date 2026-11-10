@@ -39,6 +39,10 @@ HUBS = {
              'disabled': True, 'own': None},
             {'name': 'claude-max-d.json', 'type': 'claude', 'email': 'max-d@example.invalid',
              'disabled': False, 'own': None, 'noAccess': ['claude-opus-4-5']},
+            # A config API key: no file, its exclusions live in its config entry, the provider
+            # list never applies to it. It serves exactly `serves`.
+            {'name': 'claude:apikey:fixture', 'type': 'claude', 'email': None, 'disabled': False,
+             'own': None, 'runtime': True, 'serves': ['claude-opus-4-5', 'claude-haiku-4-5']},
         ],
     },
     'beta': {
@@ -88,6 +92,7 @@ class FakeHubs:
         self.blocked: list[str] = []
         self.provider_reads = 0
         self.credential_reads = 0
+        self.reads: dict[str, int] = {}
 
     def edit_elsewhere(self) -> None:
         """Another operator edits the claude provider list (the stale-preview scenario)."""
@@ -96,6 +101,8 @@ class FakeHubs:
     def served(self, hub: dict, account: dict) -> list[str]:
         if account['disabled']:
             return []
+        if account.get('runtime'):
+            return list(account['serves'])
         own = account.get('own') or []
         rules = own if own else hub['providerLists'].get(account['type'], [])
         ids = CATALOG.get(account['type'], []) + account.get('extra', [])
@@ -144,6 +151,8 @@ class FakeHubs:
             except ValueError:
                 body = {}
         find = lambda name: next((a for a in hub['accounts'] if a['name'] == name), None)
+        if method == 'get':
+            self.reads[path] = self.reads.get(path, 0) + 1
 
         if path == '/credentials' and method == 'get':
             self.credential_reads += 1
@@ -153,8 +162,10 @@ class FakeHubs:
                 return await self._fail(route, 502, 'Synthetic hub unreachable')
             return await self._json(route, {'files': [
                 {'name': a['name'], 'type': a['type'], 'provider': a['type'], 'auth_index': f'{source}-{i}',
-                 'email': a['email'], 'disabled': a['disabled'],
-                 'status': 'disabled' if a['disabled'] else 'active', 'size': 512, 'source': 'file'}
+                 **({'email': a['email']} if a['email'] else {}), 'disabled': a['disabled'],
+                 'status': 'disabled' if a['disabled'] else 'active',
+                 **({'runtime_only': True, 'source': 'memory', 'size': 0} if a.get('runtime')
+                    else {'runtime_only': False, 'source': 'file', 'size': 512})}
                 for i, a in enumerate(hub['accounts'])]})
         if path == '/credentials/models':
             account = find(q('name'))
@@ -162,7 +173,7 @@ class FakeHubs:
             return await self._json(route, {'models': [{'id': i, 'display_name': i} for i in ids]})
         if path == '/credentials/download':
             account = find(q('name'))
-            if not account:
+            if not account or account.get('runtime'):
                 return await self._fail(route, 404, 'not found')
             file_body = {'type': account['type'], 'email': account['email']}
             if account.get('own') is not None:

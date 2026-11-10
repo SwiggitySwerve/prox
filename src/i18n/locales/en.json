@@ -459,7 +459,10 @@
     "unified_group_filtered_out": "No credentials on this source match the filters.",
     "unified_models_link": "Models & access",
     "unified_models_link_aria": "Open models and access rules for {{source}}",
-    "unified_provider_heading": "{{provider}} · {{count}}"
+    "unified_provider_heading": "{{provider}} · {{count}}",
+    "excluded_models_own_hint": "This list replaces the provider list for this account. Provider rules not applied to it: {{count}}.",
+    "excluded_models_inherit_hint": "No list of its own: this account follows the provider list (rules: {{count}}). Adding a rule here makes it stop following the provider list.",
+    "excluded_models_stale": "{{name}}: the excluded models changed on the hub after this sheet opened. Nothing was saved. Reopen the sheet to edit the current list."
   },
   "model_access": {
     "title": "Models",
@@ -491,7 +494,6 @@
     "matrix_label": "Model access for {{provider}}",
     "column_model": "Model",
     "column_provider": "Provider list",
-    "column_served_by": "Served by",
     "badge_inherits": "Follows provider list",
     "badge_own": "Own list",
     "badge_disabled": "Disabled",
@@ -610,7 +612,11 @@
     "summary_loading": "Loading model rules…",
     "summary_error": "Model rules could not be loaded.",
     "summary_unsupported": "This backend does not support model rules.",
-    "open_models": "Models"
+    "open_models": "Models",
+    "cell_not_served": "Not served by this key",
+    "kind_not_served": "not served",
+    "badge_runtime": "API key · edit in AI Providers",
+    "notice_still_served_by": "{{model}} stays served through API-key credentials, which are not edited here: {{accounts}}. Change them in AI Providers."
   },
   "antigravity_subscription": {
     "plan_unknown": "Unknown",

@@ -15,9 +15,18 @@ export type OwnListRead =
 export type ReportedRead =
   { status: 'known'; ids: string[] } | { status: 'unknown'; message: string };
 
+/**
+ * `file`: an OAuth credential file; its own list or the provider list decides, and both are
+ * editable here. `runtime`: a credential without a file (a config API key); its exclusions live
+ * in its config entry (AI Providers), the provider list never applies to it
+ * (service_models.go:645-655), and it is read-only on the Models screen.
+ */
+export type AccountKind = 'file' | 'runtime';
+
 export interface AccountAccess {
-  /** Credential file name: the identity every write uses. */
+  /** Credential file name (or runtime id): the identity every read and write uses. */
   name: string;
+  kind: AccountKind;
   /** Display label (email or file name); never an account/API-key field. */
   label: string;
   disabled: boolean;
@@ -44,6 +53,8 @@ export type CellState =
   | { kind: 'wildcard'; rule: string; list: 'account' | 'provider'; drift: boolean }
   | { kind: 'disabled' }
   | { kind: 'no-access' }
+  /** A runtime credential that does not report the model; the reason is in its config entry. */
+  | { kind: 'not-served' }
   | { kind: 'unknown' };
 
 export type CellKind = CellState['kind'];
@@ -55,12 +66,16 @@ export const CELL_KINDS: readonly CellKind[] = [
   'wildcard',
   'disabled',
   'no-access',
+  'not-served',
   'unknown',
 ];
 
 /** Only exact-rule exclusions and served cells can be toggled; wildcards are edited as rules. */
 export const isCellToggleable = (cell: CellState): boolean =>
   cell.kind === 'served' || cell.kind === 'excluded-own' || cell.kind === 'excluded-provider';
+
+/** Runtime credentials are edited in their config entry, never from the matrix. */
+export const isAccountEditable = (account: AccountAccess): boolean => account.kind === 'file';
 
 export const isCellExcluded = (cell: CellState): boolean =>
   cell.kind === 'excluded-own' || cell.kind === 'excluded-provider' || cell.kind === 'wildcard';
@@ -73,6 +88,12 @@ export function resolveCell(
   modelId: string
 ): CellState {
   if (account.disabled) return { kind: 'disabled' };
+  if (account.kind === 'runtime') {
+    if (account.reported.status !== 'known') return { kind: 'unknown' };
+    return account.reported.ids.some((id) => lower(id) === lower(modelId))
+      ? { kind: 'served', via: 'none' }
+      : { kind: 'not-served' };
+  }
   if (account.ownList.status !== 'known') return { kind: 'unknown' };
   const { source, rules } = rulesInEffect(providerList, account.ownList.rules);
   const reported =

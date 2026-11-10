@@ -292,6 +292,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
               variant="secondary"
               size="sm"
               onClick={() => onShowModels(file)}
+              data-card-models={file.name}
               title={t('auth_files.models_button')}
               disabled={disableControls}
             >
@@ -332,6 +333,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
                 variant="secondary"
                 size="sm"
                 onClick={() => onOpenPrefixProxyEditor(file)}
+                data-card-settings={file.name}
                 className={styles.iconButton}
                 title={t('auth_files.prefix_proxy_button')}
                 disabled={disableControls || isManualRefreshing}

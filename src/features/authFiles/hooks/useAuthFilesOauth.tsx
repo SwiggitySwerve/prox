@@ -1,11 +1,16 @@
 import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
 import type { AuthFileModelItem, OAuthConfigLoadError } from '@/features/authFiles/constants';
 import { normalizeProviderKey } from '@/features/authFiles/constants';
+import { configLoadError, IDLE_LOAD, loadData } from '@/features/authFiles/modelAccess';
+import { modelAccess } from '@/features/authFiles/modelAccessRuntime';
+import { useSourceModelAccess } from '@/stores/useModelAccessStore';
 type ViewMode = 'diagram' | 'list';
+const NO_LISTS: Record<string, string[]> = {};
+const NO_ALIASES: Record<string, OAuthModelAliasEntry[]> = {};
 
 export type UseAuthFilesOauthResult = {
   excluded: Record<string, string[]>;
@@ -16,7 +21,6 @@ export type UseAuthFilesOauthResult = {
   providerList: string[];
   loadExcluded: () => Promise<void>;
   loadModelAlias: () => Promise<void>;
-  deleteExcluded: (provider: string) => void;
   deleteModelAlias: (provider: string) => void;
   handleMappingUpdate: (provider: string, sourceModel: string, newAlias: string) => Promise<void>;
   handleDeleteLink: (provider: string, sourceModel: string, alias: string) => void;
@@ -42,30 +46,44 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
   const { t } = useTranslation();
   const { showNotification, showConfirmation } = useAuthFilesNotifications();
 
-  const [excluded, setExcluded] = useState<Record<string, string[]>>({});
-  const [excludedError, setExcludedError] = useState<OAuthConfigLoadError>('loading');
-  const [modelAlias, setModelAlias] = useState<Record<string, OAuthModelAliasEntry[]>>({});
-  const [modelAliasError, setModelAliasError] = useState<OAuthConfigLoadError>('loading');
-  const [allProviderModels, setAllProviderModels] = useState<Record<string, AuthFileModelItem[]>>(
-    {}
+  // Provider lists, aliases and catalogs come from the shared model-access store: this hook keeps
+  // no copy of its own, so the Models screen, this page and the alias editor always agree.
+  const owner = sourceScope.session.owner;
+  const access = useSourceModelAccess(owner);
+  const excluded = useMemo(
+    () => loadData(access?.providerLists ?? IDLE_LOAD) ?? NO_LISTS,
+    [access?.providerLists]
   );
+  const modelAlias = useMemo(
+    () => loadData(access?.aliases ?? IDLE_LOAD) ?? NO_ALIASES,
+    [access?.aliases]
+  );
+  const excludedError: OAuthConfigLoadError = configLoadError(access?.providerLists);
+  const modelAliasError: OAuthConfigLoadError = configLoadError(access?.aliases);
 
+  // Writes are refused until the aliases have been read: a write builds on what was read.
+  const modelAliasReadyRef = useRef(false);
+  useEffect(() => {
+    modelAliasReadyRef.current = modelAliasError === null;
+  }, [modelAliasError]);
+
+  // An old backend without these routes gets one upgrade notice per source view.
   const excludedUnsupportedRef = useRef(false);
   const mappingsUnsupportedRef = useRef(false);
-  const excludedReadyRef = useRef(false);
-  const modelAliasReadyRef = useRef(false);
-  const excludedLoadRequestRef = useRef(0);
-  const modelAliasLoadRequestRef = useRef(0);
-
-  useEffect(
-    () => () => {
-      excludedReadyRef.current = false;
-      modelAliasReadyRef.current = false;
-      excludedLoadRequestRef.current += 1;
-      modelAliasLoadRequestRef.current += 1;
-    },
-    []
-  );
+  useEffect(() => {
+    if (excludedError !== 'unsupported') excludedUnsupportedRef.current = false;
+    else if (!excludedUnsupportedRef.current) {
+      excludedUnsupportedRef.current = true;
+      showNotification(t('oauth_excluded.upgrade_required'), 'warning');
+    }
+  }, [excludedError, showNotification, t]);
+  useEffect(() => {
+    if (modelAliasError !== 'unsupported') mappingsUnsupportedRef.current = false;
+    else if (!mappingsUnsupportedRef.current) {
+      mappingsUnsupportedRef.current = true;
+      showNotification(t('oauth_model_alias.upgrade_required'), 'warning');
+    }
+  }, [modelAliasError, showNotification, t]);
 
   const providerList = useMemo(() => {
     const providers = new Set<string>();
@@ -88,180 +106,37 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     return Array.from(providers);
   }, [files, modelAlias]);
 
+  const catalogs = access?.catalogs;
+  const allProviderModels = useMemo(() => {
+    const result: Record<string, AuthFileModelItem[]> = {};
+    for (const provider of providerList) {
+      const models = loadData(catalogs?.[provider] ?? IDLE_LOAD);
+      if (models && models.length > 0) result[provider] = models;
+    }
+    return result;
+  }, [catalogs, providerList]);
+
   useEffect(() => {
     if (viewMode !== 'diagram') return;
+    providerList.forEach((provider) => void modelAccess().ensureCatalog(owner, provider));
+  }, [owner, providerList, viewMode]);
 
-    let cancelled = false;
-
-    const loadAllModels = async () => {
-      if (providerList.length === 0) {
-        if (!cancelled) setAllProviderModels({});
-        return;
-      }
-
-      const results = await Promise.all(
-        providerList.map(async (provider) => {
-          try {
-            const models = await authFilesApi.getModelDefinitions(provider);
-            sourceScope.assertCurrent();
-            return { provider, models };
-          } catch {
-            return { provider, models: [] as AuthFileModelItem[] };
-          }
-        })
-      );
-      if (cancelled || !sourceScope.isCurrent()) return;
-
-      const nextModels: Record<string, AuthFileModelItem[]> = {};
-      results.forEach(({ provider, models }) => {
-        if (models.length > 0) {
-          nextModels[provider] = models;
-        }
+  // Re-read both config maps from the hub; concurrent callers share one read.
+  const reloadRef = useRef<Promise<void> | null>(null);
+  const reloadConfig = useCallback((): Promise<void> => {
+    reloadRef.current ??= modelAccess()
+      .ensureConfig(owner, { force: true })
+      .finally(() => {
+        reloadRef.current = null;
       });
-
-      setAllProviderModels(nextModels);
-    };
-
-    void loadAllModels();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authFilesApi, providerList, sourceScope, viewMode]);
-
-  const loadExcluded = useCallback(async () => {
-    const requestId = ++excludedLoadRequestRef.current;
-    excludedReadyRef.current = false;
-    setExcludedError('loading');
-    try {
-      const res = await authFilesApi.getOauthExcludedModels();
-      sourceScope.assertCurrent();
-      if (requestId !== excludedLoadRequestRef.current) return;
-      excludedUnsupportedRef.current = false;
-      excludedReadyRef.current = true;
-      setExcluded(res || {});
-      setExcludedError(null);
-    } catch (err: unknown) {
-      if (!sourceScope.isCurrent()) return;
-      if (requestId !== excludedLoadRequestRef.current) return;
-      const status =
-        typeof err === 'object' && err !== null && 'status' in err
-          ? (err as { status?: unknown }).status
-          : undefined;
-
-      if (status === 404) {
-        setExcluded({});
-        setExcludedError('unsupported');
-        if (!excludedUnsupportedRef.current) {
-          excludedUnsupportedRef.current = true;
-          showNotification(t('oauth_excluded.upgrade_required'), 'warning');
-        }
-        return;
-      }
-      setExcludedError('load');
-    }
-  }, [authFilesApi, showNotification, sourceScope, t]);
-
-  const loadModelAlias = useCallback(async () => {
-    const requestId = ++modelAliasLoadRequestRef.current;
-    modelAliasReadyRef.current = false;
-    setModelAliasError('loading');
-    try {
-      const res = await authFilesApi.getOauthModelAlias();
-      sourceScope.assertCurrent();
-      if (requestId !== modelAliasLoadRequestRef.current) return;
-      mappingsUnsupportedRef.current = false;
-      modelAliasReadyRef.current = true;
-      setModelAlias(res || {});
-      setModelAliasError(null);
-    } catch (err: unknown) {
-      if (!sourceScope.isCurrent()) return;
-      if (requestId !== modelAliasLoadRequestRef.current) return;
-      const status =
-        typeof err === 'object' && err !== null && 'status' in err
-          ? (err as { status?: unknown }).status
-          : undefined;
-
-      if (status === 404) {
-        setModelAlias({});
-        setModelAliasError('unsupported');
-        if (!mappingsUnsupportedRef.current) {
-          mappingsUnsupportedRef.current = true;
-          showNotification(t('oauth_model_alias.upgrade_required'), 'warning');
-        }
-        return;
-      }
-      setModelAliasError('load');
-    }
-  }, [authFilesApi, showNotification, sourceScope, t]);
+    return reloadRef.current;
+  }, [owner]);
+  const loadExcluded = reloadConfig;
+  const loadModelAlias = reloadConfig;
 
   const showLoadRequired = useCallback(() => {
     showNotification(t('notification.refresh_failed'), 'error');
   }, [showNotification, t]);
-
-  const deleteExcluded = useCallback(
-    (provider: string) => {
-      const providerLabel = provider.trim() || provider;
-      showConfirmation({
-        title: t('oauth_excluded.delete_title', { defaultValue: 'Delete Exclusion' }),
-        message: t('oauth_excluded.delete_confirm', { provider: providerLabel }),
-        variant: 'danger',
-        confirmText: t('common.confirm'),
-        onConfirm: async () => {
-          if (!excludedReadyRef.current) {
-            showLoadRequired();
-            return;
-          }
-          const providerKey = normalizeProviderKey(provider);
-          if (!providerKey) {
-            showNotification(t('oauth_excluded.provider_required'), 'error');
-            return;
-          }
-          try {
-            await authFilesApi.deleteOauthExcludedEntry(providerKey);
-            sourceScope.assertCurrent();
-            await loadExcluded();
-            sourceScope.assertCurrent();
-            showNotification(t('oauth_excluded.delete_success'), 'success');
-          } catch (err: unknown) {
-            if (!sourceScope.isCurrent()) return;
-            try {
-              const current = await authFilesApi.getOauthExcludedModels();
-              sourceScope.assertCurrent();
-              const next: Record<string, string[]> = {};
-              Object.entries(current).forEach(([key, models]) => {
-                if (normalizeProviderKey(key) === providerKey) return;
-                next[key] = models;
-              });
-              await authFilesApi.replaceOauthExcludedModels(next);
-              sourceScope.assertCurrent();
-              await loadExcluded();
-              sourceScope.assertCurrent();
-              showNotification(t('oauth_excluded.delete_success'), 'success');
-            } catch (fallbackErr: unknown) {
-              if (!sourceScope.isCurrent()) return;
-              const errorMessage =
-                fallbackErr instanceof Error
-                  ? fallbackErr.message
-                  : err instanceof Error
-                    ? err.message
-                    : '';
-              showNotification(`${t('oauth_excluded.delete_failed')}: ${errorMessage}`, 'error');
-            }
-          }
-        },
-      });
-    },
-    [
-      authFilesApi,
-      loadExcluded,
-      showConfirmation,
-      showLoadRequired,
-      showNotification,
-      sourceScope,
-      t,
-    ]
-  );
 
   const deleteModelAlias = useCallback(
     (provider: string) => {
@@ -612,7 +487,6 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     providerList,
     loadExcluded,
     loadModelAlias,
-    deleteExcluded,
     deleteModelAlias,
     handleMappingUpdate,
     handleDeleteLink,

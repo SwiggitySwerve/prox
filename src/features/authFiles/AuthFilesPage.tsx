@@ -283,12 +283,9 @@ function AuthFilesSourceContent({
 
   const {
     modelsModalOpen,
-    modelsLoading,
-    modelsList,
-    modelsFileName,
-    modelsFileType,
-    modelsError,
+    modelsFile,
     showModels,
+    reloadModels,
     closeModelsModal,
     invalidateModels,
   } = useAuthFilesModels();
@@ -744,13 +741,9 @@ function AuthFilesSourceContent({
 
       <AuthFileModelsModal
         open={modelsModalOpen}
-        fileName={modelsFileName}
-        fileType={modelsFileType}
-        loading={modelsLoading}
-        error={modelsError}
-        models={modelsList}
-        excluded={excluded}
+        file={modelsFile}
         onClose={closeModelsModal}
+        onRetry={reloadModels}
         onCopyText={copyTextWithNotification}
       />
 

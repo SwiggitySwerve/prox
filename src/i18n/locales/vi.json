@@ -459,7 +459,10 @@
     "unified_group_filtered_out": "Không có credential nào trên nguồn này khớp bộ lọc.",
     "unified_models_link": "Model & quyền truy cập",
     "unified_models_link_aria": "Mở model và quy tắc truy cập cho {{source}}",
-    "unified_provider_heading": "{{provider}} · {{count}}"
+    "unified_provider_heading": "{{provider}} · {{count}}",
+    "excluded_models_own_hint": "Danh sách này thay thế danh sách provider cho tài khoản này. Số quy tắc provider không áp dụng cho nó: {{count}}.",
+    "excluded_models_inherit_hint": "Không có danh sách riêng: tài khoản này theo danh sách provider (số quy tắc: {{count}}). Thêm quy tắc ở đây sẽ khiến nó ngừng theo danh sách provider.",
+    "excluded_models_stale": "{{name}}: model bị loại trừ đã thay đổi trên hub sau khi bảng này mở. Chưa lưu gì cả. Hãy mở lại bảng để sửa danh sách hiện tại."
   },
   "model_access": {
     "title": "Model",
@@ -491,7 +494,6 @@
     "matrix_label": "Quyền truy cập model của {{provider}}",
     "column_model": "Model",
     "column_provider": "Danh sách provider",
-    "column_served_by": "Cung cấp bởi",
     "badge_inherits": "Theo danh sách provider",
     "badge_own": "Danh sách riêng",
     "badge_disabled": "Đã tắt",
@@ -610,7 +612,11 @@
     "summary_loading": "Đang tải quy tắc model…",
     "summary_error": "Không thể tải quy tắc model.",
     "summary_unsupported": "Backend này không hỗ trợ quy tắc model.",
-    "open_models": "Model"
+    "open_models": "Model",
+    "cell_not_served": "Khóa này không cung cấp",
+    "kind_not_served": "không cung cấp",
+    "badge_runtime": "API key · sửa trong AI Provider",
+    "notice_still_served_by": "{{model}} vẫn được cung cấp qua các thông tin xác thực API key, không sửa được ở đây: {{accounts}}. Hãy thay đổi trong AI Provider."
   },
   "antigravity_subscription": {
     "plan_unknown": "Không rõ",

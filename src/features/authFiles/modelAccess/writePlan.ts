@@ -54,6 +54,11 @@ export type PlanNotice =
   | { code: 'starts-inheriting'; account: string; stillExcluded: string[] }
   /** The account cannot serve the model: an empty own list means "inherit" (backend rule). */
   | { code: 'cannot-override-provider'; account: string; model: string }
+  /**
+   * After this plan the model is still served by these runtime credentials (config API keys);
+   * their exclusions are edited in AI Providers, not here.
+   */
+  | { code: 'still-served-by'; model: string; accounts: string[] }
   /** These accounts' lists could not be read; the plan cannot be applied safely. */
   | { code: 'unreadable'; accounts: string[] }
   /** Nothing to write: the lists already say this. */
@@ -89,6 +94,13 @@ export class InheritChoiceRequiredError extends Error {
   }
 }
 
+export class ReadOnlyAccountError extends Error {
+  constructor(readonly account: string) {
+    super(`Account ${account} has no credential file: its exclusions are set in its config entry`);
+    this.name = 'ReadOnlyAccountError';
+  }
+}
+
 const findAccount = (inventory: ModelAccessInventory, name: string): AccountAccess => {
   const account = inventory.accounts.find((item) => item.name === name);
   if (!account) throw new Error(`Unknown account: ${name}`);
@@ -99,10 +111,14 @@ const ownRules = (account: AccountAccess): string[] | null =>
   account.ownList.status === 'known' ? account.ownList.rules : null;
 
 const hasOwnList = (account: AccountAccess) =>
-  account.ownList.status === 'known' && !followsProviderList(account.ownList.rules);
+  account.kind === 'file' &&
+  account.ownList.status === 'known' &&
+  !followsProviderList(account.ownList.rules);
 
 const inherits = (account: AccountAccess) =>
-  account.ownList.status === 'known' && followsProviderList(account.ownList.rules);
+  account.kind === 'file' &&
+  account.ownList.status === 'known' &&
+  followsProviderList(account.ownList.rules);
 
 const asList = (rules: string[]): string[] | null => {
   const normalized = normalizeExcludedRules(rules);
@@ -146,7 +162,7 @@ const ownListNames = (inventory: ModelAccessInventory) =>
   inventory.accounts.filter(hasOwnList).map((account) => account.name);
 const unreadableNames = (inventory: ModelAccessInventory) =>
   inventory.accounts
-    .filter((account) => account.ownList.status !== 'known')
+    .filter((account) => account.kind === 'file' && account.ownList.status !== 'known')
     .map((account) => account.name);
 
 /** The inventory as it would be after the writes, with access assumed where the hub cannot say. */
@@ -213,6 +229,7 @@ export function buildWritePlan(inventory: ModelAccessInventory, intent: WriteInt
   switch (intent.type) {
     case 'account-model': {
       const account = findAccount(inventory, intent.account);
+      if (account.kind !== 'file') throw new ReadOnlyAccountError(account.name);
       if (account.ownList.status !== 'known') {
         draft.notices.push({ code: 'unreadable', accounts: [account.name] });
         break;
@@ -297,6 +314,7 @@ export function buildWritePlan(inventory: ModelAccessInventory, intent: WriteInt
     }
     case 'account-all': {
       const account = findAccount(inventory, intent.account);
+      if (account.kind !== 'file') throw new ReadOnlyAccountError(account.name);
       if (account.ownList.status !== 'known') {
         draft.notices.push({ code: 'unreadable', accounts: [account.name] });
         break;
@@ -329,6 +347,7 @@ export function buildWritePlan(inventory: ModelAccessInventory, intent: WriteInt
           : ownRules(findAccount(inventory, intent.target.name));
       if (intent.target.kind === 'account') {
         const account = findAccount(inventory, intent.target.name);
+        if (account.kind !== 'file') throw new ReadOnlyAccountError(account.name);
         if (account.ownList.status !== 'known') {
           draft.notices.push({ code: 'unreadable', accounts: [account.name] });
           break;
@@ -349,6 +368,23 @@ export function buildWritePlan(inventory: ModelAccessInventory, intent: WriteInt
     default: {
       const unreachable: never = intent;
       throw new Error(`Unhandled write intent: ${JSON.stringify(unreachable)}`);
+    }
+  }
+
+  // "Disable everywhere" and a provider default cannot reach runtime credentials: say so.
+  if ((intent.type === 'model-everywhere' || intent.type === 'provider-model') && intent.exclude) {
+    const lower = intent.model.trim().toLowerCase();
+    const runtime = inventory.accounts
+      .filter(
+        (account) =>
+          account.kind === 'runtime' &&
+          !account.disabled &&
+          account.reported.status === 'known' &&
+          account.reported.ids.some((id) => id.trim().toLowerCase() === lower)
+      )
+      .map((account) => account.name);
+    if (runtime.length > 0) {
+      draft.notices.push({ code: 'still-served-by', model: intent.model, accounts: runtime });
     }
   }
 

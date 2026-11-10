@@ -37,6 +37,7 @@ export function account(
 ): AccountAccess {
   return {
     name,
+    kind: 'file',
     label: name.replace(/\.json$/, '@example.invalid'),
     disabled: options.disabled === true,
     ownList: { status: 'known', rules: own },
@@ -57,5 +58,17 @@ export function inventory(overrides: Partial<ModelAccessInventory> = {}): ModelA
       account('max-d.json', null, { noAccess: ['claude-opus-4-5'] }),
     ],
     ...overrides,
+  };
+}
+
+/** A config API-key credential: no file, read-only here, serves exactly `ids`. */
+export function runtimeAccount(name: string, ids: string[], disabled = false): AccountAccess {
+  return {
+    name,
+    kind: 'runtime',
+    label: name,
+    disabled,
+    ownList: { status: 'known', rules: null },
+    reported: { status: 'known', ids: disabled ? [] : ids },
   };
 }

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { IconAlertTriangle } from '@/components/ui/icons';
 import {
+  isAccountEditable,
   isCellToggleable,
   type AccountAccess,
   type CellState,
@@ -70,38 +71,37 @@ export function ModelAccessMatrix(props: Props) {
                   <span className={styles.accountBadge} data-list={kind}>
                     {t(`model_access.badge_${kind}`)}
                   </span>
-                  <span className={styles.accountActions}>
-                    <button
-                      type="button"
-                      className={styles.linkButton}
-                      disabled={disabled || account.ownList.status !== 'known'}
-                      onClick={() => props.onAccountAll(account, true)}
-                      aria-label={t('model_access.account_exclude_all_aria', {
-                        account: account.label,
-                      })}
-                    >
-                      {t('model_access.account_exclude_all')}
-                    </button>
-                    {kind === 'own' && (
+                  {kind !== 'runtime' && (
+                    <span className={styles.accountActions}>
                       <button
                         type="button"
                         className={styles.linkButton}
-                        disabled={disabled}
-                        onClick={() => props.onAccountAll(account, false)}
-                        aria-label={t('model_access.account_use_provider_aria', {
+                        disabled={disabled || account.ownList.status !== 'known'}
+                        onClick={() => props.onAccountAll(account, true)}
+                        aria-label={t('model_access.account_exclude_all_aria', {
                           account: account.label,
                         })}
                       >
-                        {t('model_access.account_use_provider')}
+                        {t('model_access.account_exclude_all')}
                       </button>
-                    )}
-                  </span>
+                      {kind === 'own' && (
+                        <button
+                          type="button"
+                          className={styles.linkButton}
+                          disabled={disabled}
+                          onClick={() => props.onAccountAll(account, false)}
+                          aria-label={t('model_access.account_use_provider_aria', {
+                            account: account.label,
+                          })}
+                        >
+                          {t('model_access.account_use_provider')}
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </th>
               );
             })}
-            <th scope="col" className={styles.servedColumn}>
-              {t('model_access.column_served_by')}
-            </th>
           </tr>
         </thead>
         <tbody>
@@ -126,11 +126,17 @@ export function ModelAccessMatrix(props: Props) {
                         {t('model_access.row_not_in_catalog')}
                       </span>
                     )}
-                    {only && (
+                    {only ? (
                       <span className={styles.onlyOne} data-single-account={row.model}>
                         <IconAlertTriangle size={13} aria-hidden="true" />
                         <span>{t('model_access.row_only_one', { account: only })}</span>
                       </span>
+                    ) : served ? (
+                      <span className={styles.servedCount}>
+                        {t('model_access.row_served_count', { count: row.servedBy.length })}
+                      </span>
+                    ) : (
+                      <span className={styles.notServed}>{t('model_access.row_none')}</span>
                     )}
                   </span>
                   <button
@@ -180,7 +186,7 @@ export function ModelAccessMatrix(props: Props) {
                     state: text,
                   });
                   const id = `${account.name}::${row.model}`;
-                  if (isCellToggleable(cell)) {
+                  if (isAccountEditable(account) && isCellToggleable(cell)) {
                     const exclude = nextExcludeFor(cell);
                     return (
                       <td key={account.name}>
@@ -242,20 +248,6 @@ export function ModelAccessMatrix(props: Props) {
                     </td>
                   );
                 })}
-                <td className={styles.servedColumn}>
-                  {only ? (
-                    <span className={styles.onlyOne}>
-                      <IconAlertTriangle size={14} aria-hidden="true" />
-                      <span>{t('model_access.row_only_one', { account: only })}</span>
-                    </span>
-                  ) : served ? (
-                    <span className={styles.servedCount}>
-                      {t('model_access.row_served_count', { count: row.servedBy.length })}
-                    </span>
-                  ) : (
-                    <span className={styles.notServed}>{t('model_access.row_none')}</span>
-                  )}
-                </td>
               </tr>
             );
           })}

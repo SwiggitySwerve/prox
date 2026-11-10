@@ -9,14 +9,13 @@ import {
   type EditSessionStatus,
 } from '../src/features/authFiles/modelAccess/editSession';
 import {
-  INITIAL_INVENTORY_LOAD,
-  INVENTORY_TRANSITIONS,
-  transitionInventory,
-  type InventoryLoad,
-} from '../src/features/authFiles/modelAccess/inventoryState';
+  IDLE_LOAD,
+  LOAD_TRANSITIONS,
+  transitionLoad,
+  type LoadState,
+} from '../src/features/authFiles/modelAccess/loadState';
 import type { WriteOutcome } from '../src/features/authFiles/modelAccess/execute';
 import type { WritePlan } from '../src/features/authFiles/modelAccess/writePlan';
-import { inventory } from './fixtures/modelAccess';
 
 const intent = { type: 'provider-model', model: 'm', exclude: true } as const;
 const plan: WritePlan = {
@@ -181,46 +180,51 @@ describe('model edit session', () => {
   }
 });
 
-describe('model inventory load', () => {
-  const inv = inventory();
-  test('load, loaded, refresh keeps the inventory, failure keeps it too', () => {
-    let state: InventoryLoad = transitionInventory(INITIAL_INVENTORY_LOAD, {
-      type: 'LOAD',
-      generation: 1,
-    });
+describe('model access load (every store slice)', () => {
+  type Load = LoadState<string[]>;
+  const data = ['a'];
+  test('load, loaded, refresh keeps the data, failure keeps it too', () => {
+    let state: Load = transitionLoad<string[]>(IDLE_LOAD, { type: 'LOAD', generation: 1 });
     expect(state.status).toBe('loading');
-    state = transitionInventory(state, { type: 'LOADED', generation: 1, inventory: inv });
+    state = transitionLoad(state, { type: 'LOADED', generation: 1, data });
     expect(state.status).toBe('ready');
-    state = transitionInventory(state, { type: 'LOAD', generation: 2 });
-    expect(state).toMatchObject({ status: 'refreshing', inventory: inv });
-    state = transitionInventory(state, { type: 'FAILED', generation: 2, message: 'boom' });
-    expect(state).toMatchObject({ status: 'error', message: 'boom', inventory: inv });
-    expect(transitionInventory(state, { type: 'LOAD', generation: 3 }).status).toBe('refreshing');
+    state = transitionLoad(state, { type: 'LOAD', generation: 2 });
+    expect(state).toMatchObject({ status: 'refreshing', data });
+    state = transitionLoad(state, { type: 'FAILED', generation: 2, message: 'boom' });
+    expect(state).toMatchObject({ status: 'error', message: 'boom', unsupported: false, data });
+    expect(transitionLoad(state, { type: 'LOAD', generation: 3 }).status).toBe('refreshing');
   });
 
   test('a response from a superseded request is dropped', () => {
-    let state = transitionInventory(INITIAL_INVENTORY_LOAD, { type: 'LOAD', generation: 1 });
-    state = transitionInventory(state, { type: 'LOAD', generation: 2 });
-    expect(transitionInventory(state, { type: 'LOADED', generation: 1, inventory: inv })).toBe(
-      state
-    );
-    expect(transitionInventory(state, { type: 'FAILED', generation: 1, message: 'old' })).toBe(
-      state
-    );
+    let state: Load = transitionLoad<string[]>(IDLE_LOAD, { type: 'LOAD', generation: 1 });
+    state = transitionLoad(state, { type: 'LOAD', generation: 2 });
+    expect(transitionLoad(state, { type: 'LOADED', generation: 1, data })).toBe(state);
+    expect(transitionLoad(state, { type: 'FAILED', generation: 1, message: 'old' })).toBe(state);
   });
 
-  test('a first load that fails has no inventory to show', () => {
-    let state = transitionInventory(INITIAL_INVENTORY_LOAD, { type: 'LOAD', generation: 1 });
-    state = transitionInventory(state, { type: 'FAILED', generation: 1, message: 'boom' });
-    expect(state).toEqual({ status: 'error', generation: 1, message: 'boom', inventory: null });
-    expect(transitionInventory(state, { type: 'LOAD', generation: 2 }).status).toBe('loading');
+  test('a first load that fails has no data; a missing route is marked unsupported', () => {
+    let state: Load = transitionLoad<string[]>(IDLE_LOAD, { type: 'LOAD', generation: 1 });
+    state = transitionLoad(state, {
+      type: 'FAILED',
+      generation: 1,
+      message: 'not found',
+      unsupported: true,
+    });
+    expect(state).toEqual({
+      status: 'error',
+      generation: 1,
+      message: 'not found',
+      unsupported: true,
+      data: null,
+    });
+    expect(transitionLoad(state, { type: 'LOAD', generation: 2 }).status).toBe('loading');
   });
 
-  test('LOADED in a settled state is an invalid transition', () => {
-    const ready: InventoryLoad = { status: 'ready', generation: 4, inventory: inv };
-    expect(INVENTORY_TRANSITIONS.ready.LOADED).toBeUndefined();
-    expect(() =>
-      transitionInventory(ready, { type: 'LOADED', generation: 4, inventory: inv })
-    ).toThrow('model-inventory: event LOADED is not allowed in state ready');
+  test('LOADED in a settled state is an invalid transition that names machine, state and event', () => {
+    const ready: Load = { status: 'ready', generation: 4, data };
+    expect(LOAD_TRANSITIONS.ready.LOADED).toBeUndefined();
+    expect(() => transitionLoad(ready, { type: 'LOADED', generation: 4, data })).toThrow(
+      'model-access-load: event LOADED is not allowed in state ready'
+    );
   });
 });

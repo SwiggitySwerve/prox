@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   buildMatrix,
+  isAccountEditable,
   isCellToggleable,
   modelUnion,
   resolveCell,
@@ -8,7 +9,7 @@ import {
   type AccountAccess,
   type CellState,
 } from '../src/features/authFiles/modelAccess/resolve';
-import { account, inventory, PROVIDER_LIST } from './fixtures/modelAccess';
+import { account, inventory, PROVIDER_LIST, runtimeAccount } from './fixtures/modelAccess';
 
 describe('resolveCell: every effective state with its reason', () => {
   const inheriting = account('a.json', null);
@@ -161,5 +162,39 @@ describe('matrix', () => {
     expect(rows.get('claude-preview-x')!.inCatalog).toBe(false);
     expect(rows.get('claude-opus-4-5')!.aliases).toEqual(['opus']);
     expect(rows.get('claude-3-7-sonnet')!.servedBy).toEqual([]);
+  });
+});
+
+describe('runtime credentials (config API keys)', () => {
+  const key = runtimeAccount('claude:apikey:1', ['claude-sonnet-4-0', 'claude-3-7-sonnet']);
+
+  test('the provider list never applies: only what the hub reports decides', () => {
+    // Both models are excluded by PROVIDER_LIST for OAuth accounts; the API key serves them.
+    expect(resolveCell(PROVIDER_LIST, key, 'claude-sonnet-4-0')).toEqual({
+      kind: 'served',
+      via: 'none',
+    });
+    expect(resolveCell(PROVIDER_LIST, key, 'claude-3-7-sonnet')).toEqual({
+      kind: 'served',
+      via: 'none',
+    });
+    expect(resolveCell(PROVIDER_LIST, key, 'claude-opus-4-5')).toEqual({ kind: 'not-served' });
+  });
+
+  test('disabled and unreadable runtime credentials', () => {
+    expect(resolveCell([], runtimeAccount('k', ['m'], true), 'm')).toEqual({ kind: 'disabled' });
+    expect(
+      resolveCell([], { ...key, reported: { status: 'unknown', message: '500' } }, 'm')
+    ).toEqual({ kind: 'unknown' });
+  });
+
+  test('a model served only through an API key counts as served by one account', () => {
+    const base = inventory();
+    const rows = buildMatrix({ ...base, accounts: [...base.accounts, key] });
+    const row = rows.find((item) => item.model === 'claude-3-7-sonnet')!;
+    expect(row.servedBy).toEqual(['claude:apikey:1']);
+    expect(isCellToggleable(row.cells['claude:apikey:1'])).toBe(true);
+    // The cell kind is toggleable in general; the account is what makes it read-only.
+    expect(isAccountEditable(key)).toBe(false);
   });
 });

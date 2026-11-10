@@ -23,11 +23,19 @@ import {
 import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
 import { useCredentialInventoryStore, useSourceFiles } from '@/stores/useCredentialInventoryStore';
 import { generateId, getErrorMessage } from '@/utils/helpers';
+import type { AuthFileModelItem } from '@/features/authFiles/constants';
+import { IDLE_LOAD, isLoadBusy, loadData, type LoadState } from '@/features/authFiles/modelAccess';
+import { modelAccess } from '@/features/authFiles/modelAccessRuntime';
+import {
+  selectSourceModelAccess,
+  useModelAccessStore,
+  useSourceModelAccess,
+} from '@/stores/useModelAccessStore';
 import styles from '@/features/authFiles/components/OAuthEditor.module.scss';
 
-type AuthFileModelItem = { id: string; display_name?: string; type?: string; owned_by?: string };
-
 const NO_FILES: AuthFileItem[] = [];
+const NO_MODELS: AuthFileModelItem[] = [];
+const IDLE_CATALOG: LoadState<AuthFileModelItem[]> = IDLE_LOAD;
 
 type LocationState = { fromAuthFiles?: boolean } | null;
 
@@ -82,9 +90,6 @@ export function AuthFilesOAuthModelAliasEditPage() {
   const [mappings, setMappings] = useState<OAuthModelMappingFormEntry[]>([
     buildEmptyMappingEntry(),
   ]);
-  const [modelsList, setModelsList] = useState<AuthFileModelItem[]>([]);
-  const [modelsLoading, setModelsLoading] = useState(false);
-  const [modelsError, setModelsError] = useState<'unsupported' | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -108,6 +113,21 @@ export function AuthFilesOAuthModelAliasEditPage() {
   }, [excluded, files, modelAlias]);
 
   const resolvedProviderKey = useMemo(() => normalizeProviderKey(provider), [provider]);
+  // The catalog is read live from the shared model-access store. The alias baseline above is a
+  // snapshot taken from the same store at load time: a later refresh by another screen must not
+  // replace a draft that is being edited.
+  const catalog =
+    useSourceModelAccess(session.owner)?.catalogs[resolvedProviderKey] ?? IDLE_CATALOG;
+  const catalogWanted = Boolean(resolvedProviderKey) && !modelAliasUnsupported;
+  const modelsList = useMemo(
+    () => (catalogWanted ? (loadData(catalog) ?? NO_MODELS) : NO_MODELS),
+    [catalog, catalogWanted]
+  );
+  const modelsLoading = catalogWanted && (catalog.status === 'idle' || isLoadBusy(catalog));
+  const modelsError: 'unsupported' | null =
+    catalogWanted && catalog.status === 'error' && catalog.unsupported ? 'unsupported' : null;
+  const catalogFailure =
+    catalogWanted && catalog.status === 'error' && !catalog.unsupported ? catalog.message : null;
   const isEditing = useMemo(() => {
     if (!resolvedProviderKey) return false;
     return Object.prototype.hasOwnProperty.call(modelAlias, resolvedProviderKey);
@@ -182,35 +202,28 @@ export function AuthFilesOAuthModelAliasEditPage() {
     setModelAliasUnsupported(false);
 
     try {
-      const [, excludedResult, aliasResult] = await Promise.allSettled([
+      await Promise.allSettled([
         useCredentialInventoryStore.getState().ensureLoaded(session.owner),
-        authFilesApi.getOauthExcludedModels(),
-        authFilesApi.getOauthModelAlias(),
+        modelAccess().ensureConfig(session.owner, { force: true }),
       ]);
 
       if (requestId !== loadRequestRef.current) return;
 
-      if (excludedResult.status === 'fulfilled') {
-        setExcluded(excludedResult.value ?? {});
-      }
+      const access = selectSourceModelAccess(useModelAccessStore.getState(), session.owner);
+      const lists = access ? loadData(access.providerLists) : null;
+      if (lists) setExcluded(lists);
 
-      if (aliasResult.status === 'fulfilled') {
-        setModelAlias(aliasResult.value ?? {});
+      const aliases = access?.aliases;
+      if (aliases?.status === 'ready') {
+        setModelAlias(aliases.data);
         setBaselineReady(true);
         return;
       }
-
-      const err = aliasResult.reason;
-      const status =
-        typeof err === 'object' && err !== null && 'status' in err
-          ? (err as { status?: unknown }).status
-          : undefined;
-
-      if (status === 404) {
+      if (aliases?.status === 'error' && aliases.unsupported) {
         setModelAliasUnsupported(true);
         return;
       }
-      setInitialLoadError(getErrorMessage(err));
+      setInitialLoadError(aliases?.status === 'error' ? aliases.message : '');
     } catch (err: unknown) {
       if (requestId === loadRequestRef.current) {
         setInitialLoadError(getErrorMessage(err));
@@ -220,7 +233,7 @@ export function AuthFilesOAuthModelAliasEditPage() {
         setInitialLoading(false);
       }
     }
-  }, [authFilesApi, session.owner]);
+  }, [session.owner]);
 
   useEffect(() => {
     void loadInitialData();
@@ -239,48 +252,14 @@ export function AuthFilesOAuthModelAliasEditPage() {
   }, [modelAlias, resolvedProviderKey]);
 
   useEffect(() => {
-    if (!resolvedProviderKey || modelAliasUnsupported) {
-      setModelsList([]);
-      setModelsError(null);
-      setModelsLoading(false);
-      return;
+    if (catalogWanted) void modelAccess().ensureCatalog(session.owner, resolvedProviderKey);
+  }, [catalogWanted, resolvedProviderKey, session.owner]);
+
+  useEffect(() => {
+    if (catalogFailure !== null) {
+      showNotification(`${t('notification.load_failed')}: ${catalogFailure}`, 'error');
     }
-
-    let cancelled = false;
-    setModelsLoading(true);
-    setModelsError(null);
-
-    authFilesApi
-      .getModelDefinitions(resolvedProviderKey)
-      .then((models) => {
-        if (cancelled) return;
-        setModelsList(models);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const status =
-          typeof err === 'object' && err !== null && 'status' in err
-            ? (err as { status?: unknown }).status
-            : undefined;
-
-        if (status === 400 || status === 404) {
-          setModelsList([]);
-          setModelsError('unsupported');
-          return;
-        }
-
-        const errorMessage = err instanceof Error ? err.message : '';
-        showNotification(`${t('notification.load_failed')}: ${errorMessage}`, 'error');
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setModelsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authFilesApi, modelAliasUnsupported, resolvedProviderKey, showNotification, t]);
+  }, [catalogFailure, showNotification, t]);
 
   const applyProviderChange = useCallback(
     (value: string) => {
@@ -378,6 +357,8 @@ export function AuthFilesOAuthModelAliasEditPage() {
         await authFilesApi.deleteOauthModelAlias(channel);
       }
       showNotification(t('oauth_model_alias.save_success'), 'success');
+      // The screen this returns to reads the same store: re-read it before leaving.
+      await modelAccess().ensureConfig(session.owner, { force: true });
       allowNextNavigation();
       handleBack();
     } catch (err: unknown) {
@@ -393,6 +374,7 @@ export function AuthFilesOAuthModelAliasEditPage() {
     isEditing,
     mappings,
     provider,
+    session.owner,
     showNotification,
     t,
   ]);

@@ -462,7 +462,10 @@
     "unified_group_filtered_out": "На этом источнике нет учётных данных, соответствующих фильтрам.",
     "unified_models_link": "Модели и доступ",
     "unified_models_link_aria": "Открыть модели и правила доступа для {{source}}",
-    "unified_provider_heading": "{{provider}} · {{count}}"
+    "unified_provider_heading": "{{provider}} · {{count}}",
+    "excluded_models_own_hint": "Этот список заменяет список провайдера для этой учётной записи. Правил провайдера, которые к ней не применяются: {{count}}.",
+    "excluded_models_inherit_hint": "Своего списка нет: учётная запись следует списку провайдера (правил: {{count}}). Если добавить правило здесь, она перестанет следовать списку провайдера.",
+    "excluded_models_stale": "{{name}}: исключённые модели изменились на сервере после открытия этой панели. Ничего не сохранено. Откройте панель заново, чтобы изменить текущий список."
   },
   "model_access": {
     "title": "Модели",
@@ -494,7 +497,6 @@
     "matrix_label": "Доступ к моделям для {{provider}}",
     "column_model": "Модель",
     "column_provider": "Список провайдера",
-    "column_served_by": "Предоставляют",
     "badge_inherits": "Список провайдера",
     "badge_own": "Свой список",
     "badge_disabled": "Отключён",
@@ -613,7 +615,11 @@
     "summary_loading": "Загрузка правил моделей…",
     "summary_error": "Не удалось загрузить правила моделей.",
     "summary_unsupported": "Этот бэкенд не поддерживает правила моделей.",
-    "open_models": "Модели"
+    "open_models": "Модели",
+    "cell_not_served": "Этот ключ не предоставляет",
+    "kind_not_served": "не предоставляется",
+    "badge_runtime": "API-ключ · изменить в «Поставщики AI»",
+    "notice_still_served_by": "{{model}} по-прежнему предоставляется через учётные данные с API-ключом, которые здесь не редактируются: {{accounts}}. Измените их в разделе «Поставщики AI»."
   },
   "antigravity_subscription": {
     "plan_unknown": "Неизвестно",
