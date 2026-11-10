@@ -10,6 +10,10 @@ describe('visual config weighted routing strategy', () => {
     expect(parseRoutingStrategy('weightedroundrobin')).toBe('weighted-round-robin');
     expect(parseRoutingStrategy('wrr')).toBe('weighted-round-robin');
     expect(parseRoutingStrategy('fill-first')).toBe('fill-first');
+    // A hub running soonest-reset must not be shown, or saved back, as round-robin.
+    expect(parseRoutingStrategy('soonest-reset')).toBe('soonest-reset');
+    expect(parseRoutingStrategy('soonestreset')).toBe('soonest-reset');
+    expect(parseRoutingStrategy(' SR ')).toBe('soonest-reset');
     expect(parseRoutingStrategy('fillfirst')).toBe('fill-first');
     expect(parseRoutingStrategy('ff')).toBe('fill-first');
     expect(parseRoutingStrategy(undefined)).toBe('round-robin');
