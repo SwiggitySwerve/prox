@@ -1,4 +1,5 @@
 /** Pure logic of the unified Auth Files page: one filter set applied to every source group. */
+import type { TFunction } from 'i18next';
 import { isRuntimeOnlyAuthFile } from '@/features/authFiles/constants';
 import {
   countCredentials,
@@ -158,4 +159,16 @@ export function listLoadState(input: {
   if (input.error) return input.fileCount > 0 ? 'error-stale' : 'error';
   if (input.refreshing) return 'refreshing';
   return input.fileCount > 0 ? 'ready' : 'empty';
+}
+
+/** Shown in place of a number that is not known yet, so the parts keep their places. */
+export const UNKNOWN = '–';
+
+/** "A active · P with problems · D disabled": always all three, "–" while unknown. */
+export function healthParts(t: TFunction, counts: CredentialCounts | null) {
+  return [
+    t('auth_files.meta_active', { count: counts?.active ?? UNKNOWN }),
+    t('auth_files.meta_problem', { count: counts?.problem ?? UNKNOWN }),
+    t('auth_files.meta_disabled', { count: counts?.disabled ?? UNKNOWN }),
+  ];
 }

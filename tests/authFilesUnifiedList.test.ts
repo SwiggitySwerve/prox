@@ -69,7 +69,9 @@ describe('credential list load state (machine M1, characterization)', () => {
   }
 
   test('each source group exposes the state to tests and agents', () => {
-    const page = readFileSync('src/features/authFiles/AuthFilesPage.tsx', 'utf8');
+    const page =
+      readFileSync('src/features/authFiles/AuthFilesPage.tsx', 'utf8') +
+      readFileSync('src/features/authFiles/AuthFilesSourceContent.tsx', 'utf8');
     expect(page).toContain('data-machine="auth-files-list" data-state={listState}');
   });
 });
@@ -102,7 +104,9 @@ describe('source filter', () => {
   });
 
   test('the page has one filter bar, not one per source', () => {
-    const page = readFileSync('src/features/authFiles/AuthFilesPage.tsx', 'utf8');
+    const page =
+      readFileSync('src/features/authFiles/AuthFilesPage.tsx', 'utf8') +
+      readFileSync('src/features/authFiles/AuthFilesSourceContent.tsx', 'utf8');
     expect(page.match(/<AuthFilesToolbar/g)).toHaveLength(1);
     expect(page.match(/<ProviderTabs/g)).toHaveLength(1);
     expect(page).not.toContain('OAuthExcludedCard');

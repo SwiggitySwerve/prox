@@ -215,7 +215,9 @@ describe('auth files source view lifetime', () => {
 
 describe('auth files source wiring', () => {
   test('renders concurrent registry panels with source-qualified navigation and inline selections', () => {
-    const page = readFileSync('src/features/authFiles/AuthFilesPage.tsx', 'utf8');
+    const page =
+      readFileSync('src/features/authFiles/AuthFilesPage.tsx', 'utf8') +
+      readFileSync('src/features/authFiles/AuthFilesSourceContent.tsx', 'utf8');
     expect(page).toContain('sources.map((view) =>');
     expect(page).toContain('<AuthFilesSourceProvider');
     expect(page).toContain('data-source-id={view.source.instanceId}');
