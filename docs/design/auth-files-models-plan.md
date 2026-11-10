@@ -53,7 +53,7 @@ Already explicit and left alone: the credential inventory store (`stores/useCred
 - **B3** The credential detail sheet writes `excluded_models` without re-reading the file, so it can overwrite a list changed elsewhere since the sheet opened.
 - **B4** The provider-list editor gives no hint that accounts with their own list ignore it. This is the UI half of today's incident.
 - **B5** The Auth Files "OAuth Model Disablement" card says "claude · 2 models disabled" while an account with its own list serves one of those models. Fixed by design: the card is replaced by the Models screen.
-- **B6 (likely)** The credential detail sheet writes `excluded-models` (the legacy key) when the file uses it (`useAuthFilesPrefixProxyEditor.ts:181-186`). The backend normalizes stored metadata to `excluded_models` on load (`sdk/cliproxy/auth/metadata_keys.go:38-49`), and re-registers models only when the `excluded_models` root is patched (`auth_files_fields.go:443`). Such an edit is then shadowed by the canonical key and not applied. The new write path always uses `excluded_models`. Not traced end to end against a running hub.
+- **B6 (retracted)** I reported that the credential sheet's legacy `excluded-models` key was ignored by the backend. It is not: the patch handler canonicalizes request keys (`auth_files_fields.go:483-505`) and the backend's own test "alias override" proves the legacy key is applied. No change was needed or made.
 
 ## 3. Unified data model
 
@@ -180,4 +180,26 @@ Branch `feat/auth-files-models`; every behaviour below runs against the syntheti
 - Models screen (`src/features/authFiles/models/`, route `#/auth-files/models`), Auth Files page rework, API reader and writer for account lists.
 - Found and fixed during browser verification, before commit: a Sass selector that broke the build; a race where the Models inventory read the credential store before its runtime started (zero accounts shown); a refresh loop that the first fix for that race introduced on a failing source (now bounded: eight credential reads in the error case); StrictMode leaving the error case stuck in `loading`; focus not returned to the cell after a dialog closed.
 - Commands: `bun run verify` passes (tests, lint with 0 errors and the same 6 warnings as before, single-file build). Browser: `scripts/visual/auth-files-capture.sh build docs/evidence/auth-files-models/after` against `vite preview` of the production build, and `…capture.sh url=http://127.0.0.1:18399 docs/evidence/auth-files-models/container` against the production nginx image built from `deploy/Dockerfile` (listen lines changed only). `scripts/visual/models-keyboard-check.py` checks focus in and out of dialogs, roving tabs, accessible names, wildcard cells never writing, and reduced motion.
+
+## 10. One model-access store for every screen (second pass)
+
+The first pass left six private copies of the same data: the Auth Files hook (provider lists, aliases, catalogs), the Models hook, the per-account models dialog and its cache, the credential sheet's exclusion field, the alias editor, and the alias card. They could disagree, and bug B2 was one such disagreement.
+
+**Now:** `src/stores/useModelAccessStore.ts` holds, per source, five kinds of slice: provider lists, aliases, catalogs per provider, own list per credential, reported models per credential. Each slice is one `LoadState` (`modelAccess/loadState.ts`, which replaces the Models-only inventory machine M10): a newer request supersedes an older one, a failed re-read keeps the last data, a replaced session's data is dropped. `ensure*` loads what is missing or older than 30 s; `{ force: true }` re-reads (Refresh, and after every write). Nothing is patched optimistically.
+
+| Screen | Before | Now |
+|---|---|---|
+| Models matrix, Rules tab | own fetch of everything | derives from the store (`deriveInventoryLoad`, `buildInventory`) |
+| Auth Files model-access row, alias card | `useAuthFilesOauth` state and request counters | the store's provider-list and alias slices |
+| Per-account models dialog | own fetch and cache; "Disabled" badge guessed from the provider list (B2) | the store; each model resolved by `resolveCell` with its list or rule |
+| Credential sheet exclusion field | own fetch of the already-filtered model list | catalog and reported models from the store, plus a line saying whether this account follows or replaces the provider list |
+| Alias editor | own fetch of lists, aliases and catalog | loads through the store; keeps a snapshot baseline so a background refresh cannot reset a draft |
+
+A contract test (`tests/modelAccessStore.test.ts`) fails if any file other than the store runtime calls the raw reads.
+
+**Bug fixes in this pass:** B1 (batch enable/disable now has a catch), B2 (the dialog, above), B3 (the credential sheet re-reads the account's list before saving and refuses if it changed since the sheet opened). B4 and B5 were fixed by design in the first pass. B6 is retracted.
+
+**New in the model:** config API-key credentials (`runtime_only` entries) of the provider are accounts of kind `runtime`. The provider list never applies to them and their exclusions live in their config entry, so they are read-only columns here, and "Disable everywhere" names the ones that keep serving the model. Without this the matrix under-counted "served by".
+
+**Not unified, and why:** the Dashboard and System pages read the hub's public `/v1/models` list through the per-source `modelsStore`; that is a different dataset (what an API key sees) and already has one store. AI Providers edits API-key provider entries through the config store and its own resource model (`providers/adapters.ts`); those entries are shown here read-only rather than edited through a second path.
 
