@@ -17,23 +17,9 @@ import { formatFileSize } from '@/utils/format';
 import { MAX_AUTH_FILE_SIZE } from '@/utils/constants';
 import { downloadBlob } from '@/utils/download';
 import {
-  getTypeLabel,
-  isProblemAuthFile,
   isRuntimeOnlyAuthFile,
-  normalizeProviderKey,
   supportsAuthFileManualRefresh,
 } from '@/features/authFiles/constants';
-
-type DeleteAllOptions = {
-  filter: string;
-  problemOnly: boolean;
-  disabledOnly: boolean;
-  enabledOnly: boolean;
-  onResetFilterToAll: () => void;
-  onResetProblemOnly: () => void;
-  onResetDisabledOnly: () => void;
-  onResetEnabledOnly: () => void;
-};
 
 export type LoadFilesOptions = {
   /** 后台刷新：不置 loading（网格保持内容），改用 refreshing 标志。 */
@@ -68,7 +54,8 @@ export type UseAuthFilesDataResult = {
   handleUploadClick: () => void;
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleDelete: (name: string) => void;
-  handleDeleteAll: (options: DeleteAllOptions) => void;
+  /** Deletes exactly these credentials (the ones the group shows), after a confirmation. */
+  handleDeleteAll: (targets: AuthFileItem[]) => void;
   handleDownload: (name: string) => Promise<void>;
   handleManualRefresh: (item: AuthFileItem) => Promise<void>;
   handleCooldownReset: (item: AuthFileItem) => void;
@@ -396,74 +383,29 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
   );
 
   const handleDeleteAll = useCallback(
-    (deleteAllOptions: DeleteAllOptions) => {
-      const {
-        filter,
-        problemOnly,
-        disabledOnly,
-        enabledOnly,
-        onResetFilterToAll,
-        onResetProblemOnly,
-        onResetDisabledOnly,
-        onResetEnabledOnly,
-      } = deleteAllOptions;
-      const isFiltered = filter !== 'all';
-      const isProblemOnly = problemOnly === true;
-      const isDisabledOnly = disabledOnly === true;
-      const isEnabledOnly = enabledOnly === true;
-      const typeLabel = isFiltered ? getTypeLabel(t, filter) : t('auth_files.filter_all');
-      let confirmMessage = t('auth_files.delete_all_confirm');
-      if (isDisabledOnly || isEnabledOnly) {
-        confirmMessage = t('auth_files.delete_filtered_result_confirm');
-      } else if (isProblemOnly) {
-        confirmMessage = isFiltered
-          ? t('auth_files.delete_problem_filtered_confirm', { type: typeLabel })
-          : t('auth_files.delete_problem_confirm');
-      } else if (isFiltered) {
-        confirmMessage = t('auth_files.delete_filtered_confirm', { type: typeLabel });
+    (targets: AuthFileItem[]) => {
+      // Exactly the credentials the group shows (see deletableShown); never a wider predicate.
+      const names = Array.from(
+        new Set(targets.filter((file) => !isRuntimeOnlyAuthFile(file)).map((file) => file.name))
+      );
+      if (names.length === 0) {
+        showNotification(t('auth_files.delete_filtered_result_none'), 'info');
+        return;
       }
 
       showConfirmation({
-        title: t('auth_files.delete_all_title', { defaultValue: 'Delete All Files' }),
-        message: confirmMessage,
+        title: t('auth_files.delete_shown_title'),
+        message: t('auth_files.delete_shown_confirm', {
+          count: names.length,
+          source: sourceScope.source.label,
+        }),
         variant: 'danger',
-        confirmText: t('common.confirm'),
+        confirmText: t('common.delete'),
         onConfirm: async () => {
           setDeletingAll(true);
           try {
-            const filesToDelete = files.filter((file) => {
-              if (isRuntimeOnlyAuthFile(file)) return false;
-              if (
-                isFiltered &&
-                normalizeProviderKey(String(file.type ?? file.provider ?? '')) !== filter
-              ) {
-                return false;
-              }
-              if (isProblemOnly && !isProblemAuthFile(file)) return false;
-              if (isDisabledOnly && file.disabled !== true) return false;
-              if (isEnabledOnly && file.disabled === true) return false;
-              return true;
-            });
-
-            if (filesToDelete.length === 0) {
-              let emptyMessage = t('auth_files.delete_filtered_none', { type: typeLabel });
-              if (isDisabledOnly || isEnabledOnly) {
-                emptyMessage = t('auth_files.delete_filtered_result_none');
-              } else if (isProblemOnly) {
-                emptyMessage = isFiltered
-                  ? t('auth_files.delete_problem_filtered_none', { type: typeLabel })
-                  : t('auth_files.delete_problem_none');
-              }
-              showNotification(emptyMessage, 'info');
-              setDeletingAll(false);
-              return;
-            }
-
-            const result = await authFilesApi.deleteFiles(filesToDelete.map((file) => file.name));
+            const result = await authFilesApi.deleteFiles(names);
             sourceScope.assertCurrent();
-            const success = result.deleted;
-            const failed = result.failed.length;
-
             applyDeletedFiles(result.files);
             if (result.deleted > 0) {
               void notifyAuthFilesChanged(sourceScope.session.owner, {
@@ -471,61 +413,19 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
                 deletedNames: result.files,
               });
             }
-
-            if (failed === 0 && (isDisabledOnly || isEnabledOnly)) {
+            if (result.failed.length === 0) {
               showNotification(
-                t('auth_files.delete_filtered_result_success', { count: success }),
+                t('auth_files.delete_shown_success', { count: result.deleted }),
                 'success'
-              );
-            } else if (failed === 0 && isProblemOnly) {
-              showNotification(
-                isFiltered
-                  ? t('auth_files.delete_problem_filtered_success', {
-                      count: success,
-                      type: typeLabel,
-                    })
-                  : t('auth_files.delete_problem_success', { count: success }),
-                'success'
-              );
-            } else if (failed === 0) {
-              showNotification(
-                t('auth_files.delete_filtered_success', { count: success, type: typeLabel }),
-                'success'
-              );
-            } else if (isDisabledOnly || isEnabledOnly) {
-              showNotification(
-                t('auth_files.delete_filtered_result_partial', { success, failed }),
-                'warning'
-              );
-            } else if (isProblemOnly) {
-              showNotification(
-                isFiltered
-                  ? t('auth_files.delete_problem_filtered_partial', {
-                      success,
-                      failed,
-                      type: typeLabel,
-                    })
-                  : t('auth_files.delete_problem_partial', { success, failed }),
-                'warning'
               );
             } else {
               showNotification(
-                t('auth_files.delete_filtered_partial', { success, failed, type: typeLabel }),
+                t('auth_files.delete_filtered_result_partial', {
+                  success: result.deleted,
+                  failed: result.failed.length,
+                }),
                 'warning'
               );
-            }
-
-            if (isFiltered) {
-              onResetFilterToAll();
-            }
-            if (isProblemOnly) {
-              onResetProblemOnly();
-            }
-            if (isDisabledOnly) {
-              onResetDisabledOnly();
-            }
-            if (isEnabledOnly) {
-              onResetEnabledOnly();
             }
           } catch (err: unknown) {
             if (!sourceScope.isCurrent()) return;
@@ -537,7 +437,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         },
       });
     },
-    [applyDeletedFiles, authFilesApi, files, showConfirmation, showNotification, sourceScope, t]
+    [applyDeletedFiles, authFilesApi, showConfirmation, showNotification, sourceScope, t]
   );
 
   const handleDownload = useCallback(
@@ -704,6 +604,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
                   : file
               )
             );
+            void notifyAuthFilesChanged(sourceScope.session.owner);
             showNotification(
               t('auth_files.cooldown_reset_success', { name: item.name }),
               'success'
@@ -779,6 +680,8 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
                 getAuthFileRefreshKey(f) === key ? { ...f, disabled: res.disabled } : f
               )
         );
+        // The header, Models and Dashboard read the shared inventory: publish the change there.
+        void notifyAuthFilesChanged(sourceScope.session.owner);
         showNotification(
           enabled
             ? t('auth_files.status_enabled_success', { name })
@@ -901,6 +804,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
                 return file;
               })
         );
+        if (successCount > 0) void notifyAuthFilesChanged(sourceScope.session.owner);
 
         if (failCount === 0) {
           showNotification(

@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { checkAccountListFresh } from '../src/features/authFiles/modelAccess/staleCheck';
+import {
+  buildAuthFileFieldsPatch,
+  type PrefixProxyEditorState,
+} from '../src/features/authFiles/hooks/useAuthFilesPrefixProxyEditor';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
@@ -30,79 +33,60 @@ describe('B2: the models dialog shows the effective state, not a provider-list g
   });
 });
 
-describe('B3: the credential sheet does not overwrite a list changed elsewhere', () => {
-  const cases: Array<{
-    name: string;
-    touched: boolean;
-    openedWith: string[] | null;
-    current: string[] | null;
-    expected: 'untouched' | 'fresh' | 'stale';
-  }> = [
-    {
-      name: 'the list is not being written',
-      touched: false,
-      openedWith: ['a'],
-      current: ['b'],
-      expected: 'untouched',
-    },
-    {
-      name: 'unchanged since the sheet opened',
-      touched: true,
-      openedWith: ['a', 'B'],
-      current: ['b', 'A'],
-      expected: 'fresh',
-    },
-    {
-      name: 'none then and none now',
-      touched: true,
-      openedWith: null,
-      current: [],
-      expected: 'fresh',
-    },
-    {
-      name: 'a rule was added elsewhere',
-      touched: true,
-      openedWith: ['a'],
-      current: ['a', 'x'],
-      expected: 'stale',
-    },
-    {
-      name: 'the list was removed elsewhere',
-      touched: true,
-      openedWith: ['a'],
-      current: null,
-      expected: 'stale',
-    },
-    {
-      name: 'a list was created elsewhere',
-      touched: true,
-      openedWith: null,
-      current: ['x'],
-      expected: 'stale',
-    },
-  ];
-  for (const item of cases) {
-    test(item.name, async () => {
-      let reads = 0;
-      const result = await checkAccountListFresh({
-        touched: item.touched,
-        openedWith: item.openedWith,
-        read: async () => {
-          reads += 1;
-          return item.current;
-        },
-      });
-      expect(result.status).toBe(item.expected);
-      // No file is downloaded when the list is not part of the save.
-      expect(reads).toBe(item.touched ? 1 : 0);
-      if (result.status === 'stale') expect(result.current).toEqual(item.current);
-    });
-  }
+describe('B3: the credential sheet never writes excluded_models', () => {
+  // An account's exclusion list has one editor: the Models screen (preview, stale check, rollback).
+  // The sheet only summarizes it, so saving any other field must neither send nor clear the list.
+  const editor = (json: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+    ({
+      fileName: 'a.json',
+      json,
+      providerKey: 'claude',
+      prefix: '',
+      proxyUrl: '',
+      priority: '',
+      weight: '',
+      note: '',
+      headersText: '',
+      ...extra,
+    }) as unknown as PrefixProxyEditorState;
 
-  test('the sheet runs the check before it patches the credential', () => {
+  test('saving other fields sends no excluded_models, in either spelling', () => {
+    for (const json of [
+      { excluded_models: ['claude-3-*'] },
+      { 'excluded-models': ['claude-3-*'] },
+      { excluded_models: 'claude-3-*, claude-2' },
+      {},
+    ]) {
+      const patch = buildAuthFileFieldsPatch(
+        editor(json, {
+          prefix: 'team',
+          proxyUrl: 'http://proxy.invalid',
+          priority: '5',
+          note: 'n',
+          noteTouched: true,
+          disableCooling: true,
+          disableCoolingTouched: true,
+          // A stale editor state from an older build must not leak into the patch either.
+          excludedModelsText: '',
+          excludedModelsTouched: true,
+        }),
+        (key) => key
+      );
+      expect(patch).toEqual({
+        prefix: 'team',
+        proxy_url: 'http://proxy.invalid',
+        priority: 5,
+        note: 'n',
+        disable_cooling: true,
+      });
+    }
+  });
+
+  test('the editor has no exclusion field, write path or stale check of its own', () => {
     const source = read('src/features/authFiles/hooks/useAuthFilesPrefixProxyEditor.ts');
-    const save = source.slice(source.indexOf('const handlePrefixProxySave = async'));
-    expect(save.indexOf('checkAccountListFresh(')).toBeGreaterThan(-1);
-    expect(save.indexOf('checkAccountListFresh(')).toBeLessThan(save.indexOf('patchFields('));
+    expect(source).not.toContain('excludedModels');
+    expect(source).not.toContain('excluded_models');
+    expect(source).not.toContain('checkAccountListFresh');
+    expect(source).not.toContain('readAccountExcludedModels');
   });
 });

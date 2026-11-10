@@ -1,9 +1,11 @@
 import { useAuthFilesSource } from '../AuthFilesSourceContext';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { IconCopy } from '@/components/ui/icons';
 import type { AuthFileModelItem } from '@/features/authFiles/constants';
 import {
   accountRefOf,
@@ -20,6 +22,7 @@ import {
   cellLabelKey,
   cellRule,
 } from '@/features/authFiles/models/matrixView';
+import { modelsScreenPath } from '@/features/authFiles/unifiedList';
 import { useSourceModelAccess } from '@/stores/useModelAccessStore';
 import type { AuthFileItem } from '@/types';
 import styles from './AuthFileModelsModal.module.scss';
@@ -42,10 +45,12 @@ const servedKinds: ReadonlySet<CellState['kind']> = new Set(['served']);
 export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
   const { source, session } = useAuthFilesSource();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { open, file, onClose, onRetry, onCopyText } = props;
   const access = useSourceModelAccess(session.owner);
 
   const provider = file ? providerOfFile(file) : '';
+  const accountLabel = file ? accountRefOf(file).label : '';
   const view = useMemo(() => {
     if (!file) return null;
     const ref = accountRefOf(file);
@@ -73,7 +78,7 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
     return cellDrift(cell) ? `${base} · ${t('model_access.cell_drift')}` : base;
   };
 
-  let body: React.ReactNode = null;
+  let body: ReactNode = null;
   if (view) {
     if (view.status === 'loading' || view.status === 'idle') {
       body = (
@@ -117,7 +122,13 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
         <>
           {account && (
             <p className={styles.listSource}>
-              {t(`model_access.badge_${account.disabled ? 'disabled' : accountListKind(account)}`)}
+              {account.disabled
+                ? t('model_access.badge_disabled')
+                : accountListKind(account) === 'own'
+                  ? t('auth_files.models_own_list')
+                  : accountListKind(account) === 'inherits'
+                    ? t('auth_files.models_follows_provider')
+                    : t(`model_access.badge_${accountListKind(account)}`)}
             </p>
           )}
           <div className={styles.list}>
@@ -132,9 +143,10 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
                   className={`${styles.item} ${served ? '' : styles.itemExcluded}`}
                   data-state={cell.kind}
                   onClick={() => onCopyText(row.model)}
-                  title={t('common.copy', { defaultValue: '点击复制' })}
+                  title={t('common.copy')}
                 >
                   <span className={styles.modelId}>{row.model}</span>
+                  <IconCopy className={styles.copyIcon} size={13} aria-hidden="true" />
                   {detail?.display_name && detail.display_name !== row.model && (
                     <span className={styles.modelDisplayName}>{detail.display_name}</span>
                   )}
@@ -156,15 +168,30 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
       open={open}
       onClose={onClose}
       title={
-        source.label +
-        ' · ' +
-        t('auth_files.models_title', { defaultValue: '支持的模型' }) +
-        ` - ${file?.name ?? ''}`
+        <span className={styles.title}>
+          <span>{t('auth_files.models_title', { account: accountLabel })}</span>
+          <span className={styles.subtitle}>{source.label}</span>
+        </span>
       }
       footer={
-        <Button variant="secondary" onClick={onClose}>
-          {t('common.close')}
-        </Button>
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+          {file && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                onClose();
+                navigate(modelsScreenPath(source.instanceId, provider, file.name), {
+                  state: { fromAuthFiles: true, sourceOwner: session.owner },
+                });
+              }}
+            >
+              {t('auth_files.edit_in_models')}
+            </Button>
+          )}
+        </>
       }
     >
       <div data-machine="model-inventory" data-state={view?.status ?? 'idle'}>

@@ -13,7 +13,12 @@ export type AuthFilesToolbarProps = {
   search: string;
   onSearchChange: (value: string) => void;
   statusFilterMode: AuthFilesStatusFilterMode;
-  statusFilterOptions: Array<{ value: AuthFilesStatusFilterMode; label: string }>;
+  /** count: null while unknown (shown as "–"); omit to show no count. */
+  statusFilterOptions: Array<{
+    value: AuthFilesStatusFilterMode;
+    label: string;
+    count?: number | null;
+  }>;
   onStatusFilterChange: (mode: AuthFilesStatusFilterMode) => void;
   sortMode: AuthFilesSortMode;
   sortOptions: Array<{ value: string; label: string }>;
@@ -88,7 +93,8 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={t('auth_files.search_placeholder')}
           aria-label={t('auth_files.search_label')}
-          rightElement={<IconSearch className={styles.searchIcon} size={16} />}
+          title={t('auth_files.search_hint')}
+          rightElement={<IconSearch className={styles.searchIcon} size={16} aria-hidden="true" />}
         />
       </div>
 
@@ -111,6 +117,9 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
               onClick={() => onStatusFilterChange(option.value)}
             >
               {option.label}
+              {option.count !== undefined && (
+                <span className={styles.segmentCount}>{option.count ?? '–'}</span>
+              )}
             </button>
           );
         })}

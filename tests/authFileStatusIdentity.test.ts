@@ -45,6 +45,8 @@ function harness() {
       files = update(files);
     },
     invalidateInFlightLoads: () => {},
+    // Publishing to the shared inventory is covered in credentialInventoryScreens.test.ts.
+    notifyAuthFilesChanged: () => {},
     showNotification: () => {
       notifications++;
     },

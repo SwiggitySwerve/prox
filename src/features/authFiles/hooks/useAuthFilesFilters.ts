@@ -197,6 +197,7 @@ export function useAuthFilesFilters(fallbackSource?: string) {
       setProviderState('all');
       setStatusState('all');
       setSearchState('');
+      setSourceState(ALL_SOURCES);
       bump();
     },
   };

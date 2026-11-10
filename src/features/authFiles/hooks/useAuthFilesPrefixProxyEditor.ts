@@ -13,7 +13,6 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AuthFileFieldsPatch } from '@/services/api/authFiles';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
-import { checkAccountListFresh } from '@/features/authFiles/modelAccess/staleCheck';
 import type { AuthFileItem } from '@/types';
 
 import {
@@ -57,7 +56,6 @@ export type PrefixProxyEditorField =
   | 'usingApi'
   | 'useSiwc'
   | 'note'
-  | 'excludedModelsText'
   | 'headersText';
 
 export type PrefixProxyEditorFieldValue = string | boolean | CredentialPolicyValue;
@@ -89,8 +87,6 @@ export type PrefixProxyEditorState = {
   usingApiTouched: boolean;
   note: string;
   noteTouched: boolean;
-  excludedModelsText: string;
-  excludedModelsTouched: boolean;
   headersText: string;
   headersTouched: boolean;
   headersError: string | null;
@@ -155,36 +151,6 @@ const credentialWeightErrorKey = (error: CredentialWeightError): AuthFileWeightE
 
 const normalizeTextField = (value: unknown): string =>
   typeof value === 'string' ? value.trim() : '';
-
-const normalizeExcludedModels = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  const result: string[] = [];
-  value.forEach((item) => {
-    if (typeof item !== 'string') return;
-    const model = item.trim();
-    const key = model.toLowerCase();
-    if (!model || seen.has(key)) return;
-    seen.add(key);
-    result.push(model);
-  });
-  return result;
-};
-
-const parseExcludedModelsText = (value: string): string[] =>
-  normalizeExcludedModels(value.split(/\r?\n/));
-
-const readExcludedModels = (value: Record<string, unknown>): string[] =>
-  normalizeExcludedModels(
-    value.excluded_models !== undefined ? value.excluded_models : value['excluded-models']
-  );
-
-const getExcludedModelsField = (
-  value: Record<string, unknown>
-): 'excluded_models' | 'excluded-models' =>
-  value.excluded_models === undefined && value['excluded-models'] !== undefined
-    ? 'excluded-models'
-    : 'excluded_models';
 
 const INVALID_CONTENT_PREVIEW_LIMIT = 1000;
 
@@ -358,14 +324,6 @@ export const buildAuthFileFieldsPatch = (
     }
   }
 
-  if (editor.excludedModelsTouched) {
-    const originalExcludedModels = readExcludedModels(original);
-    const nextExcludedModels = parseExcludedModelsText(editor.excludedModelsText);
-    if (JSON.stringify(nextExcludedModels) !== JSON.stringify(originalExcludedModels)) {
-      patch[getExcludedModelsField(original)] = nextExcludedModels;
-    }
-  }
-
   if (supportsAuthFileWebsockets(editor.providerKey) && editor.websocketsTouched) {
     const originalWebsockets = readAuthFileWebsockets(original);
     const nextWebsockets = Boolean(editor.websockets);
@@ -457,13 +415,6 @@ const buildPrefixProxyUpdatedText = (
     } else if ('note' in next) {
       delete next.note;
     }
-  }
-
-  if (patch.excluded_models !== undefined) {
-    next.excluded_models = patch.excluded_models;
-  }
-  if (patch['excluded-models'] !== undefined) {
-    next['excluded-models'] = patch['excluded-models'];
   }
 
   applyCredentialPolicyPatch(next, patch);
@@ -561,8 +512,6 @@ export function useAuthFilesPrefixProxyEditor(
       usingApiTouched: false,
       note: '',
       noteTouched: false,
-      excludedModelsText: '',
-      excludedModelsTouched: false,
       headersText: '',
       headersTouched: false,
       headersError: null,
@@ -615,7 +564,6 @@ export function useAuthFilesPrefixProxyEditor(
         : false;
       const usingApi = supportsAuthFileUsingApi(providerKey) ? readAuthFileUsingApi(json) : false;
       const note = typeof json.note === 'string' ? json.note : '';
-      const excludedModelsText = readExcludedModels(json).join('\n');
       const headers = json.headers;
       let headersText = '';
       let headersError: string | null = null;
@@ -651,8 +599,6 @@ export function useAuthFilesPrefixProxyEditor(
           usingApiTouched: false,
           note,
           noteTouched: false,
-          excludedModelsText,
-          excludedModelsTouched: false,
           headersText,
           headersTouched: false,
           headersError,
@@ -717,13 +663,6 @@ export function useAuthFilesPrefixProxyEditor(
         return { ...prev, usingApi: Boolean(value), usingApiTouched: true };
       }
       if (field === 'note') return { ...prev, note: String(value), noteTouched: true };
-      if (field === 'excludedModelsText') {
-        return {
-          ...prev,
-          excludedModelsText: String(value),
-          excludedModelsTouched: true,
-        };
-      }
       if (field === 'headersText') {
         const headersText = String(value);
         const { errorKey } = parseHeadersText(headersText);
@@ -765,23 +704,8 @@ export function useAuthFilesPrefixProxyEditor(
     });
 
     try {
-      // The sheet edits the list as it was when it opened. If the hub's copy changed since (the
-      // Models screen, another operator), saving would undo that change: stop and say so.
-      const freshness = await checkAccountListFresh({
-        touched: payload.excluded_models !== undefined || payload['excluded-models'] !== undefined,
-        openedWith: readExcludedModels(prefixProxyEditor.json),
-        read: () => authFilesApi.readAccountExcludedModels(name),
-      });
-      sourceScope.assertCurrent();
-      if (!isCurrentEditor()) return;
-      if (freshness.status === 'stale') {
-        showNotification(t('auth_files.excluded_models_stale', { name }), 'error');
-        setPrefixProxyEditor((prev) => {
-          if (!prev || prev.fileName !== name) return prev;
-          return { ...prev, saving: false };
-        });
-        return;
-      }
+      // The account's exclusion list is edited only on the Models screen; this patch never
+      // carries it (see buildAuthFileFieldsPatch), so the hub's list is left as it is.
       await authFilesApi.patchFields(name, payload);
       sourceScope.assertCurrent();
       if (!isCurrentEditor()) return;

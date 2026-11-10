@@ -25,6 +25,8 @@
     height: 36px;
     border-radius: 10px;
     font-size: 13px;
+    /* Room for the magnifier (16px at right: 8px) so it never sits over the text. */
+    padding-right: 34px;
   }
 }
 
@@ -75,6 +77,15 @@
   .segment:hover:not(.segmentActive) {
     color: var(--text-primary);
   }
+}
+
+/* The count of credentials the chip would show, in the same three-way health as every count. */
+.segmentCount {
+  margin-left: 6px;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
 }
 
 .segmentActive {

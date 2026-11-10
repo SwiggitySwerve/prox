@@ -89,6 +89,7 @@
 }
 
 .settingsLink {
+  align-self: flex-start;
   color: var(--primary-color);
   font-weight: 600;
   text-decoration: none;
@@ -101,5 +102,46 @@
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
     border-radius: 2px;
+  }
+}
+
+/* Read-only summary of the account's exclusion list; edited on the Models screen. */
+.fieldLabel {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.listSummary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+
+  p {
+    margin: 0;
+  }
+}
+
+.ruleList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+
+  code {
+    display: inline-block;
+    max-width: 100%;
+    padding: 2px 8px;
+    font-family: $font-mono;
+    font-size: 12px;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow-wrap: anywhere;
   }
 }

@@ -220,7 +220,7 @@ describe('auth files source wiring', () => {
     expect(page).toContain('<AuthFilesSourceProvider');
     expect(page).toContain('data-source-id={view.source.instanceId}');
     expect(page).toContain('sourceOwner: sourceScope.session.owner');
-    expect(page).toContain('source: sourceScope.source.instanceId');
+    expect(page).toContain('modelsScreenPath(instanceId, provider)');
     expect(page).toContain('sourceLabel={sourceScope.source.label}');
     expect(page).not.toContain('selectedInstanceId');
     expect(page).not.toContain('useAuthStore');

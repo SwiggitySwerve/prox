@@ -234,10 +234,6 @@
   gap: 6px;
 }
 
-.groupDelete {
-  color: var(--danger-color);
-}
-
 .providerGroup {
   display: flex;
   flex-direction: column;
@@ -254,57 +250,147 @@
   color: var(--text-tertiary);
 }
 
-.accessSummary {
+/* Provider heading: "CLAUDE · 5   2 exclusion rules · 1 alias   Models →" */
+.providerHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-top: 4px;
+  min-width: 0;
+
+  .providerHeading {
+    margin: 0;
+  }
+}
+
+.providerFacts {
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.providerLink {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--primary-color);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 4px;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  &[aria-disabled='true'] {
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+}
+
+/* Error banner of one source with its "Try again" button. */
+.errorWithAction {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+/* Secondary group actions ("Delete all shown…") behind one overflow button. */
+.groupMenu {
+  position: relative;
+}
+
+.moreGlyph {
+  display: inline-block;
+  min-width: 1em;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.groupMenuPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: $z-dropdown;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-color);
+  min-width: 200px;
+  padding: 6px;
   border-radius: 12px;
-  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  background: var(--floating-surface);
+  box-shadow: var(--floating-shadow);
+  transform-origin: top right;
+  animation: group-menu-in var(--dur-hover, 200ms) var(--ease-out-strong, ease-out) both;
 
-  h3 {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-primary);
-  }
-
-  p {
-    margin: 0;
-    font-size: 12.5px;
-    color: var(--text-secondary);
-  }
-
-  ul {
+  button {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  li {
-    display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 6px 14px;
-    font-size: 12.5px;
-    color: var(--text-secondary);
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    color: var(--text-primary);
+    cursor: pointer;
 
-    strong {
-      min-width: 90px;
-      color: var(--text-primary);
+    &:hover:not(:disabled),
+    &:focus-visible {
+      background: var(--bg-tertiary);
+      outline: none;
     }
 
-    button {
-      margin-left: auto;
+    &:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--primary-color);
+    }
+
+    &:disabled {
+      color: var(--text-tertiary);
+      cursor: not-allowed;
     }
   }
 }
 
-.summaryError {
+.groupMenuPopover .groupMenuDanger:not(:disabled) {
   color: var(--danger-color);
+}
+
+@keyframes group-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .groupMenuPopover {
+    animation: none;
+  }
+}
+
+/* Empty states: below 600px the action sits under the text instead of beside it. */
+@media (max-width: 599px) {
+  .emptyWrap :global(.empty-state) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .emptyWrap .emptyActions {
+    justify-content: flex-start;
+  }
 }
 
 @include mobile {
@@ -316,7 +402,14 @@
     position: static;
   }
 
+  /* One row of actions under the title on a phone: Refresh, Upload and the overflow menu. */
+  .groupHeader {
+    gap: 6px 12px;
+    padding-top: 4px;
+  }
+
   .groupActions {
     width: 100%;
+    flex-wrap: nowrap;
   }
 }

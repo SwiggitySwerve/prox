@@ -13,7 +13,8 @@ import styles from './ProviderTabs.module.scss';
 
 export type ProviderTabsProps = {
   types: string[];
-  counts: Record<string, number>;
+  /** null while some source has not answered: the counts are unknown, not zero. */
+  counts: Record<string, number> | null;
   active: string;
   resolvedTheme: ResolvedTheme;
   onChange: (type: string) => void;
@@ -77,7 +78,7 @@ export function ProviderTabs({
               </span>
             )}
             <span className={styles.tabLabel}>{label}</span>
-            <span className={styles.tabCount}>{counts[type] ?? 0}</span>
+            <span className={styles.tabCount}>{counts ? (counts[type] ?? 0) : '–'}</span>
           </button>
         );
       })}

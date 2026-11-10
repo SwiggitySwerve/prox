@@ -117,3 +117,50 @@
     transform: none;
   }
 }
+
+/* Title: "Served models · <account>" with the source beneath it. */
+.title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.subtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+/* Rows copy the model id on click: the icon says so on hover and keyboard focus. */
+.copyIcon {
+  flex: none;
+  align-self: center;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-hover, 160ms) var(--ease-out-strong, ease-out);
+}
+
+.item:focus-visible .copyIcon {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .item:hover .copyIcon {
+    opacity: 1;
+  }
+}
+
+/* Touch screens have no hover: keep the copy affordance visible there. */
+@media (hover: none) {
+  .copyIcon {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copyIcon {
+    transition: none;
+  }
+}

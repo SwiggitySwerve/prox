@@ -91,10 +91,17 @@
   overflow-wrap: anywhere;
 }
 
+/* "API key" chip under the name of a config API key (not a file). */
 .runtimeLabel {
-  margin-left: auto;
+  align-self: flex-start;
+  margin-top: -4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
   font-size: 11px;
-  color: var(--text-tertiary);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 /* 窄卡片保留基本阅读宽度；空间不足时换行，不截断邮箱或项目 ID。 */

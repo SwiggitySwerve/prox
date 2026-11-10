@@ -68,17 +68,26 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
     });
   }, [confirmClose, onClose]);
 
+  // Leaving the sheet for another screen asks about unsaved edits first.
+  const leaveFor = useCallback(
+    (path: string) => {
+      if (editor?.saving) return;
+      void Promise.resolve(confirmClose()).then((ok) => {
+        if (ok && sourceScope.isCurrent())
+          void navigate(path, {
+            state: { fromAuthFiles: true, sourceOwner: sourceScope.session.owner },
+          });
+      });
+    },
+    [confirmClose, editor?.saving, navigate, sourceScope]
+  );
+
   const handleSettingsLinkClick = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
       event.preventDefault();
-      if (editor?.saving) return;
-
-      void Promise.resolve(confirmClose()).then((ok) => {
-        if (ok && sourceScope.isCurrent())
-          void navigate(settingsPath, { state: { sourceOwner: sourceScope.session.owner } });
-      });
+      leaveFor(settingsPath);
     },
-    [confirmClose, editor?.saving, navigate, settingsPath, sourceScope]
+    [leaveFor, settingsPath]
   );
 
   const formatJsonText = (text: string) => {
@@ -263,9 +272,7 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                   <AuthFileExcludedModelsField
                     fileName={editor.fileName}
                     providerKey={editor.providerKey}
-                    value={editor.excludedModelsText}
-                    disabled={disableControls || editor.saving || !editor.json}
-                    onChange={(value) => onChange('excludedModelsText', value)}
+                    onNavigate={leaveFor}
                   />
                   <div className="form-group">
                     <label>{t('auth_files.headers_label')}</label>

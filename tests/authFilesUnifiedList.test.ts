@@ -33,9 +33,12 @@ describe('one filter set for every source', () => {
     expect(
       filterAuthFiles(FILES, { ...all, statusFilterMode: 'disabled' }).map((f) => f.name)
     ).toEqual(['a-codex']);
+    // The Active chip counts like countCredentials: c-claude has a problem, so it is not active.
     expect(
-      filterAuthFiles(FILES, { ...all, statusFilterMode: 'enabled', search: 'claude' })
-    ).toHaveLength(2);
+      filterAuthFiles(FILES, { ...all, statusFilterMode: 'enabled', search: 'claude' }).map(
+        (f) => f.name
+      )
+    ).toEqual(['b-claude']);
   });
 
   test('grouping keeps the sort inside each provider and orders providers alphabetically', () => {

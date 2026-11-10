@@ -68,8 +68,9 @@ describe('every add and remove path announces itself', () => {
     'src/features/oauth/components/SiwcBindDialog.tsx': 1,
     'src/features/oauth/hooks/useVertexImport.ts': 1,
     'src/features/authFiles/hooks/useAuthFilesPrefixProxyEditor.ts': 1,
-    // upload, single delete, filtered delete, manual refresh, refresh-all, batch delete
-    'src/features/authFiles/hooks/useAuthFilesData.ts': 6,
+    // upload, single delete, delete shown, manual refresh, refresh-all, batch delete,
+    // cooldown reset, single enable/disable, batch enable/disable
+    'src/features/authFiles/hooks/useAuthFilesData.ts': 9,
   };
   for (const [path, count] of Object.entries(callers)) {
     test(`${path} calls notifyAuthFilesChanged ${count}x`, () => {
