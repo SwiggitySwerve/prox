@@ -114,10 +114,19 @@ async def main():
         await page.keyboard.press('Escape')
         results['wildcardCellNeverWrites'] = {'pass': len(hubs.writes) == writes_before}
 
-        # 8. Reduced motion: no running CSS transitions on the provider chips.
+        # 8. Reduced motion: no running CSS transitions on the provider tabs.
         duration = await page.evaluate(
-            "getComputedStyle(document.querySelector('[aria-labelledby=models-provider-label] button')).transitionDuration")
+            "getComputedStyle(document.querySelector('[role=group][aria-label=Provider] button')).transitionDuration")
         results['reducedMotion'] = {'pass': duration in ('0s', ''), 'transitionDuration': duration}
+
+        # 9. A model column's action keeps its name and is reachable by keyboard from the header.
+        action = page.locator('[data-row-action="claude-opus-4-5"]')
+        name = await action.get_attribute('aria-label')
+        await action.focus()
+        focused = await page.evaluate(ACTIVE)
+        results['columnActionNamed'] = {
+            'pass': name == 'Exclude everywhere: claude-opus-4-5' and focused == 'claude-opus-4-5',
+            'label': name, 'active': focused}
         await browser.close()
     ok = all(value['pass'] for value in results.values())
     print(json.dumps({'pass': ok, 'checks': results}, indent=2))

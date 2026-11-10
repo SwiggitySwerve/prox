@@ -10,8 +10,9 @@ non-empty excluded_models list REPLACES the provider list; an empty or missing l
 (a runtime_only credential has no file, so it always inherits); disabled accounts register no
 models. Exclusion patterns are case-insensitive, '*' = any run.
 
-Scenarios: default | loading | empty | error | partial | many (12 Claude accounts). The stale case
-calls edit_elsewhere().
+Scenarios: default | loading | empty | error | partial | many (12 Claude accounts) | wide (21 Claude
+models, for sideways scrolling) | shared (the GPT hub also has Claude accounts, so one provider tab
+shows a section per hub). The stale case calls edit_elsewhere().
 """
 from __future__ import annotations
 
@@ -89,6 +90,17 @@ class FakeHubs:
         if scenario == 'empty':
             for hub in self.hubs.values():
                 hub['accounts'] = []
+        self.catalog = copy.deepcopy(CATALOG)
+        if scenario == 'wide':
+            self.catalog['claude'] += [f'claude-fixture-{n:02d}' for n in range(1, 15)]
+        if scenario == 'shared':
+            self.hubs['beta']['providerLists']['claude'] = ['claude-opus-4-1']
+            self.hubs['beta']['accounts'] += [
+                {'name': 'claude-gpt-hub.json', 'type': 'claude', 'email': 'gpt-hub@example.invalid',
+                 'disabled': False, 'own': None},
+                {'name': 'claude-gpt-own.json', 'type': 'claude', 'email': 'gpt-own@example.invalid',
+                 'disabled': False, 'own': ['claude-haiku-4-5']},
+            ]
         if scenario == 'many':
             self.hubs['alpha']['accounts'][4:4] = [
                 {'name': f'claude-seat-{n:02d}.json', 'type': 'claude',
@@ -111,7 +123,7 @@ class FakeHubs:
             return []
         own = account.get('own') or []
         rules = own if own else hub['providerLists'].get(account['type'], [])
-        ids = CATALOG.get(account['type'], []) + account.get('extra', [])
+        ids = self.catalog.get(account['type'], []) + account.get('extra', [])
         return [i for i in ids if i not in account.get('noAccess', []) and not any(matches(r, i) for r in rules)]
 
     async def handle(self, route, origin_netloc: str) -> None:
@@ -216,10 +228,33 @@ class FakeHubs:
             return await self._json(route, hub['aliases'])
         if path.startswith('/routing/model-definitions/'):
             channel = unquote(path.rsplit('/', 1)[-1])
-            if channel not in CATALOG:
+            if channel not in self.catalog:
                 return await self._fail(route, 400, 'unknown channel')
             return await self._json(route, {'channel': channel,
-                                            'models': [{'id': i, 'display_name': i} for i in CATALOG[channel]]})
+                                            'models': [{'id': i, 'display_name': i} for i in self.catalog[channel]]})
+        if path == '/requests/api-call' and method == 'post':
+            # The hub proxies a quota read to the provider. Synthetic usage; team-b's read fails.
+            url = str(body.get('url', ''))
+            failing = self.scenario != 'default' or body.get('authIndex') == 'alpha-1'
+            soon = '2030-01-01T00:00:00Z'
+            if 'anthropic.com/api/oauth/usage' in url:
+                payload = {'five_hour': {'utilization': 38, 'resets_at': soon},
+                           'seven_day': {'utilization': 71, 'resets_at': soon},
+                           'seven_day_opus': {'utilization': 12, 'resets_at': soon}}
+            elif 'anthropic.com/api/oauth/profile' in url:
+                payload = {'account': {'has_claude_max': True}}
+            elif 'chatgpt.com/backend-api/wham/usage' in url:
+                payload = {'plan_type': 'plus', 'rate_limit': {
+                    'primary_window': {'used_percent': 20, 'limit_window_seconds': 18000,
+                                       'reset_after_seconds': 3600},
+                    'secondary_window': {'used_percent': 55, 'limit_window_seconds': 604800,
+                                         'reset_after_seconds': 86400}}}
+            else:
+                return await self._json(route, {'status_code': 404, 'header': {}, 'body': '{}'})
+            if failing:
+                return await self._json(route, {'status_code': 401, 'header': {}, 'body': '{}'})
+            return await self._json(route, {'status_code': 200, 'header': {},
+                                            'body': json.dumps(payload)})
         if path == '/prox/inventory':
             return await self._json(route, {'version': f'fixture-{len(self.writes)}'})
         if path == '/prox/inventory/sync':

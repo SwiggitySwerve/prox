@@ -29,8 +29,9 @@ _spec.loader.exec_module(fake_hub)
 
 M = '/auth-files/models?source=alpha&provider=claude'
 # slug, hash route, scenario, steps. A step is (click|wait, selector), ('hub', FakeHubs method),
-# ('goto', hash route) or ('pick-account', label): on a phone the matrix is a per-account list, so
-# pick the account first; a no-op where the table shows every account.
+# ('goto', hash route), ('scroll', selector): scroll that element to its right end, or
+# ('pick-account', label): on a phone the matrix is a per-account list, so pick the account first;
+# a no-op where the table shows every account.
 CASES = [
     ('auth-files', '/auth-files', 'default', []),
     ('auth-files-loading', '/auth-files', 'loading', []),
@@ -54,8 +55,17 @@ CASES = [
         ('pick-account', 'team-b@example.invalid'),
         ('click', '[data-cell="claude-team-b.json::claude-opus-4-1"]')]),
     ('models-many-accounts', M, 'many', []),
+    # 21 models: the table scrolls sideways under a sticky account column and model header.
+    ('models-wide', M, 'wide', []),
+    ('models-wide-scrolled', M, 'wide', [('scroll', '[data-machine="model-inventory"] [role=region]')]),
+    # No ?source=: every hub with Claude accounts gets its own section under the one Claude tab.
+    ('models-all-sources', '/auth-files/models?provider=claude', 'shared', []),
     ('models-rules', M + '&tab=rules', 'default', []),
     ('models-aliases', M + '&tab=aliases', 'default', []),
+    # One button loads quota for every card shown; one account's read fails and says so in place.
+    ('auth-files-quota-refreshed', '/auth-files', 'default', [
+        ('click', '[data-testid="auth-files-refresh-quota"]'),
+        ('wait', '[data-quota-state="loaded"]'), ('wait', '[data-quota-state="failed"]')]),
     ('auth-files-group-menu', '/auth-files', 'default', [
         ('click', '[data-source-id="alpha"] [aria-haspopup="menu"]')]),
     ('models-preview-everywhere', M, 'default', [('click', '[data-row-action="claude-haiku-4-5"]')]),
@@ -145,6 +155,11 @@ async def run_case(browser, base, origin, out, width, case):
                 if await picker.count():
                     await picker.first.click()
                     await page.locator(f'[role=option]:has-text("{selector}")').first.click()
+                    await page.wait_for_timeout(300)
+            elif action == 'scroll':
+                target = page.locator(selector)
+                if await target.count():
+                    await target.first.evaluate('(e) => { e.scrollLeft = e.scrollWidth; }')
                     await page.wait_for_timeout(300)
             elif action == 'goto':
                 await page.evaluate('(hash) => { location.hash = hash; }', selector)
