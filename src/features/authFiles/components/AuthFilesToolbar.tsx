@@ -4,7 +4,12 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { IconSearch, IconSlidersHorizontal, IconTrash2 } from '@/components/ui/icons';
+import {
+  IconRefreshCw,
+  IconSearch,
+  IconSlidersHorizontal,
+  IconTrash2,
+} from '@/components/ui/icons';
 import { MAX_CARD_PAGE_SIZE, MIN_CARD_PAGE_SIZE } from '@/features/authFiles/constants';
 import type { AuthFilesSortMode, AuthFilesStatusFilterMode } from '@/features/authFiles/uiState';
 import styles from './AuthFilesToolbar.module.scss';
@@ -28,6 +33,16 @@ export type AuthFilesToolbarProps = {
   onPageSizeCommit: (rawValue: string) => void;
   compactMode: boolean;
   onCompactModeChange: (value: boolean) => void;
+  /** One quota refresh for every card shown; omit to render none. */
+  quotaRefresh?: {
+    label: string;
+    title: string;
+    running: boolean;
+    disabled: boolean;
+    onClick: () => void;
+    /** Announced once a refresh finishes; failures are shown on the cards. */
+    outcome: string;
+  };
   /** Omit to render no delete action (the unified page deletes per source group). */
   deleteLabel?: string;
   deleteDisabled?: boolean;
@@ -54,6 +69,7 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
     onPageSizeCommit,
     compactMode,
     onCompactModeChange,
+    quotaRefresh,
     deleteLabel,
     deleteDisabled,
     deleteLoading,
@@ -134,6 +150,26 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
           size="sm"
         />
       </div>
+
+      {quotaRefresh && (
+        <button
+          type="button"
+          className={styles.quotaRefreshButton}
+          data-testid="auth-files-refresh-quota"
+          onClick={quotaRefresh.onClick}
+          disabled={quotaRefresh.disabled}
+          title={quotaRefresh.title}
+          aria-busy={quotaRefresh.running || undefined}
+        >
+          {quotaRefresh.running ? <LoadingSpinner size={13} /> : <IconRefreshCw size={14} />}
+          <span>{quotaRefresh.label}</span>
+        </button>
+      )}
+      {quotaRefresh && (
+        <span role="status" className={styles.srOnly}>
+          {quotaRefresh.outcome}
+        </span>
+      )}
 
       <div className={styles.display} ref={displaySettingsRef}>
         <button

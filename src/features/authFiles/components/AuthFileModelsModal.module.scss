@@ -2,10 +2,12 @@
 
 /* 「支持的模型」弹窗：可点击复制的 mono 模型清单 */
 
+/* One grid for the list so the type and state columns line up across rows (rows are subgrids). */
 .list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  row-gap: 4px;
+  align-content: start;
   max-height: min(52dvh, 480px);
   overflow-y: auto;
   padding-right: 2px;
@@ -19,10 +21,11 @@
 }
 
 .item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: 8px;
   width: 100%;
   padding: 8px 10px;
   border-radius: 8px;
@@ -59,6 +62,19 @@
   opacity: 0.6;
 }
 
+.modelName {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.modelTypeCell {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .modelId {
   font-family: $font-mono;
   font-size: 12.5px;
@@ -86,7 +102,7 @@
 }
 
 .servedBadge {
-  margin-left: auto;
+  justify-self: end;
   font-size: 10.5px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -97,7 +113,7 @@
 }
 
 .excludedBadge {
-  margin-left: auto;
+  justify-self: end;
   font-size: 10.5px;
   font-weight: 600;
   color: var(--failure-badge-text);

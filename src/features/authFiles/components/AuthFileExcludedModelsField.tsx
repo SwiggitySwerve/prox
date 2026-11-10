@@ -53,7 +53,12 @@ export function AuthFileExcludedModelsField({
   let summary: ReactNode;
   if (rules === null && ownList.status !== 'ready') {
     summary = (
-      <p className="hint" role={ownList.status === 'error' ? 'alert' : 'status'}>
+      // The same box as the read summary, so "Edit in Models" stays put when the list arrives.
+      <p
+        className={styles.listSummary}
+        data-list={ownList.status === 'error' ? 'error' : 'loading'}
+        role={ownList.status === 'error' ? 'alert' : 'status'}
+      >
         {ownList.status === 'error'
           ? t('auth_files.excluded_models_error')
           : t('auth_files.excluded_models_loading')}

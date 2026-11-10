@@ -11,17 +11,127 @@ $quota-font-size: 11.5px;
  * 漏名会静默渲染 class="undefined" —— 增删前先对照 quotaConfigs.ts。
  * ============================================================ */
 
-/* ---------- 宿主 ---------- */
+/* ---------- 宿主：固定尺寸的配额槽 ----------
+ * Every state (not loaded, loading, loaded, failed, no quota) has the same minimum size:
+ * a 22px header plus the space of one plan chip, three quota rows and the account-details
+ * line, which is what a read Claude or Codex account fills. More rows grow the slot by rows;
+ * in a grid row the card stretches and this slot takes the extra height, so the action row
+ * stays level across the row. */
+
+$quota-gap: 6px;
+$quota-head: 22px;
+$quota-row: 28px;
+$quota-chip: 26px;
+$quota-details: 22px;
 
 .quotaSection {
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
-  gap: 9px;
+  gap: $quota-gap;
+  box-sizing: border-box;
+  min-height: calc(
+    #{$quota-head} + #{$quota-chip} + 3 * #{$quota-row} + #{$quota-details} + 5 * #{$quota-gap} +
+      22px
+  );
   padding: 10px 11px;
   font-size: $quota-font-size;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
   background: color-mix(in srgb, var(--bg-secondary) 55%, transparent);
+
+  // AccountDetails is one line of this slot until it is opened.
+  > details {
+    margin-top: 0;
+
+    > summary {
+      min-height: $quota-details;
+      padding: 2px 0;
+      font-size: 12px;
+      line-height: 18px;
+    }
+  }
+}
+
+.quotaHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: $quota-head;
+}
+
+.quotaEyebrow {
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.quotaState {
+  flex: 1;
+  min-width: 0;
+  font-family: $font-mono;
+  font-size: $quota-font-size;
+  text-align: right;
+  color: var(--text-quaternary);
+  @include text-ellipsis;
+}
+
+.quotaStateDanger {
+  color: var(--danger-color);
+}
+
+.quotaRefreshIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color $transition-fast,
+    border-color $transition-fast;
+
+  &:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    color: var(--text-quaternary);
+    border-color: color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+}
+
+.quotaRefreshSpin {
+  animation: quota-spin 900ms linear infinite;
+}
+
+@keyframes quota-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.quotaBody {
+  display: flex;
+  flex-direction: column;
+  gap: $quota-gap;
+  min-width: 0;
 }
 
 .quotaMessage {
@@ -34,48 +144,103 @@ $quota-font-size: 11.5px;
   padding: 5px 4px;
 }
 
-button.quotaMessageAction {
-  cursor: pointer;
-  border: 0;
-  background: none;
-  color: var(--text-secondary);
-  transition: color $transition-fast;
+/* Not loaded / loading: the shape of read quota in muted tracks. */
+.quotaPlaceholder {
+  display: flex;
+  flex-direction: column;
+  gap: $quota-gap;
+}
 
-  &:hover:not(:disabled) {
-    color: var(--primary-hover);
-  }
+.placeholderChip,
+.placeholderLabel,
+.placeholderTrack {
+  display: block;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
 
-  &:disabled {
-    cursor: not-allowed;
-    color: var(--text-quaternary);
+.placeholderChip {
+  width: 96px;
+  height: $quota-chip;
+}
+
+.placeholderRow {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  height: $quota-row;
+}
+
+.placeholderLabel {
+  width: 38%;
+  height: 8px;
+}
+
+.placeholderTrack {
+  height: 6px;
+}
+
+.quotaPlaceholderLoading {
+  .placeholderChip,
+  .placeholderLabel,
+  .placeholderTrack {
+    background: linear-gradient(
+      90deg,
+      var(--bg-tertiary) 0%,
+      var(--bg-hover) 50%,
+      var(--bg-tertiary) 100%
+    );
+    background-size: 200% 100%;
+    animation: quota-shimmer 1.5s ease-in-out infinite;
   }
 }
 
+@keyframes quota-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Failed and "no quota": one message centred in the same space. */
+.quotaFailure,
+.quotaUnavailable {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 0;
+  text-align: center;
+}
+
 .quotaError {
+  margin: 0;
   font-size: $quota-font-size;
   font-weight: 500;
   line-height: 1.5;
   color: var(--danger-color);
   overflow-wrap: anywhere;
+  @include text-ellipsis-multiline(3);
 }
 
-.quotaCardActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.quotaResetCreditButton {
-  font-size: $quota-font-size;
+.quotaUnavailableTitle {
+  margin: 0;
+  font-size: 12px;
   font-weight: 600;
-  white-space: nowrap;
+  color: var(--text-tertiary);
+}
 
-  // Button wraps its icon and label in the final content span.
-  > span:last-child {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
+.quotaUnavailableReason {
+  margin: 0;
+  max-width: 32ch;
+  font-size: $quota-font-size;
+  line-height: 1.45;
+  color: var(--text-quaternary);
 }
 
 /* ---------- 配额行（全 provider 通用） ---------- */
@@ -83,7 +248,9 @@ button.quotaMessageAction {
 .quotaRow {
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: 4px;
+  min-height: $quota-row;
 }
 
 .quotaRowHeader {
@@ -177,7 +344,9 @@ button.quotaMessageAction {
 .codexPlan {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+  min-height: $quota-chip;
 }
 
 .codexPlanItem {
@@ -349,5 +518,12 @@ button.quotaMessageAction {
 @media (prefers-reduced-motion: reduce) {
   .quotaBarFill {
     transition: none;
+  }
+
+  .quotaRefreshSpin,
+  .quotaPlaceholderLoading .placeholderChip,
+  .quotaPlaceholderLoading .placeholderLabel,
+  .quotaPlaceholderLoading .placeholderTrack {
+    animation: none;
   }
 }

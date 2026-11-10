@@ -16,28 +16,47 @@ describe('credential cards', () => {
     await i18n.changeLanguage('en');
   });
 
-  test('a runtime credential is labelled "Runtime only" under the name, not beside it', () => {
+  test('a runtime credential is labelled "Runtime only" in the identity line, not beside it', () => {
     const header = card.split('<header')[1].split('</header>')[0];
     expect(header).not.toContain('type_virtual');
-    expect(card).toContain(
-      "{isRuntimeOnly && <span className={styles.runtimeLabel}>{t('auth_files.type_virtual')}</span>}"
+    const identityLine = card.split('<div className={styles.identityLine}>')[1].split('</div>')[0];
+    expect(identityLine).toContain(
+      "<span className={styles.runtimeLabel}>{t('auth_files.type_virtual')}</span>"
     );
+    expect(identityLine).toContain('{identity.secondary ?? identity.fullName}');
     expect(i18n.t('auth_files.type_virtual')).toBe('Runtime only');
   });
 
-  test('its meta row is left out when there is no size or modified time', () => {
-    expect(card).toContain("const hasFileMeta = Boolean(file.size) || modifiedText !== '-';");
-    expect(card).toContain('{showMetaRow && (');
+  test('every card has its meta row; without a file it says so instead of disappearing', () => {
+    expect(card).not.toContain('showMetaRow');
+    expect(card).toContain('<div className={styles.metaRow}>');
+    expect(card).toContain("isRuntimeOnly ? t('auth_files.meta_no_file') : '– · –'");
+    expect(i18n.t('auth_files.meta_no_file')).toBe('No file · held in memory');
   });
 
-  test('it gets no empty footer, and file cards keep "Served models"', () => {
-    // The hub holds it in memory: there is no file to act on and it is not a config API key.
-    expect(card).toContain('{(!isRuntimeOnly || showModelsButton) && (');
-    expect(card).not.toContain('/ai-providers');
+  test('every card has the same five actions in the same order; one that does not apply says why', () => {
     const footer = card.split('<footer')[1].split('</footer>')[0];
-    expect(footer).toContain('data-card-models={file.name}');
-    expect(footer).toContain('data-card-settings={file.name}');
+    expect(card).not.toContain('{(!isRuntimeOnly || showModelsButton) && (');
+    expect(card).not.toContain('/ai-providers');
+    const order = [
+      'data-card-models={file.name}',
+      'onClick={() => onManualRefresh(file)}',
+      'onClick={() => onDownload(file.name)}',
+      'data-card-settings={file.name}',
+      'onClick={() => onDelete(file.name)}',
+    ].map((marker) => footer.indexOf(marker));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // No action is conditionally rendered; runtime-only cards disable them with a reason.
+    expect(footer).not.toMatch(/\{(?:!isRuntimeOnly|showModelsButton|showManualRefreshButton) &&/);
+    expect(footer.match(/runtimeReason/g)?.length).toBeGreaterThanOrEqual(4);
     expect(i18n.t('auth_files.models_button')).toBe('Served models');
+  });
+
+  test('the quota slot is always there outside compact mode, "no quota" when it cannot load', () => {
+    expect(card).toContain("<AuthFileQuotaUnavailable reason={quotaReason ?? 'unsupported'} />");
+    expect(card).toContain('{!compact &&');
+    expect(i18n.t('auth_files.quota_none')).toBe('No quota for this credential');
   });
 });
 

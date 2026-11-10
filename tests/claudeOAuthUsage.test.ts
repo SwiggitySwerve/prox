@@ -416,17 +416,16 @@ describe('Claude usage snapshot rendering and retention', () => {
       new URL('../src/features/authFiles/components/AuthFileQuotaSection.tsx', import.meta.url),
       'utf8'
     );
-    // Idle quota is refreshed via the clickable idle prompt; avoid a duplicate button.
-    expect(source).toContain("const showRefreshQuotaAction = quotaStatus !== 'idle';");
-    expect(source).toContain('{showRefreshQuotaAction && (');
-    expect(source).toContain('<div className={styles.quotaCardActions}>');
+    // One refresh icon in the slot header, in every state; no "click to refresh" box.
+    expect(source).not.toContain('quotaMessageAction');
+    expect(source).toContain('className={styles.quotaRefreshIcon}');
+    expect(source).toContain("aria-label={t('auth_files.quota_refresh_hint')}");
     // Refresh waits for a running Claude claim, so the claim's result and refresh aren't dropped.
     expect(source).toContain('if (!claudeReset.busy) void refreshQuotaForFile();');
     expect(source).toContain(
-      "disabled={!canRefreshQuota || quotaStatus === 'loading' || claudeReset.busy}"
+      "const refreshDisabled = !canRefreshQuota || quotaStatus === 'loading' || claudeReset.busy;"
     );
-    expect(source).toContain("loading={quotaStatus === 'loading'}");
-    expect(source).toContain("{t('auth_files.quota_refresh_single')}");
+    expect(source).toContain("spinning: quotaStatus === 'loading',");
     expect(source).toContain("if (quota?.status === 'loading' || resettingQuota) return;");
     expect(source).toContain(
       'const canRefreshQuota = !disableControls && !file.disabled && !resettingQuota;'

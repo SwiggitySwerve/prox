@@ -180,7 +180,7 @@ test('Claude panel renders reset inventory and disabled reason without chip mark
   expect(html).toContain(translations.t('claude_reset.read_error'));
   expect(html).not.toContain('codexPlanItem');
 });
-test('AuthFileQuotaSection renders the same facts and keeps only Refresh in its footer', () => {
+test('AuthFileQuotaSection renders the same facts and keeps only its refresh icon in the header', () => {
   function SeededSection() {
     const { quotaStore } = useAuthFilesSource();
     // Zustand's server snapshot reads the initial store; seed this isolated fixture only.
@@ -191,8 +191,10 @@ test('AuthFileQuotaSection renders the same facts and keeps only Refresh in its 
   expect(html).toContain('<summary>Account details</summary>');
   expect(html).toContain('<dt>Credit balance</dt>');
   expect(html).toContain('Use reset');
-  expect(html.split('quotaCardActions')[1]).not.toContain('Use reset');
-  expect(html.split('quotaCardActions')[1]).toContain('Refresh');
+  const head = html.split('class="quotaHead"')[1].split('</div>')[0];
+  expect(head).not.toContain('Use reset');
+  expect(head).toContain('aria-label="Refresh quota only for this credential"');
+  expect(html).toContain('data-quota-state="loaded"');
 });
 test('factsInPanel=false preserves the default Codex body markup', () => {
   const classes = bindQuotaClasses(

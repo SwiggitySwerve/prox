@@ -413,3 +413,49 @@
     flex-wrap: nowrap;
   }
 }
+
+/* Read by screen readers only (loading announcements whose visible parts show "–"). */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Empty and error states take one card row: a hidden skeleton card sets the height. */
+.cardRowBlock {
+  display: grid;
+  min-width: 0;
+}
+
+.cardRowSizer,
+.cardRowContent {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.cardRowSizer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cardRowContent {
+  display: flex;
+  flex-direction: column;
+
+  > * {
+    flex: 1;
+  }
+}
+
+.errorBlock {
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}

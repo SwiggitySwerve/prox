@@ -145,12 +145,17 @@ export function AuthFileModelsModal(props: AuthFileModelsModalProps) {
                   onClick={() => onCopyText(row.model)}
                   title={t('common.copy')}
                 >
-                  <span className={styles.modelId}>{row.model}</span>
-                  <IconCopy className={styles.copyIcon} size={13} aria-hidden="true" />
-                  {detail?.display_name && detail.display_name !== row.model && (
-                    <span className={styles.modelDisplayName}>{detail.display_name}</span>
-                  )}
-                  {detail?.type && <span className={styles.modelType}>{detail.type}</span>}
+                  {/* Three columns shared by every row: name, type, state. */}
+                  <span className={styles.modelName}>
+                    <span className={styles.modelId}>{row.model}</span>
+                    <IconCopy className={styles.copyIcon} size={13} aria-hidden="true" />
+                    {detail?.display_name && detail.display_name !== row.model && (
+                      <span className={styles.modelDisplayName}>{detail.display_name}</span>
+                    )}
+                  </span>
+                  <span className={styles.modelTypeCell}>
+                    {detail?.type && <span className={styles.modelType}>{detail.type}</span>}
+                  </span>
                   <span className={served ? styles.servedBadge : styles.excludedBadge}>
                     {stateText(cell)}
                   </span>

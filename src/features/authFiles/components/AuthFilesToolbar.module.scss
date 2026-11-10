@@ -261,6 +261,66 @@
   }
 }
 
+/* ---------- 页级配额刷新：与「显示选项」同形，进度文字变化时宽度不变 ---------- */
+
+.quotaRefreshButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  min-width: 152px;
+  padding: 0 12px;
+  border-radius: $radius-full;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  white-space: nowrap;
+  transition:
+    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out);
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    color: var(--text-tertiary);
+  }
+
+  &[aria-busy='true'] {
+    color: var(--text-secondary);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .quotaRefreshButton:hover:not(:disabled) {
+    border-color: var(--border-hover);
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ---------- 响应式 ---------- */
 
 @media (max-width: 900px) {
@@ -289,12 +349,14 @@
 @media (prefers-reduced-motion: reduce) {
   .segment,
   .displayButton,
+  .quotaRefreshButton,
   .deleteAction {
     transition: none;
   }
 
   .segment:active,
   .displayButton:active,
+  .quotaRefreshButton:active:not(:disabled),
   .deleteAction:active:not(:disabled) {
     transform: none;
   }
