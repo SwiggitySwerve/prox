@@ -4,15 +4,21 @@ import { buildMatrix, CELL_KINDS } from '../src/features/authFiles/modelAccess/r
 import {
   accountListKind,
   cellLabelKey,
+  cellShortKey,
   countServed,
   filterAccounts,
   filterRows,
   legacyModelsTarget,
   listDiff,
   listKeyOf,
+  listSignature,
+  resolveListKey,
+  resolveProviderParam,
+  rowActionFor,
+  sharedLabels,
   targetOfListKey,
 } from '../src/features/authFiles/models/matrixView';
-import { inventory } from './fixtures/modelAccess';
+import { account, inventory, runtimeAccount } from './fixtures/modelAccess';
 
 const rows = buildMatrix(inventory());
 
@@ -69,6 +75,7 @@ describe('Models screen filters', () => {
               : { kind };
       const key = cellLabelKey(cell as never);
       expect(en[key]).toBeString();
+      expect(en[cellShortKey(cell as never)]).toBeString();
       expect(en[`kind_${kind.replace('-', '_')}`]).toBeString();
     }
   });
@@ -98,6 +105,9 @@ describe('routes', () => {
       '/auth-files/models?source=alpha&provider=claude&tab=rules'
     );
     expect(legacyModelsTarget('', 'rules')).toBe('/auth-files/models?tab=rules');
+    expect(legacyModelsTarget('?provider=grok', 'rules')).toBe(
+      '/auth-files/models?provider=xai&tab=rules'
+    );
   });
 
   test('the Models route is registered and the old editor route redirects', () => {
@@ -125,5 +135,128 @@ describe('routes', () => {
     );
     const keys = Object.keys(locales[0]);
     for (const locale of locales) expect(Object.keys(locale)).toEqual(keys);
+  });
+});
+
+describe('provider in the URL', () => {
+  test('an alias reads and writes the provider the credentials use (grok is xai)', () => {
+    expect(resolveProviderParam('grok', ['claude', 'xai'])).toEqual({
+      provider: 'xai',
+      param: 'xai',
+    });
+    expect(resolveProviderParam(' Claude ', ['claude'])).toEqual({
+      provider: 'claude',
+      param: 'claude',
+    });
+  });
+
+  test('a provider this hub has no credentials for is replaced by the first it has, or none', () => {
+    expect(resolveProviderParam('codex', ['claude', 'gemini'])).toEqual({
+      provider: 'claude',
+      param: 'claude',
+    });
+    expect(resolveProviderParam('codex', [])).toEqual({ provider: '', param: null });
+    expect(resolveProviderParam('unknown', ['claude'])).toEqual({
+      provider: 'claude',
+      param: 'claude',
+    });
+  });
+
+  test('while credentials load the request stands; no request shows the first without a param', () => {
+    expect(resolveProviderParam('grok', undefined)).toEqual({ provider: 'xai', param: 'xai' });
+    expect(resolveProviderParam(null, undefined)).toEqual({ provider: '', param: null });
+    expect(resolveProviderParam(null, ['claude', 'xai'])).toEqual({
+      provider: 'claude',
+      param: null,
+    });
+  });
+});
+
+describe('Rules tab list link', () => {
+  const accounts = [...inventory().accounts, runtimeAccount('key-1', ['claude-opus-4-5'])];
+
+  test('an existing credential file keeps its list', () => {
+    expect(resolveListKey('account:team-b.json', accounts)).toBe('account:team-b.json');
+    expect(resolveListKey(null, accounts)).toBe('provider');
+  });
+
+  test('a removed account, a runtime credential or garbage falls back to the provider list', () => {
+    expect(resolveListKey('account:gone.json', accounts)).toBe('provider');
+    expect(resolveListKey('account:key-1', accounts)).toBe('provider');
+    expect(resolveListKey('nonsense', accounts)).toBe('provider');
+  });
+
+  test('the saved-list signature ignores order and padding, not content', () => {
+    expect(listSignature(['b', ' a '])).toBe(listSignature(['a', 'b']));
+    expect(listSignature(['a', ''])).toBe(listSignature(['a']));
+    expect(listSignature(['a'])).not.toBe(listSignature(['a', 'c']));
+    expect(listSignature(['A'])).not.toBe(listSignature(['a']));
+  });
+});
+
+describe('row action', () => {
+  const row = (rows: ReturnType<typeof buildMatrix>, model: string) =>
+    rows.find((item) => item.model === model)!;
+
+  test('a served model is excluded everywhere', () => {
+    expect(rowActionFor(row(rows, 'claude-opus-4-5'))).toEqual({ kind: 'exclude' });
+  });
+
+  test('a model held back only by a provider wildcard offers to edit that rule', () => {
+    expect(rowActionFor(row(rows, 'claude-3-7-sonnet'))).toEqual({
+      kind: 'edit-rule',
+      target: { kind: 'provider' },
+    });
+  });
+
+  test("a wildcard in an account's own list opens that account's list", () => {
+    const own = buildMatrix(
+      inventory({ providerList: [], accounts: [account('team-b.json', ['claude-3-*'], {}, [])] })
+    );
+    expect(rowActionFor(row(own, 'claude-3-5-haiku'))).toEqual({
+      kind: 'edit-rule',
+      target: { kind: 'account', name: 'team-b.json' },
+    });
+  });
+
+  test('an exact rule can be removed, so the row offers include everywhere', () => {
+    const exact = buildMatrix(
+      inventory({
+        providerList: ['claude-haiku-4-5'],
+        accounts: [account('team-a.json', null, {}, ['claude-haiku-4-5'])],
+      })
+    );
+    expect(rowActionFor(row(exact, 'claude-haiku-4-5'))).toEqual({ kind: 'include' });
+  });
+});
+
+describe('account identity', () => {
+  test('labels two accounts share are reported, so their columns show the file name', () => {
+    const twin = { ...account('team-a.json', null), name: 'team-a-2.json' };
+    expect([...sharedLabels([...inventory().accounts, twin])]).toEqual(['team-a@example.invalid']);
+    expect(sharedLabels(inventory().accounts).size).toBe(0);
+  });
+});
+
+describe('Models screen wiring', () => {
+  const page = readFileSync('src/features/authFiles/models/ModelsPage.tsx', 'utf8');
+  const layout = readFileSync('src/components/layout/MainLayout.tsx', 'utf8');
+
+  test('the top bar refresh reloads the screen; it has no refresh button of its own', () => {
+    expect(page).toContain('useHeaderRefresh(refresh)');
+    expect(page).not.toContain("t('common.refresh')");
+  });
+
+  test('the source switcher is the Auth Files pill nav, without "All sources"', () => {
+    expect(page).toMatch(/<AuthFilesSourceNav[\s\S]*?showAll=\{false\}/);
+    // Neither Models nor its alias editor gets the boxed runtime switcher any more.
+    expect(layout).toMatch(/\['\/oauth', '\/config', '\/logs', '\/system'\]\.includes\(/);
+  });
+
+  test('the sidebar links the screen after Auth Files', () => {
+    expect(layout).toMatch(
+      /path: '\/auth-files',[\s\S]*?path: '\/auth-files\/models',\s*labelKey: 'nav.models'/
+    );
+    expect(layout).toContain('isShadowedByChild');
   });
 });

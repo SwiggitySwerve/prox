@@ -28,10 +28,9 @@
 
 .header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .titleBlock {
@@ -67,11 +66,6 @@
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--text-secondary);
-}
-
-.headerActions {
-  display: flex;
-  gap: 8px;
 }
 
 /* ---------- source / provider pickers ---------- */
@@ -126,6 +120,11 @@
     color: var(--text-primary);
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+
   &[aria-pressed='true'] {
     border-color: var(--primary-color);
     color: var(--text-primary);
@@ -163,6 +162,11 @@
     color: var(--text-primary);
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
   &[aria-selected='true'] {
     color: var(--text-primary);
     border-bottom-color: var(--primary-color);
@@ -181,65 +185,31 @@
   gap: 8px;
 }
 
-/* ---------- filter bar ---------- */
+/* ---------- filter bar (search and segments come from AuthFilesToolbar.module.scss) ---------- */
 
 .filterBar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-}
-
-.search {
-  flex: 1 1 200px;
   min-width: 0;
-  max-width: 320px;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 13px;
-
-  &:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 1px;
-  }
-}
-
-.segmented {
-  display: inline-flex;
-  padding: 3px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--bg-secondary);
-
-  button {
-    min-height: 30px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 7px;
-    background: none;
-    color: var(--text-secondary);
-    font: inherit;
-    font-size: 12.5px;
-    cursor: pointer;
-
-    &[aria-pressed='true'] {
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-  }
 }
 
 .counts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
   margin-left: auto;
   font-family: $font-mono;
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+.scrollNote {
+  font-family: inherit;
+  color: var(--text-secondary);
+
+  &::before {
+    content: '· ';
+    color: var(--text-tertiary);
+  }
 }
 
 .banner {
@@ -266,14 +236,75 @@
   }
 }
 
+/* One line: swatch + word per cell state. */
 .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
   margin: 0;
+  padding: 0;
+  list-style: none;
   font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-tertiary);
+  line-height: 1.4;
+  color: var(--text-secondary);
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
 }
 
 /* ---------- matrix ---------- */
+
+.matrixFrame {
+  --model-col: 220px;
+  --provider-col: 120px;
+  --account-col: 156px;
+  --fade-width: 32px;
+
+  position: relative;
+  min-width: 0;
+
+  /* Columns hidden to the left (under the sticky columns) or to the right. */
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    z-index: 5;
+    width: var(--fade-width);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--dur-hover) var(--ease-out-strong);
+  }
+
+  &::before {
+    left: calc(var(--model-col) + var(--provider-col) + 1px);
+    background: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--text-primary) 12%, transparent),
+      transparent
+    );
+  }
+
+  &::after {
+    right: 1px;
+    border-radius: 0 11px 11px 0;
+    background: linear-gradient(
+      to left,
+      var(--bg-primary),
+      color-mix(in srgb, var(--bg-primary) 0%, transparent)
+    );
+    box-shadow: inset -1px 0 0 color-mix(in srgb, var(--text-primary) 10%, transparent);
+  }
+
+  &[data-fade-left='true']::before,
+  &[data-fade-right='true']::after {
+    opacity: 1;
+  }
+}
 
 .matrixScroll {
   max-width: 100%;
@@ -288,19 +319,26 @@
   }
 }
 
+/*
+ * Fixed layout: the model and provider-list columns have exact widths (their sticky offsets rely
+ * on it); account columns share the rest, never narrower than --account-col.
+ */
 .matrix {
-  width: max-content;
-  min-width: 100%;
+  table-layout: fixed;
+  width: max(
+    100%,
+    calc(var(--model-col) + var(--provider-col) + var(--account-col) * var(--account-count, 1))
+  );
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12.5px;
 
   th,
   td {
-    padding: 8px 10px;
+    padding: 6px 8px;
     border-bottom: 1px solid var(--border-color);
     text-align: left;
-    vertical-align: top;
+    vertical-align: middle;
   }
 
   thead th {
@@ -310,6 +348,14 @@
     background: var(--bg-secondary);
     font-weight: 600;
     color: var(--text-secondary);
+    vertical-align: top;
+  }
+
+  /* Same specificity as the rule above, later: sticky header cells stay over scrolled ones. */
+  thead th.modelColumn,
+  thead th.providerColumn {
+    z-index: 4;
+    background: var(--bg-secondary);
   }
 
   tbody tr:last-child > * {
@@ -325,14 +371,42 @@
   position: sticky;
   left: 0;
   z-index: 1;
-  min-width: 210px;
-  max-width: 250px;
+  width: var(--model-col);
+  background: var(--bg-primary);
+}
+
+.providerColumn {
+  position: sticky;
+  left: var(--model-col);
+  z-index: 1;
+  width: var(--provider-col);
   background: var(--bg-primary);
   border-right: 1px solid var(--border-color);
+}
 
-  thead & {
-    z-index: 3;
-    background: var(--bg-secondary);
+/* The model id and its meta (on one line where they fit), then the row action at the end. */
+.modelLine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.modelText {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  min-width: 0;
+
+  .modelId {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -345,42 +419,82 @@
 }
 
 .modelMeta {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
-  margin: 4px 0;
+  min-width: 0;
 }
 
 .aliasChip {
   display: inline-flex;
-  padding: 1px 7px;
+  max-width: 100%;
+  padding: 0 6px;
   border-radius: 999px;
   border: 1px solid var(--border-color);
   font-family: $font-mono;
-  font-size: 11px;
+  font-size: 10.5px;
+  line-height: 16px;
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metaNote {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-tertiary);
 }
 
-.rowAction,
-.linkButton {
-  min-height: 28px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--primary-color);
-  font: inherit;
-  font-size: 11.5px;
+.onlyOne,
+.servedCount,
+.notServed {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.onlyOne {
+  color: var(--warning-text);
   font-weight: 600;
+}
+
+.servedCount {
+  color: var(--text-secondary);
+}
+
+.notServed {
+  color: var(--text-tertiary);
+}
+
+/* Compact buttons: the row action and the account actions. */
+.rowAction,
+.miniButton {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  text-align: left;
+  transition:
+    color var(--dur-hover) var(--ease-out-strong),
+    border-color var(--dur-hover) var(--ease-out-strong);
 
   &:hover:not(:disabled) {
-    text-decoration: underline;
+    border-color: var(--border-hover);
+    color: var(--text-primary);
   }
 
   &:disabled {
@@ -390,30 +504,49 @@
 
   &:focus-visible {
     outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline-offset: 1px;
   }
 }
 
-.providerColumn {
-  min-width: 112px;
-  border-right: 1px solid var(--border-color);
+.rowAction[data-action='edit-rule'] {
+  border-style: dashed;
 }
 
 .accountColumn {
-  min-width: 136px;
-  max-width: 190px;
+  min-width: var(--account-col);
+}
+
+.accountLabel,
+.accountFile {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .accountLabel {
-  display: block;
   color: var(--text-primary);
-  overflow-wrap: anywhere;
+}
+
+.accountFile {
+  font-family: $font-mono;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.accountMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  min-width: 0;
 }
 
 .accountBadge {
   display: inline-block;
-  margin: 4px 0 2px;
+  max-width: 100%;
   padding: 1px 7px;
   border-radius: 999px;
   font-size: 10.5px;
@@ -421,6 +554,9 @@
   letter-spacing: 0.02em;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   &[data-list='own'] {
     border-color: var(--primary-color);
@@ -442,16 +578,18 @@
 .accountActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 10px;
+  gap: 4px;
 }
 
-/* A cell is a full-width target, at least 32px tall, with text that names its state. */
+/* A cell is a full-width target, 30px tall, with short text that names its state. */
 .cell {
   display: flex;
   align-items: center;
+  gap: 5px;
   width: 100%;
-  min-height: 32px;
-  padding: 4px 8px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 3px 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: none;
@@ -460,7 +598,7 @@
   font-size: 12px;
   line-height: 1.3;
   text-align: left;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 
   &:is(button) {
     cursor: pointer;
@@ -480,6 +618,30 @@
     }
   }
 
+  /* The hub has not caught up with the lists yet. */
+  &[data-drift='true']::after {
+    content: '';
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    margin-left: auto;
+    border-radius: 50%;
+    background: var(--warning-text);
+  }
+}
+
+.cellText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lockGlyph {
+  flex-shrink: 0;
+}
+
+.cell,
+.legendSwatch {
   &[data-kind='served'],
   &[data-kind='open'] {
     color: var(--text-primary);
@@ -500,28 +662,105 @@
 
   &[data-kind='disabled'],
   &[data-kind='no-access'],
+  &[data-kind='not-served'],
   &[data-kind='unknown'] {
+    color: var(--text-tertiary);
+    background: var(--bg-secondary);
+  }
+}
+
+.cell[data-kind='wildcard'] .cellText {
+  font-family: $font-mono;
+  font-size: 11.5px;
+}
+
+.legendSwatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+
+  &[data-kind='no-access'] {
+    border-color: var(--border-color);
+  }
+
+  &[data-kind='disabled'] {
+    border-color: var(--border-color);
+    border-style: dotted;
+  }
+}
+
+/* ---------- phone: one account at a time ---------- */
+
+.phoneView {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.phonePicker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phonePickerLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.phoneRows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+
+  li {
+    display: grid;
+    // The model id gets a line of its own: ids are long and must stay readable on a phone.
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  li[data-served='no'] .modelId {
     color: var(--text-tertiary);
   }
 }
 
-.onlyOne {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--warning-text);
-  font-weight: 600;
+.phoneModel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  grid-column: 1 / -1;
+
+  .modelId {
+    overflow-wrap: anywhere;
+  }
 }
 
-.servedCount {
-  font-family: $font-mono;
-  font-size: 11.5px;
-  color: var(--text-secondary);
-}
-
-.notServed {
-  font-size: 11.5px;
+.phoneSub {
+  font-size: 11px;
   color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.phoneCell {
+  min-width: 0;
 }
 
 /* ---------- dialogs ---------- */
@@ -669,22 +908,30 @@
     width: 100%;
   }
 
-  .search {
-    max-width: none;
-  }
-
-  .modelColumn {
-    min-width: 150px;
-    max-width: 170px;
-  }
-
   .changeList li {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chip {
+  .chip,
+  .rowAction,
+  .miniButton,
+  .matrixFrame::before,
+  .matrixFrame::after {
     transition: none;
+  }
+}
+
+.matrixNote {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+
+  a {
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 }

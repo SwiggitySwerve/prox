@@ -7,17 +7,21 @@ export const ALL_SOURCES = 'all';
 /**
  * Source filter for the unified Auth Files page. Every source is named with its count, so one
  * whose group starts below the fold is still discoverable; choosing one shows only its group.
+ * A screen that always works on one source (Models) hides the "All sources" pill.
  */
 export function AuthFilesSourceNav({
   sources,
   counts = {},
   active = ALL_SOURCES,
   onChange,
+  showAll = true,
 }: {
   sources: readonly SourceView[];
   counts?: Readonly<Record<string, number>>;
   active?: string;
   onChange?: (instanceId: string) => void;
+  /** Offer the "All sources" pill (default true). */
+  showAll?: boolean;
 }) {
   const { t } = useTranslation();
   if (sources.length < 2) return null;
@@ -35,7 +39,7 @@ export function AuthFilesSourceNav({
   return (
     <nav className={styles.sourceNav} aria-label={t('quota_pool.runtime_source')}>
       <span>{t('quota_pool.runtime_source')}</span>
-      {option(ALL_SOURCES, t('auth_files.unified_all_sources'))}
+      {showAll && option(ALL_SOURCES, t('auth_files.unified_all_sources'))}
       {sources.map(({ source }) => option(source.instanceId, source.label))}
     </nav>
   );

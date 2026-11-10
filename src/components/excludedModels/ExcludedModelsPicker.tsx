@@ -311,7 +311,7 @@ export function ExcludedModelsPicker({
             </ul>
           ) : null}
 
-          <p className="hint">{t('excluded_models.rules_hint')}</p>
+          <p className={styles.ruleHint}>{t('excluded_models.rules_hint')}</p>
         </div>
       ) : null}
     </div>

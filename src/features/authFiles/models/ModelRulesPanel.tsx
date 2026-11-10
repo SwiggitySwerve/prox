@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -9,7 +9,7 @@ import {
   type ListTarget,
   type ModelAccessInventory,
 } from '@/features/authFiles/modelAccess';
-import { accountListKind, targetOfListKey } from './matrixView';
+import { accountListKind, listSignature, targetOfListKey } from './matrixView';
 import styles from './ModelsPage.module.scss';
 
 type Props = {
@@ -43,8 +43,15 @@ export function ModelRulesPanel({
           : [],
     [account, inventory.providerList, target.kind]
   );
+  // The inventory object is rebuilt on every store refresh and credential poll; only a different
+  // list, or a change to the saved list itself, may replace what the user is editing.
+  const savedKey = `${listKey}\u0000${listSignature(saved)}`;
   const [draft, setDraft] = useState<string[]>(saved);
-  useEffect(() => setDraft(saved), [saved]);
+  const [draftFor, setDraftFor] = useState(savedKey);
+  if (draftFor !== savedKey) {
+    setDraftFor(savedKey);
+    setDraft(saved);
+  }
 
   const ownListAccounts = inventory.accounts.filter((item) => accountListKind(item) === 'own');
   const options = [
