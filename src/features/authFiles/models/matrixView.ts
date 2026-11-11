@@ -38,9 +38,10 @@ export function filterRows(rows: MatrixRow[], modelQuery: string, view: ModelVie
 
 /**
  * The model catalog carries no release timestamp, so recency is read from the id: its version
- * (`5-5`, `4.1`, `3-7`) and, within one version, a trailing snapshot date (`-20251001`).
+ * (`5-5`, `4.1`, `3-7`) and, within one version, a trailing snapshot date (`-20251001`, or
+ * Gemini's yearless `-preview-05-06`).
  */
-const TRAILING_DATE = /[-_]?(?:\d{8}|\d{4}-\d{2}-\d{2})$/;
+const TRAILING_DATE = /(?:[-_]?(?:\d{8}|\d{4}-\d{2}-\d{2})|(?<=-preview-)\d{2}-\d{2})$/;
 const VERSION = /(?:^|\D)(\d{1,2}(?:[-.]\d{1,2})*)(?=\D|$)/;
 
 function modelRecency(id: string): { version: number[]; date: string } {

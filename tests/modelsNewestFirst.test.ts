@@ -57,6 +57,16 @@ describe('model recency order', () => {
     ]);
   });
 
+  test("Gemini's short preview date (preview-MM-DD) orders snapshots of one version", () => {
+    expect(
+      newestFirst([
+        'gemini-2.5-pro-preview-03-25',
+        'gemini-2.5-pro',
+        'gemini-2.5-pro-preview-05-06',
+      ])
+    ).toEqual(['gemini-2.5-pro', 'gemini-2.5-pro-preview-05-06', 'gemini-2.5-pro-preview-03-25']);
+  });
+
   test('a version later in the id is found past the family name', () => {
     expect(newestFirst(['claude-3-5-sonnet-20241022', 'claude-3-7-sonnet'])).toEqual([
       'claude-3-7-sonnet',

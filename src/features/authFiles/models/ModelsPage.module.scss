@@ -735,7 +735,12 @@
     }
   }
 
-  /* The hub has not caught up with the lists yet; the dot sits on the edge, off the centred text. */
+  /* The hub has not caught up with the lists yet; the dot sits on the edge, off the centred text.
+     Equal padding on both sides keeps the text centred and clear of the dot. */
+  &[data-drift='true'] {
+    padding-inline: 14px;
+  }
+
   &[data-drift='true']::after {
     content: '';
     position: absolute;
