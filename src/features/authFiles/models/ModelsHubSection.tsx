@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -297,11 +297,7 @@ export function ModelsHubSection({
               data-hidden-jump
             >
               <IconEye size={14} />
-              <Trans
-                i18nKey="model_access.hidden_jump"
-                values={{ count: hiddenShown }}
-                components={{ count: <span className={styles.sectionCount} /> }}
-              />
+              {t('model_access.hidden_jump', { count: hiddenShown })}
             </button>
           )}
         </div>

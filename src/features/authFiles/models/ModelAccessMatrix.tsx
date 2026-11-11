@@ -7,9 +7,16 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { Select } from '@/components/ui/Select';
-import { IconCheck, IconChevronDown, IconEye, IconEyeOff } from '@/components/ui/icons';
+import {
+  IconAlertTriangle,
+  IconArrowDown,
+  IconCheck,
+  IconChevronDown,
+  IconEye,
+  IconEyeOff,
+} from '@/components/ui/icons';
 import {
   accessCell,
   type AccessCell,
@@ -258,16 +265,23 @@ export function ModelAccessMatrix(props: Props) {
         <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
         {t('model_access.hidden_group')}
         <span className={styles.sectionCount}>{hiddenGroup.count}</span>
-        {hiddenGroup.stillOn > 0 && (
+        {/* Closed: a hidden model still on is said here, so nothing on disappears unseen. */}
+        {!hiddenOpen && hiddenGroup.stillOn > 0 && (
           <span className={styles.hiddenStillOn}>
-            {hiddenGroup.stillOn === 1
-              ? t('model_access.hidden_still_on_one', {
-                  model: hiddenGroup.rows.find(isLit)?.model ?? '',
-                })
-              : t('model_access.hidden_still_on', { count: hiddenGroup.stillOn })}
+            <IconAlertTriangle size={13} aria-hidden="true" />
+            {hiddenGroup.stillOn === 1 ? (
+              <Trans
+                i18nKey="model_access.hidden_still_on_one"
+                values={{ model: hiddenGroup.rows.find(isLit)?.model ?? '' }}
+                components={{ model: <span className={styles.hiddenStillOnModel} /> }}
+              />
+            ) : (
+              t('model_access.hidden_still_on', { count: hiddenGroup.stillOn })
+            )}
           </span>
         )}
       </button>
+      {hiddenOpen && <span className={styles.hiddenNote}>{t('model_access.hidden_note')}</span>}
       {hiddenOpen && (
         <button
           type="button"
@@ -483,12 +497,15 @@ export function ModelAccessMatrix(props: Props) {
                 {t('model_access.corner_domain', { domain })}
               </span>
             )}
-            <span className={styles.cornerInner}>
-              {t('model_access.column_model')}
-              {/* Names the row of column checkboxes it sits level with. */}
-              <span className={styles.cornerAll} aria-hidden="true">
-                {t('model_access.corner_all_models')}
+            <span className={styles.cornerTitle}>{t('model_access.column_model')}</span>
+            <span className={styles.cornerInner} aria-hidden="true">
+              {/* Over the rows' checkboxes: each sets its model for every account. */}
+              <span className={styles.cornerAll}>
+                <IconArrowDown size={12} />
+                {t('model_access.corner_all_accounts')}
               </span>
+              {/* Level with the column checkboxes: each sets every model for its account. */}
+              <span className={styles.cornerAll}>{t('model_access.corner_all_models')}</span>
             </span>
           </th>
           {accounts.map((account) => {
@@ -872,6 +889,12 @@ export function AccessKey({ titled = true }: { titled?: boolean }) {
         <li>
           {sample('on', true)}
           {t('model_access.key_staged')}
+        </li>
+        <li>
+          <span className={`${styles.hideButton} ${styles.keySample}`}>
+            <IconEyeOff size={14} />
+          </span>
+          {t('model_access.key_hide')}
         </li>
       </ul>
     </div>
