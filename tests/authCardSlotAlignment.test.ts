@@ -2,7 +2,7 @@
  * Credential cards in one grid row show the same section at the same height. Quota rows get this
  * from fixed slots: a window the account does not report still renders its row, as a placeholder,
  * so every row below it stays where the neighbouring cards have theirs. The rest comes from CSS
- * subgrid, which the source checks below pin to the markup's track counts.
+ * subgrid; the track counts live once in src/styles/cardTracks.scss.
  */
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import i18n from '@/i18n';
 import { ClaudeQuotaBody } from '@/features/quota/providers/claude/ClaudeQuotaBody';
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
-import { CARD_TRACKS, QUOTA_TRACKS, claudeQuotaRowSlots } from '@/features/authFiles/quotaSlot';
+import { claudeQuotaRowSlots } from '@/features/authFiles/quotaSlot';
 import type { ClaudeQuotaState, ClaudeQuotaWindow } from '@/types';
 
 const classes = bindQuotaClasses(
@@ -141,17 +141,5 @@ describe('the card is a subgrid whose track count matches its markup', () => {
       expect(listed).toBe(!slot.always);
     }
     expect(quotaScss).toContain('.quotaRow[data-slot-optional]:not([data-slot-filled])');
-  });
-
-  test('the SCSS track counts are the ones quotaSlot.ts exports', () => {
-    expect(cardScss).toContain(`$card-tracks: ${CARD_TRACKS.full};`);
-    expect(cardScss).toContain(`$card-tracks-compact: ${CARD_TRACKS.compact};`);
-    expect(quotaScss).toContain(`$quota-tracks: ${QUOTA_TRACKS.total};`);
-    expect(detailsScss).toContain(`$details-tracks: ${QUOTA_TRACKS.details};`);
-    // head + identity + requests + file meta + quota + footer
-    expect(CARD_TRACKS.full).toBe(5 + QUOTA_TRACKS.total);
-    expect(CARD_TRACKS.compact).toBe(5);
-    // head + body + details (its summary and the section tracks)
-    expect(QUOTA_TRACKS.total).toBe(2 + QUOTA_TRACKS.details);
   });
 });

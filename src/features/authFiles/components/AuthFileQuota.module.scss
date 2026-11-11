@@ -1,11 +1,7 @@
 @use '../../../styles/mixins' as *;
+@use '../../../styles/cardTracks' as *;
 
 $quota-font-size: 11.5px;
-
-/* Tracks the quota section spans in the card's grid: header, rows, then account details
-   (its summary and three sections). quotaSlot.ts and AccountDetails.module.scss agree. */
-$quota-tracks: 6;
-$details-tracks: 4;
 
 /* ============================================================
  * 认证文件卡片的配额区外衣。

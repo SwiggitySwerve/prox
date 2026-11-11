@@ -1,10 +1,5 @@
 @use '../../../styles/mixins' as *;
-
-/* Tracks a card spans in the page grid: head, account line, requests, file meta, the quota
-   section (AuthFileQuota.module.scss spans its own), footer. quotaSlot.ts exports the same
-   numbers and tests/authCardSlotAlignment.test.ts keeps them equal. */
-$card-tracks: 11;
-$card-tracks-compact: 5;
+@use '../../../styles/cardTracks' as *;
 
 /* ============================================================
  * 凭证卡片 — statTile 配方（14px 圆角 / 1px 边框 / 82% 透感纸面）

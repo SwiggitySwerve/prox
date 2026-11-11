@@ -1,4 +1,4 @@
-$details-tracks: 4;
+@use '../../../styles/cardTracks' as *;
 
 .details {
   min-width: 0;
