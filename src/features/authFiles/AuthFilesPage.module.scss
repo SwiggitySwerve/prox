@@ -49,6 +49,28 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
 }
 
+/* Cards are subgrids that span one track per section (AuthFileCard.module.scss), so the same
+   section starts at the same height on every card of a grid row. The gap between rows of cards
+   is the cards' own bottom margin: a gap here would also separate the tracks inside a card. */
+/* An optional quota row (see quotaSlot.ts) shows on every card of the grid once any card has data
+   for it. The kinds are claudeQuotaRowSlots() without the always-shown ones. */
+@each $kind in seven-day-oauth-apps, seven-day-opus, seven-day-sonnet, seven-day-cowork {
+  .grid:has([data-slot='#{$kind}'][data-slot-filled]) [data-slot='#{$kind}'] {
+    display: flex;
+  }
+}
+
+@supports (grid-template-rows: subgrid) {
+  .grid {
+    row-gap: 0;
+    margin-bottom: -16px;
+  }
+
+  .grid > * {
+    margin-bottom: 16px;
+  }
+}
+
 /* provider tab 激活（配额模式）时卡片承载配额区，需要更宽的列。
    值与 .grid 相同但**必须保留且排在 .gridCompact 之后**：三个类同时挂在网格上，
    同specificity 靠源序决胜，删掉这条会让「紧凑 + 配额」从 340 掉回 260。 */

@@ -102,6 +102,11 @@ export interface QuotaBodyProps<TState> {
   quota: TState;
   /** Render account facts in the host panel instead of inline chips and lists. */
   factsInPanel?: boolean;
+  /**
+   * The host aligns cards side by side: render each row kind in its fixed place, a placeholder
+   * where the account reports none. Bodies without fixed row kinds ignore it.
+   */
+  fixedSlots?: boolean;
   classes: QuotaClassMap;
   /** Host-owned chips appended to the provider's plan row (`codexPlanItem` spans). */
   planItems?: ReactNode;

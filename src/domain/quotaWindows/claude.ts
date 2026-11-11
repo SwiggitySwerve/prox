@@ -5,7 +5,32 @@ import { formatQuotaResetTime } from '@/utils/quota/formatters';
 import { resolveResetMs, claudePeriodHours } from '@/utils/quota/resetInstants';
 import { CLAUDE_USAGE_WINDOW_KEYS } from '@/utils/quota/constants';
 
-const findFableUsageLimit = (payload: ClaudeUsagePayload) => {
+/** A Claude quota row that has one fixed place on every credential card. */
+export type ClaudeQuotaRowSlot = {
+  id: string;
+  labelKey: string;
+  /**
+   * Always rendered, as a placeholder when the account reports no such window. The others
+   * render on every card too but stay hidden until a card in the same grid reports one.
+   */
+  always: boolean;
+};
+
+const ALWAYS_SHOWN_CLAUDE_ROWS: ReadonlySet<string> = new Set([
+  'five-hour',
+  'seven-day',
+  'seven-day-fable',
+]);
+
+/** Every row kind a card can show, in the one order they appear. */
+export const claudeQuotaRowSlots = (): ClaudeQuotaRowSlot[] =>
+  CLAUDE_USAGE_WINDOW_KEYS.map(({ id, labelKey }) => ({
+    id,
+    labelKey,
+    always: ALWAYS_SHOWN_CLAUDE_ROWS.has(id),
+  }));
+
+const findFableUsageLimit =(payload: ClaudeUsagePayload) => {
   if (!Array.isArray(payload.limits)) return null;
 
   const candidates = payload.limits.filter((limit) => {

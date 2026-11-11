@@ -9,7 +9,28 @@ import type { QuotaFileEntry } from '@/features/quota/logic';
 import type { AuthFileItem } from '@/types';
 import { isDisabledAuthFile } from '@/utils/quota/validators';
 
-export type QuotaUnavailableReason = 'runtime' | 'disabled' | 'unsupported';
+export { claudeQuotaRowSlots, type ClaudeQuotaRowSlot } from '@/domain/quotaWindows/claude';
+
+/**
+ * Rows of the page grid one card spans. Every section of a card is a grid item in its own
+ * track and the card is a subgrid, so the same section starts at the same height on every card
+ * of a grid row. AuthFileCard.module.scss, AuthFileQuota.module.scss and AccountDetails.module.scss
+ * repeat these numbers; tests/authCardSlotAlignment.test.ts keeps them equal.
+ */
+export const QUOTA_TRACKS = {
+  /** Account details: the summary line, then up to three sections (billing, resets, balances). */
+  details: 4,
+  /** The quota section: its header, the rows (chip included), and account details. */
+  total: 6,
+} as const;
+export const CARD_TRACKS = {
+  /** Head, account line, requests, file meta, quota section, footer. */
+  full: 5 + QUOTA_TRACKS.total,
+  /** A compact card has no quota section. */
+  compact: 5,
+} as const;
+
+export type QuotaUnavailableReason ='runtime' | 'disabled' | 'unsupported';
 
 /** Why a card has no quota to read, or null when it has. */
 export function quotaUnavailableReason(

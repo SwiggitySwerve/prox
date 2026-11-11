@@ -1,5 +1,11 @@
 @use '../../../styles/mixins' as *;
 
+/* Tracks a card spans in the page grid: head, account line, requests, file meta, the quota
+   section (AuthFileQuota.module.scss spans its own), footer. quotaSlot.ts exports the same
+   numbers and tests/authCardSlotAlignment.test.ts keeps them equal. */
+$card-tracks: 11;
+$card-tracks-compact: 5;
+
 /* ============================================================
  * 凭证卡片 — statTile 配方（14px 圆角 / 1px 边框 / 82% 透感纸面）
  * 身份优先；停用时弱化内容，操作区保持清晰以便重新启用。
@@ -27,13 +33,31 @@
   background: color-mix(in srgb, var(--bg-primary) 55%, var(--bg-tertiary));
 }
 
-.cardDisabled > :not(.actions) {
+.cardDisabled > :not(.foot),
+.cardDisabled .notices {
   opacity: 0.68;
 }
 
 .cardCompact {
   gap: 10px;
   padding: 13px 14px;
+}
+
+/* Each section is a grid item in its own track of the page grid, so a row of cards shares one
+   height per section whatever each card holds. Without subgrid the card stays a flex column. */
+@supports (grid-template-rows: subgrid) {
+  .card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: subgrid;
+    grid-row: span $card-tracks;
+    row-gap: 12px;
+  }
+
+  .cardCompact {
+    grid-row: span $card-tracks-compact;
+    row-gap: 10px;
+  }
 }
 
 .cardSelected {
@@ -414,6 +438,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+}
+
+/* The footer's one track: notices on top, the actions at the bottom edge of the card. */
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-width: 0;
 }
 
