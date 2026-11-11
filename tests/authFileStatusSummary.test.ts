@@ -100,12 +100,29 @@ describe('the card warning reads the hub verdict the list carries', () => {
 
   test('a rate limit says when the hub retries instead of "try again later"', () => {
     const warning = authFileStatusWarning(
-      claude({ statusMessage: rateLimited, nextRetryAfter: '2026-11-10T14:05:00.000Z' })
+      claude({ statusMessage: rateLimited, nextRetryAfter: '2026-11-10T14:05:00.000Z' }),
+      Date.parse('2026-11-10T14:00:00Z')
     );
     expect(warning).toEqual({ kind: 'rate_limit', resetsAt: Date.parse('2026-11-10T14:05:00Z') });
     expect(i18n.getFixedT('en')('auth_files.status_rate_limited_until', { time: '14:05' })).toBe(
       'Rate limited · retry after 14:05'
     );
+  });
+
+  test('a retry time already past falls back to the general text', () => {
+    const file = claude({ statusMessage: rateLimited, nextRetryAfter: '2026-11-10T14:05:00.000Z' });
+    const deadline = Date.parse('2026-11-10T14:05:00Z');
+    expect(authFileStatusWarning(file, deadline - 60_000)).toEqual({
+      kind: 'rate_limit',
+      resetsAt: deadline,
+    });
+    expect(authFileStatusWarning(file, deadline)).toEqual({ kind: 'rate_limit', resetsAt: null });
+  });
+
+  test('the card re-reads the warning on the shared minute clock', () => {
+    const card = readFileSync('src/features/authFiles/components/AuthFileCard.tsx', 'utf8');
+    expect(card).toContain('authFileStatusWarning(file, now)');
+    expect(card).toContain('useNow(Boolean(file.nextRetryAfter))');
   });
 
   test('without a retry time the rate limit keeps the general text', () => {
@@ -121,7 +138,8 @@ describe('the card warning reads the hub verdict the list carries', () => {
     });
     expect(
       authFileStatusWarning(
-        claude({ statusMessage: usage, nextRetryAfter: '2026-11-10T14:05:00Z' })
+        claude({ statusMessage: usage, nextRetryAfter: '2026-11-10T14:05:00Z' }),
+        Date.parse('2026-11-10T14:00:00Z')
       )
     ).toEqual({ kind: 'usage_limit', window: 'five_hour', resetsAt: 1793599839 * 1000 });
   });
@@ -139,7 +157,7 @@ describe('the card warning reads the hub verdict the list carries', () => {
 
   test('the card renders the warning from authFileStatusWarning, with the reset time', () => {
     const card = readFileSync('src/features/authFiles/components/AuthFileCard.tsx', 'utf8');
-    expect(card).toContain('const statusWarning = authFileStatusWarning(file);');
+    expect(card).toContain('const statusWarning = authFileStatusWarning(file, now);');
     expect(card).toContain("t('auth_files.status_rate_limited_until'");
     expect(card).toContain('<span>{describeStatus(statusWarning)}</span>');
   });

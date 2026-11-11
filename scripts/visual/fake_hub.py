@@ -22,6 +22,7 @@ import asyncio
 import copy
 import json
 import re
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, unquote, urlparse
 
 CATALOG = {
@@ -129,7 +130,9 @@ class FakeHubs:
             self.hubs['alpha']['accounts'] = copy.deepcopy(ALIGNED_ACCOUNTS)
         if scenario == 'rate-limited':
             # The hub's verdict on a blocked credential: the upstream error and when it retries.
-            self.hubs['alpha']['accounts'][0]['rate_limited'] = '2026-11-12T14:05:00Z'
+            # Two hours ahead: the card hides a retry time that has already passed.
+            retry = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(hours=2)
+            self.hubs['alpha']['accounts'][0]['rate_limited'] = retry.isoformat().replace('+00:00', 'Z')
         if scenario == 'many':
             self.hubs['alpha']['accounts'][4:4] = [
                 {'name': f'claude-seat-{n:02d}.json', 'type': 'claude',

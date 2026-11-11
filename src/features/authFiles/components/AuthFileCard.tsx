@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/icons';
 import { ProviderStatusBar } from '@/components/providers/ProviderStatusBar';
 import type { AuthFileItem } from '@/types';
+import { useNow } from '@/hooks/useNow';
 import { statusBarDataFromRecentRequests } from '@/utils/recentRequests';
 import { formatDateTimeValue, formatFileSize } from '@/utils/format';
 import {
@@ -138,7 +139,9 @@ export function AuthFileCard(props: AuthFileCardProps) {
         })
       : limit;
   };
-  const statusWarning = authFileStatusWarning(file);
+  // Re-read each minute while a retry time is shown, so a passed one drops off.
+  const now = useNow(Boolean(file.nextRetryAfter));
+  const statusWarning = authFileStatusWarning(file, now);
 
   const priorityValue = Number.isSafeInteger(file.priority) ? file.priority : undefined;
   const weightValue = Number.isSafeInteger(file.weight) ? file.weight : undefined;
