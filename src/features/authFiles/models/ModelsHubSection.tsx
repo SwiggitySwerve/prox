@@ -55,6 +55,8 @@ type Props = {
   registerRefresh: (key: string, refresh: () => Promise<void>) => () => void;
   /** What this hub's access table shows, for the page counter; null when it shows no table. */
   reportCounts: (key: string, counts: VisibleCounts | null) => void;
+  /** How many account columns this hub's grid has (unfiltered), for the page's width. */
+  reportColumns: (key: string, columns: number | null) => void;
   /** Where the Save bar goes (fixed at the bottom of the viewport); inline until it exists. */
   saveDock: HTMLElement | null;
 };
@@ -103,6 +105,7 @@ export function ModelsHubSection({
   setParam,
   registerRefresh,
   reportCounts,
+  reportColumns,
   saveDock,
 }: Props) {
   const { t } = useTranslation();
@@ -167,6 +170,9 @@ export function ModelsHubSection({
     reportCounts(hubId, showsTable ? { models, served, accounts } : null);
   }, [accounts, hubId, models, reportCounts, served, showsTable]);
   useEffect(() => () => reportCounts(hubId, null), [hubId, reportCounts]);
+  const columns = inventory?.accounts.length ?? null;
+  useEffect(() => reportColumns(hubId, columns), [columns, hubId, reportColumns]);
+  useEffect(() => () => reportColumns(hubId, null), [hubId, reportColumns]);
 
   const unreadable =
     inventory?.accounts.filter(

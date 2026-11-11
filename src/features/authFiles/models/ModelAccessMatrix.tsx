@@ -20,7 +20,7 @@ import {
   type ModelAccessInventory,
 } from '@/features/authFiles/modelAccess';
 import { arrangeRows, hiddenSummary } from './hiddenModels';
-import { sharedLabels } from './matrixView';
+import { sharedDomain, sharedLabels } from './matrixView';
 import styles from './ModelsPage.module.scss';
 
 type Props = {
@@ -123,14 +123,17 @@ function AccessSwitch({
   );
 }
 
-/** An email reads best split at the @: the name on one line, the domain under it. */
-function AccountName({ label }: { label: string }) {
+/**
+ * An email reads best split at the @: the name on one line, the domain under it, unless every
+ * account shares the domain (`shownOnce`), which the corner then says once.
+ */
+function AccountName({ label, shownOnce }: { label: string; shownOnce: string | null }) {
   const at = label.indexOf('@');
   if (at <= 0) return <>{label}</>;
   return (
     <>
       <span className={styles.labelLine}>{label.slice(0, at)}</span>
-      <span className={styles.labelLine}>{label.slice(at)}</span>
+      {label.slice(at) !== shownOnce && <span className={styles.labelLine}>{label.slice(at)}</span>}
     </>
   );
 }
@@ -139,6 +142,7 @@ export function ModelAccessMatrix(props: Props) {
   const { t } = useTranslation();
   const { provider, inventory, overrides, rows, accounts, disabled, layout, failed } = props;
   const shared = sharedLabels(accounts);
+  const domain = sharedDomain(accounts);
 
   const cellOf = (account: AccountAccess, row: MatrixRow) =>
     accessCell(inventory, overrides, account, row.model);
@@ -257,7 +261,12 @@ export function ModelAccessMatrix(props: Props) {
         <button
           type="button"
           className={styles.bandAction}
-          onClick={() => props.onHide(hiddenGroup.rows.map((row) => row.model), false)}
+          onClick={() =>
+            props.onHide(
+              hiddenGroup.rows.map((row) => row.model),
+              false
+            )
+          }
           data-unhide-all
         >
           <IconEye size={14} />
@@ -457,6 +466,11 @@ export function ModelAccessMatrix(props: Props) {
       <thead>
         <tr>
           <th scope="col" className={styles.corner}>
+            {domain && (
+              <span className={styles.cornerDomain}>
+                {t('model_access.corner_domain', { domain })}
+              </span>
+            )}
             <span className={styles.cornerInner}>
               {t('model_access.column_model')}
               {/* Names the row of column checkboxes it sits level with. */}
@@ -482,7 +496,7 @@ export function ModelAccessMatrix(props: Props) {
                     className={styles.accountLabel}
                     title={twin ? `${account.label}\n${account.name}` : account.label}
                   >
-                    <AccountName label={account.label} />
+                    <AccountName label={account.label} shownOnce={domain} />
                   </span>
                   <span className={styles.accountSub}>
                     {renderMarkers(account)}

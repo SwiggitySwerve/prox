@@ -9,6 +9,8 @@
   flex-direction: column;
   gap: 18px;
   width: 100%;
+  /* As wide as the grid needs (set from its account count), so toolbar and grid end together. */
+  max-width: var(--models-max-width, none);
   min-width: 0;
 }
 
@@ -263,8 +265,8 @@
 
 .matrixFrame {
   /* The model column gives up to 64px so account columns keep a comfortable width. */
-  --head-min: 256px;
-  --head-max: 304px;
+  --head-min: 280px;
+  --head-max: 336px;
   --account-comfort: 112px;
   /* The narrowest an account column gets before the table scrolls inside its frame. */
   --account-min: 52px;
@@ -442,6 +444,15 @@
   justify-content: space-between;
   gap: 8px;
   min-height: 24px;
+}
+
+.cornerDomain {
+  display: block;
+  margin-bottom: 6px;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary);
 }
 
 .cornerAll {
@@ -1017,7 +1028,8 @@
 
 .saveDock {
   position: fixed;
-  bottom: 0;
+  /* Just under the page's last line when it ends above the fold, else at the bottom. */
+  bottom: var(--dock-bottom, 0px);
   padding: 16px 0 12px;
   /* Rows fade out under the bar instead of showing through below it. */
   background: linear-gradient(to bottom, transparent, var(--bg-secondary) 16px);
@@ -1423,5 +1435,130 @@
     color: var(--text-secondary);
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+}
+
+/* ---------- hidden models: a per-browser view preference ---------- */
+
+/* A band: its label at the left, its action (Hide all / Unhide all) at the right. */
+.bandInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bandAction,
+.hiddenToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 1px;
+  }
+}
+
+.hiddenToggle {
+  position: sticky;
+  left: 2px;
+  font-weight: 600;
+}
+
+/* Right when closed, down when open. */
+.hiddenChevron {
+  transition: transform var(--dur-hover) var(--ease-out-strong);
+
+  .hiddenToggle[aria-expanded='false'] & {
+    transform: rotate(-90deg);
+  }
+}
+
+/* A hidden model some account still serves: said in the band, so nothing on disappears. */
+.hiddenStillOn {
+  font-weight: 600;
+  color: var(--text-primary);
+
+  &::before {
+    content: '·';
+    margin-right: 6px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+  }
+}
+
+/* Hidden, but kept in its band (staged, or found by a search). */
+.hiddenTag {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border: 1px solid var(--border-hover);
+  border-radius: 4px;
+  font-size: 10.5px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+
+.hideButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-quaternary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 1px;
+  }
+
+  .phoneView & {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.phoneView .phoneCell {
+  align-items: center;
+  gap: 2px;
+}
+
+.phoneRows li.phoneSection > .bandInner {
+  flex: 1 1 auto;
+}
+
+.phoneView :is(.bandAction, .hiddenToggle) {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hiddenChevron {
+    transition: none;
   }
 }

@@ -18,6 +18,7 @@ import {
   resolveProviderAcross,
   resolveProviderParam,
   resolveSourceScope,
+  sharedDomain,
   sharedLabels,
   summarizeChanges,
   sumCounts,
@@ -25,6 +26,7 @@ import {
   type HubFiles,
 } from '../src/features/authFiles/models/matrixView';
 import { modelsScreenPath } from '../src/features/authFiles/unifiedList';
+import type { AccountAccess } from '../src/features/authFiles/modelAccess';
 import type { AuthFileItem } from '../src/types';
 import { account, inventory, runtimeAccount } from './fixtures/modelAccess';
 
@@ -407,5 +409,19 @@ describe('hubs and providers', () => {
     expect(resolveProviderAcross(params.get('provider'), ['claude'], true).provider).toBe('claude');
     expect(params.get('tab')).toBe('rules');
     expect(listOwner(params.get('list'), source, HUBS)).toBe('beta');
+  });
+});
+
+describe('shared email domain', () => {
+  const labelled = (label: string) => ({ label }) as unknown as AccountAccess;
+  test('said once when every email shares it and the names differ', () => {
+    expect(
+      sharedDomain([labelled('a@x.dev'), labelled('b@x.dev'), labelled('runtime-channel')])
+    ).toBe('@x.dev');
+  });
+  test('kept per column when domains differ, names repeat, or only one email', () => {
+    expect(sharedDomain([labelled('a@x.dev'), labelled('b@y.dev')])).toBeNull();
+    expect(sharedDomain([labelled('ops@x.dev'), labelled('ops@x.dev')])).toBeNull();
+    expect(sharedDomain([labelled('a@x.dev'), labelled('runtime-channel')])).toBeNull();
   });
 });

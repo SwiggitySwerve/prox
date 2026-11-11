@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -52,6 +59,14 @@ import styles from './ModelsPage.module.scss';
 
 /** Same breakpoint as the page's SCSS: under 600 px the table becomes a per-account list. */
 const PHONE_QUERY = '(max-width: 599px)';
+
+/**
+ * The page's width cap for a grid of `columns` accounts: the model column and account columns at
+ * their widest (ModelsPage.module.scss --head-max, --account-max, the frame's border), never
+ * narrower than the toolbar needs on one row. Without a grid, no cap.
+ */
+const pageMaxWidth = (columns: number) =>
+  columns > 0 ? `${Math.max(1100, 336 + columns * 200 + 2)}px` : undefined;
 
 /**
  * `#/auth-files/models?source=<id>&provider=<key>&tab=access|rules|aliases&list=<key>`
@@ -120,15 +135,23 @@ export function ModelsPage() {
       dock.style.setProperty('--dock-left', `${box.left}px`);
       dock.style.setProperty('--dock-width', `${box.width}px`);
       setDockHeight(dock.offsetHeight);
+      // The page reserves the bar's height at its end; when the content ends above the fold the
+      // bar sits right under it instead of over the last lines at the bottom of the screen.
+      const contentEnd = box.bottom - (parseFloat(getComputedStyle(page).paddingBottom) || 0);
+      const below = window.innerHeight - contentEnd - dock.offsetHeight;
+      dock.style.setProperty('--dock-bottom', `${Math.max(0, below)}px`);
     };
     place();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
     observer?.observe(page);
     observer?.observe(dock);
     window.addEventListener('resize', place);
+    // The shell scrolls inside an element: catch its scroll on the way down.
+    window.addEventListener('scroll', place, { capture: true, passive: true });
     return () => {
       observer?.disconnect();
       window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, { capture: true });
     };
   }, [dock]);
 
@@ -146,6 +169,18 @@ export function ModelsPage() {
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
     observer?.observe(bar);
     return () => observer?.disconnect();
+  }, []);
+
+  // The widest grid's account columns: the page is no wider than that grid needs.
+  const [gridColumns, setGridColumns] = useState<Record<string, number>>({});
+  const reportColumns = useCallback((key: string, columns: number | null) => {
+    setGridColumns((prev) => {
+      if ((prev[key] ?? null) === columns) return prev;
+      const next = { ...prev };
+      if (columns === null) delete next[key];
+      else next[key] = columns;
+      return next;
+    });
   }, []);
 
   // What each section's table shows, summed for the counter.
@@ -472,8 +507,13 @@ export function ModelsPage() {
     <div
       ref={pageRef}
       className={styles.page}
-      // Room under the last row, so the docked bars never cover it.
-      style={dockHeight > 0 ? { paddingBottom: dockHeight + 24 } : undefined}
+      style={
+        {
+          // Room under the last row, so the docked bars never cover it.
+          paddingBottom: dockHeight > 0 ? dockHeight + 24 : undefined,
+          '--models-max-width': pageMaxWidth(Math.max(0, ...Object.values(gridColumns))),
+        } as CSSProperties
+      }
     >
       {isCurrentLayer &&
         createPortal(<div ref={setDock} className={styles.saveDock} />, document.body)}
@@ -530,6 +570,7 @@ export function ModelsPage() {
                     setParam={setParam}
                     registerRefresh={registerRefresh}
                     reportCounts={reportCounts}
+                    reportColumns={reportColumns}
                     saveDock={dock}
                   />
                 </AuthFilesSourceProvider>

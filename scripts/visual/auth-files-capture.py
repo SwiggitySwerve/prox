@@ -117,6 +117,19 @@ CASES = [
     ('models-wide-scrolled', M, 'wide', [('scroll-page', '640')]),
     # Every disclosure open (on a phone the key is one).
     ('models-real-open', M, 'real', [('open-details', '')]),
+    # Hiding is a view preference (no writes). One model, then every not-served one; the Hidden
+    # group opened; and a hidden model that is still on, which its band must say.
+    ('models-real-hide-one', M, 'real', [
+        ('click', '[data-hide-model="claude-fable-5-1"]'),
+        ('wait', '[data-section="hidden"]'), ('writes', [])]),
+    ('models-real-hide-all', M, 'real', [
+        ('click', '[data-hide-all]'), ('wait', '[data-section="hidden"]'), ('writes', [])]),
+    ('models-real-hidden-open', M, 'real', [
+        ('click', '[data-hide-all]'), ('click', '[data-hidden-toggle]'),
+        ('wait', '[data-unhide-all]'), ('writes', [])]),
+    ('models-hidden-still-on', M, 'real', [
+        ('click', '[data-hide-model="claude-opus-5-5"]'), ('click', '[data-hide-all]'),
+        ('wait', 'text=1 still on'), ('writes', [])]),
     # 22 models make the page taller than the screen: the Save bar is docked in view at the fold,
     # and leaves with the page (it stays staged for when Models is opened again).
     ('models-bar-docked', M, 'wide', [

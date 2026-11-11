@@ -59,9 +59,7 @@ describe('hidden models', () => {
 
   test('hide all not served adds them all at once; unhide takes one back', () => {
     const hidden = withHidden(new Set(), ['m-old-1', 'm-old-2', 'm-old-3'], true);
-    expect(arrangeRows(rows, hidden, () => false).shown.map((row) => row.model)).toEqual([
-      'm-new',
-    ]);
+    expect(arrangeRows(rows, hidden, () => false).shown.map((row) => row.model)).toEqual(['m-new']);
     const back = withHidden(hidden, ['m-old-2'], false);
     expect(back.has('m-old-2')).toBe(false);
     expect(hidden.has('m-old-2')).toBe(true);
