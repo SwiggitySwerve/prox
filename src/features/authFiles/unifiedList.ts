@@ -8,7 +8,11 @@ import {
   providerOfCredential,
   type CredentialCounts,
 } from '@/features/authFiles/credentialFacts';
-import { buildWildcardSearch, matchesAuthFileSearch } from '@/features/authFiles/logic';
+import {
+  buildWildcardSearch,
+  matchesAuthFileSearch,
+  sortAuthFiles,
+} from '@/features/authFiles/logic';
 import { listKeyOf } from '@/features/authFiles/models/matrixView';
 import type { AuthFilesSortMode, AuthFilesStatusFilterMode } from '@/features/authFiles/uiState';
 import type { AuthFileItem } from '@/types';
@@ -86,6 +90,24 @@ export function groupByProvider(files: AuthFileItem[]): AuthFileItem[] {
   return [...groups.keys()]
     .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
     .flatMap((key) => groups.get(key) ?? []);
+}
+
+/** The page a group renders: filtered, sorted, grouped by provider, then sliced (the page clamps). */
+export function pageOfAuthFiles(
+  files: AuthFileItem[],
+  filters: ListFilters & Pick<AuthFilesFilters, 'sortMode' | 'pageSize'>,
+  page: number
+): { sorted: AuthFileItem[]; totalPages: number; currentPage: number; pageItems: AuthFileItem[] } {
+  const sorted = groupByProvider(sortAuthFiles(filterAuthFiles(files, filters), filters.sortMode));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / filters.pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * filters.pageSize;
+  return {
+    sorted,
+    totalPages,
+    currentPage,
+    pageItems: sorted.slice(start, start + filters.pageSize),
+  };
 }
 
 /**

@@ -24,24 +24,23 @@ import { AuthFileRefreshResults } from '@/features/authFiles/components/AuthFile
 import { AuthFileModelsModal } from '@/features/authFiles/components/AuthFileModelsModal';
 import { BatchActionBar } from '@/features/authFiles/components/BatchActionBar';
 import { invalidateAuthFileDerivedCaches } from '@/features/authFiles/cacheInvalidation';
-import { sortAuthFiles } from '@/features/authFiles/logic';
 import { useAuthFilesData } from '@/features/authFiles/hooks/useAuthFilesData';
 import { useAuthFilesModels } from '@/features/authFiles/hooks/useAuthFilesModels';
 import { useAuthFilesOauth } from '@/features/authFiles/hooks/useAuthFilesOauth';
 import { useAuthFilesPrefixProxyEditor } from '@/features/authFiles/hooks/useAuthFilesPrefixProxyEditor';
 import { useAuthFilesStatusBarCache } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
-import { quotaRefreshTargets } from '@/features/authFiles/quotaSlot';
+import { createCoalescingRunner, type QuotaRun } from '@/features/authFiles/quotaRunner';
+import { quotaRefreshTargets, quotaTargetsForList } from '@/features/authFiles/quotaSlot';
 import { QUOTA_PAGE_SIZE } from '@/features/quota/constants';
 import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
 import {
   OTHER_PROVIDER_GROUP,
   UNKNOWN,
   deletableShown,
-  filterAuthFiles,
-  groupByProvider,
   healthParts,
   listLoadState,
   modelsScreenPath,
+  pageOfAuthFiles,
   providerGroupOf,
   type AuthFilesFilters,
   type SourceAnswer,
@@ -317,9 +316,18 @@ export function AuthFilesSourceContent({
   /* ---------- loading: foreground the first time (skeletons), background afterwards ---------- */
 
   const initialLoadDoneRef = useRef(false);
-  const handleHeaderRefresh = useCallback(async () => {
-    await Promise.all([loadFiles({ background: true }), loadExcluded(), loadModelAlias()]);
+  // Resolves to the list the re-read returned, or null when it failed or was superseded.
+  const rereadList = useCallback(async () => {
+    const [list] = await Promise.all([
+      loadFiles({ background: true }),
+      loadExcluded(),
+      loadModelAlias(),
+    ]);
+    return list;
   }, [loadFiles, loadExcluded, loadModelAlias]);
+  const handleHeaderRefresh = useCallback(async () => {
+    await rereadList();
+  }, [rereadList]);
 
   useEffect(
     () => registerRefresh(sourceOwnerKey(sourceScope.session.owner), handleHeaderRefresh),
@@ -347,16 +355,12 @@ export function AuthFilesSourceContent({
   const filterKey = [filters.provider, filters.statusFilterMode, filters.search, hidden].join('\n');
   useEffect(() => deselectAll(), [filterKey, deselectAll]);
 
-  const sorted = useMemo(
-    () => groupByProvider(sortAuthFiles(filterAuthFiles(files, filters), filters.sortMode)),
-    [files, filters]
+  const { sorted, totalPages, currentPage, pageItems } = useMemo(
+    () => pageOfAuthFiles(files, filters, page),
+    [files, filters, page]
   );
   const deleteTargets = useMemo(() => deletableShown(files, filters), [files, filters]);
   const pageSize = filters.pageSize;
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const start = (currentPage - 1) * pageSize;
-  const pageItems = useMemo(() => sorted.slice(start, start + pageSize), [pageSize, sorted, start]);
   const pageGroups = useMemo(() => {
     const groups: Array<{ provider: string; items: AuthFileItem[] }> = [];
     pageItems.forEach((file) => {
@@ -408,28 +412,43 @@ export function AuthFilesSourceContent({
     sourceScope.quotaStore,
     sourceScope.session
   );
+  const quotaGated = hidden || pageEmpty || loading || disableControls || filters.compactMode;
   const quotaTargets = useMemo(
-    () =>
-      hidden || pageEmpty || loading || disableControls || filters.compactMode
-        ? []
-        : quotaRefreshTargets(pageItems, activeQuotaFilter),
-    [activeQuotaFilter, disableControls, filters.compactMode, hidden, loading, pageEmpty, pageItems]
+    () => (quotaGated ? [] : quotaRefreshTargets(pageItems, activeQuotaFilter)),
+    [activeQuotaFilter, pageItems, quotaGated]
   );
-  // The runner reads the latest targets, so it is registered again only when the count changes
+  // The runner derives its targets when it runs, from the latest render's inputs (or from the
+  // list a re-read just returned), so it is registered again only when the count changes
   // (each registration updates page state; re-registering per render would never settle).
-  const quotaTargetsRef = useRef(quotaTargets);
+  const quotaInputsRef = useRef({ files, filters, page, activeQuotaFilter, quotaGated });
   useEffect(() => {
-    quotaTargetsRef.current = quotaTargets;
-  }, [quotaTargets]);
-  const runQuotaRefresh = useCallback(
-    async (onSettled: (ok: boolean) => void) => {
-      const targets = quotaTargetsRef.current;
+    quotaInputsRef.current = { files, filters, page, activeQuotaFilter, quotaGated };
+  });
+  // One runner per group for both entry points: a request during a run waits for it, so neither
+  // the group's Refresh nor the page-wide "Refresh quota" is ever dropped by the batch loader.
+  const [coalesceQuota] = useState(() => createCoalescingRunner<AuthFileItem[]>());
+  const executeQuota = useCallback<QuotaRun<AuthFileItem[]>>(
+    async (lists, onSettled) => {
+      const inputs = quotaInputsRef.current;
+      const list = [...lists].reverse().find((entry) => entry) ?? inputs.files;
+      const targets = inputs.quotaGated
+        ? []
+        : quotaTargetsForList(list, inputs.filters, inputs.page, inputs.activeQuotaFilter);
       for (let start = 0; start < targets.length; start += QUOTA_PAGE_SIZE) {
         if (!sourceScope.isCurrent()) return;
         await loadQuota(targets.slice(start, start + QUOTA_PAGE_SIZE), onSettled);
       }
     },
     [loadQuota, sourceScope]
+  );
+  const requestQuota = useCallback(
+    (list?: AuthFileItem[], onSettled?: (ok: boolean) => void) =>
+      coalesceQuota(executeQuota, list, onSettled),
+    [coalesceQuota, executeQuota]
+  );
+  const runQuotaRefresh = useCallback(
+    (onSettled: (ok: boolean) => void) => requestQuota(undefined, onSettled),
+    [requestQuota]
   );
   useEffect(
     () =>
@@ -440,17 +459,19 @@ export function AuthFilesSourceContent({
     [quotaTargets.length, registerQuotaRefresh, runQuotaRefresh, sourceScope.session.owner]
   );
 
-  // The group's Refresh: one click re-reads the list and loads quota for the shown cards, with
-  // no dialog or toast; a list failure shows in the group's banner, a quota one in its card.
+  // The group's Refresh: one click re-reads the list, then loads quota for the cards the
+  // refreshed list shows, with no dialog or toast; a list failure shows in the group's banner
+  // (quota then loads for the cards already shown), a quota one in its card.
   const [refreshingGroup, setRefreshingGroup] = useState(false);
   const handleGroupRefresh = useCallback(async () => {
     setRefreshingGroup(true);
     try {
-      await Promise.allSettled([handleHeaderRefresh(), runQuotaRefresh(() => {})]);
+      const list = await rereadList().catch(() => null);
+      await requestQuota(list ?? undefined).catch(() => {});
     } finally {
       setRefreshingGroup(false);
     }
-  }, [handleHeaderRefresh, runQuotaRefresh]);
+  }, [requestQuota, rereadList]);
 
   /* ---------- one-time card entrance cascade (see AuthFileCard) ---------- */
 

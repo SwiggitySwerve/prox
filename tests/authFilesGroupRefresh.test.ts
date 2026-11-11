@@ -20,14 +20,27 @@ describe('group Refresh button', () => {
     expect(refreshButton).toContain("t('auth_files.refresh_all_short')");
   });
 
-  test('re-reads the credential list and loads quota for the quotaTargets, with no dialog or toast', () => {
-    expect(handler).toContain('handleHeaderRefresh()');
-    expect(handler).toContain('runQuotaRefresh(');
+  test('re-reads the credential list, then loads quota for the refreshed list, with no dialog or toast', () => {
+    expect(handler).toContain('await rereadList()');
+    expect(handler).toContain('requestQuota(list ?? undefined)');
+    expect(handler.indexOf('await rereadList()')).toBeLessThan(handler.indexOf('requestQuota('));
     expect(handler).toContain('setRefreshingGroup(true)');
     expect(handler).toContain('setRefreshingGroup(false)');
     expect(handler).not.toContain('showConfirmation');
     expect(handler).not.toContain('showNotification');
+    // targets come from the returned list, never from state or a ref captured before the re-read
+    expect(handler).not.toContain('quotaTargets');
+    expect(handler).not.toContain('quotaInputsRef');
     expect(source).toContain('quotaRefreshTargets(pageItems, activeQuotaFilter)');
+    expect(source).toContain('quotaTargetsForList(list, inputs.filters, inputs.page');
+  });
+
+  test('the group Refresh and the page-wide Refresh quota share one runner that never drops a call', () => {
+    expect(source).toContain('createCoalescingRunner<AuthFileItem[]>');
+    expect(source).toContain('requestQuota(undefined, onSettled)');
+    // the batch loader (which drops overlapping calls) is only reached from inside that runner
+    expect(source.split('await loadQuota(').length).toBe(2);
+    expect(source).not.toContain('Promise.allSettled([handleHeaderRefresh(), runQuotaRefresh');
   });
 
   test('the server-side token refresh is only in the overflow menu, behind its confirmation', () => {

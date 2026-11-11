@@ -94,7 +94,7 @@ export type PrefixProxyEditorState = {
 
 export type UseAuthFilesPrefixProxyEditorOptions = {
   disableControls: boolean;
-  loadFiles: () => Promise<void>;
+  loadFiles: () => Promise<unknown>;
   onFilesMutated?: (names: string[]) => void;
 };
 
