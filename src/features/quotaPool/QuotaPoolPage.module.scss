@@ -3386,3 +3386,51 @@ $table-tiers: (
   color: var(--text-secondary);
   font-weight: 400;
 }
+.resetExpiryWhen {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 8px;
+}
+// With kinds, each reset reads as its kind badge over its date, at every width, so lines stay
+// aligned and a date never breaks beside a badge.
+.resetExpiries[data-kinds] {
+  gap: 8px;
+  li {
+    flex-direction: column;
+    align-items: flex-start;
+    row-gap: 2px;
+  }
+}
+// Read before the kind counts in the row chip, which drops the visible "Manual resets" to fit.
+.resetChipLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+// A Claude reset's kind leads its expiry line as a quiet badge. Fable takes the info blue wherever
+// resets are counted (badge, row chip, totals), so a Fable reset reads apart at a glance.
+.resetKind {
+  padding: 0 6px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  &[data-kind='fable'] {
+    background: color-mix(in srgb, var(--info-color) 14%, transparent);
+    color: var(--info-color);
+  }
+}
+.resetKindTotals {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.resetKindTotals,
+.resetChipPart {
+  [data-kind='fable'] {
+    color: var(--info-color);
+  }
+}

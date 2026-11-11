@@ -91,3 +91,47 @@ export function heldResets(
     .filter((reset) => reset.at > now)
     .slice(0, resets.available);
 }
+
+// Standard kinds first; Fable last, since it refills only what Fable models used.
+const KIND_ORDER: readonly AccountResetKind[] = ['session', 'weekly', 'full', 'fable'];
+export type ResetKindCount = { kind: AccountResetKind; count: number };
+
+/** Held resets per kind, or null unless every held reset is dated and names its kind. */
+export function heldResetKinds(resets: AccountResets, now: number): ResetKindCount[] | null {
+  const held = heldResets(resets, now);
+  if (!held.length || held.length !== resets.available || held.some((reset) => !reset.kind))
+    return null;
+  return countKinds(held.map((reset) => ({ kind: reset.kind!, count: 1 })));
+}
+
+/** Adds per-kind counts, in kind order; null when any part is unknown. */
+export function sumResetKinds(
+  parts: readonly (ResetKindCount[] | null)[]
+): ResetKindCount[] | null {
+  if (!parts.length || parts.some((part) => !part)) return null;
+  return countKinds(parts.flatMap((part) => part!));
+}
+
+function countKinds(counts: readonly ResetKindCount[]): ResetKindCount[] {
+  return KIND_ORDER.map((kind) => ({
+    kind,
+    count: counts.reduce((sum, entry) => (entry.kind === kind ? sum + entry.count : sum), 0),
+  })).filter((entry) => entry.count > 0);
+}
+
+/**
+ * Resets that end together and share a kind, as one entry with a count, in the order each first
+ * appears. Readings sort only by expiry, so equal ends of different kinds may interleave.
+ */
+export function groupHeldResets<T extends { at: number; kind?: AccountResetKind }>(
+  resets: readonly T[]
+): (T & { count: number; first: number })[] {
+  const groups = new Map<string, T & { count: number; first: number }>();
+  resets.forEach((reset, index) => {
+    const key = `${reset.at}\0${reset.kind ?? ''}`;
+    const group = groups.get(key);
+    if (group) group.count += 1;
+    else groups.set(key, { ...reset, count: 1, first: index });
+  });
+  return [...groups.values()];
+}
