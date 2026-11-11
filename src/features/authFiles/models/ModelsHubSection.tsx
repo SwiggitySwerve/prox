@@ -8,17 +8,18 @@ import { useAuthFilesSource } from '@/features/authFiles/AuthFilesSourceContext'
 import { getTypeLabel } from '@/features/authFiles/constants';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import { useModelAccessInventory } from '@/features/authFiles/hooks/useModelAccessInventory';
+import { useAccessDraft } from '@/features/authFiles/hooks/useAccessDraft';
 import { useModelEditSession } from '@/features/authFiles/hooks/useModelEditSession';
-import { buildMatrix, inventoryOf, type ListTarget } from '@/features/authFiles/modelAccess';
-import { ModelAccessLegend, ModelAccessMatrix, type LockedCellInfo } from './ModelAccessMatrix';
-import { LockedCellDialog, ModelEditDialog } from './ModelEditDialog';
+import { buildMatrix, followsProviderList, inventoryOf } from '@/features/authFiles/modelAccess';
+import { AccessSaveBar } from './AccessSaveBar';
+import { ModelAccessMatrix } from './ModelAccessMatrix';
+import { ModelEditDialog } from './ModelEditDialog';
 import { ModelAliasesPanel } from './ModelAliasesPanel';
 import { ModelRulesPanel } from './ModelRulesPanel';
 import {
   countServed,
   filterAccounts,
   filterRows,
-  listKeyOf,
   resolveListKey,
   sortRowsNewestFirst,
   type ModelView,
@@ -103,7 +104,7 @@ export function ModelsHubSection({
     void notifyAuthFilesChanged(scope.session.owner);
   }, [scope.session.owner]);
   const edit = useModelEditSession(inventory, io, reload, onChanged);
-  const [locked, setLocked] = useState<LockedCellInfo | null>(null);
+  const draft = useAccessDraft(inventory, io, reload, onChanged);
   const [overflowing, setOverflowing] = useState(false);
 
   // The top bar's refresh re-lists the credentials and re-reads this provider's model access.
@@ -146,20 +147,31 @@ export function ModelsHubSection({
     inventory?.accounts.filter(
       (account) => account.kind === 'file' && account.ownList.status !== 'known'
     ) ?? [];
+  const saving = draft.save.status === 'saving';
   const busy =
-    edit.session.status !== 'idle' || load.status === 'refreshing' || load.status === 'loading';
+    saving ||
+    edit.session.status !== 'idle' ||
+    load.status === 'refreshing' ||
+    load.status === 'loading';
 
-  // The hub goes with the list: another hub may hold a credential file of the same name.
-  const openRules = (target: ListTarget) =>
-    setParam({ tab: 'rules', list: listKeyOf(target), listHub: hubId });
-  const goToRule = (info: LockedCellInfo) => {
-    setLocked(null);
-    openRules(
-      info.list === 'provider' || !info.accountName
-        ? { kind: 'provider' }
-        : { kind: 'account', name: info.accountName }
-    );
-  };
+  // Accounts whose last Save did not land; the provider list's failure is every follower's.
+  const failed = useMemo(() => {
+    const map = new Map<string, string>();
+    if (draft.save.status !== 'failed' || !inventory) return map;
+    for (const failure of draft.save.failures) {
+      if (failure.target.kind === 'account') {
+        map.set(failure.target.name, failure.message);
+        continue;
+      }
+      for (const account of inventory.accounts) {
+        const follows =
+          account.kind === 'runtime' ||
+          (account.ownList.status === 'known' && followsProviderList(account.ownList.rules));
+        if (follows && !map.has(account.name)) map.set(account.name, failure.message);
+      }
+    }
+    return map;
+  }, [draft.save, inventory]);
 
   const renderAccess = () => {
     if (!inventory) return null;
@@ -193,7 +205,7 @@ export function ModelsHubSection({
           </p>
         )}
         <div className={styles.legendRow}>
-          <ModelAccessLegend />
+          <p className={styles.gridHint}>{t('model_access.grid_hint')}</p>
           {/* Always rendered, so the table never moves when the note appears. */}
           <span className={styles.scrollNote} aria-live="polite">
             {overflowing && !isPhone
@@ -215,27 +227,25 @@ export function ModelsHubSection({
         ) : (
           <ModelAccessMatrix
             provider={getTypeLabel(t, provider)}
+            inventory={inventory}
+            overrides={draft.overrides}
             rows={visibleRows}
             accounts={visibleAccounts}
-            disabled={busy}
+            disabled={saving || edit.session.status !== 'idle'}
             layout={isPhone ? 'list' : 'table'}
-            onToggleCell={(account, model, exclude) =>
-              edit.start({ type: 'account-model', account: account.name, model, exclude })
-            }
-            onLockedCell={setLocked}
-            onEverywhere={(model, exclude) =>
-              edit.start({ type: 'model-everywhere', model, exclude })
-            }
-            onProviderDefault={(model, exclude) =>
-              edit.start({ type: 'provider-model', model, exclude })
-            }
-            onAccountAll={(account, exclude) =>
-              edit.start({ type: 'account-all', account: account.name, exclude })
-            }
-            onEditRule={openRules}
+            failed={failed}
+            onStage={draft.stage}
             onOverflowChange={setOverflowing}
           />
         )}
+        <AccessSaveBar
+          accounts={inventory.accounts}
+          changes={draft.changes}
+          plan={draft.plan}
+          save={draft.save}
+          onSave={() => void draft.commit()}
+          onDiscard={draft.discard}
+        />
         <p className={styles.matrixNote}>
           {t('model_access.api_keys_note')} <Link to="/ai-providers">{t('nav.ai_providers')}</Link>
         </p>
@@ -324,7 +334,6 @@ export function ModelsHubSection({
         onReplan={() => void edit.replan()}
         onClose={edit.close}
       />
-      <LockedCellDialog info={locked} onClose={() => setLocked(null)} onEditRule={goToRule} />
     </div>
   );
 }

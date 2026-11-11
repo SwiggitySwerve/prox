@@ -3,7 +3,7 @@ import { isNamedProvider, providerOfCredential } from '@/features/authFiles/cred
 import type { AuthFileItem } from '@/types';
 import { normalizeOAuthProviderKey } from '@/utils/providerKeys';
 import {
-  isCellExcluded,
+  type AccessChange,
   type ListTarget,
   type ListWrite,
   type AccountAccess,
@@ -95,30 +95,6 @@ export function sumCounts(counts: readonly VisibleCounts[]): VisibleCounts {
     }),
     { models: 0, served: 0, accounts: 0 }
   );
-}
-
-/**
- * Row groups of the access table, in display order. `follows`: no list of its own (runtime
- * credentials included); `own`: its own list replaces the provider list; `unknown`: its list could
- * not be read; `off`: disabled, whatever its list says.
- */
-export const ACCOUNT_GROUPS = ['follows', 'own', 'unknown', 'off'] as const;
-export type AccountGroupKey = (typeof ACCOUNT_GROUPS)[number];
-
-export function accountGroupOf(account: AccountAccess): AccountGroupKey {
-  if (account.disabled) return 'off';
-  const kind = accountListKind(account);
-  return kind === 'own' ? 'own' : kind === 'unknown' ? 'unknown' : 'follows';
-}
-
-/** The non-empty groups, each keeping the inventory order of its accounts. */
-export function groupAccounts(
-  accounts: readonly AccountAccess[]
-): Array<{ key: AccountGroupKey; accounts: AccountAccess[] }> {
-  return ACCOUNT_GROUPS.map((key) => ({
-    key,
-    accounts: accounts.filter((account) => accountGroupOf(account) === key),
-  })).filter((group) => group.accounts.length > 0);
 }
 
 /** One hub's credential files as the page sees them; undefined until they have been read. */
@@ -222,33 +198,6 @@ export function cellLabelKey(cell: CellState): string {
   }
 }
 
-/**
- * i18n key (under model_access.) for a cell's short visible text. The full sentence
- * (cellLabelKey) stays in the cell's aria-label and title. A wildcard shows a lock and its rule.
- */
-export function cellShortKey(cell: CellState): string {
-  switch (cell.kind) {
-    case 'served':
-      return 'cell_short_served';
-    case 'excluded-own':
-      return 'cell_short_excluded_own';
-    case 'excluded-provider':
-      return 'cell_short_excluded_provider';
-    case 'wildcard':
-      return 'cell_short_wildcard';
-    case 'disabled':
-      return 'cell_short_disabled';
-    case 'no-access':
-      return 'cell_short_no_access';
-    case 'unknown':
-      return 'cell_short_unknown';
-    default: {
-      const unreachable: never = cell;
-      throw new Error(`Unhandled cell ${JSON.stringify(unreachable)}`);
-    }
-  }
-}
-
 export const cellRule = (cell: CellState): string | null =>
   cell.kind === 'excluded-own' || cell.kind === 'excluded-provider' || cell.kind === 'wildcard'
     ? cell.rule
@@ -257,9 +206,6 @@ export const cellRule = (cell: CellState): string | null =>
 export const cellDrift = (cell: CellState): boolean =>
   (cell.kind === 'excluded-own' || cell.kind === 'excluded-provider' || cell.kind === 'wildcard') &&
   cell.drift;
-
-/** Toggling a toggleable cell flips it: an excluded cell is served, a served one excluded. */
-export const nextExcludeFor = (cell: CellState): boolean => !isCellExcluded(cell);
 
 /** `runtime` = held in memory by the hub, no file: follows the provider list, read-only here. */
 export type AccountListKind = 'own' | 'inherits' | 'unknown' | 'runtime';
@@ -335,28 +281,29 @@ export function resolveProviderParam(
   return { provider: providers[0] ?? '', param: providers[0] ?? null };
 }
 
-/** What a row's action does: exclude a served model, include it, or edit the rule locking it. */
-export type RowAction =
-  { kind: 'exclude' } | { kind: 'include' } | { kind: 'edit-rule'; target: ListTarget };
+/** Staged switches with the same direction and accounts, as one line of the Save bar. */
+export type ChangeGroup = { on: boolean; models: string[]; accounts: string[] };
 
 /**
- * "Include everywhere" can only remove exact rules. When every account that could serve the model
- * is held back by a wildcard instead, offer the rule: its list (provider or own) opens on Rules.
+ * The staged switches in plain words: first one line per model and direction (a column switch),
+ * then lines naming the same accounts merge (a row switch: several models, one account).
  */
-export function rowActionFor(row: MatrixRow): RowAction {
-  if (row.servedBy.length > 0) return { kind: 'exclude' };
-  let lock: ListTarget | null = null;
-  // Cells are keyed by every account of the provider, in inventory order. Runtime credentials
-  // never resolve to an exclusion, and disabled accounts resolve to 'disabled'.
-  for (const [name, cell] of Object.entries(row.cells)) {
-    if (cell.kind === 'excluded-own' || cell.kind === 'excluded-provider') {
-      return { kind: 'include' };
-    }
-    if (cell.kind === 'wildcard' && !lock) {
-      lock = cell.list === 'provider' ? { kind: 'provider' } : { kind: 'account', name };
-    }
+export function summarizeChanges(changes: readonly AccessChange[]): ChangeGroup[] {
+  const byModel = new Map<string, ChangeGroup>();
+  for (const change of changes) {
+    const id = `${change.on}\n${change.model}`;
+    const group = byModel.get(id) ?? { on: change.on, models: [change.model], accounts: [] };
+    group.accounts.push(change.account);
+    byModel.set(id, group);
   }
-  return lock ? { kind: 'edit-rule', target: lock } : { kind: 'include' };
+  const merged = new Map<string, ChangeGroup>();
+  for (const group of byModel.values()) {
+    const id = `${group.on}\n${group.accounts.join('\n')}`;
+    const same = merged.get(id);
+    if (same) same.models.push(...group.models);
+    else merged.set(id, { ...group, models: [...group.models] });
+  }
+  return [...merged.values()];
 }
 
 /** Labels two or more accounts share; their columns also show the file name. */
