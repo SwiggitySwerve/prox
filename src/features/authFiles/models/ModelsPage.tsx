@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
 import { IconSearch } from '@/components/ui/icons';
+import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { AuthFilesSourceProvider } from '@/features/authFiles/AuthFilesSourceContext';
 import type { ResolvedTheme } from '@/features/authFiles/constants';
 import {
@@ -101,6 +103,33 @@ export function ModelsPage() {
     await Promise.allSettled([...refreshers.current.values()].map((run) => run()));
   }, []);
   useHeaderRefresh(refresh);
+
+  // The Save bars dock at the bottom of the viewport, over this page's column. The app shell clips
+  // the page (overflow: hidden), so a sticky bar inside it never sticks; the dock lives on <body>.
+  const pageRef = useRef<HTMLDivElement>(null);
+  // Only the visible route docks: a previous route's layer stays mounted (hidden) for a while.
+  const isCurrentLayer = usePageTransitionLayer()?.isCurrentLayer ?? true;
+  const [dock, setDock] = useState<HTMLDivElement | null>(null);
+  const [dockHeight, setDockHeight] = useState(0);
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page || !dock) return;
+    const place = () => {
+      const box = page.getBoundingClientRect();
+      dock.style.setProperty('--dock-left', `${box.left}px`);
+      dock.style.setProperty('--dock-width', `${box.width}px`);
+      setDockHeight(dock.offsetHeight);
+    };
+    place();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    observer?.observe(page);
+    observer?.observe(dock);
+    window.addEventListener('resize', place);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', place);
+    };
+  }, [dock]);
 
   // What each section's table shows, summed for the counter.
   const [sectionCounts, setSectionCounts] = useState<Record<string, VisibleCounts>>({});
@@ -413,7 +442,14 @@ export function ModelsPage() {
   })();
 
   return (
-    <div className={styles.page}>
+    <div
+      ref={pageRef}
+      className={styles.page}
+      // Room under the last row, so the docked bars never cover it.
+      style={dockHeight > 0 ? { paddingBottom: dockHeight + 24 } : undefined}
+    >
+      {isCurrentLayer &&
+        createPortal(<div ref={setDock} className={styles.saveDock} />, document.body)}
       {header}
       {filterBar}
       <div
@@ -467,6 +503,7 @@ export function ModelsPage() {
                     setParam={setParam}
                     registerRefresh={registerRefresh}
                     reportCounts={reportCounts}
+                    saveDock={dock}
                   />
                 </AuthFilesSourceProvider>
               </section>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -46,6 +47,8 @@ type Props = {
   registerRefresh: (key: string, refresh: () => Promise<void>) => () => void;
   /** What this hub's access table shows, for the page counter; null when it shows no table. */
   reportCounts: (key: string, counts: VisibleCounts | null) => void;
+  /** Where the Save bar goes (fixed at the bottom of the viewport); inline until it exists. */
+  saveDock: HTMLElement | null;
 };
 
 /** The block every non-table state of a section fills: same frame and height as the table. */
@@ -92,6 +95,7 @@ export function ModelsHubSection({
   setParam,
   registerRefresh,
   reportCounts,
+  saveDock,
 }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -173,6 +177,8 @@ export function ModelsHubSection({
     return map;
   }, [draft.save, inventory]);
 
+  const saveBar = (bar: ReactNode) => (saveDock ? createPortal(bar, saveDock) : bar);
+
   const renderAccess = () => {
     if (!inventory) return null;
     if (inventory.accounts.length === 0) {
@@ -238,14 +244,17 @@ export function ModelsHubSection({
             onOverflowChange={setOverflowing}
           />
         )}
-        <AccessSaveBar
-          accounts={inventory.accounts}
-          changes={draft.changes}
-          plan={draft.plan}
-          save={draft.save}
-          onSave={() => void draft.commit()}
-          onDiscard={draft.discard}
-        />
+        {saveBar(
+          <AccessSaveBar
+            hub={showHeading ? scope.source.label : null}
+            accounts={inventory.accounts}
+            changes={draft.changes}
+            plan={draft.plan}
+            save={draft.save}
+            onSave={() => void draft.commit()}
+            onDiscard={draft.discard}
+          />
+        )}
         <p className={styles.matrixNote}>
           {t('model_access.api_keys_note')} <Link to="/ai-providers">{t('nav.ai_providers')}</Link>
         </p>

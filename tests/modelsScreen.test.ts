@@ -309,6 +309,11 @@ describe('access grid', () => {
     const bar = readFileSync('src/features/authFiles/models/AccessSaveBar.tsx', 'utf8');
     expect(bar).toContain('data-machine="model-access-draft"');
     expect(bar).not.toContain('Modal');
+    // Docked on <body> (the shell clips the page, so sticky never sticks), only for the visible
+    // route: a hidden previous layer must not leave its bar over the next page.
+    const page = readFileSync('src/features/authFiles/models/ModelsPage.tsx', 'utf8');
+    expect(page).toMatch(/isCurrentLayer &&\s*createPortal\(<div ref=\{setDock\}/);
+    expect(section).toContain('createPortal(bar, saveDock)');
   });
 
   test('the model filter and Served switch narrow columns; the account filter narrows rows', () => {

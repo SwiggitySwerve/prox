@@ -13,6 +13,8 @@ import { summarizeChanges } from './matrixView';
 import styles from './ModelsPage.module.scss';
 
 type Props = {
+  /** The hub's name when several hubs show sections (their bars stack in one dock). */
+  hub: string | null;
   accounts: readonly AccountAccess[];
   changes: readonly AccessChange[];
   plan: AccessPlan;
@@ -30,10 +32,10 @@ function draftState(changes: readonly AccessChange[], plan: AccessPlan, save: Dr
 }
 
 /**
- * Sticky at the bottom of the hub section: the staged switches in plain words, with Save and
+ * Docked at the bottom of the viewport: the staged switches in plain words, with Save and
  * Discard. No dialog: the result of a Save (or why it cannot be saved) is shown here.
  */
-export function AccessSaveBar({ accounts, changes, plan, save, onSave, onDiscard }: Props) {
+export function AccessSaveBar({ hub, accounts, changes, plan, save, onSave, onDiscard }: Props) {
   const { t } = useTranslation();
   const state = draftState(changes, plan, save);
   const labelOf = (name: string) => accounts.find((item) => item.name === name)?.label ?? name;
@@ -83,6 +85,7 @@ export function AccessSaveBar({ accounts, changes, plan, save, onSave, onDiscard
       data-testid="access-save-bar"
     >
       <div className={styles.saveBarText}>
+        {hub && <p className={styles.saveHub}>{hub}</p>}
         {groups.length > 0 && (
           <ul className={styles.changeLines} data-testid="access-changes">
             {groups.map((group) => (

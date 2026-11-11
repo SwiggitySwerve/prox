@@ -35,7 +35,8 @@ M = '/auth-files/models?source=alpha&provider=claude'
 # a no-op where the table shows every account, or ('sleep', ms): let delayed reads finish, or
 # ('writes', [...]): fail the case unless the fake hubs received exactly these list writes, in order
 # (each is (method, path, body)), or ('no-hscroll', selector): fail unless the page and that
-# scroller are no wider than the viewport and their own box (checked at >= 600 px wide).
+# scroller are no wider than the viewport and their own box (checked at >= 600 px wide), or
+# ('in-view', selector): fail unless that element is fully inside the viewport without scrolling.
 TEAM_A = 'claude-team-a.json'
 TEAM_B = 'claude-team-b.json'
 SAVED = '[data-machine="model-access-draft"][data-state="saved"]'
@@ -105,6 +106,12 @@ CASES = [
     # Models are rows and accounts share the width: neither the page nor the table scrolls sideways.
     ('models-fit-default', M, 'default', [('no-hscroll', GRID)]),
     ('models-fit-wide', M, 'wide', [('no-hscroll', GRID)]),
+    # 22 models make the page taller than the screen: the Save bar is docked in view at the fold,
+    # and leaves with the page (it stays staged for when Models is opened again).
+    ('models-bar-docked', M, 'wide', [
+        ('click', '[data-model-switch="claude-haiku-4-5"]'), ('in-view', '[data-testid="access-save-bar"]'),
+        ('screenshot', 'docked'), ('goto', '/auth-files'), ('wait', '[data-source-id="alpha"]'),
+        ('no-dialog', '[data-testid="access-save-bar"]'), ('writes', [])]),
     # No ?source=: every hub with Claude accounts gets its own section under the one Claude tab.
     ('models-all-sources', '/auth-files/models?provider=claude', 'shared', []),
     ('models-rules', M + '&tab=rules', 'default', []),
@@ -310,6 +317,10 @@ async def run_case(browser, base, origin, out, width, case):
                     extra['hscroll'] = fit
                     if fit['page'] or fit['table']:
                         raise AssertionError(f'horizontal scroll: {fit}')
+            elif action == 'in-view':
+                box = await page.locator(selector).first.bounding_box()
+                if not box or box['y'] < 0 or box['y'] + box['height'] > page.viewport_size['height'] + 1:
+                    raise AssertionError(f'not in view at the fold: {selector} {box}')
             elif action == 'screenshot':
                 await page.screenshot(path=str(out / 'fold' / f'{name}-{selector}.png'), timeout=30000)
             elif action == 'goto':
