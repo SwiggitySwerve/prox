@@ -604,7 +604,7 @@ function AccessList({
  * What the grid's marks mean, drawn with the grid's own marks. Fixed: every entry shows whether
  * or not the grid has one right now, so the key never moves.
  */
-export function AccessKey() {
+export function AccessKey({ titled = true }: { titled?: boolean }) {
   const { t } = useTranslation();
   const sample = (state: SwitchState, changed = false) => (
     <span
@@ -618,47 +618,54 @@ export function AccessKey() {
     </span>
   );
   return (
-    <ul className={styles.key} aria-label={t('model_access.key_label')}>
-      <li>
-        {sample('on')}
-        {t('model_access.key_on')}
-      </li>
-      <li>
-        {sample('off')}
-        {t('model_access.key_off')}
-      </li>
-      <li>
-        <span className={`${styles.bulk} ${styles.keySample}`} data-state="on">
-          <span className={styles.checkBox}>
-            <IconCheck size={12} strokeWidth={3} />
-          </span>
+    <div className={styles.keyRow}>
+      {titled && (
+        <span className={styles.keyTitle} aria-hidden="true">
+          {t('model_access.key_label')}
         </span>
-        {t('model_access.key_all')}
-      </li>
-      <li>
-        <span className={`${styles.bulk} ${styles.keySample}`} data-state="mixed">
-          <span className={styles.checkBox}>
-            <span className={styles.checkDash} />
+      )}
+      <ul className={styles.key} aria-label={t('model_access.key_label')}>
+        <li>
+          {sample('on')}
+          {t('model_access.key_on')}
+        </li>
+        <li>
+          {sample('off')}
+          {t('model_access.key_off')}
+        </li>
+        <li>
+          <span className={`${styles.bulk} ${styles.keySample}`} data-state="on">
+            <span className={styles.checkBox}>
+              <IconCheck size={12} strokeWidth={3} />
+            </span>
           </span>
-        </span>
-        {t('model_access.key_some')}
-      </li>
-      <li>
-        <span className={`${styles.noSwitch} ${styles.keySample}`}>—</span>
-        {t('model_access.key_none')}
-      </li>
-      <li>
-        <span className={`${styles.switch} ${styles.keySample}`} data-state="on" data-off="true">
-          <span className={styles.switchTrack}>
-            <span className={styles.switchThumb} />
+          {t('model_access.key_all')}
+        </li>
+        <li>
+          <span className={`${styles.bulk} ${styles.keySample}`} data-state="mixed">
+            <span className={styles.checkBox}>
+              <span className={styles.checkDash} />
+            </span>
           </span>
-        </span>
-        {t('model_access.key_account_off')}
-      </li>
-      <li>
-        {sample('on', true)}
-        {t('model_access.key_staged')}
-      </li>
-    </ul>
+          {t('model_access.key_some')}
+        </li>
+        <li>
+          <span className={`${styles.noSwitch} ${styles.keySample}`}>—</span>
+          {t('model_access.key_none')}
+        </li>
+        <li>
+          <span className={`${styles.switch} ${styles.keySample}`} data-state="on" data-off="true">
+            <span className={styles.switchTrack}>
+              <span className={styles.switchThumb} />
+            </span>
+          </span>
+          {t('model_access.key_account_off')}
+        </li>
+        <li>
+          {sample('on', true)}
+          {t('model_access.key_staged')}
+        </li>
+      </ul>
+    </div>
   );
 }

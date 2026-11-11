@@ -504,7 +504,7 @@
   white-space: nowrap;
 
   & + & {
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 400;
     color: var(--text-tertiary);
   }
@@ -592,6 +592,73 @@
   overflow-wrap: anywhere;
 }
 
+/* "Key", then each mark of the grid drawn small (a sample, not a control) with its meaning. */
+.keyRow {
+  display: flex;
+  align-items: center;
+  gap: 6px 14px;
+  min-width: 0;
+}
+
+.keyRow > .key {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.keyTitle {
+  flex-shrink: 0;
+  padding-right: 14px;
+  border-right: 1px solid var(--border-color);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Phones: the key is one tap away. */
+.keyDisclosure {
+  font-size: 12px;
+  color: var(--text-secondary);
+
+  > summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    /* A chevron: right when closed, down when open. */
+    &::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform var(--dur-hover) var(--ease-out-strong);
+    }
+  }
+
+  &[open] > summary::before {
+    transform: rotate(45deg);
+  }
+
+  &[open] > .keyRow {
+    padding-bottom: 6px;
+  }
+}
+
+.loadingNote {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
 /* The key: each mark of the grid, drawn as itself, with what it means. */
 .key {
   display: flex;
@@ -616,6 +683,21 @@
   height: auto;
   cursor: default;
   pointer-events: none;
+
+  &.switch {
+    --switch-w: 26px;
+    --switch-h: 15px;
+    --thumb: 9px;
+  }
+
+  &.bulk {
+    --box: 13px;
+
+    svg {
+      width: 9px;
+      height: 9px;
+    }
+  }
 
   /* An account that is off: its switches, dimmed as in its column. */
   &[data-off='true'] {
@@ -762,7 +844,7 @@
   flex-shrink: 0;
   width: var(--switch-w);
   height: var(--switch-h);
-  border: 1px solid color-mix(in srgb, var(--text-quaternary) 75%, var(--bg-primary));
+  border: 1px solid color-mix(in srgb, var(--text-quaternary) 90%, var(--bg-primary));
   border-radius: $radius-full;
   background: var(--bg-tertiary);
   transition: background-color var(--dur-hover) var(--ease-out-strong);

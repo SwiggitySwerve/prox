@@ -190,7 +190,7 @@ export function ModelsHubSection({
             description={t('model_access.empty_desc')}
             action={
               <Button size="sm" variant="secondary" onClick={() => navigate('/auth-files')}>
-                {t('nav.auth_files')}
+                {t('model_access.open_auth_files')}
               </Button>
             }
           />
@@ -212,7 +212,15 @@ export function ModelsHubSection({
           </p>
         )}
         <div className={styles.legendRow}>
-          <AccessKey />
+          {isPhone ? (
+            // Background on a phone: one tap away, so the list starts on the first screen.
+            <details className={styles.keyDisclosure}>
+              <summary>{t('model_access.key_label')}</summary>
+              <AccessKey titled={false} />
+            </details>
+          ) : (
+            <AccessKey />
+          )}
           {/* Always rendered, so the table never moves when the note appears. */}
           <span className={styles.scrollNote} aria-live="polite">
             {overflowing && !isPhone
@@ -267,7 +275,7 @@ export function ModelsHubSection({
   if (load.status === 'idle' || load.status === 'loading') {
     content = (
       <SectionState kind="loading">
-        <p role="status" className={styles.srOnly}>
+        <p role="status" className={styles.loadingNote}>
           {t('model_access.loading')}
         </p>
         <SectionSkeleton />

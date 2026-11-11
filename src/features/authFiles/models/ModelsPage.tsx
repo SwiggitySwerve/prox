@@ -418,7 +418,7 @@ export function ModelsPage() {
     if (registry.status === 'loading' || (registry.status === 'ready' && !providersKnown)) {
       return (
         <SectionState kind="loading">
-          <p role="status" className={styles.srOnly}>
+          <p role="status" className={styles.loadingNote}>
             {t('model_access.loading')}
           </p>
           <SectionSkeleton />
@@ -460,7 +460,7 @@ export function ModelsPage() {
           description={t('model_access.no_provider_desc')}
           action={
             <Button size="sm" variant="secondary" onClick={() => navigate('/auth-files')}>
-              {t('nav.auth_files')}
+              {t('model_access.open_auth_files')}
             </Button>
           }
         />
