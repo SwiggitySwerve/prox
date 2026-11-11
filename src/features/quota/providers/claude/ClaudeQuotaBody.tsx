@@ -13,6 +13,7 @@ import { QuotaMeter } from '../../components/QuotaMeter';
 import { QuotaResetLabel } from '../../components/QuotaResetLabel';
 import { collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
 import type { QuotaBodyProps } from '../../types';
+import { claudeQuotaRowSlots } from '@/domain/quotaWindows/claude';
 
 export function ClaudeQuotaBody({
   quota,
@@ -20,6 +21,7 @@ export function ClaudeQuotaBody({
   planItems,
   afterPlan,
   factsInPanel = false,
+  fixedSlots = false,
 }: QuotaBodyProps<ClaudeQuotaState>) {
   const { t, i18n } = useTranslation();
   const now = useNow();
@@ -33,22 +35,101 @@ export function ClaudeQuotaBody({
   const language = i18n.resolvedLanguage;
 
   const extraUsageNotes = claudeExtraUsageNotes(extraUsage, t);
+  // The notice under the rows in a fixed-slot host: above them it would push every row down.
+  const staleNotice = quota.stale && (
+    <div role="status" className={classes.codexResetCreditsError}>
+      {t('claude_quota.stale_snapshot', {
+        time: quota.observedAt ? new Date(quota.observedAt).toLocaleString(language) : '--',
+      })}
+    </div>
+  );
+
+  const windowRow = (
+    window: ClaudeQuotaState['windows'][number],
+    index: number,
+    slotId?: string
+  ) => {
+    const used = window.usedPercent;
+    const clampedUsed = used === null ? null : Math.max(0, Math.min(100, used));
+    const remaining = clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
+    const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
+    const windowLabel = window.labelKey ? t(window.labelKey) : window.label;
+    const resetDisplay = buildResetDisplay(
+      window.resetLabel,
+      window.resetAtMs,
+      now,
+      i18n.resolvedLanguage
+    );
+
+    const soon = window.id === soonestRowId;
+
+    return (
+      <div
+        key={window.id}
+        className={classes.quotaRow}
+        title={soon ? t('quota_management.soonest_row_hint') : undefined}
+        {...(slotId ? { 'data-slot': slotId, 'data-slot-filled': '' } : {})}
+      >
+        <div className={classes.quotaRowHeader}>
+          <span className={classes.quotaModel}>{windowLabel}</span>
+          <div className={classes.quotaMeta}>
+            <span className={classes.quotaPercent}>{percentLabel}</span>
+            {resetDisplay && (
+              <QuotaResetLabel display={resetDisplay} classes={classes} soon={soon} />
+            )}
+          </div>
+        </div>
+        <QuotaMeter percent={remaining} classes={classes} index={index} />
+      </div>
+    );
+  };
+
+  // A fixed-slot host renders every row kind in its canonical place: what the account does not
+  // report is a placeholder of the same size, so rows stay level with its neighbours' rows.
+  const slotRows = () => {
+    const slots = claudeQuotaRowSlots();
+    const known = new Set(slots.map((slot) => slot.id));
+    return [
+      ...slots.map((slot, index) => {
+        const window = windows.find((candidate) => candidate.id === slot.id);
+        if (window) return windowRow(window, index, slot.id);
+        return (
+          <div
+            key={slot.id}
+            className={classes.quotaRow}
+            data-slot={slot.id}
+            {...(slot.always ? {} : { 'data-slot-optional': '' })}
+          >
+            <div className={classes.quotaRowHeader}>
+              <span className={classes.quotaModel}>{t(slot.labelKey)}</span>
+              <div className={classes.quotaMeta}>
+                <span className={classes.quotaPercent}>–</span>
+              </div>
+            </div>
+            <QuotaMeter percent={null} classes={classes} />
+          </div>
+        );
+      }),
+      ...windows
+        .filter((window) => !known.has(window.id))
+        .map((window, index) => windowRow(window, slots.length + index)),
+    ];
+  };
 
   return (
     <>
-      {quota.stale && (
-        <div role="status" className={classes.codexResetCreditsError}>
-          {t('claude_quota.stale_snapshot', {
-            time: quota.observedAt ? new Date(quota.observedAt).toLocaleString(language) : '--',
-          })}
-        </div>
-      )}
-      {(planType || (!factsInPanel && planItems)) && (
+      {!fixedSlots && staleNotice}
+      {(planType || fixedSlots || (!factsInPanel && planItems)) && (
         <div className={classes.codexPlan}>
-          {planType && (
-            <span className={classes.codexPlanItem}>
+          {(planType || fixedSlots) && (
+            <span
+              className={classes.codexPlanItem}
+              {...(planType ? {} : { 'data-slot-empty': '' })}
+            >
               <span className={classes.codexPlanLabel}>{t('claude_quota.plan_label')}</span>
-              <span className={classes.codexPlanValue}>{t(`claude_quota.${planType}`)}</span>
+              <span className={classes.codexPlanValue}>
+                {planType ? t(`claude_quota.${planType}`) : '–'}
+              </span>
             </span>
           )}
           {!factsInPanel && planItems}
@@ -150,44 +231,15 @@ export function ClaudeQuotaBody({
             </div>
           );
         })}
-      {windows.length === 0 && !extraUsage && !quota.dollarWindows?.length ? (
+      {fixedSlots ? (
+        <>
+          {slotRows()}
+          {staleNotice}
+        </>
+      ) : windows.length === 0 && !extraUsage && !quota.dollarWindows?.length ? (
         <div className={classes.quotaMessage}>{t('claude_quota.empty_windows')}</div>
       ) : (
-        windows.map((window, index) => {
-          const used = window.usedPercent;
-          const clampedUsed = used === null ? null : Math.max(0, Math.min(100, used));
-          const remaining =
-            clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
-          const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
-          const windowLabel = window.labelKey ? t(window.labelKey) : window.label;
-          const resetDisplay = buildResetDisplay(
-            window.resetLabel,
-            window.resetAtMs,
-            now,
-            i18n.resolvedLanguage
-          );
-
-          const soon = window.id === soonestRowId;
-
-          return (
-            <div
-              key={window.id}
-              className={classes.quotaRow}
-              title={soon ? t('quota_management.soonest_row_hint') : undefined}
-            >
-              <div className={classes.quotaRowHeader}>
-                <span className={classes.quotaModel}>{windowLabel}</span>
-                <div className={classes.quotaMeta}>
-                  <span className={classes.quotaPercent}>{percentLabel}</span>
-                  {resetDisplay && (
-                    <QuotaResetLabel display={resetDisplay} classes={classes} soon={soon} />
-                  )}
-                </div>
-              </div>
-              <QuotaMeter percent={remaining} classes={classes} index={index} />
-            </div>
-          );
-        })
+        windows.map((window, index) => windowRow(window, index))
       )}
     </>
   );

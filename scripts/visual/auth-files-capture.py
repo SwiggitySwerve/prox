@@ -32,7 +32,7 @@ M = '/auth-files/models?source=alpha&provider=claude'
 # ('goto', hash route), ('scroll', selector): scroll that element to its right end, or
 # ('no-dialog', selector): fail the case when that element is visible, or
 # ('pick-account', label): on a phone the matrix is a per-account list, so pick the account first;
-# a no-op where the table shows every account.
+# a no-op where the table shows every account, or ('sleep', ms): let delayed reads finish.
 CASES = [
     ('auth-files', '/auth-files', 'default', []),
     ('auth-files-loading', '/auth-files', 'loading', []),
@@ -74,6 +74,11 @@ CASES = [
         ('no-dialog', '[role=dialog]')]),
     ('auth-files-group-menu', '/auth-files', 'default', [
         ('click', '[data-source-id="alpha"] [aria-haspopup="menu"]')]),
+    # Six Claude cards whose quota windows, billing text and held resets all differ: in every grid row
+    # each section, quota row, Billing block and Manual resets box must start at the same height.
+    ('auth-files-card-alignment', '/auth-files', 'aligned', [
+        ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
+        ('wait', '[data-quota-state="loaded"] details[open]'), ('sleep', '4500')]),
     ('models-preview-everywhere', M, 'default', [('click', '[data-row-action="claude-haiku-4-5"]')]),
     ('models-saved', M, 'default', [
         ('click', '[data-row-action="claude-haiku-4-5"]'), ('click', '[data-testid="write-plan-apply"]'),
@@ -111,6 +116,68 @@ MEASURE = '''() => {
       .slice(0,8).map(e=>({tag:e.tagName,class:String(e.className).slice(0,80)})),
     hash:location.hash,
   };
+}'''
+# Cards of one grid row, section by section: the top of each section, quota row and account-details
+# block must not differ by more than 1px between cards. A card that lacks a section the others show
+# is a finding when `strict` (the 'aligned' scenario reads every card fully, so none may lack one).
+ALIGNMENT = '''(strict) => {
+  const TOL = 1;
+  // Sections are found by their CSS-module class (generateScopedName keeps `__local___`), rows by
+  // their label, so the same measurement runs against any build, before or after a change.
+  const q = (root, local) => root.querySelector(`[class*="__${local}___"]`);
+  const cards = [...document.querySelectorAll('main article')].filter(c => q(c, 'head'));
+  const top = (e) => Math.round(e.getBoundingClientRect().top * 10) / 10;
+  const SLOTS = {head: 'head', account: 'identityLine', requests: 'health', meta: 'metaRow',
+                 quota: 'quotaSection', footer: 'actions'};
+  const measure = (card) => {
+    const m = {};
+    for (const [key, local] of Object.entries(SLOTS)) {
+      const e = q(card, local);
+      if (e) m[key] = top(e);
+    }
+    const quota = q(card, 'quotaSection');
+    if (quota) {
+      m['quota-head'] = top(q(quota, 'quotaHead'));
+      const rows = [...quota.querySelectorAll('[class*="__quotaRow___"]')]
+        .filter(e => getComputedStyle(e).display !== 'none');
+      rows.forEach(e => { m['row:' + q(e, 'quotaModel').textContent.trim()] = top(e); });
+      const chip = q(quota, 'codexPlan');
+      if (chip) m['plan-chip'] = top(chip);
+      const summary = quota.querySelector('details > summary');
+      if (summary) m['details-summary'] = top(summary);
+      ['billing', 'resets', 'balances'].forEach((name, i) => {
+        const section = quota.querySelectorAll('details section')[i];
+        if (section) m[name] = top(section);
+      });
+    }
+    m['card-bottom'] = Math.round(card.getBoundingClientRect().bottom * 10) / 10;
+    return m;
+  };
+  const bands = [];
+  for (const card of cards.sort((a, b) => top(a) - top(b))) {
+    const band = bands.find(b => Math.abs(top(b[0]) - top(card)) <= TOL);
+    band ? band.push(card) : bands.push([card]);
+  }
+  const rowed = bands.filter(b => b.length > 1);
+  const violations = [];
+  let maxDelta = 0, compared = 0;
+  const optional = new Set(['balances']);
+  rowed.forEach((band, i) => {
+    const maps = band.map(measure);
+    const keys = new Set(maps.flatMap(m => Object.keys(m)));
+    for (const key of keys) {
+      const present = maps.filter(m => key in m).map(m => m[key]);
+      if (strict && present.length < maps.length && !optional.has(key))
+        violations.push({band: i, key, problem: 'missing on ' + (maps.length - present.length) + ' card(s)'});
+      if (present.length < 2) continue;
+      compared += 1;
+      const delta = Math.round((Math.max(...present) - Math.min(...present)) * 10) / 10;
+      maxDelta = Math.max(maxDelta, delta);
+      if (delta > TOL) violations.push({band: i, key, problem: 'tops differ by ' + delta + 'px', tops: present});
+    }
+  });
+  if (strict && !rowed.length) violations.push({key: 'grid', problem: 'no grid row holds two cards'});
+  return {cards: cards.length, bands: rowed.length, compared, maxDelta, violations: violations.slice(0, 16)};
 }'''
 CONTENT_HEIGHT = '''() => Math.max(innerHeight, document.documentElement.scrollHeight,
   ...[...document.querySelectorAll('*')]
@@ -157,6 +224,8 @@ async def run_case(browser, base, origin, out, width, case):
             elif action == 'no-dialog':
                 if await page.locator(selector).first.is_visible():
                     raise AssertionError(f'unexpected dialog: {selector}')
+            elif action == 'sleep':
+                await page.wait_for_timeout(int(selector))
             elif action == 'hub':
                 getattr(hubs, selector)()
             elif action == 'pick-account':
@@ -177,6 +246,8 @@ async def run_case(browser, base, origin, out, width, case):
                 await page.locator(selector).first.wait_for(timeout=20000)
                 await page.wait_for_timeout(300)
         result = await page.evaluate(MEASURE)
+        # Phones show one card per row, so there is nothing to line up there.
+        result['alignment'] = await page.evaluate(ALIGNMENT, scenario == 'aligned' and width >= 600)
         await page.screenshot(path=str(out / 'fold' / f'{name}.png'), timeout=30000)
         content = await page.evaluate(CONTENT_HEIGHT)
         await page.set_viewport_size({'width': width, 'height': min(int(content) + 120, 9000)})
@@ -192,7 +263,8 @@ async def run_case(browser, base, origin, out, width, case):
                   credentialReads=hubs.credential_reads, reads=hubs.reads,
                   unexpected=hubs.unexpected, blocked=hubs.blocked)
     result['pass'] = not any(result.get(k) for k in
-                             ['overflow', 'errors', 'blocked', 'harnessError', 'unexpected'])
+                             ['overflow', 'errors', 'blocked', 'harnessError', 'unexpected']) \
+        and not result.get('alignment', {}).get('violations')
     await context.close()
     return name, result
 

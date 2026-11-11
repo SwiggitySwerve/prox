@@ -1,3 +1,5 @@
+@use '../../../styles/cardTracks' as *;
+
 .details {
   min-width: 0;
   margin-top: 12px;
@@ -16,5 +18,38 @@
   // The compact card already supplies its inset; the pool drawer keeps its own.
   > div {
     padding: 12px 0 0;
+  }
+}
+
+/* On a shared row grid (a credential card): the summary is the first track and each section of
+   the panel one of the next, so billing, resets and the rest start at the same height on every
+   card of a grid row. The wrappers drop out so the sections are the grid's own items, and the
+   panel is not a size container there: the host decides its width, and one column fits. */
+@supports (grid-template-rows: subgrid) and selector(details::details-content) {
+  .rows {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: subgrid;
+
+    &::details-content {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: subgrid;
+      grid-row: 2 / span #{$details-tracks - 1};
+    }
+
+    > div,
+    > div > div {
+      display: contents;
+      container-type: normal;
+    }
+
+    section {
+      margin-top: 24px;
+
+      &:first-child {
+        margin-top: 12px;
+      }
+    }
   }
 }

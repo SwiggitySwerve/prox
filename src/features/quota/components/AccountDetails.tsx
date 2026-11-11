@@ -30,6 +30,12 @@ type Props = {
   reset?: { disabled: boolean; onClick: () => void };
   /** Starts expanded; the user can still collapse it. */
   defaultOpen?: boolean;
+  /**
+   * The host lays out cards side by side on a shared row grid: the summary and each section take
+   * their own grid rows (see AccountDetails.module.scss), so the same section starts at the same
+   * height on every card. The host places this element and gives it its rows.
+   */
+  rows?: boolean;
 };
 
 /** Both quota hosts use this one disclosure and the same fact states. */
@@ -40,6 +46,7 @@ export function AccountDetails({
   claudeReset,
   reset,
   defaultOpen,
+  rows,
 }: Props) {
   const { t, i18n } = useTranslation();
   const now = useNow();
@@ -95,7 +102,7 @@ export function AccountDetails({
       : undefined;
   return (
     <details
-      className={styles.details}
+      className={rows ? `${styles.details} ${styles.rows}` : styles.details}
       open={defaultOpen}
       style={
         {

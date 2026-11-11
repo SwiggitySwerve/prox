@@ -299,128 +299,131 @@ export function AuthFileCard(props: AuthFileCardProps) {
           />
         ))}
 
-      {/* Notes and warnings sit under the quota slot so the slots above never move. */}
-      {(Boolean(!compact && noteValue) ||
-        Boolean(rawStatusMessage && hasStatusWarning) ||
-        hasCooldownContent ||
-        supportsSiwcBinding(file)) && (
-        <div className={styles.notices}>
-          {!compact && noteValue && (
-            <p className={styles.note} title={noteValue}>
-              {noteValue}
-            </p>
-          )}
+      {/* Slots f and g share one grid track: the notices on top, the actions at the bottom. */}
+      <div className={styles.foot}>
+        {/* Notes and warnings sit under the quota slot so the slots above never move. */}
+        {(Boolean(!compact && noteValue) ||
+          Boolean(rawStatusMessage && hasStatusWarning) ||
+          hasCooldownContent ||
+          supportsSiwcBinding(file)) && (
+          <div className={styles.notices}>
+            {!compact && noteValue && (
+              <p className={styles.note} title={noteValue}>
+                {noteValue}
+              </p>
+            )}
 
-          {rawStatusMessage && hasStatusWarning && (
-            <div className={styles.warning} title={rawStatusMessage}>
-              <IconInfo className={styles.warningIcon} size={14} />
-              <span>{describeStatus(summarizeAuthFileStatusMessage(rawStatusMessage))}</span>
-            </div>
-          )}
+            {rawStatusMessage && hasStatusWarning && (
+              <div className={styles.warning} title={rawStatusMessage}>
+                <IconInfo className={styles.warningIcon} size={14} />
+                <span>{describeStatus(summarizeAuthFileStatusMessage(rawStatusMessage))}</span>
+              </div>
+            )}
 
-          <AuthFileCooldownSection
-            snapshot={file.cooldownSnapshot}
-            resetting={isCooldownResetting}
-            resetDisabled={disableControls || statusBusy || isManualRefreshing}
-            onReset={authIndexKey ? () => onCooldownReset(file) : undefined}
-          />
+            <AuthFileCooldownSection
+              snapshot={file.cooldownSnapshot}
+              resetting={isCooldownResetting}
+              resetDisabled={disableControls || statusBusy || isManualRefreshing}
+              onReset={authIndexKey ? () => onCooldownReset(file) : undefined}
+            />
 
-          {supportsSiwcBinding(file) && (
-            <div className={styles.siwcRow}>
-              <SiwcStatusBadge status={getSiwcBindingStatus(file)} />
-              {siwcExpires && (
-                <span className={styles.siwcExpires} title={file.siwcExpiresAt}>
-                  {t('siwc.expires', { date: siwcExpires })}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Slots f and g: the same actions in the same order, then the Enabled switch. */}
-      <footer className={styles.actions}>
-        <div className={styles.actionsMain}>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onShowModels(file)}
-            data-card-models={file.name}
-            title={showModelsButton ? t('auth_files.models_button') : runtimeReason}
-            disabled={disableControls || !showModelsButton}
-          >
-            <IconModelCluster size={14} />
-            {t('auth_files.models_button')}
-          </Button>
-          <div className={styles.utilityActions}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onManualRefresh(file)}
-              className={styles.iconButton}
-              title={manualRefreshReason}
-              aria-label={t('auth_files.manual_refresh_button')}
-              disabled={
-                disableControls ||
-                !showManualRefreshButton ||
-                file.disabled ||
-                statusBusy ||
-                isManualRefreshing
-              }
-            >
-              {isManualRefreshing ? <LoadingSpinner size={14} /> : <IconRefreshCw size={15} />}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onDownload(file.name)}
-              className={styles.iconButton}
-              title={isRuntimeOnly ? runtimeReason : t('auth_files.download_button')}
-              aria-label={t('auth_files.download_button')}
-              disabled={disableControls || isRuntimeOnly}
-            >
-              <IconDownload size={15} />
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onOpenPrefixProxyEditor(file)}
-              data-card-settings={file.name}
-              className={styles.iconButton}
-              title={isRuntimeOnly ? runtimeReason : t('auth_files.prefix_proxy_button')}
-              aria-label={t('auth_files.prefix_proxy_button')}
-              disabled={disableControls || isRuntimeOnly || isManualRefreshing}
-            >
-              <IconSettings size={15} />
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => onDelete(file.name)}
-              className={styles.iconButton}
-              title={isRuntimeOnly ? runtimeReason : t('auth_files.delete_button')}
-              aria-label={t('auth_files.delete_button')}
-              disabled={
-                disableControls || isRuntimeOnly || deleting === file.name || isManualRefreshing
-              }
-            >
-              {deleting === file.name ? <LoadingSpinner size={14} /> : <IconTrash2 size={15} />}
-            </Button>
+            {supportsSiwcBinding(file) && (
+              <div className={styles.siwcRow}>
+                <SiwcStatusBadge status={getSiwcBindingStatus(file)} />
+                {siwcExpires && (
+                  <span className={styles.siwcExpires} title={file.siwcExpiresAt}>
+                    {t('siwc.expires', { date: siwcExpires })}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-        <div
-          className={styles.toggleWrap}
-          title={isRuntimeOnly ? t('auth_files.toggle_unavailable_runtime') : undefined}
-        >
-          <span className={styles.toggleLabel}>{t('auth_files.status_toggle_label')}</span>
-          <ToggleSwitch
-            ariaLabel={t('auth_files.card_toggle', { name: file.name })}
-            checked={!file.disabled}
-            disabled={disableControls || isRuntimeOnly || statusBusy || isManualRefreshing}
-            onChange={(value) => onToggleStatus(file, value)}
-          />
-        </div>
-      </footer>
+        )}
+
+        {/* The same actions in the same order, then the Enabled switch. */}
+        <footer className={styles.actions}>
+          <div className={styles.actionsMain}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onShowModels(file)}
+              data-card-models={file.name}
+              title={showModelsButton ? t('auth_files.models_button') : runtimeReason}
+              disabled={disableControls || !showModelsButton}
+            >
+              <IconModelCluster size={14} />
+              {t('auth_files.models_button')}
+            </Button>
+            <div className={styles.utilityActions}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onManualRefresh(file)}
+                className={styles.iconButton}
+                title={manualRefreshReason}
+                aria-label={t('auth_files.manual_refresh_button')}
+                disabled={
+                  disableControls ||
+                  !showManualRefreshButton ||
+                  file.disabled ||
+                  statusBusy ||
+                  isManualRefreshing
+                }
+              >
+                {isManualRefreshing ? <LoadingSpinner size={14} /> : <IconRefreshCw size={15} />}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onDownload(file.name)}
+                className={styles.iconButton}
+                title={isRuntimeOnly ? runtimeReason : t('auth_files.download_button')}
+                aria-label={t('auth_files.download_button')}
+                disabled={disableControls || isRuntimeOnly}
+              >
+                <IconDownload size={15} />
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onOpenPrefixProxyEditor(file)}
+                data-card-settings={file.name}
+                className={styles.iconButton}
+                title={isRuntimeOnly ? runtimeReason : t('auth_files.prefix_proxy_button')}
+                aria-label={t('auth_files.prefix_proxy_button')}
+                disabled={disableControls || isRuntimeOnly || isManualRefreshing}
+              >
+                <IconSettings size={15} />
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => onDelete(file.name)}
+                className={styles.iconButton}
+                title={isRuntimeOnly ? runtimeReason : t('auth_files.delete_button')}
+                aria-label={t('auth_files.delete_button')}
+                disabled={
+                  disableControls || isRuntimeOnly || deleting === file.name || isManualRefreshing
+                }
+              >
+                {deleting === file.name ? <LoadingSpinner size={14} /> : <IconTrash2 size={15} />}
+              </Button>
+            </div>
+          </div>
+          <div
+            className={styles.toggleWrap}
+            title={isRuntimeOnly ? t('auth_files.toggle_unavailable_runtime') : undefined}
+          >
+            <span className={styles.toggleLabel}>{t('auth_files.status_toggle_label')}</span>
+            <ToggleSwitch
+              ariaLabel={t('auth_files.card_toggle', { name: file.name })}
+              checked={!file.disabled}
+              disabled={disableControls || isRuntimeOnly || statusBusy || isManualRefreshing}
+              onChange={(value) => onToggleStatus(file, value)}
+            />
+          </div>
+        </footer>
+      </div>
     </article>
   );
 }
@@ -451,18 +454,20 @@ export function AuthFileCardSkeleton({ compact }: { compact: boolean }) {
         <Skeleton width={120} height={10} rounded={5} />
       </div>
       {!compact && <AuthFileQuotaSkeleton />}
-      <div className={styles.actions}>
-        <div className={styles.actionsMain}>
-          <Skeleton width={128} height={30} rounded={8} />
-          <div className={styles.utilityActions}>
-            {[0, 1, 2, 3].map((index) => (
-              <Skeleton key={index} width={30} height={30} rounded={8} />
-            ))}
+      <div className={styles.foot}>
+        <div className={styles.actions}>
+          <div className={styles.actionsMain}>
+            <Skeleton width={128} height={30} rounded={8} />
+            <div className={styles.utilityActions}>
+              {[0, 1, 2, 3].map((index) => (
+                <Skeleton key={index} width={30} height={30} rounded={8} />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className={styles.toggleWrap}>
-          <Skeleton width={44} height={10} rounded={5} />
-          <Skeleton width={44} height={24} rounded={12} />
+          <div className={styles.toggleWrap}>
+            <Skeleton width={44} height={10} rounded={5} />
+            <Skeleton width={44} height={24} rounded={12} />
+          </div>
         </div>
       </div>
     </div>

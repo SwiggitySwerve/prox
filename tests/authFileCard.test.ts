@@ -44,7 +44,10 @@ describe('auth file card presentation contract', () => {
 
   test('dims disabled card content but keeps the re-enable controls clear', () => {
     expect(source).toContain("file.disabled === true ? styles.cardDisabled : ''");
-    expect(styles).toMatch(/\.cardDisabled\s*>\s*:not\(\.actions\)\s*\{\s*opacity:\s*0\.68;/);
+    // The footer holds the actions and the notices: only the notices dim, never the actions.
+    expect(styles).toMatch(
+      /\.cardDisabled\s*>\s*:not\(\.foot\),\s*\.cardDisabled\s+\.notices\s*\{\s*opacity:\s*0\.68;/
+    );
     expect(styles).not.toMatch(/\.cardDisabled\s*\{[^}]*opacity:/);
   });
 

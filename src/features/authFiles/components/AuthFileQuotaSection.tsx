@@ -211,6 +211,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       }
       stateTitle={slot.kind === 'failed' || slot.kind === 'loaded' ? failureText : undefined}
       danger={slot.kind === 'failed' || (slot.kind === 'loaded' && slot.stale)}
+      withDetails={showDetails}
       refresh={{
         disabled: refreshDisabled,
         spinning: quotaStatus === 'loading',
@@ -238,7 +239,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       )}
       {slot.kind === 'loaded' && quota && (
         <div className={styles.quotaBody}>
-          <adapter.Body quota={quota} classes={compactQuotaClasses} factsInPanel />
+          <adapter.Body quota={quota} classes={compactQuotaClasses} factsInPanel fixedSlots />
         </div>
       )}
       {showDetails && (
@@ -247,6 +248,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
           quota={slot.kind === 'loaded' ? quota : undefined}
           name={file.name}
           defaultOpen
+          rows
           claudeReset={quotaType === 'claude' ? claudeReset : undefined}
           reset={
             quotaType === 'codex' && adapter.resetQuota
@@ -303,6 +305,7 @@ function QuotaSlotFrame({
   stateText,
   stateTitle,
   danger = false,
+  withDetails = false,
   refresh,
   children,
 }: {
@@ -310,6 +313,8 @@ function QuotaSlotFrame({
   stateText: string;
   stateTitle?: string;
   danger?: boolean;
+  /** Account details follow; without them the state's message takes the rest of the frame. */
+  withDetails?: boolean;
   refresh: { disabled: boolean; spinning: boolean; title: string; onClick: () => void };
   children: ReactNode;
 }) {
@@ -320,6 +325,7 @@ function QuotaSlotFrame({
       data-quota-state={state}
       aria-label={t('auth_files.quota_slot_label')}
       aria-busy={state === 'loading' || undefined}
+      data-details={withDetails}
     >
       <div className={styles.quotaHead}>
         <span className={styles.quotaEyebrow}>{t('auth_files.quota_slot_label')}</span>

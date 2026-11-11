@@ -1,0 +1,11 @@
+// Grid tracks an Auth Files credential card spans. Every section of a card is a grid item in its own
+// track and the card is a subgrid, so the same section starts at the same height on every card of a
+// grid row. AuthFileCard, AuthFileQuota and AccountDetails stylesheets all read these.
+
+// Account details: the summary line, then up to three sections (billing, resets, balances).
+$details-tracks: 4;
+// The quota section: its header, the rows (chip included), and account details.
+$quota-tracks: 2 + $details-tracks;
+// A compact card has no quota section: head, account line, requests, file meta, footer.
+$card-tracks-compact: 5;
+$card-tracks: $card-tracks-compact + $quota-tracks;
