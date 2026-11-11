@@ -1,0 +1,275 @@
+{
+  "url": "http://127.0.0.1:5198",
+  "cases": {
+    "models-1440": {
+      "headings": [
+        "Models",
+        "Claude hub fixture alpha"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 2,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 1,
+        "/credentials": 2,
+        "/prox/pools": 1,
+        "/config/oauth/excluded-models": 1,
+        "/config/oauth/model-alias": 1,
+        "/routing/model-definitions/claude": 1,
+        "/credentials/download": 4,
+        "/credentials/models": 4
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-codex-1440": {
+      "headings": [
+        "Models",
+        "GPT hub fixture beta"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=beta&provider=codex",
+      "errors": [],
+      "route": "/auth-files/models?source=beta&provider=codex",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 4,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 2,
+        "/credentials": 4,
+        "/prox/pools": 1,
+        "/config/oauth/excluded-models": 1,
+        "/config/oauth/model-alias": 1,
+        "/routing/model-definitions/codex": 1,
+        "/credentials/download": 2,
+        "/credentials/models": 2
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-wide-1440": {
+      "headings": [
+        "Models",
+        "Claude hub fixture alpha"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "wide",
+      "writes": [],
+      "credentialReads": 4,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 2,
+        "/credentials": 4,
+        "/prox/pools": 1,
+        "/config/oauth/excluded-models": 1,
+        "/config/oauth/model-alias": 1,
+        "/routing/model-definitions/claude": 1,
+        "/credentials/download": 4,
+        "/credentials/models": 4
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-all-sources-1440": {
+      "headings": [
+        "Models",
+        "Claude hub fixture alpha",
+        "GPT hub fixture beta"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle",
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?provider=claude",
+      "scenario": "shared",
+      "writes": [],
+      "credentialReads": 4,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 2,
+        "/credentials": 4,
+        "/prox/pools": 1,
+        "/config/oauth/excluded-models": 2,
+        "/config/oauth/model-alias": 2,
+        "/routing/model-definitions/claude": 2,
+        "/credentials/download": 6,
+        "/credentials/models": 6
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-390": {
+      "headings": [
+        "Models",
+        "Claude hub fixture alpha"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 4,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 2,
+        "/credentials": 4,
+        "/prox/pools": 1,
+        "/config/oauth/excluded-models": 1,
+        "/config/oauth/model-alias": 1,
+        "/routing/model-definitions/claude": 1,
+        "/credentials/download": 4,
+        "/credentials/models": 4
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-codex-390": {
+      "headings": [
+        "Models",
+        "GPT hub fixture beta"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=beta&provider=codex",
+      "errors": [],
+      "route": "/auth-files/models?source=beta&provider=codex",
+      "scenario": "default",
+      "writes": [],
+      "credentialReads": 4,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 2,
+        "/credentials": 4,
+        "/prox/pools": 1,
+        "/config/oauth/excluded-models": 1,
+        "/config/oauth/model-alias": 1,
+        "/routing/model-definitions/codex": 1,
+        "/credentials/download": 2,
+        "/credentials/models": 2
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-wide-390": {
+      "headings": [
+        "Models",
+        "Claude hub fixture alpha"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?source=alpha&provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?source=alpha&provider=claude",
+      "scenario": "wide",
+      "writes": [],
+      "credentialReads": 4,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 2,
+        "/credentials": 4,
+        "/prox/pools": 1,
+        "/config/oauth/excluded-models": 1,
+        "/config/oauth/model-alias": 1,
+        "/routing/model-definitions/claude": 1,
+        "/credentials/download": 4,
+        "/credentials/models": 4
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "models-all-sources-390": {
+      "headings": [
+        "Models",
+        "Claude hub fixture alpha",
+        "GPT hub fixture beta"
+      ],
+      "alerts": [],
+      "states": [
+        "model-inventory=ready",
+        "model-edit-session=idle",
+        "model-inventory=ready",
+        "model-edit-session=idle"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files/models?provider=claude",
+      "errors": [],
+      "route": "/auth-files/models?provider=claude",
+      "scenario": "shared",
+      "writes": [],
+      "credentialReads": 4,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 2,
+        "/credentials": 4,
+        "/prox/pools": 1,
+        "/config/oauth/excluded-models": 2,
+        "/config/oauth/model-alias": 2,
+        "/routing/model-definitions/claude": 2,
+        "/credentials/download": 6,
+        "/credentials/models": 6
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    }
+  }
+}

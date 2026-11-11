@@ -36,6 +36,41 @@ export function filterRows(rows: MatrixRow[], modelQuery: string, view: ModelVie
   });
 }
 
+/**
+ * The model catalog carries no release timestamp, so recency is read from the id: its version
+ * (`5-5`, `4.1`, `3-7`) and, within one version, a trailing snapshot date (`-20251001`).
+ */
+const TRAILING_DATE = /[-_]?(?:\d{8}|\d{4}-\d{2}-\d{2})$/;
+const VERSION = /(?:^|\D)(\d{1,2}(?:[-.]\d{1,2})*)(?=\D|$)/;
+
+function modelRecency(id: string): { version: number[]; date: string } {
+  const dated = TRAILING_DATE.exec(id);
+  const match = VERSION.exec(dated ? id.slice(0, dated.index) : id);
+  return {
+    version: match ? match[1].split(/[-.]/).map(Number) : [],
+    // An undated id is the alias of the latest snapshot, so it outranks the dated ones.
+    date: dated ? dated[0].replace(/\D/g, '') : '99999999',
+  };
+}
+
+/** Newest model first; ids with no version last; remaining ties by name, ascending. */
+export function compareModelRecency(a: string, b: string): number {
+  const left = modelRecency(a);
+  const right = modelRecency(b);
+  if (!left.version.length !== !right.version.length) return left.version.length ? -1 : 1;
+  const parts = Math.max(left.version.length, right.version.length);
+  for (let i = 0; i < parts; i += 1) {
+    const diff = (right.version[i] ?? 0) - (left.version[i] ?? 0);
+    if (diff) return diff;
+  }
+  if (left.date !== right.date) return left.date < right.date ? 1 : -1;
+  return a.localeCompare(b);
+}
+
+/** Model columns left to right, newest first. Returns a new array. */
+export const sortRowsNewestFirst = <T extends { model: string }>(rows: readonly T[]): T[] =>
+  [...rows].sort((a, b) => compareModelRecency(a.model, b.model));
+
 export function filterAccounts(accounts: AccountAccess[], query: string): AccountAccess[] {
   if (!query.trim()) return accounts;
   return accounts.filter(
