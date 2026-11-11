@@ -221,18 +221,19 @@
   }
 }
 
-/* ---------- matrix: models across the top, one row per account ---------- */
+/* ---------- grid: one row per model, accounts across the top ---------- */
 
 .matrixFrame {
-  --head-col: 260px;
-  --model-col: 132px;
-  --row-height: 44px;
+  --head-col: 280px;
+  /* The narrowest an account column gets before the table scrolls inside its frame. */
+  --account-min: 52px;
+  --row-height: 40px;
   --fade-width: 32px;
 
   position: relative;
   min-width: 0;
 
-  /* Model columns hidden to the left (under the sticky account column) or to the right. */
+  /* Account columns hidden to the left (under the sticky model column) or to the right. */
   &::before,
   &::after {
     content: '';
@@ -272,7 +273,7 @@
   }
 }
 
-/* Scrolls both ways, so the header row sticks to its top and the account column to its left. */
+/* Scrolls down under a sticky account header; sideways only when the accounts cannot fit. */
 .matrixScroll {
   max-width: 100%;
   max-height: max(360px, calc(100dvh - 300px));
@@ -288,13 +289,13 @@
 }
 
 /*
- * Fixed layout: the account column and every model column have exact widths (the sticky offsets
- * and the alignment rely on it). The last, unnamed column takes what is left, so every row and
- * its border run the full width when the models do not fill it.
+ * Fixed layout: the model column has an exact width (the sticky offset relies on it) and the
+ * account columns share the rest equally, so the table is exactly as wide as its frame until
+ * each account column would be narrower than --account-min.
  */
 .matrix {
   table-layout: fixed;
-  width: max(100%, calc(var(--head-col) + var(--model-col) * var(--model-count, 1)));
+  width: max(100%, calc(var(--head-col) + var(--account-min) * var(--account-count, 1)));
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12.5px;
@@ -308,13 +309,12 @@
     vertical-align: middle;
   }
 
-  thead th,
-  thead td {
+  thead th {
     position: sticky;
     top: 0;
     z-index: 2;
     height: auto;
-    padding: 8px 6px;
+    padding: 8px 4px;
     background: var(--bg-secondary);
     font-weight: 600;
     color: var(--text-secondary);
@@ -327,13 +327,14 @@
     z-index: 4;
     padding: 8px 10px;
     border-right: 1px solid var(--border-color);
+    vertical-align: bottom;
   }
 
-  tbody:last-child tr:last-child > * {
+  tbody tr:last-child > * {
     border-bottom: 0;
   }
 
-  th[data-served='no'] .modelId {
+  tr[data-served='no'] .modelId {
     color: var(--text-tertiary);
   }
 }
@@ -342,20 +343,11 @@
   width: var(--head-col);
 }
 
-.modelCol {
-  width: var(--model-col);
-}
-
-/* The unnamed last column: no padding, so it is exactly what the model columns leave. */
-.matrix .fill {
-  padding: 0;
-}
-
 .corner {
   position: sticky;
 }
 
-/* "Model →" at the top right, "Account ↓" at the bottom left: which way each axis runs. */
+/* "Account →" at the top right, "Model ↓" at the bottom left: which way each axis runs. */
 .cornerModels,
 .cornerAccounts {
   display: block;
@@ -366,35 +358,68 @@
   color: var(--text-tertiary);
 }
 
-.cornerModels {
+.cornerAccounts {
+  margin-bottom: 30px;
   text-align: right;
 }
 
-.cornerAccounts {
-  margin-top: 44px;
-}
-
-/* A model column's header cell; its parts sit in .modelHeadInner. */
-.modelHead {
+/* An account's column header: label (two lines), markers, then its switch and count. */
+.accountHead {
   min-width: 0;
 }
 
-/* Model column header: id (two lines), then the column switch and its count; always in place. */
-.modelHeadInner {
+.accountHeadInner {
   display: grid;
-  grid-template-rows: 30px 24px;
-  gap: 6px;
+  grid-template-rows: 30px 14px 22px 14px;
+  gap: 4px;
+  justify-items: center;
   min-width: 0;
+  text-align: center;
+}
 
-  .modelId {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    font-size: 11.5px;
-    font-weight: 600;
-    line-height: 15px;
+.accountLabel {
+  display: -webkit-box;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 15px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.labelLine {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  & + & {
+    font-weight: 400;
+    color: var(--text-tertiary);
   }
+}
+
+.accountSub {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+
+  .rowFile {
+    text-overflow: ellipsis;
+  }
+}
+
+.accountSwitch {
+  display: contents;
 }
 
 /* Narrower than on Auth Files, so the view switch, both filters and the counter share a line. */
@@ -431,7 +456,7 @@
   font-weight: 400;
 }
 
-/* Row header: the row switch, then the label and (only when needed) a line of markers. */
+/* Model row header: the model switch, then the id (full id in the tooltip) over its count. */
 .rowHeadInner {
   display: flex;
   align-items: center;
@@ -439,14 +464,26 @@
   min-width: 0;
 }
 
-.rowText {
+.modelText {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 2px;
   min-width: 0;
+
+  .modelId {
+    overflow: hidden;
+    line-height: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .countText {
+    font-size: 10.5px;
+    line-height: 13px;
+  }
 }
 
+/* Phone list: "All models" and its markers. */
 .rowLabel {
   min-width: 0;
   overflow: hidden;
@@ -477,14 +514,17 @@
   overflow: hidden;
   font-family: $font-mono;
   font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-tertiary);
   text-overflow: ellipsis;
 }
 
 /* "Account off", "Couldn't read", "Not saved": small words, no pill outlines to decode. */
 .marker {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
+  line-height: 14px;
   color: var(--text-tertiary);
 
   &[data-marker='unknown'] {
@@ -497,24 +537,24 @@
 }
 
 /* A disabled account is muted, but its switches still work. */
-.matrix tr[data-off='true'] .rowLabel,
+.matrix th[data-off='true'] .accountLabel,
 .phoneAll[data-off='true'] .rowLabel {
   color: var(--text-tertiary);
 }
 
-.matrix tr[data-off='true'] .switchCell {
+.matrix td[data-off='true'] {
   opacity: 0.6;
 }
 
-.matrix tr[data-failed='true'] > th.rowHead {
-  box-shadow: inset 3px 0 0 var(--danger-color);
+.matrix th[data-failed='true'] {
+  box-shadow: inset 0 -3px 0 var(--danger-color);
 }
 
 .matrix td.switchCell {
   text-align: center;
 }
 
-/* ---------- the switch: one control for a cell, a column and a row ---------- */
+/* ---------- the switch: one control for a cell, a model and an account ---------- */
 
 .switch {
   --switch-w: 34px;
@@ -528,19 +568,20 @@
   width: var(--switch-w);
   height: var(--switch-h);
   padding: 0;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-hover);
   border-radius: $radius-full;
-  background: var(--border-color);
+  background: var(--bg-tertiary);
   vertical-align: middle;
   cursor: pointer;
   transition: background-color var(--dur-hover) var(--ease-out-strong);
 
   &[data-state='on'] {
+    border-color: var(--primary-color);
     background: var(--primary-color);
   }
 
   &[data-state='mixed'] {
-    background: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+    background: color-mix(in srgb, var(--primary-color) 35%, var(--bg-tertiary));
   }
 
   /* Staged, not saved yet: a dashed ring in the accent colour. */
@@ -567,7 +608,8 @@
   width: var(--thumb);
   height: var(--thumb);
   border-radius: 50%;
-  background: #fff;
+  /* Off: a dim thumb on a dark track, so an on switch is always the bright one. */
+  background: var(--text-tertiary);
   box-shadow: $shadow-sm;
   transition: transform var(--dur-hover) var(--ease-out-strong);
 
@@ -579,6 +621,7 @@
   /* Mixed: the thumb sits in the middle. */
   .switch[data-state='mixed'] & {
     transform: translateX(calc((var(--switch-w) - var(--thumb) - 6px) / 2));
+    background: var(--text-primary);
   }
 }
 
@@ -674,7 +717,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--border-color);
+  background: var(--text-tertiary);
 
   &[data-on='true'] {
     background: var(--primary-color);

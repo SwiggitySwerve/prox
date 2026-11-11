@@ -1,6 +1,6 @@
 """Keyboard and accessible-name checks for the Models screen (fake hub; local server only).
 
-    uv run --with playwright python -I scripts/visual/models-keyboard-check.py --url http://127.0.0.1:5199
+    uv run --with playwright python -I -B scripts/visual/models-keyboard-check.py --url http://127.0.0.1:5199
 
 Prints one JSON object with a pass flag per check; exits 1 when any check fails.
 """
@@ -24,7 +24,7 @@ def load(name, file):
 
 fake_hub = load('fake_hub', 'fake_hub.py')
 capture = load('auth_files_capture', 'auth-files-capture.py')
-ACTIVE = "(() => { const e = document.activeElement; return e ? (e.dataset.cell || e.dataset.rowAction || e.id || e.textContent.trim().slice(0, 40)) : null; })()"
+ACTIVE = "(() => { const e = document.activeElement; return e ? (e.dataset.cell || e.dataset.modelSwitch || e.id || e.textContent.trim().slice(0, 40)) : null; })()"
 
 
 async def main():
@@ -48,42 +48,62 @@ async def main():
         await page.evaluate("location.hash = '/auth-files/models?source=alpha&provider=claude'")
         await page.locator('[data-machine="model-inventory"][data-state="ready"]').wait_for()
 
-        # 1. Enter on a focused cell opens the inherit-choice dialog with focus inside it.
         cell = page.locator('[data-cell="claude-team-a.json::claude-opus-4-5"]')
-        await cell.focus()
-        await page.keyboard.press('Enter')
-        dialog = page.get_by_role('dialog')
-        await dialog.wait_for()
-        # The Modal moves focus on a 0 ms timer after it mounts; allow it a second to land.
-        try:
-            await page.wait_for_function(
-                "document.querySelector('[role=dialog]')?.contains(document.activeElement)", timeout=1000)
-            inside = True
-        except Exception:  # noqa: BLE001 - reported as a failed check
-            inside = False
-        focused = await page.evaluate(ACTIVE)
-        results['enterOpensDialogWithFocusInside'] = {'pass': inside, 'active': focused}
+        bar = page.locator('[data-machine="model-access-draft"]')
 
-        # 2. Escape closes it and focus returns to the cell.
-        await page.keyboard.press('Escape')
-        await dialog.wait_for(state='detached')
-        await page.wait_for_timeout(400)
+        # 1. A cell is a named switch: model, account and on/off are all exposed.
+        role, checked, label = await cell.evaluate(
+            "e => [e.getAttribute('role'), e.getAttribute('aria-checked'), e.getAttribute('aria-label')]")
+        results['cellIsNamedSwitch'] = {
+            'pass': role == 'switch' and checked == 'true' and label
+            and 'claude-opus-4-5' in label and 'team-a@example.invalid' in label,
+            'role': role, 'checked': checked, 'label': label}
+
+        # 2. Space on a focused cell stages it (no dialog, nothing written); focus stays on it.
+        await cell.focus()
+        await page.keyboard.press('Space')
+        await bar.wait_for()
+        checked = await cell.get_attribute('aria-checked')
+        changed = await cell.get_attribute('data-changed')
+        dialogs = await page.get_by_role('dialog').count()
         active = await page.evaluate(ACTIVE)
-        results['escapeClosesAndRestoresFocus'] = {
-            'pass': active == 'claude-team-a.json::claude-opus-4-5', 'active': active}
+        results['spaceStagesWithoutDialog'] = {
+            'pass': checked == 'false' and changed == 'true' and dialogs == 0 and not hubs.writes
+            and active == 'claude-team-a.json::claude-opus-4-5',
+            'checked': checked, 'changed': changed, 'dialogs': dialogs, 'active': active}
 
-        # 3. The choice dialog is fully keyboard operable: Tab to a choice, Enter, then preview.
+        # 3. Enter flips it back; the change is gone and so is the bar.
+        await page.keyboard.press('Enter')
+        await bar.wait_for(state='detached')
+        results['enterUnstages'] = {'pass': await cell.get_attribute('aria-checked') == 'true'}
+
+        # 4. A model's switch is a tri-state checkbox: one cell off makes it mixed.
+        column = page.locator('[data-model-switch="claude-opus-4-5"]')
         await cell.focus()
-        await page.keyboard.press('Enter')
-        await dialog.wait_for()
-        await page.get_by_role('button', name='Give this account its own list').focus()
-        await page.keyboard.press('Enter')
-        await page.locator('[data-machine="model-edit-session"][data-state="previewing"]').first.wait_for()
-        results['choiceByKeyboardReachesPreview'] = {'pass': True}
-        await page.keyboard.press('Escape')
-        await dialog.wait_for(state='detached')
+        await page.keyboard.press('Space')
+        mixed = await column.get_attribute('aria-checked')
+        name = await column.get_attribute('aria-label')
+        await column.focus()
+        await page.keyboard.press('Space')
+        after = await column.get_attribute('aria-checked')
+        results['columnSwitchTriState'] = {
+            'pass': mixed == 'mixed' and after == 'true' and name == 'claude-opus-4-5 on every account',
+            'mixed': mixed, 'after': after, 'label': name}
 
-        # 4. Arrow keys move between tabs (roving tabindex).
+        # 5. Save and Discard are reachable and work from the keyboard.
+        await cell.focus()
+        await page.keyboard.press('Space')
+        await page.locator('[data-testid="access-save"]').focus()
+        await page.keyboard.press('Enter')
+        await page.locator('[data-machine="model-access-draft"][data-state="saved"]').wait_for()
+        sent = [(w['method'], w['path'], w['body']) for w in hubs.writes]
+        results['saveByKeyboard'] = {
+            'pass': sent == [('patch', '/credentials/fields', {
+                'name': 'claude-team-a.json',
+                'excluded_models': ['claude-3-*', 'claude-sonnet-4-0', 'claude-opus-4-5']})],
+            'writes': sent}
+
+        # 6. Arrow keys move between tabs (roving tabindex).
         await page.locator('#models-tab-access').focus()
         await page.keyboard.press('ArrowRight')
         await page.wait_for_timeout(300)
@@ -94,39 +114,18 @@ async def main():
         await page.keyboard.press('ArrowLeft')
         await page.locator('[data-machine="model-inventory"][data-state="ready"]').wait_for()
 
-        # 5. Every interactive control in the matrix has an accessible name.
+        # 7. Every interactive control in the grid has an accessible name.
         unnamed = await page.evaluate('''() => [...document.querySelectorAll('table button, table [role=img]')]
           .filter(e => !(e.getAttribute('aria-label') || e.textContent.trim()))
           .map(e => e.outerHTML.slice(0, 80))''')
-        results['matrixControlsNamed'] = {'pass': not unnamed, 'unnamed': unnamed[:5]}
+        results['gridControlsNamed'] = {'pass': not unnamed, 'unnamed': unnamed[:5]}
 
-        # 6. Cell names state model, account and reason (screen readers hear the why).
-        label = await cell.get_attribute('aria-label')
-        results['cellNameExplains'] = {
-            'pass': bool(label and 'claude-opus-4-5' in label and 'team-a@example.invalid' in label
-                         and 'Served' in label), 'label': label}
-
-        # 7. Locked wildcard cell is a button that explains, never toggles.
-        writes_before = len(hubs.writes)
-        await page.locator('[data-cell="claude-team-a.json::claude-3-7-sonnet"]').focus()
-        await page.keyboard.press('Enter')
-        await page.locator('[data-machine="locked-cell"]').wait_for()
-        await page.keyboard.press('Escape')
-        results['wildcardCellNeverWrites'] = {'pass': len(hubs.writes) == writes_before}
-
-        # 8. Reduced motion: no running CSS transitions on the provider tabs.
-        duration = await page.evaluate(
-            "getComputedStyle(document.querySelector('[role=group][aria-label=Provider] button')).transitionDuration")
-        results['reducedMotion'] = {'pass': duration in ('0s', ''), 'transitionDuration': duration}
-
-        # 9. A model column's action keeps its name and is reachable by keyboard from the header.
-        action = page.locator('[data-row-action="claude-opus-4-5"]')
-        name = await action.get_attribute('aria-label')
-        await action.focus()
-        focused = await page.evaluate(ACTIVE)
-        results['columnActionNamed'] = {
-            'pass': name == 'Exclude everywhere: claude-opus-4-5' and focused == 'claude-opus-4-5',
-            'label': name, 'active': focused}
+        # 8. Reduced motion: no running CSS transitions on the provider tabs or the switches.
+        durations = await page.evaluate("""[
+          getComputedStyle(document.querySelector('[role=group][aria-label=Provider] button')).transitionDuration,
+          getComputedStyle(document.querySelector('[data-cell]')).transitionDuration]""")
+        results['reducedMotion'] = {'pass': all(d in ('0s', '') for d in durations),
+                                    'transitionDuration': durations}
         await browser.close()
     ok = all(value['pass'] for value in results.values())
     print(json.dumps({'pass': ok, 'checks': results}, indent=2))

@@ -288,6 +288,18 @@ describe('access grid', () => {
     }
   });
 
+  test('models run down the rows and accounts across the top, sharing the width', () => {
+    const grid = readFileSync('src/features/authFiles/models/ModelAccessMatrix.tsx', 'utf8');
+    expect(grid).toMatch(/<tbody>\s*\{rows\.map\(/);
+    expect(grid).toContain('data-model-switch={row.model}');
+    expect(grid).toContain('data-account-switch={account.name}');
+    const scss = readFileSync('src/features/authFiles/models/ModelsPage.module.scss', 'utf8');
+    // Columns share the frame; the table only grows past it below --account-min per account.
+    expect(scss).toContain(
+      'width: max(100%, calc(var(--head-col) + var(--account-min) * var(--account-count, 1)));'
+    );
+  });
+
   test('the section stages switches and saves from the bar; no dialog for the grid', () => {
     const section = readFileSync('src/features/authFiles/models/ModelsHubSection.tsx', 'utf8');
     expect(section).toContain('useAccessDraft(inventory, io, reload, onChanged)');
