@@ -83,7 +83,8 @@ export function useClaudeResetGrants(
   const pending = operation && !operation.code ? operation : undefined;
   const expired = Boolean(pending && now - pending.createdAt >= RETRY_WINDOW_MS);
   const selected = pending?.grantId ?? (status ? selectResetGrant(status, now)?.id : undefined);
-  const selectedEnd = status?.grants.find((grant) => grant.id === selected)?.endsAt;
+  const selectedGrant = status?.grants.find((grant) => grant.id === selected);
+  const selectedEnd = selectedGrant?.endsAt;
   const selectedEndMs = selectedEnd ? Date.parse(selectedEnd) : NaN;
   const blocked = disabled || !sessionActive || !authIndex || busy || expired || !selected;
   const confirm = () => {
@@ -97,10 +98,20 @@ export function useClaudeResetGrants(
         t(pending ? 'claude_reset.retry_confirm' : 'claude_reset.confirm_text', {
           name: file.name,
         }),
-        // Name the grant being spent: the usable one that ends first.
-        !pending && Number.isFinite(selectedEndMs)
-          ? t('claude_reset.confirm_expiry', { date: formatInstantShort(selectedEndMs) })
+        // Name the grant being spent, the usable one that ends first, and what kind it is.
+        !pending && selectedGrant
+          ? t(
+              Number.isFinite(selectedEndMs)
+                ? 'claude_reset.confirm_expiry'
+                : 'claude_reset.confirm_kind',
+              {
+                kind: t(`claude_reset.kind_${selectedGrant.kind}`),
+                date: formatInstantShort(selectedEndMs),
+              }
+            )
           : '',
+        // A Fable reset only returns what Fable used, so say so before it is spent.
+        !pending && selectedGrant?.kind === 'fable' ? t('claude_reset.kind_fable_note') : '',
       ]
         .filter(Boolean)
         .join(' '),
@@ -149,6 +160,8 @@ export function useClaudeResetGrants(
     count: status?.grants.reduce((sum, grant) => sum + grant.resetsLeft, 0) ?? null,
     /** End of the grant a confirm would claim, when it has one. */
     nextEndsAtMs: Number.isFinite(selectedEndMs) ? selectedEndMs : undefined,
+    /** Kind of the grant a confirm would claim. */
+    nextKind: selectedGrant?.kind,
     grants: status?.grants ?? [],
     busy,
     blocked,

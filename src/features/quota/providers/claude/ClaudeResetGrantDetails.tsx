@@ -1,4 +1,4 @@
-import { remainingClaudeResetGrants } from './presentation';
+import { claudeResetGrantName, remainingClaudeResetGrants } from './presentation';
 import { useTranslation } from 'react-i18next';
 import { useNow } from '@/hooks/useNow';
 import type { AnthropicResetGrant } from '@/services/api/claudeResetGrants';
@@ -25,7 +25,7 @@ export function ClaudeResetGrantDetails({ grants, classes }: ClaudeResetGrantDet
       <div className={classes.codexResetCreditsTitle}>
         {t('claude_reset.expiry_title', { timezone: resolveTimeZoneLabel() })}
       </div>
-      {remaining.map((grant, index) => {
+      {remaining.map((grant) => {
         const display = buildResetDisplay(
           null,
           parseIsoToMs(grant.endsAt),
@@ -35,7 +35,7 @@ export function ClaudeResetGrantDetails({ grants, classes }: ClaudeResetGrantDet
         return (
           <div key={grant.id} className={classes.codexResetCreditRow}>
             <span className={classes.codexResetCreditLabel}>
-              {grant.label || t('claude_reset.grant_number', { index: index + 1 })}
+              {claudeResetGrantName(grant, t)}
               {' · '}
               {t('claude_reset.count', { left: grant.resetsLeft, total: grant.resetsTotal })}
             </span>

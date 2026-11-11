@@ -58,12 +58,15 @@ export function readAccountResets(
         0
       );
   // One entry per reset: a grant holding two resets that end together lists its end twice.
-  const expiries = held
+  const dated = held
     .flatMap((grant) => {
       const at = grant.endsAt ? Date.parse(grant.endsAt) : NaN;
-      return Number.isFinite(at) ? Array<number>(grant.resetsLeft).fill(at) : [];
+      return Number.isFinite(at)
+        ? Array.from({ length: grant.resetsLeft }, () => ({ at, kind: grant.kind }))
+        : [];
     })
-    .sort((a, b) => a - b);
+    .sort((a, b) => a.at - b.at);
+  const expiries = dated.map((reset) => reset.at);
   let blocker: AccountResets['blocker'] = null;
   if (!status.eligible) blocker = `ineligible:${status.ineligibleReason ?? 'unknown'}`;
   else if (available > 0 && usable === 0) {
@@ -77,7 +80,7 @@ export function readAccountResets(
     usable,
     blocker,
     nextExpiryAtMs: expiries.length ? expiries[0]! : null,
-    ...(expiries.length ? { expiries } : {}),
+    ...(expiries.length ? { expiries, kinds: dated.map((reset) => reset.kind) } : {}),
     observedAtMs,
   };
 }

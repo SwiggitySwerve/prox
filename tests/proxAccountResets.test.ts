@@ -64,10 +64,53 @@ test('Claude counts all held resets but only started, unexpired, unpaused usable
     nextExpiryAtMs: NOW + 1000,
     // One entry per held reset, soonest first: 'second' holds two that end together.
     expiries: [NOW + 1000, NOW + 1000, NOW + 2000, NOW + 2000, NOW + 2000],
+    kinds: ['full', 'full', 'full', 'full', 'full'],
     observedAtMs: NOW,
   });
   // Resets with no end date are held but list no expiry.
   expect(claude()?.expiries).toBeUndefined();
+  expect(claude()?.kinds).toBeUndefined();
+});
+
+test('Claude names the kind of each dated reset beside its expiry', () => {
+  const standard = Date.UTC(2026, 10, 17, 7, 59);
+  const fable = Date.UTC(2027, 2, 9, 7, 59);
+  const read = readAccountResets(
+    'claude',
+    {
+      cedar_ember: {
+        eligible: true,
+        at_limit: true,
+        grants: [
+          {
+            ...grant,
+            id: 'fable',
+            resets_total: 2,
+            resets_left: 2,
+            gives_back_weekly: true,
+            clears: ['five_hour'],
+            ends_at: new Date(fable).toISOString(),
+          },
+          {
+            ...grant,
+            id: 'promo',
+            resets_total: 1,
+            resets_left: 1,
+            clears: ['five_hour', 'seven_day'],
+            ends_at: new Date(standard).toISOString(),
+          },
+          // Held but undated: counted, but neither an expiry nor a kind is listed for it.
+          { ...grant, id: 'open', resets_total: 1, resets_left: 1, type: 'session' },
+        ],
+      },
+    },
+    NOW
+  );
+  expect(read).toMatchObject({
+    available: 4,
+    expiries: [standard, fable, fable],
+    kinds: ['full', 'fable', 'fable'],
+  });
 });
 
 test('Codex clamps applicability, reads earliest available credit expiry and rejects missing counts', () => {

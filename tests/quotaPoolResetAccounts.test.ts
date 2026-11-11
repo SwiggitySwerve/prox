@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   findPoolResetFile,
   heldExpiries,
+  heldResets,
   poolResetReasonKey,
   poolResetStatus,
   markSpent,
@@ -126,4 +127,20 @@ test('held expiries list each future expiry soonest first, never more than the r
   // A reading from before per-reset detail still shows its one known expiry.
   expect(heldExpiries(base, 100)).toEqual([200]);
   expect(heldExpiries({ ...base, nextExpiryAtMs: null }, 100)).toEqual([]);
+});
+
+test('held resets keep each kind beside its expiry after passed ones drop off', () => {
+  const base = { available: 3, usable: 3, blocker: null, nextExpiryAtMs: 200, observedAtMs: 1 };
+  const resets = { ...base, expiries: [200, 300, 400], kinds: ['full', 'fable', 'fable'] as const };
+  expect(heldResets({ ...resets, kinds: [...resets.kinds] }, 250)).toEqual([
+    { at: 300, kind: 'fable' },
+    { at: 400, kind: 'fable' },
+  ]);
+  // A reading from before kinds were recorded lists expiries without one.
+  expect(heldResets({ ...base, expiries: [200] }, 100)).toEqual([{ at: 200 }]);
+  // A kind list that doesn't match the expiries one for one is ignored rather than misaligned.
+  expect(heldResets({ ...base, expiries: [200, 300], kinds: ['fable'] }, 100)).toEqual([
+    { at: 200 },
+    { at: 300 },
+  ]);
 });

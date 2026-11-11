@@ -25,6 +25,7 @@ const grant = (overrides: Partial<AnthropicResetGrant> = {}): AnthropicResetGran
   usableNow: true,
   useRequiresLimit: true,
   percentUsed: {},
+  kind: 'session',
   ...overrides,
 });
 const render = (grants: AnthropicResetGrant[]) =>
@@ -40,10 +41,23 @@ describe('Claude reset grant details', () => {
     expect(markup).toContain('class="codexResetCredits"');
     expect(markup).toContain('class="codexResetCreditRow"');
     expect(markup).toContain(resolveTimeZoneLabel());
-    expect(markup).toContain('Launch · 2 / 3 resets remaining');
+    expect(markup).toContain('5-hour reset · Launch · 2 / 3 resets remaining');
     expect(markup).toContain(formatInstantShort(expiry));
     expect(markup).toContain('class="quotaResetRelative"');
     expect(markup).toContain('in 11 days');
+  });
+
+  test('names each kind so a Fable reset reads apart from a standard one', () => {
+    const markup = render([
+      grant({ id: 'fable', label: '', kind: 'fable' }),
+      grant({ id: 'full', label: 'Full reset', kind: 'full' }),
+      grant({ id: 'weekly', label: '', kind: 'weekly' }),
+    ]);
+    expect(markup).toContain('Fable reset · 2 / 3 resets remaining');
+    expect(markup).toContain('Weekly reset · 2 / 3 resets remaining');
+    // An upstream label that only repeats the kind is not shown twice.
+    expect(markup).toContain('Full reset · 2 / 3 resets remaining');
+    expect(markup).not.toContain('Full reset · Full reset');
   });
 
   test('hides empty and spent grants', () => {
@@ -75,13 +89,13 @@ describe('Claude reset grant details', () => {
     expect(markup).not.toContain('<button');
   });
 
-  test.each(['en', 'zh-CN', 'zh-TW', 'ru', 'vi'])(
-    'translates fallback labels in %s',
+  test.each(['en', 'zh-CN', 'zh-TW', 'ru', 'vi', 'ko'])(
+    'translates kind labels in %s',
     async (lng) => {
       await i18n.changeLanguage(lng);
       try {
-        const markup = render([grant({ label: '', endsAt: null })]);
-        expect(markup).toContain(i18n.t('claude_reset.grant_number', { index: 1 }));
+        const markup = render([grant({ label: '', endsAt: null, kind: 'fable' })]);
+        expect(markup).toContain(i18n.t('claude_reset.kind_fable'));
         expect(markup).toContain(i18n.t('claude_reset.expiry_unknown'));
         expect(markup).not.toContain('claude_reset.');
       } finally {

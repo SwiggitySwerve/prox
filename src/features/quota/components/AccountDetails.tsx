@@ -15,7 +15,7 @@ import { formatPoolDate } from '@/features/quotaPool/presentation';
 import type { QuotaCardState } from '../providers';
 import type { QuotaProviderType } from '../providers/types';
 import type { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
-import { remainingClaudeResetGrants } from '../providers/claude/presentation';
+import { claudeResetGrantName, remainingClaudeResetGrants } from '../providers/claude/presentation';
 import { ClaudeBalanceFacts } from './ClaudeBalanceFacts';
 import { formatMetric } from '../providers/plugin/presentation';
 import { formatUsdFromCents, formatXaiProductPercent } from '../providers/xai/presentation';
@@ -204,10 +204,10 @@ export function AccountDetails({
                 reason={codex.rateLimitResetCreditsError}
               />
             )}
-            {remainingClaudeResetGrants(claudeReset?.grants ?? []).map((grant, index) => (
+            {remainingClaudeResetGrants(claudeReset?.grants ?? []).map((grant) => (
               <Fact
                 key={grant.id}
-                label={grant.label || t('claude_reset.grant_number', { index: index + 1 })}
+                label={claudeResetGrantName(grant, t)}
                 {...(parseIsoToMs(grant.endsAt) === null
                   ? missing('claude_reset.expiry_unknown')
                   : {

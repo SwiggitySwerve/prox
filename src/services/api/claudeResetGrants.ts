@@ -36,6 +36,13 @@ export type AnthropicResetUpstreamResult = (typeof ANTHROPIC_RESET_RESULTS)[numb
 export type AnthropicResetSettledCode =
   AnthropicResetUpstreamResult | 'rate_limited' | 'auth_error';
 
+/**
+ * What a grant refills, named as Claude Code names it: a 5-hour reset, a weekly reset, a Fable
+ * reset (returns what Fable models used to the weekly limit) or a full reset.
+ */
+export const ANTHROPIC_RESET_KINDS = ['session', 'weekly', 'fable', 'full'] as const;
+export type AnthropicResetKind = (typeof ANTHROPIC_RESET_KINDS)[number];
+
 export interface AnthropicResetGrant {
   id: string;
   label: string;
@@ -48,6 +55,7 @@ export interface AnthropicResetGrant {
   usableNow: boolean;
   useRequiresLimit: boolean;
   percentUsed: Partial<Record<AnthropicResetWindow, number>>;
+  kind: AnthropicResetKind;
 }
 
 export interface AnthropicResetGrantStatus {
@@ -143,6 +151,22 @@ function parsePercentUsed(value: unknown): Partial<Record<AnthropicResetWindow, 
   return out;
 }
 
+/**
+ * Claude Code's own rule: `gives_back_weekly` marks a Fable reset, a declared `type` comes next,
+ * and otherwise the windows it clears decide. Both fields are optional upstream, so a value this
+ * client doesn't know falls through rather than rejecting the block. It reads the raw `clears`,
+ * so a window missing from ANTHROPIC_RESET_WINDOWS still counts as a non-5-hour window.
+ */
+function resetKind(value: Record<string, unknown>): AnthropicResetKind {
+  if (value.gives_back_weekly === true) return 'fable';
+  const { type, clears } = value;
+  if (type === 'session' || type === 'weekly' || type === 'full') return type;
+  const windows: unknown[] = Array.isArray(clears) ? clears : [];
+  const fiveHour = windows.includes('five_hour');
+  const other = windows.some((window) => window !== 'five_hour');
+  return fiveHour && !other ? 'session' : other && !fiveHour ? 'weekly' : 'full';
+}
+
 function parseGrant(value: unknown): AnthropicResetGrant | null {
   if (!isRecord(value)) return null;
   const { id, resets_total: total, resets_left: left } = value;
@@ -177,6 +201,7 @@ function parseGrant(value: unknown): AnthropicResetGrant | null {
     usableNow,
     useRequiresLimit,
     percentUsed: parsePercentUsed(value.percent_used),
+    kind: resetKind(value),
   };
 }
 

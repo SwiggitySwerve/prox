@@ -63,8 +63,15 @@ export interface AccountResets {
    * spends the first. Absent when the reading carried no per-reset detail.
    */
   expiries?: number[];
+  /**
+   * Claude only: what each reset in `expiries` refills, in the same order (a Fable reset only
+   * returns what Fable used). Absent when the provider doesn't say or nothing is dated.
+   */
+  kinds?: AccountResetKind[];
   observedAtMs: number;
 }
+/** Matches Claude's reset kinds: 5-hour, weekly, Fable, or full. */
+export type AccountResetKind = 'session' | 'weekly' | 'fable' | 'full';
 export interface AccountQuotaWindow {
   id: string;
   labelKey: string;
