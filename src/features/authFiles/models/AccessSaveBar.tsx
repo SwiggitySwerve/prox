@@ -85,7 +85,13 @@ export function AccessSaveBar({ hub, accounts, changes, plan, save, onSave, onDi
       data-testid="access-save-bar"
     >
       <div className={styles.saveBarText}>
-        {hub && <p className={styles.saveHub}>{hub}</p>}
+        {(changes.length > 0 || hub) && (
+          <p className={styles.saveHub}>
+            {changes.length > 0 && t('model_access.bar_label')}
+            {changes.length > 0 && hub && <span aria-hidden="true"> · </span>}
+            {hub}
+          </p>
+        )}
         {groups.length > 0 && (
           <ul className={styles.changeLines} data-testid="access-changes">
             {groups.map((group) => (
@@ -103,6 +109,7 @@ export function AccessSaveBar({ hub, accounts, changes, plan, save, onSave, onDi
           <p
             key={`${item.target.kind}:${item.rule}:${'name' in item.target ? item.target.name : ''}`}
             className={styles.saveNote}
+            data-tone="pending"
           >
             {item.replacedBy.length > 0
               ? t('model_access.bar_expansion', {
@@ -168,7 +175,9 @@ export function AccessSaveBar({ hub, accounts, changes, plan, save, onSave, onDi
               loading={state === 'saving'}
               data-testid="access-save"
             >
-              {t('model_access.bar_save')}
+              {t(
+                save.status === 'failed' ? 'model_access.bar_save_again' : 'model_access.bar_save'
+              )}
             </Button>
           </>
         ) : (

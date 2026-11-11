@@ -101,6 +101,11 @@ CASES = [
         ('wait', '[data-machine="model-access-draft"][data-state="blocked"]'),
         ('wait', '[data-testid="access-save"]:disabled'), ('writes', [])]),
     ('models-many-accounts', M, 'many', []),
+    # One operator's real shape: four accounts, twenty models, four on for all of them.
+    ('models-real', M, 'real', [('no-hscroll', GRID)]),
+    ('models-real-staged', M, 'real', [
+        ('click', '[data-model-switch="claude-fable-5-1"]'),
+        ('wait', '[data-machine="model-access-draft"][data-state="pending"]'), ('writes', [])]),
     # 21 models: the table scrolls sideways under a sticky account column and model header.
     ('models-wide', M, 'wide', []),
     # Models are rows and accounts share the width: neither the page nor the table scrolls sideways.

@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { IconAlertTriangle } from '@/components/ui/icons';
 import { useAuthFilesSource } from '@/features/authFiles/AuthFilesSourceContext';
 import { getTypeLabel } from '@/features/authFiles/constants';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
@@ -13,7 +14,7 @@ import { useAccessDraft } from '@/features/authFiles/hooks/useAccessDraft';
 import { useModelEditSession } from '@/features/authFiles/hooks/useModelEditSession';
 import { buildMatrix, followsProviderList, inventoryOf } from '@/features/authFiles/modelAccess';
 import { AccessSaveBar } from './AccessSaveBar';
-import { ModelAccessMatrix } from './ModelAccessMatrix';
+import { AccessKey, ModelAccessMatrix } from './ModelAccessMatrix';
 import { ModelEditDialog } from './ModelEditDialog';
 import { ModelAliasesPanel } from './ModelAliasesPanel';
 import { ModelRulesPanel } from './ModelRulesPanel';
@@ -211,7 +212,7 @@ export function ModelsHubSection({
           </p>
         )}
         <div className={styles.legendRow}>
-          <p className={styles.gridHint}>{t('model_access.grid_hint')}</p>
+          <AccessKey />
           {/* Always rendered, so the table never moves when the note appears. */}
           <span className={styles.scrollNote} aria-live="polite">
             {overflowing && !isPhone
@@ -276,10 +277,15 @@ export function ModelsHubSection({
     content = (
       <SectionState kind={load.unsupported ? 'unsupported' : 'error'}>
         <EmptyState
+          icon={<IconAlertTriangle size={20} />}
           title={
             load.unsupported ? t('model_access.summary_unsupported') : t('model_access.error_title')
           }
-          description={load.message}
+          description={
+            load.unsupported
+              ? load.message
+              : t('model_access.error_desc', { message: load.message })
+          }
           action={
             <Button
               size="sm"

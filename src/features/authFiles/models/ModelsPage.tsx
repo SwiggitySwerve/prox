@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
@@ -62,6 +62,7 @@ const PHONE_QUERY = '(max-width: 599px)';
 export function ModelsPage() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const registry = useProviderSources();
   const { sources } = registry;
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
@@ -130,6 +131,22 @@ export function ModelsPage() {
       window.removeEventListener('resize', place);
     };
   }, [dock]);
+
+  // The grid's account header sticks just under the filter bar (sticky itself, except on phones).
+  const filterBarRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const page = pageRef.current;
+    const bar = filterBarRef.current;
+    if (!page || !bar) return;
+    const place = () => {
+      const sticky = getComputedStyle(bar).position === 'sticky';
+      page.style.setProperty('--models-sticky-top', `${sticky ? bar.offsetHeight : 0}px`);
+    };
+    place();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    observer?.observe(bar);
+    return () => observer?.disconnect();
+  }, []);
 
   // What each section's table shows, summed for the counter.
   const [sectionCounts, setSectionCounts] = useState<Record<string, VisibleCounts>>({});
@@ -290,9 +307,14 @@ export function ModelsPage() {
     </header>
   );
 
-  const filtersOff = tab !== 'access';
+  // Nothing to filter (Rules, Aliases, or no grid yet): the filters stay in place, visibly off.
+  const filtersOff = tab !== 'access' || !hasCounts;
   const filterBar = (
-    <section className={styles.filterBar} aria-label={t('model_access.filters_label')}>
+    <section
+      ref={filterBarRef}
+      className={styles.filterBar}
+      aria-label={t('model_access.filters_label')}
+    >
       <AuthFilesSourceNav
         sources={sources}
         counts={sourceCounts}
@@ -435,7 +457,12 @@ export function ModelsPage() {
       <SectionState kind="empty">
         <EmptyState
           title={t('model_access.no_provider')}
-          description={t('model_access.empty_desc')}
+          description={t('model_access.no_provider_desc')}
+          action={
+            <Button size="sm" variant="secondary" onClick={() => navigate('/auth-files')}>
+              {t('nav.auth_files')}
+            </Button>
+          }
         />
       </SectionState>
     );
