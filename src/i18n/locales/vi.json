@@ -2558,6 +2558,7 @@
     "retry": "Thử lại cùng yêu cầu",
     "empty": "Không có quyền đặt lại dự trữ nào.",
     "count": "Còn {{left}} / {{total}} lượt đặt lại",
+    "count_short": "còn {{left}}/{{total}}",
     "ends": "Hết hạn: {{date}}",
     "use": "Đặt lại giới hạn",
     "confirm": "Xác nhận đặt lại",
@@ -3147,6 +3148,10 @@
     "not_reported_reason": "Nhà cung cấp chưa báo cáo thông tin này.",
     "reset_disabled": "Cần hoàn tất làm mới và bật tài khoản trước khi sử dụng lượt đặt lại.",
     "spent": "Đã chi",
-    "limit": "Hạn mức"
+    "limit": "Hạn mức",
+    "held": "đang giữ {{count}}",
+    "unreported_spent_limit": "Chưa báo cáo số đã chi và hạn mức",
+    "unreported_spent": "Chưa báo cáo số đã chi",
+    "unreported_limit": "Chưa báo cáo hạn mức"
   }
 }

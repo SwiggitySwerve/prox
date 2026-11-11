@@ -2552,6 +2552,7 @@
     "retry": "동일한 요청 재시도",
     "empty": "적립된 초기화 권한이 없습니다.",
     "count": "남은 초기화 {{left}} / {{total}}회",
+    "count_short": "{{left}}/{{total}} 남음",
     "ends": "만료: {{date}}",
     "use": "한도 초기화",
     "confirm": "초기화 확인",
@@ -3141,6 +3142,10 @@
     "not_reported_reason": "제공자가 이 정보를 보고하지 않았습니다.",
     "reset_disabled": "새로 고침이 완료되고 계정이 활성화되어야 초기화를 사용할 수 있습니다.",
     "spent": "지출액",
-    "limit": "한도"
+    "limit": "한도",
+    "held": "{{count}}회 보유",
+    "unreported_spent_limit": "사용액과 한도가 보고되지 않음",
+    "unreported_spent": "사용액이 보고되지 않음",
+    "unreported_limit": "한도가 보고되지 않음"
   }
 }

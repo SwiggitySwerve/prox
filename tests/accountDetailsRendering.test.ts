@@ -340,3 +340,117 @@ test('resource sheets use code facts, explicit missing states, and retain metada
   expect(html).toContain('Metadata');
   expect(html).not.toContain('synthetic-only');
 });
+
+const compactGrants = [
+  {
+    id: 'full',
+    kind: 'full',
+    label: 'One full limit reset (November 2026)',
+    resetsLeft: 1,
+    resetsTotal: 1,
+    endsAt: '2030-12-10T22:00:00Z',
+  },
+  {
+    id: 'free',
+    kind: 'weekly',
+    label: 'Weekly reset',
+    resetsLeft: 1,
+    resetsTotal: 2,
+    endsAt: null,
+  },
+];
+const compactClaude = (extraUsage: ClaudeQuotaState['extraUsage']) =>
+  markup(
+    h(AccountDetails, {
+      provider: 'claude',
+      quota: { ...claude, extraUsage } as ClaudeQuotaState,
+      name: 'Fixture',
+      compact: true,
+      claudeReset: {
+        count: 3,
+        grants: compactGrants,
+        busy: false,
+        blocked: false,
+        confirm: noop,
+        message: null,
+        buttonLabel: 'choose',
+      } as never,
+    })
+  );
+const disabledExtra = {
+  isEnabled: false,
+  usedCredits: null,
+  monthlyLimit: null,
+  currency: null,
+  utilization: null,
+  userDisabled: true,
+  spendLimitReached: false,
+  disabledReason: null,
+};
+
+test('compact Account details puts the held count on the status line and one row per grant', () => {
+  const html = compactClaude(disabledExtra);
+  expect(html).toContain('data-compact="true"');
+  expect(html).toContain('role="status" class="note">Usable now · 3 held</p>');
+  expect(html).not.toContain('Resets held');
+  // Kind and expiry on the row; what is left and the description on one clamped muted line.
+  const full = html.split('<dt>Full reset</dt>')[1].split('</div>')[0];
+  expect(full).toMatch(/<dd><span class="value">Dec 1[01], /);
+  const note = '1/1 left · One full limit reset (November 2026)';
+  expect(full).toContain(`<dd class="detail clamp" title="${note}">${note}</dd>`);
+  // A label that only repeats the kind adds nothing; an unknown expiry still says so.
+  const weekly = html.split('<dt>Weekly reset</dt>')[1].split('</div>')[0];
+  expect(weekly).toContain('Not reported');
+  expect(weekly).toContain(translations.t('claude_reset.expiry_unknown'));
+  expect(weekly).toContain('title="1/2 left">1/2 left</dd>');
+  // The estimate's basis is one line too, with all of it in the tooltip.
+  expect(html).toMatch(/<dd class="detail clamp" title="Estimated · Monthly anniversary[^"]+">/);
+});
+
+test('compact balances name unreported amounts once and keep every status and real value', () => {
+  const html = compactClaude(disabledExtra);
+  const balances = html.split('<h4>Balances</h4>')[1];
+  expect(balances).toContain('<dt>Extra Usage</dt>');
+  expect(balances).toContain('Disabled</span>');
+  expect(balances).toContain('Disabled by user · Spent and limit not reported');
+  expect(balances).not.toContain('<dt>Spent</dt>');
+  expect(balances).not.toContain('<dt>Limit</dt>');
+  expect(balances).not.toContain('<dt>Status</dt>');
+  expect(balances).not.toContain('The provider has not reported this detail.');
+
+  const partial = compactClaude({ ...disabledExtra, isEnabled: true, usedCredits: 1250 });
+  const partialBalances = partial.split('<h4>Balances</h4>')[1];
+  expect(partialBalances).toContain('<dt>Spent</dt>');
+  expect(partialBalances).toContain('$12.50');
+  expect(partialBalances).toContain('Disabled by user · Limit not reported');
+  expect(partialBalances).not.toContain('<dt>Limit</dt>');
+});
+
+test('only the Auth Files card asks for the compact layout; the Quota page keeps its own', () => {
+  const card = markup(
+    h(QuotaCard, {
+      entry: { file: { ...file, type: 'claude' }, type: 'claude' },
+      adapter: adapters.claude,
+      quota: claude,
+      resolvedTheme: 'dark',
+      canRefresh: true,
+      resetting: false,
+      onRefresh: noop,
+      onReset: noop,
+    })
+  );
+  expect(card).not.toContain('data-compact');
+  expect(card).not.toContain('clamp');
+  function SeededSection() {
+    const { quotaStore } = useAuthFilesSource();
+    Object.assign(quotaStore.getInitialState(), { codexQuota: { [file.name]: codex } });
+    return h(AuthFileQuotaSection, { file, quotaType: 'codex', disableControls: false });
+  }
+  const section = markup(
+    h(AuthFilesSourceProvider, { source, session, children: h(SeededSection) })
+  );
+  expect(section).toContain('data-compact="true"');
+  // Codex keeps its held count with the reset status, and its credit balance stays a fact.
+  expect(section).toContain('Usable now · 1 held');
+  expect(section).toContain('<dt>Credit balance</dt>');
+});

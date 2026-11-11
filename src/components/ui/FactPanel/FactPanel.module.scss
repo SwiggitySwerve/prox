@@ -127,6 +127,13 @@
     font-weight: 400;
     text-wrap: pretty;
   }
+  // One line, cut short; the element's title carries the whole text. Qualified so it outranks
+  // the detail line's own wrapping.
+  dd.clamp {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   &[data-tone='overdue'] dd:not(.detail) {
     color: var(--critical-color);
   }
@@ -156,6 +163,42 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+// A card's compact panel: each label shares a line with its value (value at the end), and
+// sections and facts sit closer together. Every value, note and tone still shows.
+.container[data-compact] {
+  .section header {
+    margin-bottom: 6px;
+  }
+  .section[data-action] header {
+    margin-bottom: 4px;
+  }
+  .section[data-action] .note {
+    margin: 0 0 6px;
+  }
+  .section[data-tone='accent'] {
+    padding: 8px 10px;
+  }
+  .section dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .fact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: baseline;
+    line-height: 18px;
+    dd {
+      margin: 0;
+      text-align: end;
+    }
+    dd.detail {
+      grid-column: 1 / -1;
+      margin-top: 1px;
+      text-align: start;
+    }
+  }
 }
 @container (min-width: 440px) {
   .panel {

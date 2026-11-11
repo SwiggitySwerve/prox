@@ -30,13 +30,27 @@ export const claudeExtraUsageNotes = (extraUsage: ClaudeExtraUsage | null, t: TF
       ].filter(Boolean)
     : [];
 
+/** The grant's kind, and its upstream label as a description when that says more than the kind. */
+export const claudeResetGrantParts = (grant: AnthropicResetGrant, t: TFunction) => {
+  const kind = t(`claude_reset.kind_${grant.kind}`);
+  const description =
+    grant.label && grant.label.toLocaleLowerCase() !== kind.toLocaleLowerCase()
+      ? grant.label
+      : null;
+  return { kind, description };
+};
+
 /** The grant's kind, then its upstream label when that says more than the kind does. */
 export const claudeResetGrantName = (grant: AnthropicResetGrant, t: TFunction) => {
-  const kind = t(`claude_reset.kind_${grant.kind}`);
-  return grant.label && grant.label.toLocaleLowerCase() !== kind.toLocaleLowerCase()
-    ? `${kind} · ${grant.label}`
-    : kind;
+  const { kind, description } = claudeResetGrantParts(grant, t);
+  return description ? `${kind} · ${description}` : kind;
 };
+
+/** Extra-usage amounts the provider left out, so a compact card can name them once. */
+export const unreportedClaudeExtraUsage = (extra: ClaudeExtraUsage) =>
+  (['spent', 'limit'] as const).filter(
+    (amount) => (amount === 'spent' ? extra.usedCredits : extra.monthlyLimit) === null
+  );
 
 export const remainingClaudeResetGrants = (grants: readonly AnthropicResetGrant[]) =>
   grants

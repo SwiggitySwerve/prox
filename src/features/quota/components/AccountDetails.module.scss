@@ -21,6 +21,10 @@
   }
 }
 
+.compact > summary {
+  padding: 4px 0;
+}
+
 /* On a shared row grid (a credential card): the summary is the first track and each section of
    the panel one of the next, so billing, resets and the rest start at the same height on every
    card of a grid row. The wrappers drop out so the sections are the grid's own items, and the
@@ -49,6 +53,14 @@
 
       &:first-child {
         margin-top: 12px;
+      }
+    }
+
+    &.compact section {
+      margin-top: 12px;
+
+      &:first-child {
+        margin-top: 6px;
       }
     }
   }
