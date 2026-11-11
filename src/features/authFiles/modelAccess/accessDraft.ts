@@ -356,29 +356,41 @@ export function planAccessWrites(
         : { code: 'runtime-differ', accounts: runtimeNames },
     };
   }
-  const optional = desires.filter(
-    (desire) =>
-      desire.account.kind === 'file' &&
-      ownRulesOf(desire.account).length === 0 &&
-      !forced.includes(desire)
+  // Followers with the same switches decide together: one weighted choice, heaviest first.
+  const patterns = new Map<string, { desire: Desire; weight: number }>();
+  for (const desire of desires) {
+    const follows = desire.account.kind === 'file' && ownRulesOf(desire.account).length === 0;
+    if (!follows || forced.includes(desire)) continue;
+    const id = `${[...desire.switches].sort().join(',')}|${[...desire.off].sort().join(',')}`;
+    const entry = patterns.get(id);
+    if (entry) entry.weight += 1;
+    else patterns.set(id, { desire, weight: 1 });
+  }
+  const optional = [...patterns.values()].sort((a, b) => b.weight - a.weight);
+  const after = optional.map((_, index) =>
+    optional.slice(index).reduce((sum, item) => sum + item.weight, 0)
   );
   const moves = (group: readonly Desire[]) => (agrees(shape(group), sharedNow, allKeys) ? 0 : 1);
+  // Writes saved, doubled, plus one when the provider list stays: ties keep the current list.
+  const score = (group: readonly Desire[], weight: number) => {
+    const churn = moves(group);
+    return 2 * (weight - churn) + (churn === 0 ? 1 : 0);
+  };
   let bestGroup: readonly Desire[] = forced;
-  let bestScore = -moves(forced);
-  // Branch and bound over the followers; a budget keeps a pathological hub responsive.
-  let budget = 200_000;
-  const visit = (from: number, group: readonly Desire[], count: number) => {
-    if (--budget < 0) return;
-    const score = count - moves(group);
-    if (score > bestScore) {
+  let bestScore = score(forced, 0);
+  // Exact branch and bound: nothing can beat the best once even every remaining follower would not.
+  const visit = (from: number, group: readonly Desire[], weight: number) => {
+    const here = score(group, weight);
+    if (here > bestScore) {
       bestGroup = group;
-      bestScore = score;
+      bestScore = here;
     }
     for (let index = from; index < optional.length; index += 1) {
-      if (count + optional.length - index <= bestScore) return;
+      if (2 * (weight + after[index]) + 1 <= bestScore) return;
       const next = optional[index];
-      if (group.every((member) => fits(member, next)))
-        visit(index + 1, [...group, next], count + 1);
+      if (group.every((member) => fits(member, next.desire))) {
+        visit(index + 1, [...group, next.desire], weight + next.weight);
+      }
     }
   };
   visit(0, forced, 0);

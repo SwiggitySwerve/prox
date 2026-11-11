@@ -349,6 +349,62 @@ describe('the fewest writes, exactly', () => {
   });
 });
 
+describe('the fewest writes, at scale and on ties', () => {
+  const follower = (name: string, ids: string[]) => ({
+    name,
+    kind: 'file' as const,
+    label: name,
+    disabled: false,
+    ownList: { status: 'known' as const, rules: null },
+    reported: { status: 'known' as const, ids },
+  });
+  const hub = (providerList: string[], accounts: ReturnType<typeof follower>[]) => ({
+    provider: 'claude',
+    providerList,
+    catalog: ['a', 'b'],
+    aliases: [],
+    accounts,
+  });
+
+  test('39 accounts in two patterns: the larger pattern keeps the shared list', () => {
+    const accounts = Array.from({ length: 39 }, (_, index) => follower(`f${index}`, ['a', 'b']));
+    const inv = hub([], accounts);
+    const plan = planAccessWrites(
+      inv,
+      stage(
+        inv,
+        accounts.map((item, index) => ({
+          account: item.name,
+          model: index < 19 ? 'a' : 'b',
+          on: false,
+        }))
+      )
+    );
+    expect(plan.status).toBe('ready');
+    if (plan.status !== 'ready') return;
+    expect(plan.writes).toHaveLength(20);
+    expect(plan.writes[0]).toEqual({ target: { kind: 'provider' }, before: null, after: ['b'] });
+  });
+
+  test('an equal-cost plan that keeps the current provider list wins', () => {
+    // The provider list blocks a; two followers swap to b off, the third stays as it is.
+    const inv = hub(['a'], [follower('f1', ['b']), follower('f2', ['b']), follower('f3', ['b'])]);
+    const plan = planAccessWrites(
+      inv,
+      stage(inv, [
+        { account: 'f1', model: 'a', on: true },
+        { account: 'f1', model: 'b', on: false },
+        { account: 'f2', model: 'a', on: true },
+        { account: 'f2', model: 'b', on: false },
+      ])
+    );
+    expect(writesOf(plan)).toEqual([
+      { target: 'f1', before: null, after: ['b'] },
+      { target: 'f2', before: null, after: ['b'] },
+    ]);
+  });
+});
+
 describe('accounts held in memory (no credential file)', () => {
   test('a column change still goes through the shared list they follow', () => {
     const inv = runtimeInventory(runtimeFollowing('rt-1'));
