@@ -10,19 +10,25 @@ import type { ClaudeExtraUsage } from '@/types';
 import {
   claudeResetGrantName,
   claudeResetGrantParts,
+  groupClaudeResetGrants,
   unreportedClaudeExtraUsage,
 } from '@/features/quota/providers/claude/presentation';
 
 const t = i18n.getFixedT('en');
 beforeAll(() => i18n.changeLanguage('en'));
 
-const grant = (kind: AnthropicResetGrant['kind'], label: string): AnthropicResetGrant => ({
-  id: 'grant',
+const grant = (
+  kind: AnthropicResetGrant['kind'],
+  label: string,
+  endsAt: string | null = '2030-12-10T22:00:00Z',
+  id = 'grant'
+): AnthropicResetGrant => ({
+  id,
   label,
   resetsTotal: 1,
   resetsLeft: 1,
   startsAt: null,
-  endsAt: '2030-12-10T22:00:00Z',
+  endsAt,
   clears: ['five_hour', 'seven_day'],
   paused: false,
   usableNow: true,
@@ -78,5 +84,53 @@ describe('unreportedClaudeExtraUsage', () => {
     expect(unreportedClaudeExtraUsage(extra({ usedCredits: 0 }))).toEqual(['limit']);
     expect(unreportedClaudeExtraUsage(extra({ monthlyLimit: 5000 }))).toEqual(['spent']);
     expect(unreportedClaudeExtraUsage(extra({ usedCredits: 12, monthlyLimit: 5000 }))).toEqual([]);
+  });
+});
+
+describe('groupClaudeResetGrants', () => {
+  const march = '2031-03-09T07:59:00Z';
+  test('grants of one kind that end together share a row, with counts and descriptions kept', () => {
+    const rows = groupClaudeResetGrants(
+      [
+        grant('weekly', 'Free limit reset', '2030-12-16T04:59:00Z', 'a'),
+        grant('fable', 'New model launch', march, 'b'),
+        grant('fable', 'Six months of tenure', march, 'c'),
+        grant('fable', 'New model launch', march, 'd'),
+      ],
+      t
+    );
+    expect(rows).toEqual([
+      {
+        id: 'a',
+        at: Date.parse('2030-12-16T04:59:00Z'),
+        kind: 'weekly',
+        count: 1,
+        left: 1,
+        total: 1,
+        descriptions: ['Free limit reset'],
+      },
+      {
+        id: 'b',
+        at: Date.parse(march),
+        kind: 'fable',
+        count: 3,
+        left: 3,
+        total: 3,
+        descriptions: ['New model launch', 'Six months of tenure'],
+      },
+    ]);
+  });
+
+  test('a different kind at the same time, or an undated grant, keeps its own row', () => {
+    const rows = groupClaudeResetGrants(
+      [grant('full', '', march, 'a'), grant('fable', '', march, 'b'), grant('full', '', null, 'c')],
+      t
+    );
+    expect(rows.map(({ id, kind, at, count }) => [id, kind, at, count])).toEqual([
+      ['a', 'full', Date.parse(march), 1],
+      ['b', 'fable', Date.parse(march), 1],
+      ['c', 'full', null, 1],
+    ]);
+    expect(rows[0]!.descriptions).toEqual([]);
   });
 });

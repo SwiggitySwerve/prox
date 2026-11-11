@@ -148,11 +148,11 @@ CASES = [
     # Four Claude cards shaped like a real hub (three bars, billing, three or four reset grants with
     # long descriptions, extra usage off and unreported), Account details open. A whole grid row
     # must fit a 1080px-tall screen under the hub's own header (about 140px), so on desktop no card
-    # may be taller than 940px. They were 1497px before the compact layout.
+    # may be taller than 900px. They were 1497px before the compact layout, 862-880px after.
     ('auth-files-claude-cards', '/auth-files', 'claude-cards', [
         ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
         ('wait', '[data-quota-state="loaded"] details[open]'), ('sleep', '4500'),
-        ('card-height', '940')]),
+        ('card-height', '900')]),
     # team-b's write fails, the provider list lands: the bar and team-b's row say so, and team-b's
     # switch stays staged for another Save.
     ('models-partial-failure', M, 'partial', [

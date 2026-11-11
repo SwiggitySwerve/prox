@@ -358,6 +358,14 @@ const compactGrants = [
     resetsTotal: 2,
     endsAt: null,
   },
+  ...['New model launch', "Six months' tenure"].map((label, n) => ({
+    id: `fable-${n}`,
+    kind: 'fable',
+    label,
+    resetsLeft: 1,
+    resetsTotal: 1,
+    endsAt: '2031-03-09T07:59:00Z',
+  })),
 ];
 const compactClaude = (extraUsage: ClaudeQuotaState['extraUsage']) =>
   markup(
@@ -394,15 +402,21 @@ test('compact Account details puts the held count on the status line and one row
   expect(html).toContain('role="status" class="note">Usable now · 3 held</p>');
   expect(html).not.toContain('Resets held');
   // Kind and expiry on the row; what is left and the description on one clamped muted line.
-  const full = html.split('<dt>Full reset</dt>')[1].split('</div>')[0];
+  const badge = (kind: string, text: string) =>
+    `<dt><span class="grantKind" data-kind="${kind}">${text}</span></dt>`;
+  const full = html.split(badge('full', 'Full reset'))[1].split('</div>')[0];
   expect(full).toMatch(/<dd><span class="value">Dec 1[01], /);
   const note = '1/1 left · One full limit reset (November 2026)';
   expect(full).toContain(`<dd class="detail clamp" title="${note}">${note}</dd>`);
   // A label that only repeats the kind adds nothing; an unknown expiry still says so.
-  const weekly = html.split('<dt>Weekly reset</dt>')[1].split('</div>')[0];
+  const weekly = html.split(badge('weekly', 'Weekly reset'))[1].split('</div>')[0];
   expect(weekly).toContain('Not reported');
   expect(weekly).toContain(translations.t('claude_reset.expiry_unknown'));
   expect(weekly).toContain('title="1/2 left">1/2 left</dd>');
+  // Resets of one kind that end together share a row, as on the Accounts page.
+  const fable = html.split(badge('fable', 'Fable reset × 2'))[1].split('</div>')[0];
+  expect(fable).toContain('2/2 left · New model launch · Six months&#x27; tenure</dd>');
+  expect(html.split('data-kind="fable"').length).toBe(2);
   // The estimate's basis is one line too, with all of it in the tooltip.
   expect(html).toMatch(/<dd class="detail clamp" title="Estimated · Monthly anniversary[^"]+">/);
 });

@@ -21,6 +21,22 @@
   }
 }
 
+// A reset's kind as a badge, as the Accounts page and the reset chooser show it: Fable in the
+// info colour, so it reads apart from a standard reset.
+.grantKind {
+  padding: 0 6px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+
+  &[data-kind='fable'] {
+    background: color-mix(in srgb, var(--info-color) 14%, transparent);
+    color: var(--info-color);
+  }
+}
+
 .compact > summary {
   padding: 4px 0;
 }

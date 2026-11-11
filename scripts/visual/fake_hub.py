@@ -362,6 +362,10 @@ class FakeHubs:
         if path == '/requests/api-call' and method == 'post':
             # The hub proxies a quota read to the provider. Synthetic usage; team-b's read fails.
             url = str(body.get('url', ''))
+            # Only reads are proxied. A write (a reset claim) is refused and is a finding.
+            if str(body.get('method', 'GET')).upper() != 'GET':
+                self.unexpected.append(f'{source} proxied {body.get("method")} {url}')
+                return await self._fail(route, 403, 'Synthetic hub proxies reads only')
             failing = self.scenario not in ('default', 'aligned', 'claude-cards') or (
                 self.scenario == 'default' and body.get('authIndex') == 'alpha-1')
             soon = '2030-01-01T00:00:00Z'

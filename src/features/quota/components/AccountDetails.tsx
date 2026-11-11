@@ -17,7 +17,7 @@ import type { QuotaProviderType } from '../providers/types';
 import type { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import {
   claudeResetGrantName,
-  claudeResetGrantParts,
+  groupClaudeResetGrants,
   remainingClaudeResetGrants,
 } from '../providers/claude/presentation';
 import { ClaudeBalanceFacts } from './ClaudeBalanceFacts';
@@ -231,39 +231,48 @@ export function AccountDetails({
                 reason={codex.rateLimitResetCreditsError}
               />
             )}
-            {remainingClaudeResetGrants(claudeReset?.grants ?? []).map((grant) => {
-              const ends = parseIsoToMs(grant.endsAt);
-              const count = { left: grant.resetsLeft, total: grant.resetsTotal };
-              if (!compact)
-                return (
-                  <Fact
-                    key={grant.id}
-                    label={claudeResetGrantName(grant, t)}
-                    {...(ends === null
-                      ? missing('claude_reset.expiry_unknown')
-                      : {
-                          state: 'known',
-                          value: date(ends),
-                          aside: t('claude_reset.count', count),
-                        })}
-                  />
-                );
-              // A row of kind and expiry, then one muted line: what is left, then the upstream
-              // description, cut short with the whole text as its tooltip.
-              const { kind, description } = claudeResetGrantParts(grant, t);
-              const left = t('claude_reset.count_short', count);
-              return (
+            {!compact &&
+              remainingClaudeResetGrants(claudeReset?.grants ?? []).map((grant) => (
                 <Fact
                   key={grant.id}
-                  label={kind}
-                  note={description ? `${left} · ${description}` : left}
-                  clampNote
-                  {...(ends === null
+                  label={claudeResetGrantName(grant, t)}
+                  {...(parseIsoToMs(grant.endsAt) === null
                     ? missing('claude_reset.expiry_unknown')
-                    : { state: 'known', value: date(ends) })}
+                    : {
+                        state: 'known',
+                        value: date(parseIsoToMs(grant.endsAt)!),
+                        aside: t('claude_reset.count', {
+                          left: grant.resetsLeft,
+                          total: grant.resetsTotal,
+                        }),
+                      })}
                 />
-              );
-            })}
+              ))}
+            {/* Compact: a row of kind badge and expiry per group of resets that end together,
+                then one muted line with what is left and the upstream descriptions, cut short
+                with the whole text as its tooltip. */}
+            {compact &&
+              groupClaudeResetGrants(remainingClaudeResetGrants(claudeReset?.grants ?? []), t).map(
+                (row) => {
+                  const left = t('claude_reset.count_short', { left: row.left, total: row.total });
+                  return (
+                    <Fact
+                      key={row.id}
+                      label={
+                        <span className={styles.grantKind} data-kind={row.kind}>
+                          {t(`claude_reset.kind_${row.kind}`)}
+                          {row.count > 1 && ` × ${row.count}`}
+                        </span>
+                      }
+                      note={[left, ...row.descriptions].join(' · ')}
+                      clampNote
+                      {...(row.at === null
+                        ? missing('claude_reset.expiry_unknown')
+                        : { state: 'known', value: date(row.at) })}
+                    />
+                  );
+                }
+              )}
           </FactSection>
         )}
         {claude && <ClaudeBalanceFacts quota={claude} formatDate={date} compact={compact} />}

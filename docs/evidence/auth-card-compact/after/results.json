@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:5232",
+  "url": "http://127.0.0.1:5235",
   "cases": {
     "auth-files-group-refresh-1440": {
       "headings": [
@@ -38,11 +38,12 @@
       "route": "/auth-files",
       "scenario": "default",
       "writes": [],
-      "credentialReads": 14,
+      "credentialReads": 12,
       "reads": {
         "/config": 5,
-        "/prox/inventory": 7,
-        "/credentials": 14,
+        "/prox/inventory": 6,
+        "/credentials": 12,
+        "/prox/pools": 5,
         "/config/oauth/excluded-models": 3,
         "/config/oauth/model-alias": 3
       },
@@ -123,9 +124,9 @@
       "hash": "#/auth-files",
       "gridScrollsSideways": false,
       "cardHeights": [
-        924,
-        924,
-        924,
+        880,
+        880,
+        880,
         862
       ],
       "alignment": {
@@ -275,10 +276,10 @@
       "hash": "#/auth-files",
       "gridScrollsSideways": false,
       "cardHeights": [
-        906,
-        906,
-        906,
-        906
+        862,
+        862,
+        862,
+        862
       ],
       "alignment": {
         "cards": 6,
@@ -341,11 +342,11 @@
       "route": "/auth-files",
       "scenario": "default",
       "writes": [],
-      "credentialReads": 12,
+      "credentialReads": 14,
       "reads": {
         "/config": 5,
-        "/prox/inventory": 6,
-        "/credentials": 12,
+        "/prox/inventory": 7,
+        "/credentials": 14,
         "/prox/pools": 5,
         "/config/oauth/excluded-models": 3,
         "/config/oauth/model-alias": 3
@@ -390,11 +391,11 @@
       "route": "/auth-files",
       "scenario": "aligned",
       "writes": [],
-      "credentialReads": 14,
+      "credentialReads": 12,
       "reads": {
         "/config": 5,
-        "/prox/inventory": 8,
-        "/credentials": 14,
+        "/prox/inventory": 7,
+        "/credentials": 12,
         "/prox/pools": 5,
         "/config/oauth/excluded-models": 3,
         "/config/oauth/model-alias": 3
@@ -428,7 +429,7 @@
       "gridScrollsSideways": false,
       "cardHeights": [
         948,
-        1010,
+        966,
         966,
         948
       ],
