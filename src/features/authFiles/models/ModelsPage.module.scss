@@ -1508,24 +1508,15 @@
 }
 
 /* A hidden model some account still serves: said in the band, so nothing on disappears. */
-.hiddenNote {
-  font-weight: 400;
-  color: var(--text-tertiary);
 
-  &::before {
-    content: '·';
-    margin-right: 6px;
-  }
-}
-
-/* "16 hidden": at the end of the key row, the way to the Hidden group without scrolling. */
+/* "Show 16 hidden": at the end of the key row while the Hidden band is out of sight. */
 .hiddenJump {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 24px;
   padding: 0 8px;
-  border: 1px solid var(--border-color);
+  border: 0;
   border-radius: 6px;
   background: none;
   font: inherit;

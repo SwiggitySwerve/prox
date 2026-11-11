@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { IconAlertTriangle, IconEyeOff } from '@/components/ui/icons';
+import { IconAlertTriangle, IconEye } from '@/components/ui/icons';
 import { useAuthFilesSource } from '@/features/authFiles/AuthFilesSourceContext';
 import { getTypeLabel } from '@/features/authFiles/constants';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
@@ -127,6 +127,23 @@ export function ModelsHubSection({
   const [hidden, setHidden] = useState(() => readHidden(browserStorage(), hiddenKey));
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
+  // The "N hidden" button is for when the Hidden band is out of sight; it steps aside otherwise.
+  const [hiddenBandInView, setHiddenBandInView] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const band = sectionRef.current?.querySelector('[data-section="hidden"]');
+      const box = band?.getBoundingClientRect();
+      setHiddenBandInView(Boolean(box && box.top < window.innerHeight && box.bottom > 0));
+    };
+    const frame = requestAnimationFrame(check);
+    window.addEventListener('scroll', check, { capture: true, passive: true });
+    window.addEventListener('resize', check);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', check, { capture: true });
+      window.removeEventListener('resize', check);
+    };
+  });
   const setModelsHidden = useCallback(
     (models: string[], hide: boolean) =>
       setHidden((prev) => {
@@ -265,7 +282,7 @@ export function ModelsHubSection({
               : ''}
           </span>
           {/* Where hidden models went, above the fold: opens the Hidden group and goes to it. */}
-          {hiddenShown > 0 && (
+          {hiddenShown > 0 && !hiddenOpen && !hiddenBandInView && (
             <button
               type="button"
               className={styles.hiddenJump}
@@ -279,8 +296,12 @@ export function ModelsHubSection({
               }}
               data-hidden-jump
             >
-              <IconEyeOff size={14} />
-              {t('model_access.hidden_jump', { count: hiddenShown })}
+              <IconEye size={14} />
+              <Trans
+                i18nKey="model_access.hidden_jump"
+                values={{ count: hiddenShown }}
+                components={{ count: <span className={styles.sectionCount} /> }}
+              />
             </button>
           )}
         </div>

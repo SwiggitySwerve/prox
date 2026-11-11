@@ -258,7 +258,6 @@ export function ModelAccessMatrix(props: Props) {
         <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
         {t('model_access.hidden_group')}
         <span className={styles.sectionCount}>{hiddenGroup.count}</span>
-        {hiddenOpen && <span className={styles.hiddenNote}>{t('model_access.hidden_note')}</span>}
         {hiddenGroup.stillOn > 0 && (
           <span className={styles.hiddenStillOn}>
             {hiddenGroup.stillOn === 1
