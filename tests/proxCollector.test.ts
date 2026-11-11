@@ -135,6 +135,7 @@ describe('QuotaCollector', () => {
       blocker: null,
       nextExpiryAtMs: RESET,
       expiries: [RESET, RESET],
+      kinds: ['full', 'full'],
       observedAtMs: NOW,
     });
     expect(collector.resets.get(codex.id)).toEqual({

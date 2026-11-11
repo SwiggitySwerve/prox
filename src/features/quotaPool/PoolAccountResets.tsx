@@ -15,10 +15,11 @@ import { useClaudeResetGrants } from '@/features/quota/providers/claude/ClaudeRe
 import { createSourceResetGrants } from '@/features/quota/providers/claude/resetGrantScope';
 import { useNow } from '@/hooks/useNow';
 import { formatRelativeInstant } from '@/utils/quota';
-import type { AccountResets } from '@/domain/quotaPool/types';
+import type { AccountResetKind, AccountResets } from '@/domain/quotaPool/types';
 import {
   findPoolResetFile,
   heldExpiries,
+  heldResets,
   poolResetStatus,
   markSpent,
   wasSpent,
@@ -43,30 +44,47 @@ type FactProps = Props & {
   onClick?: () => void;
   /** End of the reset a use would spend now, when the provider names it (Claude's live pick). */
   nextAtMs?: number;
+  /** Kind of that reset, so the mark lands on it when two kinds end together. */
+  nextKind?: AccountResetKind;
 };
 
 /**
  * Each held reset's expiry, soonest first, with the time left, so the operator can see how long
- * each one lasts before it lapses. The one a use would spend is marked when the provider names it:
+ * each one lasts before it lapses. Claude readings also name each reset's kind, so a Fable reset
+ * reads apart from a standard one. The one a use would spend is marked when the provider names it:
  * Claude's claim picks the usable grant ending first. Codex's redeem call names no credit.
  */
-function ResetExpiries({ resets, nextAtMs }: { resets: AccountResets; nextAtMs?: number }) {
+function ResetExpiries({
+  resets,
+  nextAtMs,
+  nextKind,
+}: {
+  resets: AccountResets;
+  nextAtMs?: number;
+  nextKind?: AccountResetKind;
+}) {
   const { t, i18n } = useTranslation();
   const now = useNow();
-  const expiries = heldExpiries(resets, now);
+  const expiries = heldResets(resets, now);
   if (!expiries.length) return null;
   const undated = resets.available - expiries.length;
-  const marked = nextAtMs === undefined ? -1 : expiries.indexOf(nextAtMs);
+  const marked =
+    nextAtMs === undefined
+      ? -1
+      : expiries.findIndex(
+          (reset) => reset.at === nextAtMs && (!nextKind || !reset.kind || reset.kind === nextKind)
+        );
   return (
     <Fact
       label={t('quota_pool.reset_expiries_label', { count: expiries.length })}
       state="known"
       value={
         <ol className={styles.resetExpiries}>
-          {expiries.map((at, index) => (
+          {expiries.map(({ at, kind }, index) => (
             <li key={`${at}-${index}`} data-next={index === marked ? '' : undefined}>
               <span>{formatPoolDate(at, i18n.language)}</span>
               <span className={styles.resetExpiryLeft}>
+                {kind && `${t(`claude_reset.kind_${kind}`)} · `}
                 {formatRelativeInstant(at, now, i18n.language)}
                 {index === marked && ` · ${t('quota_pool.reset_expiry_next')}`}
               </span>
@@ -89,6 +107,7 @@ function ResetFact({
   disabled = true,
   onClick,
   nextAtMs,
+  nextKind,
 }: FactProps) {
   const { t } = useTranslation();
   const resets = account.resets;
@@ -131,7 +150,9 @@ function ResetFact({
         value={t(status.valueKey, { count: resets.available })}
       />
       {/* Its own fact, so the dates read as values instead of wrapping inside the status. */}
-      {!spent && resets.available > 0 && <ResetExpiries resets={resets} nextAtMs={nextAtMs} />}
+      {!spent && resets.available > 0 && (
+        <ResetExpiries resets={resets} nextAtMs={nextAtMs} nextKind={nextKind} />
+      )}
     </FactSection>
   );
 }
@@ -259,6 +280,7 @@ function ClaudeResetAction({ file, session, onRefresh, accountId, spent, ...fact
       disabled={reset.blocked || spent}
       onClick={reset.confirm}
       nextAtMs={spent ? undefined : reset.nextEndsAtMs}
+      nextKind={spent ? undefined : reset.nextKind}
       live={!spent && !reset.message && reset.blocked && !reset.busy && reset.count !== null}
       reason={
         spent && !reset.busy

@@ -30,6 +30,14 @@ export const claudeExtraUsageNotes = (extraUsage: ClaudeExtraUsage | null, t: TF
       ].filter(Boolean)
     : [];
 
+/** The grant's kind, then its upstream label when that says more than the kind does. */
+export const claudeResetGrantName = (grant: AnthropicResetGrant, t: TFunction) => {
+  const kind = t(`claude_reset.kind_${grant.kind}`);
+  return grant.label && grant.label.toLocaleLowerCase() !== kind.toLocaleLowerCase()
+    ? `${kind} · ${grant.label}`
+    : kind;
+};
+
 export const remainingClaudeResetGrants = (grants: readonly AnthropicResetGrant[]) =>
   grants
     .filter((grant) => grant.resetsLeft > 0)

@@ -1,6 +1,11 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import type { AccountResetBlocker, AccountResets, PoolProviderId } from '@/domain/quotaPool/types';
+import type {
+  AccountResetBlocker,
+  AccountResetKind,
+  AccountResets,
+  PoolProviderId,
+} from '@/domain/quotaPool/types';
 import { providerOfCredential } from '@/features/authFiles/credentialFacts';
 import type { AuthFileItem } from '@/types';
 import { normalizeAuthIndex } from '@/utils/authIndex';
@@ -71,6 +76,18 @@ export function poolResetStatus(
 
 /** Held resets with a known expiry that hasn't passed, soonest first, at most one per held reset. */
 export function heldExpiries(resets: AccountResets, now: number): number[] {
+  return heldResets(resets, now).map((reset) => reset.at);
+}
+
+/** As heldExpiries, with each reset's kind when the reading lists one per expiry. */
+export function heldResets(
+  resets: AccountResets,
+  now: number
+): { at: number; kind?: AccountResetKind }[] {
   const all = resets.expiries ?? (resets.nextExpiryAtMs === null ? [] : [resets.nextExpiryAtMs]);
-  return all.filter((at) => at > now).slice(0, resets.available);
+  const kinds = resets.kinds?.length === all.length ? resets.kinds : undefined;
+  return all
+    .map((at, index) => (kinds ? { at, kind: kinds[index] } : { at }))
+    .filter((reset) => reset.at > now)
+    .slice(0, resets.available);
 }

@@ -72,6 +72,37 @@ describe('Claude reset grant fail-closed parsing', () => {
   });
 });
 
+describe('Claude reset grant kinds', () => {
+  const kindOf = (fields: Record<string, unknown>) =>
+    parseAnthropicResetGrantStatus({ ...block, grants: [{ ...grant, ...fields }] })?.grants[0]
+      ?.kind;
+
+  test('a grant that gives back weekly usage is a Fable reset, whatever else it says', () => {
+    expect(kindOf({ gives_back_weekly: true })).toBe('fable');
+    expect(kindOf({ gives_back_weekly: true, type: 'full', clears: ['five_hour'] })).toBe('fable');
+  });
+
+  test('a declared type wins over the windows a grant clears', () => {
+    expect(kindOf({ type: 'session', clears: ['seven_day'] })).toBe('session');
+    expect(kindOf({ type: 'weekly', clears: ['five_hour'] })).toBe('weekly');
+    expect(kindOf({ type: 'full', clears: ['five_hour'] })).toBe('full');
+  });
+
+  test('without a type, the cleared windows decide, as Claude Code reads them', () => {
+    expect(kindOf({ clears: ['five_hour'] })).toBe('session');
+    expect(kindOf({ clears: ['seven_day'] })).toBe('weekly');
+    expect(kindOf({ clears: ['five_hour', 'seven_day'] })).toBe('full');
+    expect(kindOf({})).toBe('full');
+    // A window this client doesn't list still counts as a non-5-hour window.
+    expect(kindOf({ clears: ['seven_day_cowork'] })).toBe('weekly');
+  });
+
+  test('an unknown type or a non-boolean flag falls back instead of rejecting the block', () => {
+    expect(kindOf({ type: 'bogus', clears: ['five_hour'] })).toBe('session');
+    expect(kindOf({ gives_back_weekly: 'yes', clears: ['seven_day'] })).toBe('weekly');
+  });
+});
+
 test('exact proxied GET/profile/claim contract, no provider token in frontend', async () => {
   const calls: ApiCallRequest[] = [];
   apiCallApi.request = async (request) => {

@@ -1,4 +1,5 @@
 // Upstream cedar_ember contract, following opencodex anthropic-reset-grants.
+import type { AccountResetKind } from '@/domain/quotaPool/types';
 import { apiCallApi } from './apiCall';
 import { CLAUDE_REQUEST_HEADERS } from '@/utils/quota/constants';
 
@@ -48,6 +49,8 @@ export interface AnthropicResetGrant {
   usableNow: boolean;
   useRequiresLimit: boolean;
   percentUsed: Partial<Record<AnthropicResetWindow, number>>;
+  /** What the grant refills, named as Claude Code names it. */
+  kind: AccountResetKind;
 }
 
 export interface AnthropicResetGrantStatus {
@@ -143,6 +146,22 @@ function parsePercentUsed(value: unknown): Partial<Record<AnthropicResetWindow, 
   return out;
 }
 
+/**
+ * Claude Code's own rule: `gives_back_weekly` marks a Fable reset, a declared `type` comes next,
+ * and otherwise the windows it clears decide. Both fields are optional upstream, so a value this
+ * client doesn't know falls through rather than rejecting the block. It reads the raw `clears`,
+ * so a window missing from ANTHROPIC_RESET_WINDOWS still counts as a non-5-hour window.
+ */
+function resetKind(value: Record<string, unknown>): AccountResetKind {
+  if (value.gives_back_weekly === true) return 'fable';
+  const { type, clears } = value;
+  if (type === 'session' || type === 'weekly' || type === 'full') return type;
+  const windows: unknown[] = Array.isArray(clears) ? clears : [];
+  const fiveHour = windows.includes('five_hour');
+  const other = windows.some((window) => window !== 'five_hour');
+  return fiveHour && !other ? 'session' : other && !fiveHour ? 'weekly' : 'full';
+}
+
 function parseGrant(value: unknown): AnthropicResetGrant | null {
   if (!isRecord(value)) return null;
   const { id, resets_total: total, resets_left: left } = value;
@@ -177,6 +196,7 @@ function parseGrant(value: unknown): AnthropicResetGrant | null {
     usableNow,
     useRequiresLimit,
     percentUsed: parsePercentUsed(value.percent_used),
+    kind: resetKind(value),
   };
 }
 
