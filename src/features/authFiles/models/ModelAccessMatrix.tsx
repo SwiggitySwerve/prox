@@ -1,6 +1,15 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/ui/Select';
+import { IconCheck } from '@/components/ui/icons';
 import {
   accessCell,
   type AccessCell,
@@ -35,10 +44,13 @@ type Props = {
 
 type SwitchState = 'on' | 'off' | 'mixed';
 
-/** On, off, or mixed over the cells that are switches; null when none is. */
+const isServed = (row: MatrixRow) => row.servedBy.length > 0;
+
+/** On, off, or mixed over the cells that are switches (and whether any is staged); null when
+ * none is. */
 function combined(
   cells: readonly AccessCell[]
-): { state: SwitchState; on: number; total: number } | null {
+): { state: SwitchState; on: number; total: number; changed: boolean } | null {
   const switches = cells.filter(
     (cell): cell is Extract<AccessCell, { kind: 'switch' }> => cell.kind === 'switch'
   );
@@ -48,12 +60,14 @@ function combined(
     state: on === switches.length ? 'on' : on === 0 ? 'off' : 'mixed',
     on,
     total: switches.length,
+    changed: switches.some((cell) => cell.changed),
   };
 }
 
 /**
- * The one control of the grid. A cell is a two-state switch; a model or account switch is
- * tri-state (a checkbox that looks like a switch), because its accounts or models may differ.
+ * A cell is a two-state switch. A model's or account's control sets a whole row or column and is
+ * tri-state, because its accounts or models may differ, so it is drawn as what it is: a checkbox
+ * (a dash when mixed). The button is the hit area; the track or box inside it is what you see.
  */
 function AccessSwitch({
   state,
@@ -79,7 +93,7 @@ function AccessSwitch({
       aria-checked={state === 'mixed' ? 'mixed' : state === 'on'}
       aria-label={label}
       title={label}
-      className={styles.switch}
+      className={tri ? styles.bulk : styles.switch}
       data-state={state}
       data-changed={changed ? 'true' : undefined}
       disabled={disabled}
@@ -87,7 +101,16 @@ function AccessSwitch({
       onClick={() => onToggle(state !== 'on')}
       {...data}
     >
-      <span className={styles.switchThumb} aria-hidden="true" />
+      {tri ? (
+        <span className={styles.checkBox} aria-hidden="true">
+          {state === 'on' && <IconCheck size={12} strokeWidth={3} />}
+          {state === 'mixed' && <span className={styles.checkDash} />}
+        </span>
+      ) : (
+        <span className={styles.switchTrack} aria-hidden="true">
+          <span className={styles.switchThumb} />
+        </span>
+      )}
     </button>
   );
 }
@@ -114,8 +137,25 @@ export function ModelAccessMatrix(props: Props) {
 
   /** One model across the visible accounts; one account across the visible models. */
   const modelState = (row: MatrixRow) => combined(accounts.map((account) => cellOf(account, row)));
+  /** Some account serves it, counting staged switches. */
+  const isLit = (row: MatrixRow) => (modelState(row)?.on ?? 0) > 0;
   const accountState = (account: AccountAccess) =>
     combined(rows.map((row) => cellOf(account, row)));
+
+  // Served (by at least one account, as saved) above not served; staging never moves a row.
+  const sections = [
+    { key: 'served', label: t('model_access.view_served'), rows: rows.filter(isServed) },
+    {
+      key: 'not-served',
+      label: t('model_access.view_excluded'),
+      rows: rows.filter((row) => !isServed(row)),
+    },
+  ]
+    .filter((section) => section.rows.length > 0)
+    .map((section) => ({
+      ...section,
+      unsaved: section.rows.filter((row) => modelState(row)?.changed).length,
+    }));
 
   const stageModel = (row: MatrixRow, on: boolean) =>
     props.onStage(accounts.map((account) => ({ account: account.name, model: row.model, on })));
@@ -163,6 +203,7 @@ export function ModelAccessMatrix(props: Props) {
       <AccessSwitch
         tri
         state={state.state}
+        changed={state.changed}
         disabled={disabled}
         label={t('model_access.grid_model_aria', { model: row.model })}
         onToggle={(on) => stageModel(row, on)}
@@ -188,6 +229,7 @@ export function ModelAccessMatrix(props: Props) {
       <AccessSwitch
         tri
         state={state.state}
+        changed={state.changed}
         disabled={disabled}
         label={t('model_access.grid_account_aria', { account: account.label })}
         onToggle={(on) => stageAccount(account, on)}
@@ -228,8 +270,9 @@ export function ModelAccessMatrix(props: Props) {
     return (
       <AccessList
         provider={provider}
-        rows={rows}
+        sections={sections}
         accounts={accounts}
+        isLit={isLit}
         shared={shared}
         renderCell={renderCell}
         renderModelSwitch={(row) => (
@@ -248,22 +291,31 @@ export function ModelAccessMatrix(props: Props) {
     <MatrixTable
       provider={provider}
       accountCount={accounts.length}
+      headerKey={accounts
+        .map(
+          (account) =>
+            `${account.name}:${account.disabled}:${account.ownList.status}:${failed.has(account.name)}`
+        )
+        .join('|')}
       onOverflowChange={props.onOverflowChange}
     >
       <colgroup>
         <col className={styles.headCol} />
         {accounts.map((account) => (
-          <col key={account.name} />
+          <col key={account.name} className={styles.accountCol} />
         ))}
+        {/* Takes the width the capped account columns leave, so rows still reach the edge. */}
+        <col />
       </colgroup>
       <thead>
         <tr>
           <th scope="col" className={styles.corner}>
-            <span className={styles.cornerAccounts}>
-              {t('model_access.column_account')} <span aria-hidden="true">→</span>
-            </span>
-            <span className={styles.cornerModels}>
-              {t('model_access.column_model')} <span aria-hidden="true">↓</span>
+            <span className={styles.cornerInner}>
+              {t('model_access.column_model')}
+              {/* Names the row of column checkboxes it sits level with. */}
+              <span className={styles.cornerAll} aria-hidden="true">
+                {t('model_access.corner_all_models')}
+              </span>
             </span>
           </th>
           {accounts.map((account) => {
@@ -305,55 +357,78 @@ export function ModelAccessMatrix(props: Props) {
               </th>
             );
           })}
+          <th className={styles.fill} aria-hidden="true" />
         </tr>
       </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.model}
-            data-model={row.model}
-            data-served={row.servedBy.length ? 'yes' : 'no'}
-          >
-            <th scope="row" className={styles.rowHead}>
-              <span className={styles.rowHeadInner}>
-                {renderModelSwitch(row)}
-                <span className={styles.modelText}>
+      {sections.map((section) => (
+        <tbody key={section.key} data-section={section.key}>
+          <tr className={styles.sectionRow}>
+            <th scope="rowgroup" colSpan={accounts.length + 2}>
+              <span className={styles.sectionLabel}>
+                {section.label}
+                <span className={styles.sectionCount}>{section.rows.length}</span>
+                {section.unsaved > 0 && (
+                  <span className={styles.sectionUnsaved}>
+                    {t('model_access.grid_section_unsaved', { count: section.unsaved })}
+                  </span>
+                )}
+              </span>
+            </th>
+          </tr>
+          {section.rows.map((row) => (
+            <tr
+              key={row.model}
+              data-model={row.model}
+              data-served={row.servedBy.length ? 'yes' : 'no'}
+              data-lit={String(isLit(row))}
+            >
+              <th scope="row" className={styles.rowHead}>
+                <span className={styles.rowHeadInner}>
+                  {renderModelSwitch(row)}
                   <span className={styles.modelId} title={row.model}>
                     {row.model}
                   </span>
                   {modelCount(row)}
                 </span>
-              </span>
-            </th>
-            {accounts.map((account) => (
-              <td
-                key={account.name}
-                className={styles.switchCell}
-                data-off={account.disabled ? 'true' : undefined}
-              >
-                {renderCell(account, row)}
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
+              </th>
+              {accounts.map((account) => (
+                <td
+                  key={account.name}
+                  className={styles.switchCell}
+                  data-off={account.disabled ? 'true' : undefined}
+                >
+                  {renderCell(account, row)}
+                </td>
+              ))}
+              <td className={styles.fill} aria-hidden="true" />
+            </tr>
+          ))}
+        </tbody>
+      ))}
     </MatrixTable>
   );
 }
 
 /**
- * The frame. Account columns share its width, so it does not scroll sideways; only when even the
- * narrowest columns cannot fit does it scroll inside itself (never the page). Edge fades (data
- * attributes, no re-render) then say columns are hidden, and `onOverflowChange` adds a text note.
+ * The frame. Account columns share its width up to a readable cap, so a few accounts stay close
+ * to their models and the frame ends where the last column does. The page scrolls the rows under
+ * a sticky account header. Only when even the narrowest columns cannot fit does the frame scroll
+ * inside itself (`data-scroll="x"`, never the page); edge fades (data attributes, no re-render)
+ * then say columns are hidden, and `onOverflowChange` adds a text note. Columns too narrow for a
+ * name on one line set their headers upright (`data-compact`), so no name is cut short.
  */
 function MatrixTable({
   provider,
   accountCount,
+  headerKey,
   onOverflowChange,
   children,
 }: {
   provider: string;
   accountCount: number;
+  /** Changes when the header's words change (accounts shown, markers), so they are re-measured:
+   * columns can change without the table or its frame changing size. */
+  headerKey: string;
   onOverflowChange?: (overflow: boolean) => void;
   children: ReactNode;
 }) {
@@ -372,10 +447,23 @@ function MatrixTable({
     if (!frame || !scroller) return;
     let overflowing: boolean | null = null;
     const update = () => {
-      const hidden = scroller.scrollWidth - scroller.clientWidth;
+      const table = tableRef.current;
+      const hidden = (table?.offsetWidth ?? scroller.scrollWidth) - scroller.clientWidth;
+      // Upright headers only when a name, domain or marker would be cut short lying flat.
+      frame.dataset.compact = 'false';
+      const words = table?.querySelectorAll<HTMLElement>(HEADER_WORDS) ?? [];
+      frame.dataset.compact = String(
+        [...words].some(
+          (word) => word.scrollWidth > word.clientWidth || word.scrollHeight > word.clientHeight
+        )
+      );
       frame.dataset.fadeLeft = String(scroller.scrollLeft > 1);
       frame.dataset.fadeRight = String(scroller.scrollLeft < hidden - 1);
       const next = hidden > 1;
+      frame.dataset.scroll = next ? 'x' : 'page';
+      // Where a band's label sticks: just under the (sticky) account header.
+      const head = table?.tHead;
+      if (head) frame.style.setProperty('--head-h', `${head.offsetHeight}px`);
       if (next !== overflowing) {
         overflowing = next;
         notifyRef.current?.(next);
@@ -391,7 +479,7 @@ function MatrixTable({
       observer?.disconnect();
       notifyRef.current?.(false);
     };
-  }, []);
+  }, [headerKey]);
 
   return (
     <div
@@ -399,6 +487,9 @@ function MatrixTable({
       className={styles.matrixFrame}
       data-fade-left="false"
       data-fade-right="false"
+      data-scroll="page"
+      data-compact="false"
+      style={{ '--account-count': accountCount } as CSSProperties}
     >
       <div
         ref={scrollRef}
@@ -407,11 +498,7 @@ function MatrixTable({
         aria-label={t('model_access.matrix_label', { provider })}
         tabIndex={0}
       >
-        <table
-          ref={tableRef}
-          className={styles.matrix}
-          style={{ '--account-count': accountCount } as CSSProperties}
-        >
+        <table ref={tableRef} className={styles.matrix}>
           {children}
         </table>
       </div>
@@ -419,14 +506,20 @@ function MatrixTable({
   );
 }
 
+/** The words of an account header that must never be cut short. */
+const HEADER_WORDS = [styles.accountLabel, styles.labelLine, styles.marker, styles.rowFile]
+  .map((name) => `thead .${name}`)
+  .join(', ');
+
 const ALL_ACCOUNTS = 'all';
 const accountViewKey = (name: string) => `account:${name}`;
 
 /** Under 600 px: all accounts (model switches) or one account at a time, one row per model. */
 function AccessList({
   provider,
-  rows,
+  sections,
   accounts,
+  isLit,
   shared,
   renderCell,
   renderModelSwitch,
@@ -434,8 +527,9 @@ function AccessList({
   renderMarkers,
 }: {
   provider: string;
-  rows: MatrixRow[];
+  sections: { key: string; label: string; rows: MatrixRow[]; unsaved: number }[];
   accounts: AccountAccess[];
+  isLit: (row: MatrixRow) => boolean;
   shared: Set<string>;
   renderCell: (account: AccountAccess, row: MatrixRow) => ReactNode;
   renderModelSwitch: (row: MatrixRow) => ReactNode;
@@ -488,22 +582,108 @@ function AccessList({
             {renderAccountSwitch(account)}
           </li>
         )}
-        {rows.map((row) => (
-          <li
-            key={row.model}
-            data-model={row.model}
-            data-served={row.servedBy.length ? 'yes' : 'no'}
-          >
-            <span className={styles.phoneModel}>
-              <span className={styles.modelId} title={row.model}>
-                {row.model}
+        {sections.map((section) => (
+          <Fragment key={section.key}>
+            <li className={styles.phoneSection} data-section={section.key}>
+              <span className={styles.sectionLabel}>
+                {section.label}
+                <span className={styles.sectionCount}>{section.rows.length}</span>
+                {section.unsaved > 0 && (
+                  <span className={styles.sectionUnsaved}>
+                    {t('model_access.grid_section_unsaved', { count: section.unsaved })}
+                  </span>
+                )}
               </span>
-            </span>
-            <span className={styles.phoneCell}>
-              {account ? renderCell(account, row) : renderModelSwitch(row)}
-            </span>
-          </li>
+            </li>
+            {section.rows.map((row) => (
+              <li
+                key={row.model}
+                data-model={row.model}
+                data-served={row.servedBy.length ? 'yes' : 'no'}
+                data-lit={String(isLit(row))}
+              >
+                <span className={styles.phoneModel}>
+                  <span className={styles.modelId} title={row.model}>
+                    {row.model}
+                  </span>
+                </span>
+                <span className={styles.phoneCell}>
+                  {account ? renderCell(account, row) : renderModelSwitch(row)}
+                </span>
+              </li>
+            ))}
+          </Fragment>
         ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * What the grid's marks mean, drawn with the grid's own marks. Fixed: every entry shows whether
+ * or not the grid has one right now, so the key never moves.
+ */
+export function AccessKey({ titled = true }: { titled?: boolean }) {
+  const { t } = useTranslation();
+  const sample = (state: SwitchState, changed = false) => (
+    <span
+      className={`${styles.switch} ${styles.keySample}`}
+      data-state={state}
+      data-changed={changed ? 'true' : undefined}
+    >
+      <span className={styles.switchTrack}>
+        <span className={styles.switchThumb} />
+      </span>
+    </span>
+  );
+  return (
+    <div className={styles.keyRow}>
+      {titled && (
+        <span className={styles.keyTitle} aria-hidden="true">
+          {t('model_access.key_label')}
+        </span>
+      )}
+      <ul className={styles.key} aria-label={t('model_access.key_label')}>
+        <li>
+          {sample('on')}
+          {t('model_access.key_on')}
+        </li>
+        <li>
+          {sample('off')}
+          {t('model_access.key_off')}
+        </li>
+        <li>
+          <span className={`${styles.bulk} ${styles.keySample}`} data-state="on">
+            <span className={styles.checkBox}>
+              <IconCheck size={12} strokeWidth={3} />
+            </span>
+          </span>
+          {t('model_access.key_all')}
+        </li>
+        <li>
+          <span className={`${styles.bulk} ${styles.keySample}`} data-state="mixed">
+            <span className={styles.checkBox}>
+              <span className={styles.checkDash} />
+            </span>
+          </span>
+          {t('model_access.key_some')}
+        </li>
+        <li>
+          <span className={`${styles.noSwitch} ${styles.keySample}`}>—</span>
+          {t('model_access.key_none')}
+        </li>
+        <li>
+          <span className={`${styles.switch} ${styles.keySample}`} data-state="on" data-off="true">
+            <span className={styles.switchTrack}>
+              <span className={styles.switchThumb} />
+            </span>
+          </span>
+          {t('model_access.key_account_off')}
+        </li>
+        <li>
+          {sample('on', true)}
+          {t('model_access.key_staged')}
+        </li>
       </ul>
     </div>
   );

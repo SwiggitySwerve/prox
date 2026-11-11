@@ -36,7 +36,9 @@ M = '/auth-files/models?source=alpha&provider=claude'
 # ('writes', [...]): fail the case unless the fake hubs received exactly these list writes, in order
 # (each is (method, path, body)), or ('no-hscroll', selector): fail unless the page and that
 # scroller are no wider than the viewport and their own box (checked at >= 600 px wide), or
-# ('in-view', selector): fail unless that element is fully inside the viewport without scrolling.
+# ('in-view', selector): fail unless that element is fully inside the viewport without scrolling, or
+# ('scroll-page', px): scroll the shell's scroller down by px (the page scrolls inside an element), or
+# ('open-details', ''): open every disclosure on the page (none on wide layouts is fine).
 TEAM_A = 'claude-team-a.json'
 TEAM_B = 'claude-team-b.json'
 SAVED = '[data-machine="model-access-draft"][data-state="saved"]'
@@ -101,11 +103,20 @@ CASES = [
         ('wait', '[data-machine="model-access-draft"][data-state="blocked"]'),
         ('wait', '[data-testid="access-save"]:disabled'), ('writes', [])]),
     ('models-many-accounts', M, 'many', []),
+    # One operator's real shape: four accounts, twenty models, four on for all of them.
+    ('models-real', M, 'real', [('no-hscroll', GRID)]),
+    ('models-real-staged', M, 'real', [
+        ('click', '[data-model-switch="claude-fable-5-1"]'),
+        ('wait', '[data-machine="model-access-draft"][data-state="pending"]'), ('writes', [])]),
     # 21 models: the table scrolls sideways under a sticky account column and model header.
     ('models-wide', M, 'wide', []),
     # Models are rows and accounts share the width: neither the page nor the table scrolls sideways.
     ('models-fit-default', M, 'default', [('no-hscroll', GRID)]),
     ('models-fit-wide', M, 'wide', [('no-hscroll', GRID)]),
+    # Scrolled down: the filter bar and the grid's account header stay in view.
+    ('models-wide-scrolled', M, 'wide', [('scroll-page', '640')]),
+    # Every disclosure open (on a phone the key is one).
+    ('models-real-open', M, 'real', [('open-details', '')]),
     # 22 models make the page taller than the screen: the Save bar is docked in view at the fold,
     # and leaves with the page (it stays staged for when Models is opened again).
     ('models-bar-docked', M, 'wide', [
@@ -321,6 +332,14 @@ async def run_case(browser, base, origin, out, width, case):
                 box = await page.locator(selector).first.bounding_box()
                 if not box or box['y'] < 0 or box['y'] + box['height'] > page.viewport_size['height'] + 1:
                     raise AssertionError(f'not in view at the fold: {selector} {box}')
+            elif action == 'scroll-page':
+                await page.evaluate('''(px) => { const s = [...document.querySelectorAll('*')].find(
+                    (e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) &&
+                    e.scrollHeight > e.clientHeight + 4); if (s) s.scrollTop = px; }''', int(selector))
+                await page.wait_for_timeout(400)
+            elif action == 'open-details':
+                await page.evaluate("() => document.querySelectorAll('details').forEach((d) => { d.open = true; })")
+                await page.wait_for_timeout(300)
             elif action == 'screenshot':
                 await page.screenshot(path=str(out / 'fold' / f'{name}-{selector}.png'), timeout=30000)
             elif action == 'goto':

@@ -14,7 +14,9 @@ Scenarios: default | loading | empty | error | partial | many (12 Claude account
 models, for sideways scrolling) | shared (the GPT hub also has Claude accounts, so one provider tab
 shows a section per hub) | aligned (six Claude accounts on the first hub whose quota reads differ in
 windows, billing text and held resets, so a row of cards must still line up section by section; every
-read succeeds). The stale case calls edit_elsewhere().
+read succeeds) | real (one operator's shape: four Claude accounts, two sharing a name before the @,
+twenty Claude models of which four are on for every account through the provider list). The stale
+case calls edit_elsewhere().
 """
 from __future__ import annotations
 
@@ -83,6 +85,20 @@ ALIGNED_ACCOUNTS = [
      'disabled': False, 'own': None}
     for letter in 'abcdef']
 
+# The 'real' scenario: four models on, every older one off in the provider list, which all four
+# accounts follow.
+REAL_ON = ['claude-fable-5-2', 'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5']
+REAL_OFF = ['claude-fable-5-1', 'claude-fable-5', 'claude-opus-5', 'claude-sonnet-5',
+            'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6',
+            'claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5-20251001', 'claude-opus-4-1',
+            'claude-sonnet-4-0', 'claude-3-7-sonnet', 'claude-3-5-haiku', 'claude-3-opus']
+REAL_ACCOUNTS = [
+    {'name': f'claude-{slug}.json', 'type': 'claude', 'email': email, 'disabled': False, 'own': None}
+    for slug, email in [('ops-work', 'ops@work.example.invalid'),
+                        ('ops-mail', 'ops@mail.example.invalid'),
+                        ('research', 'research@work.example.invalid'),
+                        ('personal', 'ops@home.example.invalid')]]
+
 DISCOVERY = {
     'schemaVersion': 1, 'revision': 'b' * 64, 'defaultInstanceId': 'alpha',
     'sources': [
@@ -128,6 +144,10 @@ class FakeHubs:
             ]
         if scenario == 'aligned':
             self.hubs['alpha']['accounts'] = copy.deepcopy(ALIGNED_ACCOUNTS)
+        if scenario == 'real':
+            self.catalog['claude'] = REAL_ON + REAL_OFF
+            self.hubs['alpha']['providerLists'] = {'claude': list(REAL_OFF)}
+            self.hubs['alpha']['accounts'] = copy.deepcopy(REAL_ACCOUNTS)
         if scenario == 'rate-limited':
             # The hub's verdict on a blocked credential: the upstream error and when it retries.
             # Two hours ahead: the card hides a retry time that has already passed.

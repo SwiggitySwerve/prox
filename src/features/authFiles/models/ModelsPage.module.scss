@@ -12,6 +12,21 @@
   min-width: 0;
 }
 
+/*
+ * The shell's wrappers clip with `overflow: hidden` (the transition wrapper) and `overflow-x:
+ * hidden` (main-content, which turns its y axis into `auto`). Either makes a box that sticky
+ * elements stick to and that never scrolls, so nothing on the page could stick. While this page
+ * is shown they clip with `clip` instead (same painting, not a scroll box), so the filter bar
+ * and the grid's account header stick to the shell's scroller.
+ */
+:global(.page-transition):has(.page) {
+  overflow: clip;
+}
+
+:global(.main-content):has(.page) {
+  overflow-x: clip;
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
@@ -150,10 +165,33 @@
   border-radius: 12px;
   background: var(--bg-primary);
 
+  /* One message block: icon, title, the why, then what to do, centred together. */
   > :global(.empty-state) {
     width: 100%;
+    flex-direction: column;
+    justify-content: center;
     border: 0;
     background: none;
+    text-align: center;
+
+    :global(.empty-content) {
+      flex-direction: column;
+    }
+
+    :global(.empty-title) {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    :global(.empty-desc) {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  }
+
+  &[data-kind='error'] :global(.empty-icon) {
+    border-color: color-mix(in srgb, var(--danger-color) 45%, transparent);
+    color: var(--danger-color);
   }
 
   &[data-kind='loading'] {
@@ -224,14 +262,23 @@
 /* ---------- grid: one row per model, accounts across the top ---------- */
 
 .matrixFrame {
-  --head-col: 280px;
+  /* The model column gives up to 64px so account columns keep a comfortable width. */
+  --head-min: 256px;
+  --head-max: 304px;
+  --account-comfort: 112px;
   /* The narrowest an account column gets before the table scrolls inside its frame. */
   --account-min: 52px;
-  --row-height: 40px;
+  /* The widest: past this, switches would drift away from the model they belong to. */
+  --account-max: 200px;
+  --row-height: 36px;
   --fade-width: 32px;
+  /* The page scrolls the rows: the account header sticks under the filter bar. */
+  --sticky-top: var(--models-sticky-top, 0px);
 
   position: relative;
   min-width: 0;
+  /* Column widths below are fractions of the frame's width (cqw). */
+  container-type: inline-size;
 
   /* Account columns hidden to the left (under the sticky model column) or to the right. */
   &::before,
@@ -247,8 +294,9 @@
     transition: opacity var(--dur-hover) var(--ease-out-strong);
   }
 
+  /* Columns only hide when the model column is at its narrowest. */
   &::before {
-    left: calc(var(--head-col) + 1px);
+    left: calc(var(--head-min) + 1px);
     background: linear-gradient(
       to right,
       color-mix(in srgb, var(--text-primary) 12%, transparent),
@@ -271,13 +319,40 @@
   &[data-fade-right='true']::after {
     opacity: 1;
   }
+
+  /* Accounts that cannot fit: the frame scrolls both ways inside itself, header stuck to it. */
+  &[data-scroll='x'] {
+    --sticky-top: 0px;
+
+    .matrixScroll {
+      max-height: max(360px, calc(100dvh - 300px));
+      overflow: auto;
+    }
+  }
 }
 
-/* Scrolls down under a sticky account header; sideways only when the accounts cannot fit. */
+/*
+ * Model column first (narrower only so every account keeps its minimum), then the accounts,
+ * each capped so switches stay near their model; a last column takes what is left, so the rows
+ * still run the frame's full width. `clip` rounds the corners without making a scroll box, so the
+ * header can stick to the page.
+ */
 .matrixScroll {
+  --head-col: clamp(
+    var(--head-min),
+    calc(100cqw - 2px - var(--account-comfort) * var(--account-count, 1)),
+    var(--head-max)
+  );
+  --account-col: clamp(
+    var(--account-min),
+    calc((100cqw - 2px - var(--head-col)) / var(--account-count, 1)),
+    var(--account-max)
+  );
+
+  /* Ends at the last account column once the columns reach their cap. */
+  width: min(100%, calc(var(--head-col) + var(--account-col) * var(--account-count, 1) + 2px));
   max-width: 100%;
-  max-height: max(360px, calc(100dvh - 300px));
-  overflow: auto;
+  overflow: clip;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--bg-primary);
@@ -311,11 +386,13 @@
 
   thead th {
     position: sticky;
-    top: 0;
+    top: var(--sticky-top);
     z-index: 2;
     height: auto;
-    padding: 8px 4px;
+    padding: 8px 3px;
     background: var(--bg-secondary);
+    /* Columns have fractional widths: cover the hairline seam the table shows between them. */
+    box-shadow: 1px 0 0 var(--bg-secondary);
     font-weight: 600;
     color: var(--text-secondary);
     vertical-align: top;
@@ -325,16 +402,19 @@
   thead th.corner {
     left: 0;
     z-index: 4;
-    padding: 8px 10px;
+    padding: 8px 10px 10px;
     border-right: 1px solid var(--border-color);
     vertical-align: bottom;
+    font-size: 12px;
+    color: var(--text-tertiary);
   }
 
-  tbody tr:last-child > * {
+  tbody:last-child tr:last-child > * {
     border-bottom: 0;
   }
 
-  tr[data-served='no'] .modelId {
+  /* No account serves it (counting staged switches): the id steps back. */
+  tr[data-lit='false'] .modelId {
     color: var(--text-tertiary);
   }
 }
@@ -343,24 +423,72 @@
   width: var(--head-col);
 }
 
+.accountCol {
+  width: var(--account-col);
+}
+
+.matrix .fill {
+  padding: 0;
+}
+
 .corner {
   position: sticky;
 }
 
-/* "Account →" at the top right, "Model ↓" at the bottom left: which way each axis runs. */
-.cornerModels,
-.cornerAccounts {
-  display: block;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
+/* "Model" at the left; "All models" at the right, level with the account checkboxes. */
+.cornerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
 }
 
-.cornerAccounts {
-  margin-bottom: 30px;
-  text-align: right;
+.cornerAll {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* "Served 4" / "Not served 16": a labelled band over each part of the rows. */
+.sectionRow > th {
+  height: 30px;
+  padding: 0 10px;
+  background: var(--bg-subtle);
+  font-weight: 400;
+}
+
+/* The band of the rows in view stays under the account header (the next band slides over it). */
+.matrix .sectionRow > th {
+  position: sticky;
+  top: calc(var(--sticky-top) + var(--head-h, 0px));
+  /* Over the sticky model names scrolling under it (1), under the account header (thead). */
+  z-index: 2;
+}
+
+.sectionLabel {
+  position: sticky;
+  left: 10px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.sectionUnsaved {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--warning-text);
+}
+
+.sectionCount {
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
 }
 
 /* An account's column header: label (two lines), markers, then its switch and count. */
@@ -370,7 +498,7 @@
 
 .accountHeadInner {
   display: grid;
-  grid-template-rows: 30px 14px 22px 14px;
+  grid-template-rows: 30px 14px 24px;
   gap: 4px;
   justify-items: center;
   min-width: 0;
@@ -399,6 +527,7 @@
   white-space: nowrap;
 
   & + & {
+    font-size: 11px;
     font-weight: 400;
     color: var(--text-tertiary);
   }
@@ -419,7 +548,56 @@
 }
 
 .accountSwitch {
-  display: contents;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/*
+ * Columns too narrow for a name on one line: the name, domain and markers stand upright (read
+ * bottom to top, starting just above the switch), and the count goes under the checkbox.
+ */
+.matrixFrame[data-compact='true'] {
+  .accountHeadInner {
+    grid-template-columns: repeat(2, auto);
+    grid-template-rows: 120px auto;
+    justify-content: center;
+    gap: 4px 2px;
+  }
+
+  .accountLabel,
+  .accountSub {
+    display: flex;
+    flex-direction: column;
+    max-height: 120px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    text-align: start;
+  }
+
+  .accountSub {
+    justify-content: flex-start;
+
+    &:empty {
+      display: none;
+    }
+  }
+
+  .accountSwitch {
+    grid-column: 1 / -1;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* "20/20 on" may take two lines in a narrow column. */
+  .accountSwitch .countText {
+    white-space: normal;
+    text-align: center;
+  }
+
+  .accountHead {
+    padding: 8px 2px;
+  }
 }
 
 /* Narrower than on Auth Files, so the view switch, both filters and the counter share a line. */
@@ -437,10 +615,117 @@
   overflow-wrap: anywhere;
 }
 
-.gridHint {
-  margin: 0;
-  font-size: 12.5px;
+/* "Key", then each mark of the grid drawn small (a sample, not a control) with its meaning. */
+.keyRow {
+  display: flex;
+  align-items: center;
+  gap: 6px 14px;
+  min-width: 0;
+}
+
+.keyRow > .key {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.keyTitle {
+  flex-shrink: 0;
+  padding-right: 14px;
+  border-right: 1px solid var(--border-color);
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-secondary);
+}
+
+/* Phones: the key is one tap away. */
+.keyDisclosure {
+  font-size: 12px;
+  color: var(--text-secondary);
+
+  > summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    /* A chevron: right when closed, down when open. */
+    &::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform var(--dur-hover) var(--ease-out-strong);
+    }
+  }
+
+  &[open] > summary::before {
+    transform: rotate(45deg);
+  }
+
+  &[open] > .keyRow {
+    padding-bottom: 6px;
+  }
+}
+
+.loadingNote {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* The key: each mark of the grid, drawn as itself, with what it means. */
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+}
+
+.keySample {
+  width: auto;
+  height: auto;
+  cursor: default;
+  pointer-events: none;
+
+  &.switch {
+    --switch-w: 26px;
+    --switch-h: 15px;
+    --thumb: 9px;
+  }
+
+  &.bulk {
+    --box: 13px;
+
+    svg {
+      width: 9px;
+      height: 9px;
+    }
+  }
+
+  /* An account that is off: its switches, dimmed as in its column. */
+  &[data-off='true'] {
+    opacity: 0.6;
+  }
 }
 
 .rowHead {
@@ -456,30 +741,19 @@
   font-weight: 400;
 }
 
-/* Model row header: the model switch, then the id (full id in the tooltip) over its count. */
+/* Model row header, one line: its checkbox, the id (full id in the tooltip), its count. */
 .rowHeadInner {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.modelText {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
+  gap: 8px;
   min-width: 0;
 
   .modelId {
+    flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
-    line-height: 16px;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .countText {
-    font-size: 10.5px;
-    line-height: 13px;
   }
 }
 
@@ -557,50 +831,61 @@
   text-align: center;
 }
 
-/* ---------- the switch: one control for a cell, a model and an account ---------- */
+/* ---------- the switch (a cell) and the checkbox (a whole row or column) ---------- */
 
+/* The button is the hit area (24px tall); the track inside it is what you see. */
 .switch {
   --switch-w: 34px;
   --switch-h: 20px;
   --thumb: 14px;
 
-  position: relative;
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  width: var(--switch-w);
-  height: var(--switch-h);
+  justify-content: center;
+  width: calc(var(--switch-w) + 6px);
+  height: 24px;
   padding: 0;
-  border: 1px solid var(--border-hover);
-  border-radius: $radius-full;
-  background: var(--bg-tertiary);
+  border: 0;
+  background: none;
   vertical-align: middle;
   cursor: pointer;
-  transition: background-color var(--dur-hover) var(--ease-out-strong);
-
-  &[data-state='on'] {
-    border-color: var(--primary-color);
-    background: var(--primary-color);
-  }
-
-  &[data-state='mixed'] {
-    background: color-mix(in srgb, var(--primary-color) 35%, var(--bg-tertiary));
-  }
-
-  /* Staged, not saved yet: a dashed ring in the accent colour. */
-  &[data-changed='true'] {
-    outline: 2px dashed var(--warning-text);
-    outline-offset: 2px;
-  }
 
   &:focus-visible {
-    outline: 2px solid var(--text-primary);
-    outline-offset: 2px;
+    outline: none;
   }
 
   &:disabled {
     cursor: not-allowed;
     opacity: 0.55;
+  }
+}
+
+.switchTrack {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  border: 1px solid color-mix(in srgb, var(--text-quaternary) 90%, var(--bg-primary));
+  border-radius: $radius-full;
+  background: var(--bg-tertiary);
+  transition: background-color var(--dur-hover) var(--ease-out-strong);
+
+  .switch[data-state='on'] & {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+  }
+
+  /* Staged, not saved yet: a dashed ring in the accent colour. */
+  .switch[data-changed='true'] & {
+    outline: 2px dashed var(--warning-color);
+    outline-offset: 2px;
+  }
+
+  .switch:focus-visible & {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
   }
 }
 
@@ -620,19 +905,79 @@
     transform: translateX(calc(var(--switch-w) - var(--thumb) - 6px));
     background: var(--primary-contrast);
   }
+}
 
-  /* Mixed: the thumb sits in the middle. */
-  .switch[data-state='mixed'] & {
-    transform: translateX(calc((var(--switch-w) - var(--thumb) - 6px) / 2));
-    background: var(--text-primary);
+/* A whole row or column: a tri-state checkbox, ticked, empty, or a dash when mixed. */
+.bulk {
+  --box: 16px;
+
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  vertical-align: middle;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
   }
 }
 
-/* Same width as a switch, so labels line up when a row has nothing to switch. */
+.checkBox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--box);
+  height: var(--box);
+  border: 1.5px solid var(--text-quaternary);
+  border-radius: 4px;
+  color: var(--primary-contrast);
+  transition: background-color var(--dur-hover) var(--ease-out-strong);
+
+  .bulk[data-state='on'] & {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+  }
+
+  .bulk[data-state='mixed'] & {
+    border-color: color-mix(in srgb, var(--primary-color) 45%, var(--bg-tertiary));
+    background: color-mix(in srgb, var(--primary-color) 45%, var(--bg-tertiary));
+  }
+
+  /* Some switch in its row or column is staged: the same ring as the switch. */
+  .bulk[data-changed='true'] & {
+    outline: 2px dashed var(--warning-color);
+    outline-offset: 2px;
+  }
+
+  .bulk:focus-visible & {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
+  }
+}
+
+.checkDash {
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-primary);
+}
+
+/* Same width as a checkbox, so ids line up when a row has nothing to switch. */
 .switchSpacer {
   display: inline-block;
   flex-shrink: 0;
-  width: 34px;
+  width: 24px;
 }
 
 /* The account cannot get this model ("—"), or its settings could not be read ("?"). */
@@ -640,8 +985,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 20px;
+  width: 40px;
+  height: 24px;
   color: var(--text-quaternary);
   font-size: 13px;
   cursor: default;
@@ -656,7 +1001,7 @@
 
 .countText {
   font-family: $font-mono;
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: 400;
   color: var(--text-tertiary);
@@ -666,9 +1011,16 @@
 /* ---------- Save bars: docked at the bottom of the viewport, over the page's column ---------- */
 
 /* Lives on <body> (the app shell clips the page, so sticky cannot work inside it). */
+.saveDock:empty {
+  display: none;
+}
+
 .saveDock {
   position: fixed;
-  bottom: 12px;
+  bottom: 0;
+  padding: 16px 0 12px;
+  /* Rows fade out under the bar instead of showing through below it. */
+  background: linear-gradient(to bottom, transparent, var(--bg-secondary) 16px);
   left: var(--dock-left, 0);
   z-index: $z-dropdown - 3;
   display: flex;
@@ -684,11 +1036,15 @@
 
 .saveHub {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-primary);
+}
+
+/* Which hub's bar, when several hubs show sections: secondary to what the bar holds. */
+.saveHubName {
+  font-weight: 400;
+  color: var(--text-secondary);
 }
 
 .saveBar {
@@ -767,6 +1123,11 @@
   &[data-tone='success'] {
     color: var(--success-color, var(--text-primary));
   }
+
+  /* A side effect of the staged switches: the colour of "changed, not saved yet". */
+  &[data-tone='pending'] {
+    color: var(--warning-text);
+  }
 }
 
 .saveBarActions {
@@ -792,11 +1153,9 @@
 }
 
 .phonePickerLabel {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .phoneRows {
@@ -821,8 +1180,16 @@
     }
   }
 
-  li[data-served='no'] .modelId {
+  li[data-lit='false'] .modelId {
     color: var(--text-tertiary);
+  }
+
+  /* "Served 4" / "Not served 16" over each part of the list. */
+  li.phoneSection {
+    display: flex;
+    min-height: 32px;
+    padding: 6px 12px;
+    background: var(--bg-subtle);
   }
 }
 
@@ -853,6 +1220,16 @@
   --switch-w: 44px;
   --switch-h: 26px;
   --thumb: 20px;
+
+  width: 48px;
+  height: 44px;
+}
+
+.phoneView .bulk {
+  --box: 22px;
+
+  width: 44px;
+  height: 44px;
 }
 
 /* ---------- dialogs ---------- */
@@ -1005,13 +1382,30 @@
     width: 100%;
   }
 
+  /* Thumb-sized filters and bar buttons, as in the grid. */
+  .filterBar :is(button, input),
+  .phonePicker button,
+  .stateBlock button,
+  .saveBar button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   .changeList li {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The key in two even columns instead of a ragged wrap. */
+  .key {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .switch,
+  .switchTrack,
+  .checkBox,
   .switchThumb,
   .matrixFrame::before,
   .matrixFrame::after {

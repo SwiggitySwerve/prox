@@ -5,14 +5,16 @@ interface EmptyStateProps {
   title: string;
   description?: string;
   action?: ReactNode;
+  /** Replaces the inbox, e.g. a warning for an error. */
+  icon?: ReactNode;
 }
 
-export function EmptyState({ title, description, action }: EmptyStateProps) {
+export function EmptyState({ title, description, action, icon }: EmptyStateProps) {
   return (
     <div className="empty-state">
       <div className="empty-content">
         <div className="empty-icon" aria-hidden="true">
-          <IconInbox size={20} />
+          {icon ?? <IconInbox size={20} />}
         </div>
         <div>
           <div className="empty-title">{title}</div>

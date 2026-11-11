@@ -288,9 +288,12 @@ describe('access grid', () => {
     }
   });
 
-  test('models run down the rows and accounts across the top, sharing the width', () => {
+  test('models run down the rows, served above not served; accounts across the top', () => {
     const grid = readFileSync('src/features/authFiles/models/ModelAccessMatrix.tsx', 'utf8');
-    expect(grid).toMatch(/<tbody>\s*\{rows\.map\(/);
+    // One labelled tbody per part, as saved: staging a switch never moves a row.
+    expect(grid).toMatch(/<tbody key=\{section\.key\} data-section=\{section\.key\}>/);
+    expect(grid.indexOf("key: 'served'")).toBeLessThan(grid.indexOf("key: 'not-served'"));
+    expect(grid).toContain('const isServed = (row: MatrixRow) => row.servedBy.length > 0;');
     expect(grid).toContain('data-model-switch={row.model}');
     expect(grid).toContain('data-account-switch={account.name}');
     const scss = readFileSync('src/features/authFiles/models/ModelsPage.module.scss', 'utf8');
@@ -298,6 +301,13 @@ describe('access grid', () => {
     expect(scss).toContain(
       'width: max(100%, calc(var(--head-col) + var(--account-min) * var(--account-count, 1)));'
     );
+    // ...and each account column stops at --account-max, so switches stay near their models; a
+    // last column takes the rest, so rows still reach the frame's edge.
+    expect(scss).toContain('width: var(--account-col);');
+    expect(scss).toMatch(
+      /--account-col: clamp\(\s*var\(--account-min\),[^;]*var\(--account-max\)\s*\);/
+    );
+    expect(grid).toContain('<td className={styles.fill} aria-hidden="true" />');
   });
 
   test('the section stages switches and saves from the bar; no dialog for the grid', () => {
