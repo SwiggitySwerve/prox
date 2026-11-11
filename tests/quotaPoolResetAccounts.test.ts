@@ -3,7 +3,10 @@ import { createHash } from 'node:crypto';
 import {
   findPoolResetFile,
   heldExpiries,
+  groupHeldResets,
+  heldResetKinds,
   heldResets,
+  sumResetKinds,
   poolResetReasonKey,
   poolResetStatus,
   markSpent,
@@ -143,4 +146,53 @@ test('held resets keep each kind beside its expiry after passed ones drop off', 
     { at: 200 },
     { at: 300 },
   ]);
+});
+
+test('held reset kinds count each kind, standard kinds before Fable', () => {
+  const base = { available: 4, usable: 4, blocker: null, nextExpiryAtMs: 200, observedAtMs: 1 };
+  const resets = {
+    ...base,
+    expiries: [200, 300, 400, 400],
+    kinds: ['fable', 'weekly', 'fable', 'fable'] as ('fable' | 'weekly')[],
+  };
+  expect(heldResetKinds(resets, 100)).toEqual([
+    { kind: 'weekly', count: 1 },
+    { kind: 'fable', count: 3 },
+  ]);
+  // A reset with no date or no kind leaves the split unknown, so the plain count stands.
+  expect(heldResetKinds({ ...resets, available: 5 }, 100)).toBeNull();
+  expect(heldResetKinds({ ...base, expiries: [200, 300, 400, 400] }, 100)).toBeNull();
+  // One that lapsed since the reading is no longer held, but the reading still counts it.
+  expect(heldResetKinds(resets, 250)).toBeNull();
+});
+
+test('reset kind totals add across accounts and stay unknown if any account is', () => {
+  const weekly = [{ kind: 'weekly' as const, count: 1 }];
+  const mixed = [
+    { kind: 'full' as const, count: 1 },
+    { kind: 'fable' as const, count: 2 },
+  ];
+  expect(sumResetKinds([weekly, mixed, weekly])).toEqual([
+    { kind: 'weekly', count: 2 },
+    { kind: 'full', count: 1 },
+    { kind: 'fable', count: 2 },
+  ]);
+  expect(sumResetKinds([weekly, null])).toBeNull();
+  expect(sumResetKinds([])).toBeNull();
+});
+
+test('identical resets group into one line with a count, keeping where each run starts', () => {
+  const held = [
+    { at: 200, kind: 'weekly' as const },
+    { at: 300, kind: 'fable' as const },
+    { at: 300, kind: 'fable' as const },
+    { at: 300, kind: 'weekly' as const },
+  ];
+  expect(groupHeldResets(held)).toEqual([
+    { at: 200, kind: 'weekly', count: 1, first: 0 },
+    { at: 300, kind: 'fable', count: 2, first: 1 },
+    { at: 300, kind: 'weekly', count: 1, first: 3 },
+  ]);
+  // Codex resets carry no kind; equal expiries still group.
+  expect(groupHeldResets([{ at: 5 }, { at: 5 }])).toEqual([{ at: 5, count: 2, first: 0 }]);
 });

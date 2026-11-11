@@ -28,8 +28,11 @@ import {
 import type { PoolDashboard, QuotaPool } from '@/domain/quotaPool/types';
 import { metricField, type ChartMode } from './chartGeometry';
 import { DAY_MS } from '@/utils/time/durations';
-import { wasSpent } from './resetAccounts';
-import { PoolAccountResets } from './PoolAccountResets';
+import { useNow } from '@/hooks/useNow';
+import type { AccountResetKind, AccountResets } from '@/domain/quotaPool/types';
+import type { TFunction } from 'i18next';
+import { heldResetKinds, sumResetKinds, wasSpent, type ResetKindCount } from './resetAccounts';
+import { PoolAccountResets, ResetKindCounts } from './PoolAccountResets';
 import { PoolChart } from './PoolChart';
 import { PoolGraph } from './PoolGraph';
 import { PoolGraphToggle } from './PoolGraphToggle';
@@ -53,6 +56,52 @@ const CHIP_ICONS: Record<PoolChipIcon, typeof IconCheck> = {
   collecting: IconTimer,
   info: IconInfo,
 };
+
+/** The row chip's parts; each stays whole, so a narrow column breaks it only between parts. */
+function resetChipParts(
+  resets: AccountResets,
+  kinds: ResetKindCount[] | null,
+  t: TFunction
+): { text: string; kind?: AccountResetKind }[] {
+  if (kinds)
+    return [
+      ...kinds.map(({ kind, count }) => ({
+        text: t(`quota_pool.reset_count_${kind}`, { count }),
+        kind,
+      })),
+      ...(resets.usable > 0
+        ? [{ text: t('quota_pool.reset_usable_part', { usable: resets.usable }) }]
+        : []),
+    ];
+  return (
+    resets.usable > 0
+      ? t('quota_pool.reset_chip_usable', { count: resets.available, usable: resets.usable })
+      : t('quota_pool.reset_chip', { count: resets.available })
+  )
+    .split(' · ')
+    .map((text) => ({ text }));
+}
+
+function ResetChip({ resets, now }: { resets: AccountResets; now: number }) {
+  const { t } = useTranslation();
+  const kinds = heldResetKinds(resets, now);
+  const parts = resetChipParts(resets, kinds, t);
+  return (
+    <>
+      {/* Kind counts drop the "Manual resets" word so the chip fits the Account column. */}
+      {kinds && <span className={styles.resetChipLabel}>{t('quota_pool.resets')}: </span>}
+      {parts.map((part, index) => (
+        <Fragment key={index}>
+          <span className={styles.resetChipPart}>
+            <span data-kind={part.kind}>{part.text}</span>
+            {index < parts.length - 1 && ' ·'}
+          </span>
+          {index < parts.length - 1 && ' '}
+        </Fragment>
+      ))}
+    </>
+  );
+}
 
 /** One label/value pair of the Accounts summary; the pair wraps as a unit, never inside. */
 function SummaryFact({ label, children }: { label: string; children: ReactNode }) {
@@ -317,6 +366,17 @@ export function PoolCard({
     dashboard.window === 'five-hour'
       ? pool.accounts.filter((account) => account.noFiveHourLimit).length
       : 0;
+  const now = useNow();
+  // Accounts whose resets count toward the totals: not spent from this tab since the reading.
+  const resetAccounts = pool.accounts.filter(
+    (account) =>
+      account.resets &&
+      account.resets.available > 0 &&
+      !wasSpent(account.id, account.resets.observedAtMs)
+  );
+  const resetKindTotals = sumResetKinds(
+    resetAccounts.map((account) => heldResetKinds(account.resets!, now))
+  );
   const resetTotals = pool.accounts.reduce(
     (sum, account) =>
       account.resets && wasSpent(account.id, account.resets.observedAtMs)
@@ -547,7 +607,15 @@ export function PoolCard({
             {(resetTotals.available > 0 || coverageMissing) && (
               <span className={styles.accountSummary}>
                 {resetTotals.available > 0 && (
-                  <SummaryFact label={t('quota_pool.resets')}>{resetTotals.available}</SummaryFact>
+                  <SummaryFact label={t('quota_pool.resets')}>
+                    {resetTotals.available}
+                    {resetKindTotals && (
+                      <span className={styles.resetKindTotals}>
+                        {' · '}
+                        <ResetKindCounts kinds={resetKindTotals} />
+                      </span>
+                    )}
+                  </SummaryFact>
                 )}
                 {resetTotals.available > 0 && resetTotals.usable > 0 && (
                   <SummaryFact label={t('quota_pool.reset_usable_summary')}>
@@ -781,23 +849,7 @@ export function PoolCard({
                             className={styles.accountResetMarker}
                             data-usable={account.resets.usable > 0 || undefined}
                           >
-                            {account.resets.usable > 0
-                              ? // Two unbreakable parts, so a column narrower than the chip (901–1199px)
-                                // breaks it only at its " · ", never across the Plan column.
-                                t('quota_pool.reset_chip_usable', {
-                                  count: account.resets.available,
-                                  usable: account.resets.usable,
-                                })
-                                  .split(' · ')
-                                  .map((part, index, parts) => (
-                                    <Fragment key={index}>
-                                      <span className={styles.resetChipPart}>
-                                        {index < parts.length - 1 ? `${part} ·` : part}
-                                      </span>
-                                      {index < parts.length - 1 && ' '}
-                                    </Fragment>
-                                  ))
-                              : t('quota_pool.reset_chip', { count: account.resets.available })}
+                            <ResetChip resets={account.resets} now={now} />
                           </span>
                         )}
                     </span>

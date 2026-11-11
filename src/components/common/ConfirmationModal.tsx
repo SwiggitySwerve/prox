@@ -21,6 +21,7 @@ export function ConfirmationModal() {
     onConfirm,
     onCancel,
     confirmText,
+    hideConfirm,
     cancelText,
     variant = 'primary',
     pill,
@@ -68,9 +69,11 @@ export function ConfirmationModal() {
         <Button variant="secondary" onClick={handleCancel} disabled={isLoading}>
           {cancelText || t('common.cancel')}
         </Button>
-        <Button variant={variant} onClick={handleConfirm} loading={isLoading}>
-          {confirmText || t('common.confirm')}
-        </Button>
+        {!hideConfirm && (
+          <Button variant={variant} onClick={handleConfirm} loading={isLoading}>
+            {confirmText || t('common.confirm')}
+          </Button>
+        )}
       </div>
     </Modal>
   );
