@@ -20,6 +20,7 @@ import {
   filterRows,
   listKeyOf,
   resolveListKey,
+  sortRowsNewestFirst,
   type ModelView,
   type ModelsTab,
   type VisibleCounts,
@@ -122,7 +123,10 @@ export function ModelsHubSection({
     if (inventory && requestedList !== null && requestedList !== listKey) setParam({ list: null });
   }, [inventory, listKey, requestedList, setParam]);
 
-  const rows = useMemo(() => (inventory ? buildMatrix(inventory) : []), [inventory]);
+  const rows = useMemo(
+    () => (inventory ? sortRowsNewestFirst(buildMatrix(inventory)) : []),
+    [inventory]
+  );
   const visibleRows = useMemo(() => filterRows(rows, modelQuery, view), [rows, modelQuery, view]);
   const visibleAccounts = useMemo(
     () => (inventory ? filterAccounts(inventory.accounts, accountQuery) : []),
