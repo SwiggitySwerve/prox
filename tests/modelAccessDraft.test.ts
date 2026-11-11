@@ -309,6 +309,46 @@ describe('the fewest writes', () => {
   });
 });
 
+describe('the fewest writes, exactly', () => {
+  test('the largest set of followers that agree keeps the shared list; the rest get lists', () => {
+    // Every account follows an empty provider list; reported -> wanted off.
+    const wants: Array<[string, string[]]> = [
+      ['bcd', ['b', 'd']],
+      ['abc', ['a', 'c']],
+      ['bcde', ['b', 'd']],
+      ['abcde', ['b', 'd']],
+      ['d', []],
+      ['abce', ['b', 'e']],
+      ['b', ['b']],
+    ];
+    const inv: ModelAccessInventory = {
+      provider: 'claude',
+      providerList: [],
+      catalog: ['a', 'b', 'c', 'd', 'e'],
+      aliases: [],
+      accounts: wants.map(([ids], index) => ({
+        name: `n${index + 1}`,
+        kind: 'file' as const,
+        label: `n${index + 1}`,
+        disabled: false,
+        ownList: { status: 'known' as const, rules: null },
+        reported: { status: 'known' as const, ids: ids.split('') },
+      })),
+    };
+    const changes = wants.flatMap(([, off], index) =>
+      off.map((model) => ({ account: `n${index + 1}`, model, on: false }))
+    );
+    // n5 wants nothing off, so the shared list cannot block d; n6 and n7 agree with it.
+    expect(writesOf(planAccessWrites(inv, stage(inv, changes)))).toEqual([
+      { target: 'provider', before: null, after: ['b', 'e'] },
+      { target: 'n1', before: null, after: ['b', 'd'] },
+      { target: 'n2', before: null, after: ['a', 'c'] },
+      { target: 'n3', before: null, after: ['b', 'd'] },
+      { target: 'n4', before: null, after: ['b', 'd'] },
+    ]);
+  });
+});
+
 describe('accounts held in memory (no credential file)', () => {
   test('a column change still goes through the shared list they follow', () => {
     const inv = runtimeInventory(runtimeFollowing('rt-1'));

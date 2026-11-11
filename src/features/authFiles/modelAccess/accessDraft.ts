@@ -11,7 +11,7 @@
  * - A file account cannot differ by having nothing off: an empty own list means "follow".
  *
  * Among the shared defaults that can express every account's switches, the one needing the fewest
- * writes wins (ties keep the current default). Wildcards are kept while every model they match
+ * writes wins (ties keep the current default; planAccessWrites says why that search is exact). Wildcards are kept while every model they match
  * stays off; turning one of those models on replaces the wildcard, in that list only, with the
  * known models it matched minus the ones turned on.
  *
@@ -221,8 +221,6 @@ const agrees = (left: Set<string>, right: Set<string>, on: Iterable<string>) => 
   return true;
 };
 
-const setKey = (set: Set<string>) => [...set].sort().join('\n');
-
 const asList = (rules: string[]): string[] | null => (rules.length > 0 ? rules : null);
 
 type Outcome =
@@ -289,8 +287,6 @@ function evaluate(
   return { ok: true, writes, expansions };
 }
 
-const BLOCK_ORDER: AccessBlock['code'][] = ['runtime-differ', 'all-on'];
-
 export function planAccessWrites(
   inventory: ModelAccessInventory,
   overrides: AccessOverrides
@@ -322,63 +318,73 @@ export function planAccessWrites(
     .map((account) => account.name);
   const sharedNow = offSet(normalizeExcludedRules(inventory.providerList), models);
 
-  // Per model, what most accounts that have it as a switch want; ties keep the current default.
-  const consensus = (item: string) => {
-    const votes = desires.filter((desire) => desire.switches.has(item));
-    const off = votes.filter((desire) => desire.off.has(item)).length;
-    return off * 2 === votes.length ? sharedNow.has(item) : off * 2 > votes.length;
-  };
-  /** A default that follows these desires where they have switches, the consensus elsewhere. */
-  const fill = (from: readonly Desire[]) =>
+  /*
+   * The fewest writes, exactly. An account with its own list costs one write if that list does
+   * not already give its switches and none if it does, whatever the provider list says; only the
+   * accounts that follow the provider list depend on it. So the best provider list is the one the
+   * largest set of followers agree on (minus one write if it has to change). Runtime credentials,
+   * and any account that wants nothing off (an empty own list means "follow"), must agree with it.
+   */
+  const fits = (a: Desire, b: Desire) =>
+    [...a.switches].every((item) => !b.switches.has(item) || a.off.has(item) === b.off.has(item));
+  const shape = (group: readonly Desire[]) =>
     new Set(
       allKeys.filter((item) => {
-        const owner = from.find((desire) => desire.switches.has(item));
-        return owner ? owner.off.has(item) : consensus(item);
+        const owner = group.find((desire) => desire.switches.has(item));
+        return owner ? owner.off.has(item) : sharedNow.has(item);
       })
     );
-
-  /** The seed plus, in order, every account that agrees with all of them where they overlap. */
-  const grow = (seed: readonly Desire[]) => {
-    const group = [...seed];
-    for (const desire of desires) {
-      if (group.includes(desire)) continue;
-      const fits = group.every((other) =>
-        [...desire.switches].every(
-          (item) => !other.switches.has(item) || other.off.has(item) === desire.off.has(item)
-        )
-      );
-      if (fits) group.push(desire);
-    }
-    return group;
+  const ownSatisfied = (desire: Desire) => {
+    const own = ownRulesOf(desire.account);
+    return own.length > 0 && agrees(offSet(own, models), desire.off, desire.switches);
   };
-
-  const runtime = desires.filter((desire) => desire.account.kind === 'runtime');
-  const candidates =
-    runtime.length > 0
-      ? [fill(runtime), fill(grow(runtime))]
-      : [
-          sharedNow,
-          new Set<string>(),
-          new Set(allKeys.filter(consensus)),
-          ...desires.flatMap((desire) => [fill([desire]), fill(grow([desire]))]),
-        ];
-  const seen = new Set<string>();
-  let best: Extract<Outcome, { ok: true }> | null = null;
-  const blocks: AccessBlock[] = [];
-  for (const candidate of candidates) {
-    const id = setKey(candidate);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const outcome = evaluate(inventory, models, desires, candidate);
-    if (!outcome.ok) blocks.push(outcome.block);
-    else if (!best || outcome.writes.length < best.writes.length) best = outcome;
+  const forced = desires.filter(
+    (desire) =>
+      desire.account.kind === 'runtime' || (desire.off.size === 0 && !ownSatisfied(desire))
+  );
+  for (const [index, a] of forced.entries()) {
+    const clash = forced.slice(index + 1).find((b) => !fits(a, b));
+    if (!clash) continue;
+    const runtimeNames = desires
+      .filter((desire) => desire.account.kind === 'runtime')
+      .map((desire) => desire.account.name);
+    const file = [a, clash].find((desire) => desire.account.kind === 'file');
+    return {
+      status: 'blocked',
+      block: file
+        ? { code: 'all-on', account: file.account.name, runtime: runtimeNames }
+        : { code: 'runtime-differ', accounts: runtimeNames },
+    };
   }
-  if (!best) {
-    const block = [...blocks].sort(
-      (a, b) => BLOCK_ORDER.indexOf(a.code) - BLOCK_ORDER.indexOf(b.code)
-    )[0];
-    return { status: 'blocked', block };
-  }
+  const optional = desires.filter(
+    (desire) =>
+      desire.account.kind === 'file' &&
+      ownRulesOf(desire.account).length === 0 &&
+      !forced.includes(desire)
+  );
+  const moves = (group: readonly Desire[]) => (agrees(shape(group), sharedNow, allKeys) ? 0 : 1);
+  let bestGroup: readonly Desire[] = forced;
+  let bestScore = -moves(forced);
+  // Branch and bound over the followers; a budget keeps a pathological hub responsive.
+  let budget = 200_000;
+  const visit = (from: number, group: readonly Desire[], count: number) => {
+    if (--budget < 0) return;
+    const score = count - moves(group);
+    if (score > bestScore) {
+      bestGroup = group;
+      bestScore = score;
+    }
+    for (let index = from; index < optional.length; index += 1) {
+      if (count + optional.length - index <= bestScore) return;
+      const next = optional[index];
+      if (group.every((member) => fits(member, next)))
+        visit(index + 1, [...group, next], count + 1);
+    }
+  };
+  visit(0, forced, 0);
+  const outcome = evaluate(inventory, models, desires, shape(bestGroup));
+  if (!outcome.ok) return { status: 'blocked', block: outcome.block };
+  const best = outcome;
   if (best.writes.length === 0) return { status: 'none' };
   // An account that could not be read may follow the provider list: never move it under it.
   if (unreadable.length > 0 && best.writes.some((write) => write.target.kind === 'provider')) {
