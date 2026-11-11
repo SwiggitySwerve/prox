@@ -89,7 +89,7 @@ export function AccessSaveBar({ hub, accounts, changes, plan, save, onSave, onDi
           <p className={styles.saveHub}>
             {changes.length > 0 && t('model_access.bar_label')}
             {changes.length > 0 && hub && <span aria-hidden="true"> · </span>}
-            {hub}
+            {hub && <span className={styles.saveHubName}>{hub}</span>}
           </p>
         )}
         {groups.length > 0 && (

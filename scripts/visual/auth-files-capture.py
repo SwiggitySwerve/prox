@@ -36,7 +36,8 @@ M = '/auth-files/models?source=alpha&provider=claude'
 # ('writes', [...]): fail the case unless the fake hubs received exactly these list writes, in order
 # (each is (method, path, body)), or ('no-hscroll', selector): fail unless the page and that
 # scroller are no wider than the viewport and their own box (checked at >= 600 px wide), or
-# ('in-view', selector): fail unless that element is fully inside the viewport without scrolling.
+# ('in-view', selector): fail unless that element is fully inside the viewport without scrolling, or
+# ('scroll-page', px): scroll the shell's scroller down by px (the page scrolls inside an element).
 TEAM_A = 'claude-team-a.json'
 TEAM_B = 'claude-team-b.json'
 SAVED = '[data-machine="model-access-draft"][data-state="saved"]'
@@ -111,6 +112,8 @@ CASES = [
     # Models are rows and accounts share the width: neither the page nor the table scrolls sideways.
     ('models-fit-default', M, 'default', [('no-hscroll', GRID)]),
     ('models-fit-wide', M, 'wide', [('no-hscroll', GRID)]),
+    # Scrolled down: the filter bar and the grid's account header stay in view.
+    ('models-wide-scrolled', M, 'wide', [('scroll-page', '640')]),
     # 22 models make the page taller than the screen: the Save bar is docked in view at the fold,
     # and leaves with the page (it stays staged for when Models is opened again).
     ('models-bar-docked', M, 'wide', [
@@ -326,6 +329,11 @@ async def run_case(browser, base, origin, out, width, case):
                 box = await page.locator(selector).first.bounding_box()
                 if not box or box['y'] < 0 or box['y'] + box['height'] > page.viewport_size['height'] + 1:
                     raise AssertionError(f'not in view at the fold: {selector} {box}')
+            elif action == 'scroll-page':
+                await page.evaluate('''(px) => { const s = [...document.querySelectorAll('*')].find(
+                    (e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) &&
+                    e.scrollHeight > e.clientHeight + 4); if (s) s.scrollTop = px; }''', int(selector))
+                await page.wait_for_timeout(400)
             elif action == 'screenshot':
                 await page.screenshot(path=str(out / 'fold' / f'{name}-{selector}.png'), timeout=30000)
             elif action == 'goto':

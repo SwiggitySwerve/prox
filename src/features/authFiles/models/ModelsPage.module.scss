@@ -262,13 +262,14 @@
 /* ---------- grid: one row per model, accounts across the top ---------- */
 
 .matrixFrame {
-  /* The model column gives up to 64px before account columns go below their minimum. */
-  --head-min: 240px;
+  /* The model column gives up to 64px so account columns keep a comfortable width. */
+  --head-min: 256px;
   --head-max: 304px;
+  --account-comfort: 112px;
   /* The narrowest an account column gets before the table scrolls inside its frame. */
   --account-min: 52px;
   /* The widest: past this, switches would drift away from the model they belong to. */
-  --account-max: 168px;
+  --account-max: 200px;
   --row-height: 36px;
   --fade-width: 32px;
   /* The page scrolls the rows: the account header sticks under the filter bar. */
@@ -339,7 +340,7 @@
 .matrixScroll {
   --head-col: clamp(
     var(--head-min),
-    calc(100cqw - 2px - var(--account-min) * var(--account-count, 1)),
+    calc(100cqw - 2px - var(--account-comfort) * var(--account-count, 1)),
     var(--head-max)
   );
   --account-col: clamp(
@@ -348,6 +349,8 @@
     var(--account-max)
   );
 
+  /* Ends at the last account column once the columns reach their cap. */
+  width: min(100%, calc(var(--head-col) + var(--account-col) * var(--account-count, 1) + 2px));
   max-width: 100%;
   overflow: clip;
   border: 1px solid var(--border-color);
@@ -386,7 +389,7 @@
     top: var(--sticky-top);
     z-index: 2;
     height: auto;
-    padding: 8px 4px;
+    padding: 8px 3px;
     background: var(--bg-secondary);
     /* Columns have fractional widths: cover the hairline seam the table shows between them. */
     box-shadow: 1px 0 0 var(--bg-secondary);
@@ -501,6 +504,7 @@
   white-space: nowrap;
 
   & + & {
+    font-size: 11px;
     font-weight: 400;
     color: var(--text-tertiary);
   }
@@ -523,7 +527,7 @@
 .accountSwitch {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 /*
@@ -533,7 +537,7 @@
 .matrixFrame[data-compact='true'] {
   .accountHeadInner {
     grid-template-columns: repeat(2, auto);
-    grid-template-rows: 150px 40px;
+    grid-template-rows: 120px auto;
     justify-content: center;
     gap: 4px 2px;
   }
@@ -542,7 +546,7 @@
   .accountSub {
     display: flex;
     flex-direction: column;
-    max-height: 150px;
+    max-height: 120px;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     text-align: start;
@@ -562,12 +566,10 @@
     gap: 0;
   }
 
-  .countLong {
-    display: none;
-  }
-
-  .countShort {
-    display: inline;
+  /* "20/20 on" may take two lines in a narrow column. */
+  .accountSwitch .countText {
+    white-space: normal;
+    text-align: center;
   }
 
   .accountHead {
@@ -614,6 +616,11 @@
   height: auto;
   cursor: default;
   pointer-events: none;
+
+  /* An account that is off: its switches, dimmed as in its column. */
+  &[data-off='true'] {
+    opacity: 0.6;
+  }
 }
 
 .rowHead {
@@ -767,7 +774,7 @@
 
   /* Staged, not saved yet: a dashed ring in the accent colour. */
   .switch[data-changed='true'] & {
-    outline: 2px dashed var(--warning-text);
+    outline: 2px dashed var(--warning-color);
     outline-offset: 2px;
   }
 
@@ -844,7 +851,7 @@
 
   /* Some switch in its row or column is staged: the same ring as the switch. */
   .bulk[data-changed='true'] & {
-    outline: 2px dashed var(--warning-text);
+    outline: 2px dashed var(--warning-color);
     outline-offset: 2px;
   }
 
@@ -887,10 +894,6 @@
   min-width: 0;
 }
 
-.countShort {
-  display: none;
-}
-
 .countText {
   font-family: $font-mono;
   font-size: 12px;
@@ -930,6 +933,12 @@
   margin: 0;
   font-size: 12px;
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Which hub's bar, when several hubs show sections: secondary to what the bar holds. */
+.saveHubName {
+  font-weight: 400;
   color: var(--text-secondary);
 }
 

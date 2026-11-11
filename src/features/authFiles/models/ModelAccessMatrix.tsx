@@ -336,19 +336,9 @@ export function ModelAccessMatrix(props: Props) {
                   <span className={styles.accountSwitch}>
                     {renderAccountSwitch(account)}
                     <span className={styles.countText}>
-                      {state && (
-                        <>
-                          <span className={styles.countLong}>
-                            {t('model_access.grid_on_count', { on: state.on, total: state.total })}
-                          </span>
-                          <span className={styles.countShort}>
-                            {t('model_access.grid_on_count_short', {
-                              on: state.on,
-                              total: state.total,
-                            })}
-                          </span>
-                        </>
-                      )}
+                      {state
+                        ? t('model_access.grid_on_count', { on: state.on, total: state.total })
+                        : ''}
                     </span>
                   </span>
                 </span>
@@ -447,7 +437,9 @@ function MatrixTable({
       frame.dataset.compact = 'false';
       const words = table?.querySelectorAll<HTMLElement>(HEADER_WORDS) ?? [];
       frame.dataset.compact = String(
-        [...words].some((word) => word.scrollWidth > word.clientWidth + 1)
+        [...words].some(
+          (word) => word.scrollWidth > word.clientWidth || word.scrollHeight > word.clientHeight
+        )
       );
       frame.dataset.fadeLeft = String(scroller.scrollLeft > 1);
       frame.dataset.fadeRight = String(scroller.scrollLeft < hidden - 1);
@@ -496,7 +488,9 @@ function MatrixTable({
 }
 
 /** The words of an account header that must never be cut short. */
-const HEADER_WORDS = `thead .${styles.labelLine}, thead .${styles.marker}, thead .${styles.rowFile}`;
+const HEADER_WORDS = [styles.accountLabel, styles.labelLine, styles.marker, styles.rowFile]
+  .map((name) => `thead .${name}`)
+  .join(', ');
 
 const ALL_ACCOUNTS = 'all';
 const accountViewKey = (name: string) => `account:${name}`;
@@ -652,6 +646,14 @@ export function AccessKey() {
       <li>
         <span className={`${styles.noSwitch} ${styles.keySample}`}>—</span>
         {t('model_access.key_none')}
+      </li>
+      <li>
+        <span className={`${styles.switch} ${styles.keySample}`} data-state="on" data-off="true">
+          <span className={styles.switchTrack}>
+            <span className={styles.switchThumb} />
+          </span>
+        </span>
+        {t('model_access.key_account_off')}
       </li>
       <li>
         {sample('on', true)}
