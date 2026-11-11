@@ -3374,6 +3374,8 @@ $table-tiers: (
   margin: 0;
   padding: 0;
   list-style: none;
+  // Fact values don't wrap; a kind plus "used next" outgrows a phone-width column.
+  white-space: normal;
   li {
     display: flex;
     flex-wrap: wrap;
