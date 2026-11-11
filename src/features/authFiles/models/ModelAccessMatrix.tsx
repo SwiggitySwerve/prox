@@ -11,7 +11,6 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Select } from '@/components/ui/Select';
 import {
   IconAlertTriangle,
-  IconArrowDown,
   IconCheck,
   IconChevronDown,
   IconEye,
@@ -497,15 +496,12 @@ export function ModelAccessMatrix(props: Props) {
                 {t('model_access.corner_domain', { domain })}
               </span>
             )}
-            <span className={styles.cornerTitle}>{t('model_access.column_model')}</span>
-            <span className={styles.cornerInner} aria-hidden="true">
-              {/* Over the rows' checkboxes: each sets its model for every account. */}
-              <span className={styles.cornerAll}>
-                <IconArrowDown size={12} />
-                {t('model_access.corner_all_accounts')}
+            <span className={styles.cornerInner}>
+              {t('model_access.column_model')}
+              {/* Names the row of column checkboxes it sits level with. */}
+              <span className={styles.cornerAll} aria-hidden="true">
+                {t('model_access.corner_all_models')}
               </span>
-              {/* Level with the column checkboxes: each sets every model for its account. */}
-              <span className={styles.cornerAll}>{t('model_access.corner_all_models')}</span>
             </span>
           </th>
           {accounts.map((account) => {
@@ -889,12 +885,6 @@ export function AccessKey({ titled = true }: { titled?: boolean }) {
         <li>
           {sample('on', true)}
           {t('model_access.key_staged')}
-        </li>
-        <li>
-          <span className={`${styles.hideButton} ${styles.keySample}`}>
-            <IconEyeOff size={14} />
-          </span>
-          {t('model_access.key_hide')}
         </li>
       </ul>
     </div>

@@ -112,11 +112,9 @@
   }
 }
 
-/* Its contents sit in from the band's edges, as the grid's do from the card's. */
-@media (min-width: 600px) {
-  .filterBar {
-    padding-inline: 12px;
-  }
+/* Its contents sit in from the band's edges, as the grid's do from the card's (phones too). */
+.filterBar {
+  padding-inline: 12px;
 }
 
 /* On Rules and Aliases, and with nothing loaded, the filters stay in place, visibly off: the
@@ -448,12 +446,7 @@
   position: sticky;
 }
 
-.cornerTitle {
-  display: block;
-  margin-bottom: 4px;
-}
-
-/* "Set all accounts" over the rows' checkboxes; "Set all models" level with the columns'. */
+/* "Model" at the left; "All models" at the right, level with the account checkboxes. */
 .cornerInner {
   display: flex;
   align-items: center;
@@ -471,9 +464,6 @@
 }
 
 .cornerAll {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
   font-weight: 400;
   color: var(--text-tertiary);
   white-space: nowrap;
@@ -1062,9 +1052,9 @@
   position: fixed;
   /* Just under the page's last line when it ends above the fold, else at the bottom. */
   bottom: var(--dock-bottom, 0px);
-  padding: 32px 0 12px;
-  /* Rows fade out above the bar, so no line shows cut in half behind its edge. */
-  background: linear-gradient(to bottom, transparent, var(--bg-secondary) 28px);
+  padding: 16px 0 12px;
+  /* Rows fade out under the bar instead of showing through below it. */
+  background: linear-gradient(to bottom, transparent, var(--bg-secondary) 16px);
   left: var(--dock-left, 0);
   z-index: $z-dropdown - 3;
   display: flex;
