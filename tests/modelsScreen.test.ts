@@ -2,14 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { buildMatrix, CELL_KINDS } from '../src/features/authFiles/modelAccess/resolve';
 import {
-  accountGroupOf,
   accountListKind,
   cellLabelKey,
-  cellShortKey,
   countServed,
   filterAccounts,
   filterRows,
-  groupAccounts,
   hubsForProvider,
   legacyModelsTarget,
   listDiff,
@@ -21,8 +18,8 @@ import {
   resolveProviderAcross,
   resolveProviderParam,
   resolveSourceScope,
-  rowActionFor,
   sharedLabels,
+  summarizeChanges,
   sumCounts,
   targetOfListKey,
   type HubFiles,
@@ -86,7 +83,6 @@ describe('Models screen filters', () => {
               : { kind };
       const key = cellLabelKey(cell as never);
       expect(en[key]).toBeString();
-      expect(en[cellShortKey(cell as never)]).toBeString();
       expect(en[`kind_${kind.replace('-', '_')}`]).toBeString();
     }
   });
@@ -210,42 +206,6 @@ describe('Rules tab list link', () => {
   });
 });
 
-describe('row action', () => {
-  const row = (rows: ReturnType<typeof buildMatrix>, model: string) =>
-    rows.find((item) => item.model === model)!;
-
-  test('a served model is excluded everywhere', () => {
-    expect(rowActionFor(row(rows, 'claude-opus-4-5'))).toEqual({ kind: 'exclude' });
-  });
-
-  test('a model held back only by a provider wildcard offers to edit that rule', () => {
-    expect(rowActionFor(row(rows, 'claude-3-7-sonnet'))).toEqual({
-      kind: 'edit-rule',
-      target: { kind: 'provider' },
-    });
-  });
-
-  test("a wildcard in an account's own list opens that account's list", () => {
-    const own = buildMatrix(
-      inventory({ providerList: [], accounts: [account('team-b.json', ['claude-3-*'], {}, [])] })
-    );
-    expect(rowActionFor(row(own, 'claude-3-5-haiku'))).toEqual({
-      kind: 'edit-rule',
-      target: { kind: 'account', name: 'team-b.json' },
-    });
-  });
-
-  test('an exact rule can be removed, so the row offers include everywhere', () => {
-    const exact = buildMatrix(
-      inventory({
-        providerList: ['claude-haiku-4-5'],
-        accounts: [account('team-a.json', null, {}, ['claude-haiku-4-5'])],
-      })
-    );
-    expect(rowActionFor(row(exact, 'claude-haiku-4-5'))).toEqual({ kind: 'include' });
-  });
-});
-
 describe('account identity', () => {
   test('labels two accounts share are reported, so their columns show the file name', () => {
     const twin = { ...account('team-a.json', null), name: 'team-a-2.json' };
@@ -291,26 +251,69 @@ const HUBS: HubFiles[] = [
   { id: 'beta', files: [file('x.json', 'codex'), file('b.json', 'claude')] },
 ];
 
-describe('access table rows', () => {
-  test('accounts group as follows (runtime included), own list, unreadable, off; empty groups drop', () => {
-    const accounts = [
-      ...inventory().accounts,
-      runtimeAccount('key-1', ['claude-opus-4-5']),
-      { ...account('own-off.json', ['x']), disabled: true },
-    ];
-    expect(
-      groupAccounts(accounts).map((group) => [group.key, group.accounts.map((item) => item.name)])
-    ).toEqual([
-      ['follows', ['team-a.json', 'max-d.json', 'key-1']],
-      ['own', ['team-b.json']],
-      ['off', ['pro-c.json', 'own-off.json']],
+describe('access grid', () => {
+  test('the Save bar names a column change once, and a row change as one account', () => {
+    const column = ['a.json', 'b.json', 'c.json'].map((name) => ({
+      account: name,
+      model: 'claude-haiku-4-5',
+      on: false,
+    }));
+    const rowOn = ['claude-opus-4-5', 'claude-opus-4-1'].map((model) => ({
+      account: 'd.json',
+      model,
+      on: true,
+    }));
+    expect(summarizeChanges([...column, ...rowOn])).toEqual([
+      { on: false, models: ['claude-haiku-4-5'], accounts: ['a.json', 'b.json', 'c.json'] },
+      { on: true, models: ['claude-opus-4-5', 'claude-opus-4-1'], accounts: ['d.json'] },
     ]);
-    const unreadable = {
-      ...account('u.json', null),
-      ownList: { status: 'unknown' as const, message: 'x' },
-    };
-    expect(accountGroupOf(unreadable)).toBe('unknown');
-    expect(groupAccounts([])).toEqual([]);
+    expect(summarizeChanges([])).toEqual([]);
+  });
+
+  test("the grid never shows the hub's lists: no provider row, groups or list wording", () => {
+    const grid = readFileSync('src/features/authFiles/models/ModelAccessMatrix.tsx', 'utf8');
+    for (const word of [
+      'group_',
+      'badge_',
+      'provider_cell',
+      'column_provider',
+      'own list',
+      'ListTarget',
+    ]) {
+      expect(grid).not.toContain(word);
+    }
+    const en = JSON.parse(readFileSync('src/i18n/locales/en.json', 'utf8')).model_access;
+    for (const key of Object.keys(en).filter((item) => /^(grid|bar|phone)_/.test(item))) {
+      expect(en[key]).not.toMatch(/provider list|own list|follows/i);
+    }
+  });
+
+  test('models run down the rows and accounts across the top, sharing the width', () => {
+    const grid = readFileSync('src/features/authFiles/models/ModelAccessMatrix.tsx', 'utf8');
+    expect(grid).toMatch(/<tbody>\s*\{rows\.map\(/);
+    expect(grid).toContain('data-model-switch={row.model}');
+    expect(grid).toContain('data-account-switch={account.name}');
+    const scss = readFileSync('src/features/authFiles/models/ModelsPage.module.scss', 'utf8');
+    // Columns share the frame; the table only grows past it below --account-min per account.
+    expect(scss).toContain(
+      'width: max(100%, calc(var(--head-col) + var(--account-min) * var(--account-count, 1)));'
+    );
+  });
+
+  test('the section stages switches and saves from the bar; no dialog for the grid', () => {
+    const section = readFileSync('src/features/authFiles/models/ModelsHubSection.tsx', 'utf8');
+    expect(section).toContain('useAccessDraft(inventory, io, reload, onChanged)');
+    expect(section).toContain('onStage={draft.stage}');
+    expect(section).toContain('<AccessSaveBar');
+    expect(section).not.toContain('LockedCellDialog');
+    const bar = readFileSync('src/features/authFiles/models/AccessSaveBar.tsx', 'utf8');
+    expect(bar).toContain('data-machine="model-access-draft"');
+    expect(bar).not.toContain('Modal');
+    // Docked on <body> (the shell clips the page, so sticky never sticks), only for the visible
+    // route: a hidden previous layer must not leave its bar over the next page.
+    const page = readFileSync('src/features/authFiles/models/ModelsPage.tsx', 'utf8');
+    expect(page).toMatch(/isCurrentLayer &&\s*createPortal\(<div ref=\{setDock\}/);
+    expect(section).toContain('createPortal(bar, saveDock)');
   });
 
   test('the model filter and Served switch narrow columns; the account filter narrows rows', () => {
@@ -384,7 +387,7 @@ describe('hubs and providers', () => {
     // A hub that is gone falls back to the old lookup.
     expect(listOwner('account:b.json', null, HUBS, 'gone')).toBe('alpha');
     const section = readFileSync('src/features/authFiles/models/ModelsHubSection.tsx', 'utf8');
-    expect(section.match(/listHub: hubId/g)).toHaveLength(2);
+    expect(section.match(/listHub: hubId/g)).toHaveLength(1);
   });
 
   test('links built by modelsScreenPath still open the right hub, provider and list', () => {

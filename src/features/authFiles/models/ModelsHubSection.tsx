@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
@@ -8,17 +9,18 @@ import { useAuthFilesSource } from '@/features/authFiles/AuthFilesSourceContext'
 import { getTypeLabel } from '@/features/authFiles/constants';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import { useModelAccessInventory } from '@/features/authFiles/hooks/useModelAccessInventory';
+import { useAccessDraft } from '@/features/authFiles/hooks/useAccessDraft';
 import { useModelEditSession } from '@/features/authFiles/hooks/useModelEditSession';
-import { buildMatrix, inventoryOf, type ListTarget } from '@/features/authFiles/modelAccess';
-import { ModelAccessLegend, ModelAccessMatrix, type LockedCellInfo } from './ModelAccessMatrix';
-import { LockedCellDialog, ModelEditDialog } from './ModelEditDialog';
+import { buildMatrix, followsProviderList, inventoryOf } from '@/features/authFiles/modelAccess';
+import { AccessSaveBar } from './AccessSaveBar';
+import { ModelAccessMatrix } from './ModelAccessMatrix';
+import { ModelEditDialog } from './ModelEditDialog';
 import { ModelAliasesPanel } from './ModelAliasesPanel';
 import { ModelRulesPanel } from './ModelRulesPanel';
 import {
   countServed,
   filterAccounts,
   filterRows,
-  listKeyOf,
   resolveListKey,
   sortRowsNewestFirst,
   type ModelView,
@@ -45,6 +47,8 @@ type Props = {
   registerRefresh: (key: string, refresh: () => Promise<void>) => () => void;
   /** What this hub's access table shows, for the page counter; null when it shows no table. */
   reportCounts: (key: string, counts: VisibleCounts | null) => void;
+  /** Where the Save bar goes (fixed at the bottom of the viewport); inline until it exists. */
+  saveDock: HTMLElement | null;
 };
 
 /** The block every non-table state of a section fills: same frame and height as the table. */
@@ -91,6 +95,7 @@ export function ModelsHubSection({
   setParam,
   registerRefresh,
   reportCounts,
+  saveDock,
 }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -103,7 +108,7 @@ export function ModelsHubSection({
     void notifyAuthFilesChanged(scope.session.owner);
   }, [scope.session.owner]);
   const edit = useModelEditSession(inventory, io, reload, onChanged);
-  const [locked, setLocked] = useState<LockedCellInfo | null>(null);
+  const draft = useAccessDraft(inventory, io, reload, onChanged);
   const [overflowing, setOverflowing] = useState(false);
 
   // The top bar's refresh re-lists the credentials and re-reads this provider's model access.
@@ -146,20 +151,33 @@ export function ModelsHubSection({
     inventory?.accounts.filter(
       (account) => account.kind === 'file' && account.ownList.status !== 'known'
     ) ?? [];
+  const saving = draft.save.status === 'saving';
   const busy =
-    edit.session.status !== 'idle' || load.status === 'refreshing' || load.status === 'loading';
+    saving ||
+    edit.session.status !== 'idle' ||
+    load.status === 'refreshing' ||
+    load.status === 'loading';
 
-  // The hub goes with the list: another hub may hold a credential file of the same name.
-  const openRules = (target: ListTarget) =>
-    setParam({ tab: 'rules', list: listKeyOf(target), listHub: hubId });
-  const goToRule = (info: LockedCellInfo) => {
-    setLocked(null);
-    openRules(
-      info.list === 'provider' || !info.accountName
-        ? { kind: 'provider' }
-        : { kind: 'account', name: info.accountName }
-    );
-  };
+  // Accounts whose last Save did not land; the provider list's failure is every follower's.
+  const failed = useMemo(() => {
+    const map = new Map<string, string>();
+    if (draft.save.status !== 'failed' || !inventory) return map;
+    for (const failure of draft.save.failures) {
+      if (failure.target.kind === 'account') {
+        map.set(failure.target.name, failure.message);
+        continue;
+      }
+      for (const account of inventory.accounts) {
+        const follows =
+          account.kind === 'runtime' ||
+          (account.ownList.status === 'known' && followsProviderList(account.ownList.rules));
+        if (follows && !map.has(account.name)) map.set(account.name, failure.message);
+      }
+    }
+    return map;
+  }, [draft.save, inventory]);
+
+  const saveBar = (bar: ReactNode) => (saveDock ? createPortal(bar, saveDock) : bar);
 
   const renderAccess = () => {
     if (!inventory) return null;
@@ -193,7 +211,7 @@ export function ModelsHubSection({
           </p>
         )}
         <div className={styles.legendRow}>
-          <ModelAccessLegend />
+          <p className={styles.gridHint}>{t('model_access.grid_hint')}</p>
           {/* Always rendered, so the table never moves when the note appears. */}
           <span className={styles.scrollNote} aria-live="polite">
             {overflowing && !isPhone
@@ -215,25 +233,26 @@ export function ModelsHubSection({
         ) : (
           <ModelAccessMatrix
             provider={getTypeLabel(t, provider)}
+            inventory={inventory}
+            overrides={draft.overrides}
             rows={visibleRows}
             accounts={visibleAccounts}
-            disabled={busy}
+            disabled={saving || edit.session.status !== 'idle'}
             layout={isPhone ? 'list' : 'table'}
-            onToggleCell={(account, model, exclude) =>
-              edit.start({ type: 'account-model', account: account.name, model, exclude })
-            }
-            onLockedCell={setLocked}
-            onEverywhere={(model, exclude) =>
-              edit.start({ type: 'model-everywhere', model, exclude })
-            }
-            onProviderDefault={(model, exclude) =>
-              edit.start({ type: 'provider-model', model, exclude })
-            }
-            onAccountAll={(account, exclude) =>
-              edit.start({ type: 'account-all', account: account.name, exclude })
-            }
-            onEditRule={openRules}
+            failed={failed}
+            onStage={draft.stage}
             onOverflowChange={setOverflowing}
+          />
+        )}
+        {saveBar(
+          <AccessSaveBar
+            hub={showHeading ? scope.source.label : null}
+            accounts={inventory.accounts}
+            changes={draft.changes}
+            plan={draft.plan}
+            save={draft.save}
+            onSave={() => void draft.commit()}
+            onDiscard={draft.discard}
           />
         )}
         <p className={styles.matrixNote}>
@@ -324,7 +343,6 @@ export function ModelsHubSection({
         onReplan={() => void edit.replan()}
         onClose={edit.close}
       />
-      <LockedCellDialog info={locked} onClose={() => setLocked(null)} onEditRule={goToRule} />
     </div>
   );
 }

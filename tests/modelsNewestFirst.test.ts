@@ -111,7 +111,7 @@ describe('model recency order', () => {
   });
 });
 
-describe('newest-first columns and centred bubbles (wiring)', () => {
+describe('newest-first columns and centred switches (wiring)', () => {
   const section = readFileSync('src/features/authFiles/models/ModelsHubSection.tsx', 'utf8');
   const scss = readFileSync('src/features/authFiles/models/ModelsPage.module.scss', 'utf8');
   const block = (selector: string) => {
@@ -124,23 +124,7 @@ describe('newest-first columns and centred bubbles (wiring)', () => {
     expect(section).toMatch(/sortRowsNewestFirst\(buildMatrix\(inventory\)\)/);
   });
 
-  test('cell chips centre their icon-and-text group on both axes, with centred text', () => {
-    const cell = block('.cell');
-    expect(cell).toContain('justify-content: center');
-    expect(cell).toContain('align-items: center');
-    expect(cell).toContain('text-align: center');
-    expect(cell).not.toContain('text-align: left');
-    // The drift dot must not push the group off centre.
-    expect(cell).not.toContain('margin-left: auto');
-  });
-
-  test('row and account buttons centre their label', () => {
-    const buttons = scss.slice(
-      scss.indexOf('.rowAction,\n.miniButton {'),
-      scss.indexOf(".rowAction[data-action='edit-rule']")
-    );
-    expect(buttons).toContain('justify-content: center');
-    expect(buttons).toContain('align-items: center');
-    expect(buttons).toContain('text-align: center');
+  test('every grid cell centres its switch', () => {
+    expect(block('.matrix td.switchCell')).toContain('text-align: center');
   });
 });

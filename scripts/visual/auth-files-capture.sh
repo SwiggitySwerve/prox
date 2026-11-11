@@ -24,4 +24,4 @@ for _ in $(seq 1 60); do curl -sf "$url/" >/dev/null && break; sleep 0.5; done
 [ "$mode" = dev ] && curl -sf "$url/src/App.tsx" >/dev/null || true
 cases=()
 [ "$#" -gt 0 ] && cases=(--cases "$@")
-uv run -q --with playwright python -I scripts/visual/auth-files-capture.py --url "$url" --out "$out" "${cases[@]}"
+uv run -q --with playwright python -I -B scripts/visual/auth-files-capture.py --url "$url" --out "$out" "${cases[@]}"

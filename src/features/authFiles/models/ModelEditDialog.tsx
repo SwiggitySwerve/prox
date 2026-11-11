@@ -14,7 +14,6 @@ import {
   type WriteOutcome,
   type WritePlan,
 } from '@/features/authFiles/modelAccess';
-import type { LockedCellInfo } from './ModelAccessMatrix';
 import { listDiff } from './matrixView';
 import styles from './ModelsPage.module.scss';
 
@@ -485,46 +484,6 @@ export function ModelEditDialog(props: Props) {
       <div data-machine="model-edit-session" data-state={session.status}>
         {body}
       </div>
-    </Modal>
-  );
-}
-
-export function LockedCellDialog(props: {
-  info: LockedCellInfo | null;
-  onClose: () => void;
-  onEditRule: (info: LockedCellInfo) => void;
-}) {
-  const { t } = useTranslation();
-  const [shown, setShown] = useState<LockedCellInfo | null>(props.info);
-  if (props.info && props.info !== shown) setShown(props.info);
-  const info = props.info ?? shown;
-  if (!info) return null;
-  return (
-    <Modal
-      open={props.info !== null}
-      title={t('model_access.locked_title')}
-      onClose={props.onClose}
-      footer={
-        <>
-          <Button variant="secondary" onClick={props.onClose}>
-            {t('common.close')}
-          </Button>
-          <Button onClick={() => props.onEditRule(info)} data-testid="locked-edit-rule">
-            {t('model_access.edit_rule')}
-          </Button>
-        </>
-      }
-    >
-      <p data-machine="locked-cell" data-state={props.info ? 'open' : 'closed'}>
-        {t('model_access.locked_body', {
-          model: info.model,
-          account: info.account,
-          rule: info.rule,
-          list: t(
-            info.list === 'provider' ? 'model_access.list_provider' : 'model_access.list_account'
-          ),
-        })}
-      </p>
     </Modal>
   );
 }

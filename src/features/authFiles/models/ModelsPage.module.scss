@@ -221,37 +221,19 @@
   }
 }
 
-/* One line: swatch + word per cell state. */
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-secondary);
-
-  li {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-}
-
-/* ---------- matrix: models across the top, grouped account rows down the left ---------- */
+/* ---------- grid: one row per model, accounts across the top ---------- */
 
 .matrixFrame {
-  --head-col: 260px;
-  --model-col: 140px;
-  --row-height: 44px;
+  --head-col: 280px;
+  /* The narrowest an account column gets before the table scrolls inside its frame. */
+  --account-min: 52px;
+  --row-height: 40px;
   --fade-width: 32px;
 
   position: relative;
   min-width: 0;
 
-  /* Model columns hidden to the left (under the sticky account column) or to the right. */
+  /* Account columns hidden to the left (under the sticky model column) or to the right. */
   &::before,
   &::after {
     content: '';
@@ -291,7 +273,7 @@
   }
 }
 
-/* Scrolls both ways, so the header row sticks to its top and the account column to its left. */
+/* Scrolls down under a sticky account header; sideways only when the accounts cannot fit. */
 .matrixScroll {
   max-width: 100%;
   max-height: max(360px, calc(100dvh - 300px));
@@ -307,13 +289,13 @@
 }
 
 /*
- * Fixed layout: the account column and every model column have exact widths (the sticky offsets
- * and the alignment rely on it). The last, unnamed column takes what is left, so every row and
- * its border run the full width when the models do not fill it.
+ * Fixed layout: the model column has an exact width (the sticky offset relies on it) and the
+ * account columns share the rest equally, so the table is exactly as wide as its frame until
+ * each account column would be narrower than --account-min.
  */
 .matrix {
   table-layout: fixed;
-  width: max(100%, calc(var(--head-col) + var(--model-col) * var(--model-count, 1)));
+  width: max(100%, calc(var(--head-col) + var(--account-min) * var(--account-count, 1)));
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12.5px;
@@ -327,13 +309,12 @@
     vertical-align: middle;
   }
 
-  thead th,
-  thead td {
+  thead th {
     position: sticky;
     top: 0;
     z-index: 2;
     height: auto;
-    padding: 8px 6px;
+    padding: 8px 4px;
     background: var(--bg-secondary);
     font-weight: 600;
     color: var(--text-secondary);
@@ -346,13 +327,14 @@
     z-index: 4;
     padding: 8px 10px;
     border-right: 1px solid var(--border-color);
+    vertical-align: bottom;
   }
 
-  tbody:last-child tr:last-child > * {
+  tbody tr:last-child > * {
     border-bottom: 0;
   }
 
-  th[data-served='no'] .modelId {
+  tr[data-served='no'] .modelId {
     color: var(--text-tertiary);
   }
 }
@@ -361,20 +343,11 @@
   width: var(--head-col);
 }
 
-.modelCol {
-  width: var(--model-col);
-}
-
-/* The unnamed last column: no padding, so it is exactly what the model columns leave. */
-.matrix .fill {
-  padding: 0;
-}
-
 .corner {
   position: sticky;
 }
 
-/* "Model →" at the top right, "Account ↓" at the bottom left: which way each axis runs. */
+/* "Account →" at the top right, "Model ↓" at the bottom left: which way each axis runs. */
 .cornerModels,
 .cornerAccounts {
   display: block;
@@ -385,45 +358,68 @@
   color: var(--text-tertiary);
 }
 
-.cornerModels {
+.cornerAccounts {
+  margin-bottom: 30px;
   text-align: right;
 }
 
-.cornerAccounts {
-  margin-top: 44px;
-}
-
-/* A model column's header cell; its parts sit in .modelHeadInner. */
-.modelHead {
+/* An account's column header: label (two lines), markers, then its switch and count. */
+.accountHead {
   min-width: 0;
 }
 
-/* Model column header: id (two lines), meta line, action; each always in the same place. */
-.modelHeadInner {
+.accountHeadInner {
   display: grid;
-  grid-template-rows: 30px 18px 24px;
-  gap: 5px;
+  grid-template-rows: 30px 14px 22px 14px;
+  gap: 4px;
+  justify-items: center;
   min-width: 0;
+  text-align: center;
+}
 
-  .modelId {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    font-size: 11.5px;
-    font-weight: 600;
-    line-height: 15px;
-  }
+.accountLabel {
+  display: -webkit-box;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 15px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
 
-  .modelMeta {
-    flex-wrap: nowrap;
-    overflow: hidden;
-  }
+.labelLine {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
-  .rowAction {
-    justify-content: center;
-    width: 100%;
+  & + & {
+    font-weight: 400;
+    color: var(--text-tertiary);
   }
+}
+
+.accountSub {
+  display: flex;
+  justify-content: safe center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+
+  .rowFile {
+    text-overflow: ellipsis;
+  }
+}
+
+.accountSwitch {
+  display: contents;
 }
 
 /* Narrower than on Auth Files, so the view switch, both filters and the counter share a line. */
@@ -441,32 +437,10 @@
   overflow-wrap: anywhere;
 }
 
-.modelMeta {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-/* A group label is a full-width row; its text stays in view while the models scroll. */
-.groupRow > th {
-  height: 28px;
-  padding: 0;
-  background: var(--bg-secondary);
-}
-
-.groupLabel {
-  position: sticky;
-  left: 0;
-  display: inline-block;
-  padding: 0 10px;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  white-space: nowrap;
+.gridHint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
 }
 
 .rowHead {
@@ -482,35 +456,35 @@
   font-weight: 400;
 }
 
-/*
- * Row header, two lines: label and badge, then the file name (only when two accounts share a
- * label) and the actions. Each line lays out on its own, so the actions never narrow the label;
- * empty slots keep their size.
- */
+/* Model row header: the model switch, then the id (full id in the tooltip) over its count. */
 .rowHeadInner {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.rowLine {
-  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.modelText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-width: 0;
 
-  &:first-child {
-    height: 18px;
+  .modelId {
+    overflow: hidden;
+    line-height: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  &:last-child {
-    height: 20px;
+  .countText {
+    font-size: 10.5px;
+    line-height: 13px;
   }
 }
 
+/* Phone list: "All models" and its markers. */
 .rowLabel {
-  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   font-size: 12.5px;
@@ -520,303 +494,289 @@
   white-space: nowrap;
 }
 
-.rowBadge {
-  display: flex;
-  flex-shrink: 0;
-  justify-content: flex-end;
-  max-width: 120px;
-}
-
 .rowSub {
-  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
   font-size: 11px;
   color: var(--text-tertiary);
-  text-overflow: ellipsis;
   white-space: nowrap;
+
+  &:empty {
+    display: none;
+  }
 }
 
 .rowFile {
+  min-width: 0;
+  overflow: hidden;
   font-family: $font-mono;
   font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  text-overflow: ellipsis;
 }
 
-.rowActions {
-  display: flex;
-  flex-shrink: 0;
-  justify-content: flex-end;
-  gap: 4px;
-
-  .accountActions {
-    flex-wrap: nowrap;
-  }
-
-  .miniButton {
-    min-height: 20px;
-    padding: 0 7px;
-    font-size: 10.5px;
-  }
-}
-
-.aliasChip {
-  display: inline-flex;
-  justify-content: center;
-  max-width: 100%;
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
-  font-family: $font-mono;
-  font-size: 10.5px;
-  line-height: 16px;
-  color: var(--text-secondary);
+/* "Account off", "Couldn't read", "Not saved": small words, no pill outlines to decode. */
+.marker {
+  flex-shrink: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.metaNote {
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.onlyOne,
-.servedCount,
-.notServed {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-family: $font-mono;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.onlyOne {
-  color: var(--warning-text);
+  font-size: 10.5px;
   font-weight: 600;
-}
-
-.servedCount {
-  color: var(--text-secondary);
-}
-
-.notServed {
+  line-height: 14px;
   color: var(--text-tertiary);
-}
 
-/* Compact buttons: the row action and the account actions. */
-.rowAction,
-.miniButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  flex-shrink: 0;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--border-color);
-  border-radius: $radius-full;
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    color var(--dur-hover) var(--ease-out-strong),
-    border-color var(--dur-hover) var(--ease-out-strong);
-
-  &:hover:not(:disabled) {
-    border-color: var(--border-hover);
-    color: var(--text-primary);
+  &[data-marker='unknown'] {
+    color: var(--warning-text);
   }
 
-  &:disabled {
-    color: var(--text-quaternary);
-    cursor: not-allowed;
+  &[data-marker='failed'] {
+    color: var(--danger-color);
+  }
+}
+
+/* A disabled account is muted, but its switches still work. */
+.matrix th[data-off='true'] .accountLabel,
+.phoneAll[data-off='true'] .rowLabel {
+  color: var(--text-tertiary);
+}
+
+.matrix td[data-off='true'] {
+  opacity: 0.6;
+}
+
+.matrix th[data-failed='true'] {
+  box-shadow: inset 0 -3px 0 var(--danger-color);
+}
+
+.matrix td.switchCell {
+  text-align: center;
+}
+
+/* ---------- the switch: one control for a cell, a model and an account ---------- */
+
+.switch {
+  --switch-w: 34px;
+  --switch-h: 20px;
+  --thumb: 14px;
+
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  padding: 0;
+  border: 1px solid var(--border-hover);
+  border-radius: $radius-full;
+  background: var(--bg-tertiary);
+  vertical-align: middle;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) var(--ease-out-strong);
+
+  &[data-state='on'] {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+  }
+
+  &[data-state='mixed'] {
+    background: color-mix(in srgb, var(--primary-color) 35%, var(--bg-tertiary));
+  }
+
+  /* Staged, not saved yet: a dashed ring in the accent colour. */
+  &[data-changed='true'] {
+    outline: 2px dashed var(--warning-text);
+    outline-offset: 2px;
   }
 
   &:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 1px;
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
   }
 }
 
-.rowAction[data-action='edit-rule'] {
-  border-style: dashed;
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: var(--thumb);
+  height: var(--thumb);
+  border-radius: 50%;
+  /* Off: a dim thumb on a dark track, so an on switch is always the bright one. */
+  background: var(--text-tertiary);
+  box-shadow: $shadow-sm;
+  transition: transform var(--dur-hover) var(--ease-out-strong);
+
+  .switch[data-state='on'] & {
+    transform: translateX(calc(var(--switch-w) - var(--thumb) - 6px));
+    background: var(--primary-contrast);
+  }
+
+  /* Mixed: the thumb sits in the middle. */
+  .switch[data-state='mixed'] & {
+    transform: translateX(calc((var(--switch-w) - var(--thumb) - 6px) / 2));
+    background: var(--text-primary);
+  }
 }
 
-/* Phone picker: the selected account's badge and actions (kept empty for the provider list). */
-.accountMeta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  min-height: 24px;
-}
-
-.accountBadge {
+/* Same width as a switch, so labels line up when a row has nothing to switch. */
+.switchSpacer {
   display: inline-block;
-  max-width: 100%;
-  padding: 1px 7px;
-  text-align: center;
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  &[data-list='own'] {
-    border-color: var(--primary-color);
-    color: var(--text-primary);
-    background: var(--primary-10);
-  }
-
-  &[data-list='runtime'] {
-    border-style: dashed;
-  }
-
-  &[data-list='disabled'],
-  &[data-list='unknown'] {
-    border-color: var(--warning-border);
-    color: var(--warning-text);
-  }
+  flex-shrink: 0;
+  width: 34px;
 }
 
-.accountActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-/* Every cell is the same chip: full width, 32px tall, short text that names its state. */
-.cell {
-  position: relative;
-  display: flex;
+/* The account cannot get this model ("—"), or its settings could not be read ("?"). */
+.noSwitch {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  width: 100%;
+  width: 34px;
+  height: 20px;
+  color: var(--text-quaternary);
+  font-size: 13px;
+  cursor: default;
+}
+
+.headSwitch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
-  height: 32px;
-  padding: 0 6px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: none;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 11.5px;
-  line-height: 1.3;
-  text-align: center;
-  white-space: nowrap;
-
-  &:is(button) {
-    cursor: pointer;
-
-    &:hover:not(:disabled) {
-      border-color: var(--border-hover);
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--primary-color);
-      outline-offset: 1px;
-    }
-  }
-
-  /* The hub has not caught up with the lists yet; the dot sits on the edge, off the centred text.
-     Equal padding on both sides keeps the text centred and clear of the dot. */
-  &[data-drift='true'] {
-    padding-inline: 14px;
-  }
-
-  &[data-drift='true']::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    right: 4px;
-    width: 6px;
-    height: 6px;
-    margin-top: -3px;
-    border-radius: 50%;
-    background: var(--warning-text);
-  }
 }
 
-.cellText {
-  min-width: 0;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.lockGlyph {
-  flex-shrink: 0;
-}
-
-.cell,
-.legendSwatch {
-  &[data-kind='served'],
-  &[data-kind='open'] {
-    color: var(--text-primary);
-    background: color-mix(in srgb, var(--viz-success) 14%, transparent);
-  }
-
-  &[data-kind='excluded-own'],
-  &[data-kind='excluded-provider'] {
-    color: var(--text-primary);
-    background: color-mix(in srgb, var(--viz-failure) 14%, transparent);
-  }
-
-  &[data-kind='wildcard'] {
-    color: var(--text-primary);
-    border-style: dashed;
-    border-color: var(--viz-failure);
-  }
-
-  &[data-kind='disabled'],
-  &[data-kind='no-access'],
-  &[data-kind='not-served'],
-  &[data-kind='unknown'] {
-    color: var(--text-tertiary);
-    background: var(--bg-secondary);
-  }
-}
-
-.cell[data-kind='wildcard'] .cellText {
+.countText {
   font-family: $font-mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* ---------- Save bars: docked at the bottom of the viewport, over the page's column ---------- */
+
+/* Lives on <body> (the app shell clips the page, so sticky cannot work inside it). */
+.saveDock {
+  position: fixed;
+  bottom: 12px;
+  left: var(--dock-left, 0);
+  z-index: $z-dropdown - 3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: var(--dock-width, 100%);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.saveHub {
+  margin: 0;
   font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
-.legendSwatch {
+.saveBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  box-shadow: $shadow-lg;
+}
+
+.saveBarText {
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.changeLines,
+.failureLines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.failureLines li {
+  color: var(--danger-color);
+  font-size: 12.5px;
+}
+
+.changeDot {
   flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
 
-  &[data-kind='no-access'] {
-    border-color: var(--border-color);
-  }
-
-  &[data-kind='disabled'] {
-    border-color: var(--border-color);
-    border-style: dotted;
+  &[data-on='true'] {
+    background: var(--primary-color);
   }
 }
 
-/* ---------- phone: one account at a time ---------- */
+.saveNote {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+
+  &:empty {
+    display: none;
+  }
+
+  &[data-tone='danger'] {
+    color: var(--danger-color);
+  }
+
+  &[data-tone='success'] {
+    color: var(--success-color, var(--text-primary));
+  }
+}
+
+.saveBarActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ---------- phone: all accounts, or one at a time ---------- */
 
 .phoneView {
   display: flex;
@@ -849,11 +809,11 @@
 
   li {
     display: grid;
-    // The model id gets a line of its own: ids are long and must stay readable on a phone.
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
+    gap: 10px;
+    min-height: 48px;
+    padding: 6px 12px;
     border-bottom: 1px solid var(--border-color);
 
     &:last-child {
@@ -866,26 +826,33 @@
   }
 }
 
+/* "All models" for the picked account: its row switch, set apart from the model rows. */
+.phoneAll {
+  background: var(--bg-secondary);
+}
+
 .phoneModel {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  grid-column: 1 / -1;
 
   .modelId {
     overflow-wrap: anywhere;
   }
 }
 
-.phoneSub {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  overflow-wrap: anywhere;
+.phoneCell {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
-.phoneCell {
-  min-width: 0;
+/* Bigger targets for a thumb. */
+.phoneView .switch {
+  --switch-w: 44px;
+  --switch-h: 26px;
+  --thumb: 20px;
 }
 
 /* ---------- dialogs ---------- */
@@ -1044,8 +1011,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rowAction,
-  .miniButton,
+  .switch,
+  .switchThumb,
   .matrixFrame::before,
   .matrixFrame::after {
     transition: none;

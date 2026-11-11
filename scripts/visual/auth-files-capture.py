@@ -32,7 +32,23 @@ M = '/auth-files/models?source=alpha&provider=claude'
 # ('goto', hash route), ('scroll', selector): scroll that element to its right end, or
 # ('no-dialog', selector): fail the case when that element is visible, or
 # ('pick-account', label): on a phone the matrix is a per-account list, so pick the account first;
-# a no-op where the table shows every account, or ('sleep', ms): let delayed reads finish.
+# a no-op where the table shows every account, or ('sleep', ms): let delayed reads finish, or
+# ('writes', [...]): fail the case unless the fake hubs received exactly these list writes, in order
+# (each is (method, path, body)), or ('no-hscroll', selector): fail unless the page and that
+# scroller are no wider than the viewport and their own box (checked at >= 600 px wide), or
+# ('in-view', selector): fail unless that element is fully inside the viewport without scrolling.
+TEAM_A = 'claude-team-a.json'
+TEAM_B = 'claude-team-b.json'
+SAVED = '[data-machine="model-access-draft"][data-state="saved"]'
+GRID = '[data-machine="model-inventory"] [role=region]'
+PROVIDER = '/config/oauth/excluded-models'
+FIELDS = '/credentials/fields'
+# Column off for claude-haiku-4-5: team-b (own list) gets it added; everyone else follows the
+# provider list, so that one write covers them (the runtime-only account included).
+COLUMN_OFF_WRITES = [
+    ('patch', FIELDS, {'name': TEAM_B, 'excluded_models': ['claude-3-*', 'claude-opus-4-1', 'claude-haiku-4-5']}),
+    ('put', PROVIDER, {'claude': ['claude-3-*', 'claude-sonnet-4-0', 'claude-haiku-4-5']}),
+]
 CASES = [
     ('auth-files', '/auth-files', 'default', []),
     ('auth-files-loading', '/auth-files', 'loading', []),
@@ -46,19 +62,56 @@ CASES = [
     ('models-error', M, 'error', []),
     ('models-codex', '/auth-files/models?source=beta&provider=codex', 'default', []),
     ('models-excluded-only', M, 'default', [('click', '[data-testid="models-view-excluded"]')]),
-    ('models-wildcard-locked', M, 'default', [
+    # One column switch: staged for every account, nothing written until Save.
+    ('models-column-staged', M, 'default', [
+        ('click', '[data-model-switch="claude-haiku-4-5"]'),
+        ('wait', '[data-machine="model-access-draft"][data-state="pending"]'), ('writes', [])]),
+    # Saved: team-b (own list) and the provider list, nothing else.
+    ('models-column-saved', M, 'default', [
+        ('click', '[data-model-switch="claude-haiku-4-5"]'), ('click', '[data-testid="access-save"]'),
+        ('wait', SAVED), ('writes', COLUMN_OFF_WRITES),
+        ('wait', '[data-model-switch="claude-haiku-4-5"][data-state="off"]')]),
+    # One cell: only team-a gets a list of its own (a copy of the provider list plus the model).
+    ('models-cell-saved', M, 'default', [
         ('pick-account', 'team-a@example.invalid'),
-        ('click', '[data-cell="claude-team-a.json::claude-3-7-sonnet"]')]),
-    ('models-inherit-choice', M, 'default', [
+        ('click', f'[data-cell="{TEAM_A}::claude-opus-4-5"]'),
+        ('wait', '[data-machine="model-access-draft"][data-state="pending"]'),
+        ('click', '[data-testid="access-save"]'), ('wait', SAVED),
+        ('writes', [('patch', FIELDS, {'name': TEAM_A, 'excluded_models': [
+            'claude-3-*', 'claude-sonnet-4-0', 'claude-opus-4-5']})])]),
+    # Turning on a model the provider wildcard covers: the bar says the rule is replaced, and only
+    # team-a's new list carries the expansion.
+    ('models-wildcard-on', M, 'default', [
         ('pick-account', 'team-a@example.invalid'),
-        ('click', '[data-cell="claude-team-a.json::claude-opus-4-5"]')]),
-    ('models-own-list-toggle', M, 'default', [
-        ('pick-account', 'team-b@example.invalid'),
-        ('click', '[data-cell="claude-team-b.json::claude-opus-4-1"]')]),
+        ('click', f'[data-cell="{TEAM_A}::claude-3-7-sonnet"]'), ('wait', 'text=Rule claude-3-*'),
+        ('screenshot', 'pending'),
+        ('click', '[data-testid="access-save"]'), ('wait', SAVED),
+        ('writes', [('patch', FIELDS, {'name': TEAM_A, 'excluded_models': [
+            'claude-3-5-haiku', 'claude-sonnet-4-0']})])]),
+    # Discard: the staged switches go, nothing is written.
+    ('models-discard', M, 'default', [
+        ('click', '[data-model-switch="claude-haiku-4-5"]'), ('click', '[data-testid="access-discard"]'),
+        ('no-dialog', '[data-testid="access-save-bar"]'),
+        ('wait', '[data-model-switch="claude-haiku-4-5"][data-state="on"]'), ('writes', [])]),
+    # The runtime-only account forces a non-empty provider list, so team-a cannot have every
+    # model on: Save is blocked with the reason, nothing is written.
+    ('models-blocked', M, 'default', [
+        ('pick-account', 'team-a@example.invalid'),
+        ('click', f'[data-account-switch="{TEAM_A}"]'),
+        ('wait', '[data-machine="model-access-draft"][data-state="blocked"]'),
+        ('wait', '[data-testid="access-save"]:disabled'), ('writes', [])]),
     ('models-many-accounts', M, 'many', []),
     # 21 models: the table scrolls sideways under a sticky account column and model header.
     ('models-wide', M, 'wide', []),
-    ('models-wide-scrolled', M, 'wide', [('scroll', '[data-machine="model-inventory"] [role=region]')]),
+    # Models are rows and accounts share the width: neither the page nor the table scrolls sideways.
+    ('models-fit-default', M, 'default', [('no-hscroll', GRID)]),
+    ('models-fit-wide', M, 'wide', [('no-hscroll', GRID)]),
+    # 22 models make the page taller than the screen: the Save bar is docked in view at the fold,
+    # and leaves with the page (it stays staged for when Models is opened again).
+    ('models-bar-docked', M, 'wide', [
+        ('click', '[data-model-switch="claude-haiku-4-5"]'), ('in-view', '[data-testid="access-save-bar"]'),
+        ('screenshot', 'docked'), ('goto', '/auth-files'), ('wait', '[data-source-id="alpha"]'),
+        ('no-dialog', '[data-testid="access-save-bar"]'), ('writes', [])]),
     # No ?source=: every hub with Claude accounts gets its own section under the one Claude tab.
     ('models-all-sources', '/auth-files/models?provider=claude', 'shared', []),
     ('models-rules', M + '&tab=rules', 'default', []),
@@ -81,13 +134,14 @@ CASES = [
     ('auth-files-card-alignment', '/auth-files', 'aligned', [
         ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
         ('wait', '[data-quota-state="loaded"] details[open]'), ('sleep', '4500')]),
-    ('models-preview-everywhere', M, 'default', [('click', '[data-row-action="claude-haiku-4-5"]')]),
-    ('models-saved', M, 'default', [
-        ('click', '[data-row-action="claude-haiku-4-5"]'), ('click', '[data-testid="write-plan-apply"]'),
-        ('wait', '[data-machine="model-edit-session"][data-state="saved"]')]),
+    # team-b's write fails, the provider list lands: the bar and team-b's row say so, and team-b's
+    # switch stays staged for another Save.
     ('models-partial-failure', M, 'partial', [
-        ('click', '[data-row-action="claude-haiku-4-5"]'), ('click', '[data-testid="write-plan-apply"]'),
-        ('wait', '[data-machine="model-edit-session"][data-state="partial-failure"]')]),
+        ('click', '[data-model-switch="claude-haiku-4-5"]'), ('click', '[data-testid="access-save"]'),
+        ('wait', '[data-machine="model-access-draft"][data-state="failed"]'),
+        ('writes', COLUMN_OFF_WRITES), ('pick-account', 'team-b@example.invalid'),
+        ('wait', '[data-marker="failed"]'),
+        ('wait', f'[data-cell="{TEAM_B}::claude-haiku-4-5"][data-changed="true"]')]),
     # The same store feeds the dialog and the credential sheet on Auth Files.
     ('auth-files-models-dialog', '/auth-files', 'default', [
         ('click', '[data-source-id="alpha"] [data-card-models="claude-team-b.json"]'),
@@ -98,10 +152,11 @@ CASES = [
     # Auth Files first, then Models in the same session: the provider lists are not fetched twice.
     ('models-after-auth-files', '/auth-files', 'default', [
         ('goto', M), ('wait', '[data-machine="model-inventory"][data-state="ready"]')]),
+    # Another operator edits the provider list after the page read it: nothing is written.
     ('models-stale', M, 'default', [
-        ('click', '[data-row-action="claude-sonnet-4-5"]'), ('hub', 'edit_elsewhere'),
-        ('click', '[data-testid="write-plan-apply"]'),
-        ('wait', '[data-machine="model-edit-session"][data-state="stale"]')]),
+        ('click', '[data-model-switch="claude-sonnet-4-5"]'), ('hub', 'edit_elsewhere'),
+        ('click', '[data-testid="access-save"]'),
+        ('wait', '[data-machine="model-access-draft"][data-state="stale"]'), ('writes', [])]),
 ]
 
 MEASURE = '''() => {
@@ -117,6 +172,8 @@ MEASURE = '''() => {
       return r.width>0&&(r.right>innerWidth+1||r.left< -1)&&getComputedStyle(e).position!=='fixed'&&!clipped(e);})
       .slice(0,8).map(e=>({tag:e.tagName,class:String(e.className).slice(0,80)})),
     hash:location.hash,
+    gridScrollsSideways:[...document.querySelectorAll('[data-machine="model-inventory"] [role=region]')]
+      .some(e=>e.scrollWidth>e.clientWidth+1),
   };
 }'''
 # Cards of one grid row, section by section: the top of each section, quota row and account-details
@@ -181,6 +238,13 @@ ALIGNMENT = '''(strict) => {
   if (strict && !rowed.length) violations.push({key: 'grid', problem: 'no grid row holds two cards'});
   return {cards: cards.length, bands: rowed.length, compared, maxDelta, violations: violations.slice(0, 16)};
 }'''
+# Sideways scroll of the page and of one scroller, with the widths that decide it.
+HSCROLL = '''(e) => ({
+  page: document.documentElement.scrollWidth > innerWidth + 1,
+  table: e.scrollWidth > e.clientWidth + 1,
+  scrollWidth: e.scrollWidth, clientWidth: e.clientWidth, viewport: innerWidth,
+  columns: e.querySelectorAll('thead th').length - 1,
+})'''
 CONTENT_HEIGHT = '''() => Math.max(innerHeight, document.documentElement.scrollHeight,
   ...[...document.querySelectorAll('*')]
   .filter(e=>e.scrollHeight>e.clientHeight+4&&getComputedStyle(e).overflowY!=='visible')
@@ -211,6 +275,7 @@ async def run_case(browser, base, origin, out, width, case):
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
     result = {}
+    extra = {}
     try:
         await login(page, base)
         await page.evaluate('(hash) => { location.hash = hash; }', route)
@@ -241,6 +306,23 @@ async def run_case(browser, base, origin, out, width, case):
                 if await target.count():
                     await target.first.evaluate('(e) => { e.scrollLeft = e.scrollWidth; }')
                     await page.wait_for_timeout(300)
+            elif action == 'writes':
+                sent = [(w['method'], w['path'], w['body']) for w in hubs.writes
+                        if w['path'] in (FIELDS, PROVIDER)]
+                if sent != [tuple(item) for item in selector]:
+                    raise AssertionError(f'writes: expected {selector}, got {sent}')
+            elif action == 'no-hscroll':
+                if width >= 600:
+                    fit = await page.locator(selector).first.evaluate(HSCROLL)
+                    extra['hscroll'] = fit
+                    if fit['page'] or fit['table']:
+                        raise AssertionError(f'horizontal scroll: {fit}')
+            elif action == 'in-view':
+                box = await page.locator(selector).first.bounding_box()
+                if not box or box['y'] < 0 or box['y'] + box['height'] > page.viewport_size['height'] + 1:
+                    raise AssertionError(f'not in view at the fold: {selector} {box}')
+            elif action == 'screenshot':
+                await page.screenshot(path=str(out / 'fold' / f'{name}-{selector}.png'), timeout=30000)
             elif action == 'goto':
                 await page.evaluate('(hash) => { location.hash = hash; }', selector)
                 await page.wait_for_timeout(600)
@@ -248,6 +330,7 @@ async def run_case(browser, base, origin, out, width, case):
                 await page.locator(selector).first.wait_for(timeout=20000)
                 await page.wait_for_timeout(300)
         result = await page.evaluate(MEASURE)
+        result.update(extra)
         # Phones show one card per row, so there is nothing to line up there.
         result['alignment'] = await page.evaluate(ALIGNMENT, scenario == 'aligned' and width >= 600)
         await page.screenshot(path=str(out / 'fold' / f'{name}.png'), timeout=30000)
