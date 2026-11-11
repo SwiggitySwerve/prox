@@ -249,6 +249,7 @@
     "status_usage_limit": "Лимит использования исчерпан",
     "status_limit_resets": "{{limit}} · сброс {{time}}",
     "status_rate_limited": "Ограничение частоты · повторите позже",
+    "status_rate_limited_until": "Ограничение частоты · повтор после {{time}}",
     "cooldown_models_one": "{{count}} модель на паузе",
     "cooldown_models_few": "{{count}} модели на паузе",
     "cooldown_models_many": "{{count}} моделей на паузе",

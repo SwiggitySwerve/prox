@@ -250,6 +250,7 @@
     "status_usage_limit": "已达用量上限",
     "status_limit_resets": "{{limit}} · {{time}} 重置",
     "status_rate_limited": "请求受限 · 请稍后重试",
+    "status_rate_limited_until": "请求受限 · {{time}} 后重试",
     "cooldown_models": "{{count}} 个模型冷却",
     "cooldown_credential": "凭证级冷却",
     "cooldown_credential_and_models": "凭证及 {{count}} 个模型冷却",

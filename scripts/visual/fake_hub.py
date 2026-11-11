@@ -104,6 +104,9 @@ def matches(rule: str, model: str) -> bool:
     return re.fullmatch(regex, value) is not None
 
 
+RATE_LIMITED_MESSAGE = json.dumps({'type': 'error', 'error': {
+    'type': 'rate_limit_error', 'message': "This request would exceed your account's rate limit."}})
+
 class FakeHubs:
     def __init__(self, scenario: str = 'default'):
         self.scenario = scenario
@@ -124,6 +127,9 @@ class FakeHubs:
             ]
         if scenario == 'aligned':
             self.hubs['alpha']['accounts'] = copy.deepcopy(ALIGNED_ACCOUNTS)
+        if scenario == 'rate-limited':
+            # The hub's verdict on a blocked credential: the upstream error and when it retries.
+            self.hubs['alpha']['accounts'][0]['rate_limited'] = '2026-11-12T14:05:00Z'
         if scenario == 'many':
             self.hubs['alpha']['accounts'][4:4] = [
                 {'name': f'claude-seat-{n:02d}.json', 'type': 'claude',
@@ -230,6 +236,8 @@ class FakeHubs:
                 {'name': a['name'], 'type': a['type'], 'provider': a['type'], 'auth_index': f'{source}-{i}',
                  **({'email': a['email']} if a['email'] else {}), 'disabled': a['disabled'],
                  'status': 'disabled' if a['disabled'] else 'active',
+                 **({'status': 'error', 'unavailable': True, 'next_retry_after': a['rate_limited'],
+                     'status_message': RATE_LIMITED_MESSAGE} if a.get('rate_limited') else {}),
                  **({'runtime_only': True, 'source': 'memory', 'size': 0} if a.get('runtime')
                     else {'runtime_only': False, 'source': 'file', 'size': 512})}
                 for i, a in enumerate(hub['accounts'])]})

@@ -250,6 +250,7 @@
     "status_usage_limit": "사용 한도 도달",
     "status_limit_resets": "{{limit}} · {{time}}에 초기화",
     "status_rate_limited": "요청 제한됨 · 잠시 후 다시 시도하세요",
+    "status_rate_limited_until": "요청 제한됨 · {{time}} 이후 재시도",
     "cooldown_models_one": "{{count}}개 모델 쿨다운 중",
     "cooldown_models_other": "{{count}}개 모델 쿨다운 중",
     "cooldown_credential": "자격 증명 전체 쿨다운",

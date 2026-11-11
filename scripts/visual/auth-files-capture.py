@@ -72,6 +72,8 @@ CASES = [
         ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
         ('wait', '[data-quota-state="loaded"]'), ('wait', '[data-quota-state="loaded"] details[open]'),
         ('no-dialog', '[role=dialog]')]),
+    # A rate-limited card says when the hub retries it (next_retry_after), not "try again later".
+    ('auth-files-rate-limited', '/auth-files', 'rate-limited', [('wait', 'text=retry after')]),
     ('auth-files-group-menu', '/auth-files', 'default', [
         ('click', '[data-source-id="alpha"] [aria-haspopup="menu"]')]),
     # Six Claude cards whose quota windows, billing text and held resets all differ: in every grid row
