@@ -1,0 +1,623 @@
+{
+  "url": "vite preview of this branch (fake hub, fixture data only)",
+  "cases": {
+    "models-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-loading-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-empty-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-error-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-codex-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-excluded-only-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-column-staged-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-column-saved-1440": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-cell-saved-1440": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-a.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-opus-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-wildcard-on-1440": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-a.json",
+            "excluded_models": [
+              "claude-3-5-haiku",
+              "claude-sonnet-4-0"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-discard-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-blocked-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-many-accounts-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-fit-default-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": {
+        "page": false,
+        "table": false,
+        "scrollWidth": 1088,
+        "clientWidth": 1088,
+        "viewport": 1440,
+        "columns": 5
+      },
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-fit-wide-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": {
+        "page": false,
+        "table": false,
+        "scrollWidth": 1088,
+        "clientWidth": 1088,
+        "viewport": 1440,
+        "columns": 5
+      },
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-bar-docked-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-all-sources-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-rules-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-aliases-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-partial-failure-1440": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": false
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-after-auth-files-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-stale-1440": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-loading-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-empty-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-error-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-codex-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-excluded-only-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-column-staged-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-column-saved-390": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-cell-saved-390": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-a.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-opus-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-wildcard-on-390": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-a.json",
+            "excluded_models": [
+              "claude-3-5-haiku",
+              "claude-sonnet-4-0"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-discard-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-blocked-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-many-accounts-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-fit-default-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-fit-wide-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-bar-docked-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-all-sources-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-rules-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-aliases-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-partial-failure-390": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": false
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-after-auth-files-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-stale-390": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-many-accounts-1280": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-fit-default-1280": {
+      "pass": true,
+      "writes": [],
+      "hscroll": {
+        "page": false,
+        "table": false,
+        "scrollWidth": 977,
+        "clientWidth": 977,
+        "viewport": 1280,
+        "columns": 5
+      },
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-fit-wide-1280": {
+      "pass": true,
+      "writes": [],
+      "hscroll": {
+        "page": false,
+        "table": false,
+        "scrollWidth": 977,
+        "clientWidth": 977,
+        "viewport": 1280,
+        "columns": 5
+      },
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-bar-docked-1280": {
+      "pass": true,
+      "writes": [],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    },
+    "models-partial-failure-1280": {
+      "pass": true,
+      "writes": [
+        {
+          "source": "alpha",
+          "method": "patch",
+          "path": "/credentials/fields",
+          "body": {
+            "name": "claude-team-b.json",
+            "excluded_models": [
+              "claude-3-*",
+              "claude-opus-4-1",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": false
+        },
+        {
+          "source": "alpha",
+          "method": "put",
+          "path": "/config/oauth/excluded-models",
+          "body": {
+            "claude": [
+              "claude-3-*",
+              "claude-sonnet-4-0",
+              "claude-haiku-4-5"
+            ]
+          },
+          "ok": true
+        }
+      ],
+      "hscroll": null,
+      "gridScrollsSideways": false,
+      "overflow": false,
+      "harnessError": null
+    }
+  }
+}
