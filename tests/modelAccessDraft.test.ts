@@ -271,6 +271,44 @@ describe('the writes Prox computes', () => {
   });
 });
 
+describe('the fewest writes', () => {
+  test('followers whose switches do not overlap share one provider list', () => {
+    // one has its own list [a, b] and reports c; two reports only c; three reports only a and b.
+    const file = (name: string, own: string[] | null, ids: string[]) => ({
+      name,
+      kind: 'file' as const,
+      label: name,
+      disabled: false,
+      ownList: { status: 'known' as const, rules: own },
+      reported: { status: 'known' as const, ids },
+    });
+    const inv: ModelAccessInventory = {
+      provider: 'claude',
+      providerList: [],
+      catalog: ['a', 'b', 'c'],
+      aliases: [],
+      accounts: [
+        file('one', ['a', 'b'], ['c']),
+        file('two', null, ['c']),
+        file('three', null, ['a', 'b']),
+      ],
+    };
+    const plan = planAccessWrites(
+      inv,
+      stage(inv, [
+        { account: 'one', model: 'b', on: true },
+        { account: 'two', model: 'c', on: false },
+        { account: 'three', model: 'a', on: false },
+        { account: 'three', model: 'b', on: false },
+      ])
+    );
+    expect(writesOf(plan)).toEqual([
+      { target: 'provider', before: null, after: ['a', 'b', 'c'] },
+      { target: 'one', before: ['a', 'b'], after: ['a'] },
+    ]);
+  });
+});
+
 describe('accounts held in memory (no credential file)', () => {
   test('a column change still goes through the shared list they follow', () => {
     const inv = runtimeInventory(runtimeFollowing('rt-1'));
@@ -322,6 +360,28 @@ describe('accounts held in memory (no credential file)', () => {
 });
 
 describe('safety', () => {
+  test('an account whose settings can no longer be read keeps its staged switches, and Save waits', () => {
+    const inv = inventory();
+    const staged = stage(inv, [{ account: 'team-a.json', model: 'claude-opus-4-5', on: false }]);
+    // A failed re-read of a list that was empty leaves no data: the account reads as unknown.
+    const lost = {
+      ...inv,
+      accounts: inv.accounts.map((item) =>
+        item.name === 'team-a.json'
+          ? { ...item, ownList: { status: 'unknown' as const, message: 'x' } }
+          : item
+      ),
+    };
+    expect(pruneOverrides(lost, staged)).toBe(staged);
+    expect(pendingAccessChanges(lost, staged)).toEqual([
+      { account: 'team-a.json', model: 'claude-opus-4-5', on: false },
+    ]);
+    expect(planAccessWrites(lost, staged)).toEqual({
+      status: 'blocked',
+      block: { code: 'unreadable', accounts: ['team-a.json'] },
+    });
+  });
+
   test('a change to the shared list is blocked while an account cannot be read', () => {
     const base = inventory();
     const inv = {

@@ -124,6 +124,11 @@ export function pruneOverrides(
   const next: Record<string, Record<string, boolean>> = {};
   for (const [name, entries] of Object.entries(overrides)) {
     const account = inventory.accounts.find((item) => item.name === name);
+    // Unreadable now (a failed re-read): nothing confirms the switches landed, so they stay.
+    if (account && !known(account)) {
+      next[name] = { ...entries };
+      continue;
+    }
     const switches = account ? switchKeys(inventory, account, models) : new Set<string>();
     for (const [modelKey, on] of Object.entries(entries)) {
       const model = byKey.get(modelKey);
@@ -292,6 +297,12 @@ export function planAccessWrites(
 ): AccessPlan {
   const pruned = pruneOverrides(inventory, overrides);
   if (Object.keys(pruned).length === 0) return { status: 'none' };
+  const stagedUnread = inventory.accounts
+    .filter((account) => !known(account) && pruned[account.name])
+    .map((account) => account.name);
+  if (stagedUnread.length > 0) {
+    return { status: 'blocked', block: { code: 'unreadable', accounts: stagedUnread } };
+  }
   const models = modelUnion(inventory);
   const allKeys = models.map(key);
   const desires: Desire[] = inventory.accounts.filter(known).map((account) => {
@@ -326,15 +337,30 @@ export function planAccessWrites(
       })
     );
 
+  /** The seed plus, in order, every account that agrees with all of them where they overlap. */
+  const grow = (seed: readonly Desire[]) => {
+    const group = [...seed];
+    for (const desire of desires) {
+      if (group.includes(desire)) continue;
+      const fits = group.every((other) =>
+        [...desire.switches].every(
+          (item) => !other.switches.has(item) || other.off.has(item) === desire.off.has(item)
+        )
+      );
+      if (fits) group.push(desire);
+    }
+    return group;
+  };
+
   const runtime = desires.filter((desire) => desire.account.kind === 'runtime');
   const candidates =
     runtime.length > 0
-      ? [fill(runtime)]
+      ? [fill(runtime), fill(grow(runtime))]
       : [
           sharedNow,
           new Set<string>(),
           new Set(allKeys.filter(consensus)),
-          ...desires.map((desire) => fill([desire])),
+          ...desires.flatMap((desire) => [fill([desire]), fill(grow([desire]))]),
         ];
   const seen = new Set<string>();
   let best: Extract<Outcome, { ok: true }> | null = null;
