@@ -166,9 +166,10 @@ export function ModelsHubSection({
   const models = showsTable ? visibleRows.length : 0;
   const served = showsTable ? counts.served : 0;
   const accounts = showsTable ? visibleAccounts.length : 0;
+  const hiddenCount = showsTable ? visibleRows.filter((row) => hidden.has(row.model)).length : 0;
   useEffect(() => {
-    reportCounts(hubId, showsTable ? { models, served, accounts } : null);
-  }, [accounts, hubId, models, reportCounts, served, showsTable]);
+    reportCounts(hubId, showsTable ? { models, served, accounts, hidden: hiddenCount } : null);
+  }, [accounts, hiddenCount, hubId, models, reportCounts, served, showsTable]);
   useEffect(() => () => reportCounts(hubId, null), [hubId, reportCounts]);
   const columns = inventory?.accounts.length ?? null;
   useEffect(() => reportColumns(hubId, columns), [columns, hubId, reportColumns]);
@@ -205,6 +206,12 @@ export function ModelsHubSection({
   }, [draft.save, inventory]);
 
   const saveBar = (bar: ReactNode) => (saveDock ? createPortal(bar, saveDock) : bar);
+
+  const apiKeysNote = (
+    <>
+      {t('model_access.api_keys_note')} <Link to="/ai-providers">{t('nav.ai_providers')}</Link>
+    </>
+  );
 
   const renderAccess = () => {
     if (!inventory) return null;
@@ -280,6 +287,7 @@ export function ModelsHubSection({
             hidden={hidden}
             searching={modelQuery.trim() !== ''}
             onHide={setModelsHidden}
+            note={apiKeysNote}
           />
         )}
         {saveBar(
@@ -293,9 +301,10 @@ export function ModelsHubSection({
             onDiscard={draft.discard}
           />
         )}
-        <p className={styles.matrixNote}>
-          {t('model_access.api_keys_note')} <Link to="/ai-providers">{t('nav.ai_providers')}</Link>
-        </p>
+        {/* Inside the grid as its last row; here only when no grid is shown. */}
+        {(visibleRows.length === 0 || visibleAccounts.length === 0) && (
+          <p className={styles.matrixNote}>{apiKeysNote}</p>
+        )}
       </>
     );
   };

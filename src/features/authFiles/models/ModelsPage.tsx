@@ -198,7 +198,8 @@ export function ModelsPage() {
         current &&
         current.models === counts.models &&
         current.served === counts.served &&
-        current.accounts === counts.accounts
+        current.accounts === counts.accounts &&
+        current.hidden === counts.hidden
       ) {
         return prev;
       }
@@ -317,24 +318,11 @@ export function ModelsPage() {
     document.getElementById(`models-tab-${next}`)?.focus();
   };
 
-  const scopeLabel =
-    scope !== null
-      ? (sources.find((item) => item.source.instanceId === scope)?.source.label ?? scope)
-      : multiHub
-        ? t('auth_files.unified_all_sources')
-        : (sources[0]?.source.label ?? '');
-
   const header = (
     <header className={styles.header}>
       <div className={styles.titleBlock}>
         <p className={styles.eyebrow}>
           <Link to="/auth-files">{t('nav.auth_files')}</Link>
-          {scopeLabel && (
-            <>
-              <span aria-hidden="true"> / </span>
-              {scopeLabel}
-            </>
-          )}
         </p>
         <h1>{t('model_access.title')}</h1>
         <p className={styles.subtitle}>{t('model_access.subtitle')}</p>
@@ -442,7 +430,10 @@ export function ModelsPage() {
                 models: shownCounts.models,
                 served: shownCounts.served,
                 accounts: shownCounts.accounts,
-              })
+              }) +
+              (shownCounts.hidden > 0
+                ? ` · ${t('model_access.counts_hidden', { count: shownCounts.hidden })}`
+                : '')
             : ''}
         </span>
       </div>

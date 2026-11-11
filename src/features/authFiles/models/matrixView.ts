@@ -83,8 +83,9 @@ export function countServed(rows: MatrixRow[]) {
   return { served: rows.filter((row) => row.servedBy.length > 0).length, total: rows.length };
 }
 
-/** What one hub section shows: model columns, how many of them are served, account rows. */
-export type VisibleCounts = { models: number; served: number; accounts: number };
+/** What one hub section shows: model rows, how many are served, account columns, and how many
+ * of the model rows are hidden in this browser. */
+export type VisibleCounts = { models: number; served: number; accounts: number; hidden: number };
 
 export function sumCounts(counts: readonly VisibleCounts[]): VisibleCounts {
   return counts.reduce(
@@ -92,8 +93,9 @@ export function sumCounts(counts: readonly VisibleCounts[]): VisibleCounts {
       models: sum.models + item.models,
       served: sum.served + item.served,
       accounts: sum.accounts + item.accounts,
+      hidden: sum.hidden + item.hidden,
     }),
-    { models: 0, served: 0, accounts: 0 }
+    { models: 0, served: 0, accounts: 0, hidden: 0 }
   );
 }
 

@@ -335,10 +335,10 @@ describe('access grid', () => {
     expect(visible.map((item) => item.name)).toEqual(['team-a.json', 'team-b.json']);
     expect(
       sumCounts([
-        { models: 1, served: 1, accounts: 2 },
-        { models: 4, served: 2, accounts: 1 },
+        { models: 1, served: 1, accounts: 2, hidden: 0 },
+        { models: 4, served: 2, accounts: 1, hidden: 3 },
       ])
-    ).toEqual({ models: 5, served: 3, accounts: 3 });
+    ).toEqual({ models: 5, served: 3, accounts: 3, hidden: 3 });
   });
 });
 

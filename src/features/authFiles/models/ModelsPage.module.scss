@@ -397,7 +397,8 @@
     box-shadow: 1px 0 0 var(--bg-secondary);
     font-weight: 600;
     color: var(--text-secondary);
-    vertical-align: top;
+    /* Bottom: checkboxes stay level when one name takes a third line. */
+    vertical-align: bottom;
   }
 
   /* Same specificity as the rule above, later: the corner stays over everything scrolled. */
@@ -449,8 +450,7 @@
 .cornerDomain {
   display: block;
   margin-bottom: 6px;
-  font-family: $font-mono;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--text-tertiary);
 }
@@ -509,7 +509,7 @@
 
 .accountHeadInner {
   display: grid;
-  grid-template-rows: 30px 14px 24px;
+  grid-template-rows: minmax(30px, auto) 14px 24px;
   gap: 4px;
   justify-items: center;
   min-width: 0;
@@ -522,7 +522,8 @@
   max-width: 100%;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  /* A name with no email may take a third line before the header stands upright. */
+  -webkit-line-clamp: 3;
   font-size: 11.5px;
   font-weight: 600;
   line-height: 15px;
@@ -538,7 +539,7 @@
   white-space: nowrap;
 
   & + & {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 400;
     color: var(--text-tertiary);
   }
@@ -810,7 +811,7 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   line-height: 14px;
   color: var(--text-tertiary);
@@ -832,6 +833,12 @@
 
 .matrix td[data-off='true'] {
   opacity: 0.6;
+  /* A column-wide cue besides the dimming, so 'account off' is not one more grey. */
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 7px,
+    color-mix(in srgb, var(--text-primary) 7%, transparent) 7px 8px
+  );
 }
 
 .matrix th[data-failed='true'] {
@@ -1477,8 +1484,16 @@
 
 .hiddenToggle {
   position: sticky;
-  left: 2px;
+  left: 10px;
+  padding: 0;
   font-weight: 600;
+
+  /* A band label like Served / Not served, not a pill. */
+  &:hover {
+    background: none;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 
 /* Right when closed, down when open. */
@@ -1541,6 +1556,51 @@
   .phoneView & {
     width: 44px;
     height: 44px;
+  }
+}
+
+/* With a mouse, a served row shows Hide only when hovered or focused; not-served and hidden rows
+ * always show theirs, and so does every row on touch screens. */
+@media (hover: hover) and (pointer: fine) {
+  .matrix tr[data-served='yes']:not([data-hidden]) .hideButton {
+    opacity: 0;
+  }
+
+  .matrix tr[data-served='yes']:not([data-hidden]):is(:hover, :focus-within) .hideButton {
+    opacity: 1;
+  }
+}
+
+/* The note on what the grid leaves out, as the table's last row. */
+.matrix .noteRow > td {
+  height: auto;
+  padding: 10px;
+  border-bottom: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+
+  a {
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.noteText {
+  margin: 0;
+}
+
+.phoneRows li.phoneNote {
+  display: block;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+
+  a {
+    color: var(--text-secondary);
+    text-decoration: underline;
   }
 }
 

@@ -129,7 +129,7 @@ CASES = [
         ('wait', '[data-unhide-all]'), ('writes', [])]),
     ('models-hidden-still-on', M, 'real', [
         ('click', '[data-hide-model="claude-opus-5-5"]'), ('click', '[data-hide-all]'),
-        ('wait', 'text=1 still on'), ('writes', [])]),
+        ('wait', 'text=claude-opus-5-5 still on'), ('writes', [])]),
     # 22 models make the page taller than the screen: the Save bar is docked in view at the fold,
     # and leaves with the page (it stays staged for when Models is opened again).
     ('models-bar-docked', M, 'wide', [

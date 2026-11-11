@@ -46,6 +46,8 @@ type Props = {
   /** A model search is active: hidden models it finds stay in their band, marked. */
   searching: boolean;
   onHide: (models: string[], hide: boolean) => void;
+  /** What the grid leaves out, shown as its last row. */
+  note: ReactNode;
 };
 
 type Section = { key: string; label: string; rows: MatrixRow[]; unsaved: number };
@@ -248,14 +250,18 @@ export function ModelAccessMatrix(props: Props) {
         onClick={() => setHiddenOpen((open) => !open)}
         data-hidden-toggle
       >
-        <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
         {t('model_access.hidden_group')}
         <span className={styles.sectionCount}>{hiddenGroup.count}</span>
         {hiddenGroup.stillOn > 0 && (
           <span className={styles.hiddenStillOn}>
-            {t('model_access.hidden_still_on', { count: hiddenGroup.stillOn })}
+            {hiddenGroup.stillOn === 1
+              ? t('model_access.hidden_still_on_one', {
+                  model: hiddenGroup.rows.find(isLit)?.model ?? '',
+                })
+              : t('model_access.hidden_still_on', { count: hiddenGroup.stillOn })}
           </span>
         )}
+        <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
       </button>
       {hiddenOpen && (
         <button
@@ -391,6 +397,7 @@ export function ModelAccessMatrix(props: Props) {
         renderHide={renderHide}
         isHidden={isHidden}
         markHidden={markHidden}
+        note={props.note}
         accounts={accounts}
         isLit={isLit}
         shared={shared}
@@ -541,6 +548,13 @@ export function ModelAccessMatrix(props: Props) {
           {hiddenOpen && hiddenGroup.rows.map(renderRow)}
         </tbody>
       )}
+      <tfoot>
+        <tr className={styles.noteRow}>
+          <td colSpan={accounts.length + 2}>
+            <p className={styles.noteText}>{props.note}</p>
+          </td>
+        </tr>
+      </tfoot>
     </MatrixTable>
   );
 }
@@ -660,6 +674,7 @@ function AccessList({
   renderHide,
   isHidden,
   markHidden,
+  note,
   accounts,
   isLit,
   shared,
@@ -677,6 +692,7 @@ function AccessList({
   renderHide: (row: MatrixRow) => ReactNode;
   isHidden: (row: MatrixRow) => boolean;
   markHidden: (row: MatrixRow) => boolean;
+  note: ReactNode;
   accounts: AccountAccess[];
   isLit: (row: MatrixRow) => boolean;
   shared: Set<string>;
@@ -772,6 +788,9 @@ function AccessList({
             {hiddenRows.map(renderItem)}
           </>
         )}
+        <li className={styles.phoneNote}>
+          <p className={styles.noteText}>{note}</p>
+        </li>
       </ul>
     </div>
   );
