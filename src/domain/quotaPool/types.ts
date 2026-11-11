@@ -70,7 +70,10 @@ export interface AccountResets {
   kinds?: AccountResetKind[];
   observedAtMs: number;
 }
-/** Matches Claude's reset kinds: 5-hour, weekly, Fable, or full. */
+/**
+ * What a Claude reset refills, as Claude Code names it: a 5-hour, weekly, Fable (returns only
+ * what Fable models used to the weekly limit) or full reset.
+ */
 export type AccountResetKind = 'session' | 'weekly' | 'fable' | 'full';
 export interface AccountQuotaWindow {
   id: string;

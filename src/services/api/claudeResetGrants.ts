@@ -1,4 +1,5 @@
 // Upstream cedar_ember contract, following opencodex anthropic-reset-grants.
+import type { AccountResetKind } from '@/domain/quotaPool/types';
 import { apiCallApi } from './apiCall';
 import { CLAUDE_REQUEST_HEADERS } from '@/utils/quota/constants';
 
@@ -36,13 +37,6 @@ export type AnthropicResetUpstreamResult = (typeof ANTHROPIC_RESET_RESULTS)[numb
 export type AnthropicResetSettledCode =
   AnthropicResetUpstreamResult | 'rate_limited' | 'auth_error';
 
-/**
- * What a grant refills, named as Claude Code names it: a 5-hour reset, a weekly reset, a Fable
- * reset (returns what Fable models used to the weekly limit) or a full reset.
- */
-export const ANTHROPIC_RESET_KINDS = ['session', 'weekly', 'fable', 'full'] as const;
-export type AnthropicResetKind = (typeof ANTHROPIC_RESET_KINDS)[number];
-
 export interface AnthropicResetGrant {
   id: string;
   label: string;
@@ -55,7 +49,8 @@ export interface AnthropicResetGrant {
   usableNow: boolean;
   useRequiresLimit: boolean;
   percentUsed: Partial<Record<AnthropicResetWindow, number>>;
-  kind: AnthropicResetKind;
+  /** What the grant refills, named as Claude Code names it. */
+  kind: AccountResetKind;
 }
 
 export interface AnthropicResetGrantStatus {
@@ -157,7 +152,7 @@ function parsePercentUsed(value: unknown): Partial<Record<AnthropicResetWindow, 
  * client doesn't know falls through rather than rejecting the block. It reads the raw `clears`,
  * so a window missing from ANTHROPIC_RESET_WINDOWS still counts as a non-5-hour window.
  */
-function resetKind(value: Record<string, unknown>): AnthropicResetKind {
+function resetKind(value: Record<string, unknown>): AccountResetKind {
   if (value.gives_back_weekly === true) return 'fable';
   const { type, clears } = value;
   if (type === 'session' || type === 'weekly' || type === 'full') return type;
