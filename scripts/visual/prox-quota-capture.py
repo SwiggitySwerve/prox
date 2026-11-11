@@ -28,7 +28,7 @@ NAMES = ["ada.lovelace", "grace.hopper", "alan.turing", "edsger.dijkstra", "kath
 
 
 def mask(provider, i):
-    """Same shape as server/quota/mask.ts: first two characters, last one, domain initial."""
+    """Same shape as src/domain/quotaPool/mask.ts: first two characters, last one, domain initial."""
     name = NAMES[(i + (0 if provider == "claude" else 5)) % len(NAMES)] + (str(i // len(NAMES) or "") if i >= len(NAMES) else "")
     return f"{name[:3]}•••{name[-2:]}@ex•••.test"
 

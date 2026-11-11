@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { formatRelativeInstant, TYPE_COLORS } from '@/utils/quota';
 import { getQuotaCacheKey, getQuotaDisplayName } from '@/utils/quota/identity';
 import { useNow } from '@/hooks/useNow';
+import { formatPoolDate } from '@/features/quotaPool/presentation';
 import type { ResolvedTheme, ThemeColors } from '@/types';
 import {
   buildTimelineLane,
@@ -357,8 +358,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
         <div className={styles.laneLimits}>
           {lane.limits.map((limit) => (
             <span key={limit.label} className={styles.laneLimit}>
-              {lane.provider === 'meta' ? t(limit.label) : limit.label}{' '}
-              <b>{limit.remaining}%</b>
+              {lane.provider === 'meta' ? t(limit.label) : limit.label} <b>{limit.remaining}%</b>
             </span>
           ))}
         </div>
@@ -426,6 +426,8 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
         )}
 
         {resetCredits.map((credit, index) => {
+          // A manual reset's dates read in the one format the pool and the reset dialogs use.
+          const language = i18n.resolvedLanguage ?? i18n.language;
           const grantedLabel = t('quota_management.windows_credit_granted', {
             defaultValue: 'Granted',
           });
@@ -435,9 +437,9 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
           const title = [
             t('quota_management.windows_reset_credit', { defaultValue: 'Manual reset' }),
             credit.grantedAtMs !== null
-              ? `${grantedLabel}: ${formatDay(credit.grantedAtMs)} ${formatTime(credit.grantedAtMs)}`
+              ? `${grantedLabel}: ${formatPoolDate(credit.grantedAtMs, language)}`
               : null,
-            `${expiresLabel}: ${formatDay(credit.expiresAtMs)} ${formatTime(credit.expiresAtMs)}`,
+            `${expiresLabel}: ${formatPoolDate(credit.expiresAtMs, language)}`,
             formatRelativeInstant(credit.expiresAtMs, now, i18n.resolvedLanguage),
           ]
             .filter((line): line is string => line !== null)

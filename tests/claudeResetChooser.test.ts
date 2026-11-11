@@ -54,7 +54,7 @@ describe('Claude reset chooser', () => {
     expect(markup).toContain('aria-label="Use Weekly reset"');
     expect(markup).toContain('aria-label="Use Fable reset"');
     expect(markup.indexOf('Weekly reset')).toBeLessThan(markup.indexOf('Fable reset × 2'));
-    expect(markup).toContain('Pick which reset to spend.');
+    expect(markup).toContain('Pick which manual reset to use.');
     // A grouped row says a use spends one of them.
     expect(markup).toContain('in 117 days · Uses 1 of 2');
     // What a Fable reset does shows before it is used.
@@ -67,7 +67,7 @@ describe('Claude reset chooser', () => {
     expect(markup.match(/<button/g)).toHaveLength(1);
     expect(markup).toContain('Weekly reset');
     expect(markup).toContain('No expiry date');
-    expect(markup).toContain('Spend one reset to clear eligible usage limits');
+    expect(markup).toContain('Use a manual reset to clear eligible usage limits');
   });
 
   test('a retry names the reset it reuses, with or without an expiry date', () => {

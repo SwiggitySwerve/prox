@@ -10,6 +10,7 @@ import { isRuntimeOnlyAuthFile, type QuotaProviderType } from '@/features/authFi
 import { Button } from '@/components/ui/Button';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { bindQuotaClasses } from '@/features/quota/types';
+import { resetAccountName } from '@/features/quota/logic';
 import type { QuotaCardState } from '@/features/quota/providers';
 import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import { hasClaudeUsageData } from '@/features/quota/providers/claude/data';
@@ -127,10 +128,11 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     const resetQuota = adapter.resetQuota;
     if (!resetQuota) return;
 
+    const name = resetAccountName(file);
     showConfirmation({
-      title: t('codex_quota.reset_confirm_title'),
-      message: t('codex_quota.reset_confirm_message', { name: file.name }),
-      confirmText: t('codex_quota.reset_confirm_button'),
+      title: t('quota_pool.reset_confirm_title'),
+      message: t('codex_quota.reset_confirm_message', { name }),
+      confirmText: t('quota_pool.use_reset'),
       variant: 'primary',
       onConfirm: async () => {
         const cacheGeneration = captureQuotaCacheGeneration(file.name, sourceScope.quotaStore);
@@ -143,13 +145,13 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
               ...prev,
               [cacheKey]: adapter.buildSuccessState(data),
             }));
-            showNotification(t('codex_quota.reset_success', { name: file.name }), 'success');
+            showNotification(t('codex_quota.reset_success', { name }), 'success');
           });
         } catch (err: unknown) {
           if (!sourceScope.isCurrent()) return;
           const message = err instanceof Error ? err.message : t('common.unknown_error');
           commitIfQuotaCacheCurrent(cacheGeneration, () => {
-            showNotification(t('codex_quota.reset_failed', { name: file.name, message }), 'error');
+            showNotification(t('codex_quota.reset_failed', { name, message }), 'error');
           });
         } finally {
           setResettingQuota(false);
