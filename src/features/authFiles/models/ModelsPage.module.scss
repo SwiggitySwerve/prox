@@ -12,6 +12,8 @@
   /* As wide as the grid needs (set from its account count), so toolbar and grid end together. */
   max-width: var(--models-max-width, none);
   min-width: 0;
+  /* Capped at wide widths: centred beside the sidebar rather than leaving one wide margin. */
+  margin-inline: auto;
 }
 
 /*
@@ -734,9 +736,16 @@
     }
   }
 
-  /* An account that is off: its switches, dimmed as in its column. */
+  /* An account that is off: its switch dimmed on the column's hatch, as in the grid. */
   &[data-off='true'] {
     opacity: 0.6;
+    padding: 3px 4px;
+    border-radius: 4px;
+    background: repeating-linear-gradient(
+      135deg,
+      transparent 0 4px,
+      color-mix(in srgb, var(--text-primary) 18%, transparent) 4px 5px
+    );
   }
 }
 
@@ -1499,6 +1508,42 @@
 }
 
 /* A hidden model some account still serves: said in the band, so nothing on disappears. */
+.hiddenNote {
+  font-weight: 400;
+  color: var(--text-tertiary);
+
+  &::before {
+    content: '·';
+    margin-right: 6px;
+  }
+}
+
+/* "16 hidden": at the end of the key row, the way to the Hidden group without scrolling. */
+.hiddenJump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 1px;
+  }
+}
+
 .hiddenStillOn {
   font-weight: 600;
   color: var(--text-primary);
@@ -1552,15 +1597,11 @@
   }
 }
 
-/* With a mouse, every row's Hide / Unhide is faint until the row is hovered or focused (one rule
- * for every band); on touch screens it is always shown in full. */
+/* Every row's Hide / Unhide rests in the secondary icon grey (about 5:1) and brightens with its
+ * row on hover or focus. */
 @media (hover: hover) and (pointer: fine) {
-  .matrix tr .hideButton {
-    opacity: 0.35;
-  }
-
   .matrix tr:is(:hover, :focus-within) .hideButton {
-    opacity: 1;
+    color: var(--text-primary);
   }
 }
 

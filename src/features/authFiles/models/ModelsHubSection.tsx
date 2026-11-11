@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { IconAlertTriangle } from '@/components/ui/icons';
+import { IconAlertTriangle, IconEyeOff } from '@/components/ui/icons';
 import { useAuthFilesSource } from '@/features/authFiles/AuthFilesSourceContext';
 import { getTypeLabel } from '@/features/authFiles/constants';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
@@ -125,6 +125,8 @@ export function ModelsHubSection({
   // Models hidden from the bands: this browser's view of this hub and provider, never access.
   const hiddenKey = hiddenStorageKey(hubId, provider);
   const [hidden, setHidden] = useState(() => readHidden(browserStorage(), hiddenKey));
+  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
   const setModelsHidden = useCallback(
     (models: string[], hide: boolean) =>
       setHidden((prev) => {
@@ -162,6 +164,9 @@ export function ModelsHubSection({
     [inventory, accountQuery]
   );
   const counts = countServed(visibleRows);
+  const hiddenShown = modelQuery.trim()
+    ? 0
+    : visibleRows.filter((row) => hidden.has(row.model)).length;
   const showsTable = tab === 'access' && inventory !== null && inventory.accounts.length > 0;
   const models = showsTable ? visibleRows.length : 0;
   const served = showsTable ? counts.served : 0;
@@ -259,6 +264,25 @@ export function ModelsHubSection({
               ? t('model_access.models_scroll', { count: visibleRows.length })
               : ''}
           </span>
+          {/* Where hidden models went, above the fold: opens the Hidden group and goes to it. */}
+          {hiddenShown > 0 && (
+            <button
+              type="button"
+              className={styles.hiddenJump}
+              onClick={() => {
+                setHiddenOpen(true);
+                requestAnimationFrame(() =>
+                  sectionRef.current
+                    ?.querySelector('[data-section="hidden"]')
+                    ?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+                );
+              }}
+              data-hidden-jump
+            >
+              <IconEyeOff size={14} />
+              {t('model_access.hidden_jump', { count: hiddenShown })}
+            </button>
+          )}
         </div>
         {visibleRows.length === 0 || visibleAccounts.length === 0 ? (
           <SectionState kind="no-rows">
@@ -284,6 +308,8 @@ export function ModelsHubSection({
             onStage={draft.stage}
             onOverflowChange={setOverflowing}
             hidden={hidden}
+            hiddenOpen={hiddenOpen}
+            onHiddenOpenChange={setHiddenOpen}
             searching={modelQuery.trim() !== ''}
             onHide={setModelsHidden}
             note={apiKeysNote}
@@ -361,6 +387,7 @@ export function ModelsHubSection({
 
   return (
     <div
+      ref={sectionRef}
       className={styles.hubBody}
       data-machine="model-inventory"
       data-state={load.status}

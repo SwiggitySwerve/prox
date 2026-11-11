@@ -43,6 +43,9 @@ type Props = {
   onOverflowChange?: (overflow: boolean) => void;
   /** Models hidden from the bands (this browser's view only; never changes access). */
   hidden: ReadonlySet<string>;
+  /** The Hidden group is open (the page's "N hidden" button opens it too). */
+  hiddenOpen: boolean;
+  onHiddenOpenChange: (open: boolean) => void;
   /** A model search is active: hidden models it finds stay in their band, marked. */
   searching: boolean;
   onHide: (models: string[], hide: boolean) => void;
@@ -168,7 +171,9 @@ export function ModelAccessMatrix(props: Props) {
   const hiddenGroup = { rows: collapsed, ...hiddenSummary(collapsed, isLit) };
   /** Hidden but still in its band (staged, or found by a search): say so on the row. */
   const markHidden = (row: MatrixRow) => isHidden(row) && !collapsed.includes(row);
-  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const hiddenOpen = props.hiddenOpen;
+  const setHiddenOpen = (update: (open: boolean) => boolean) =>
+    props.onHiddenOpenChange(update(hiddenOpen));
 
   // Served (by at least one account, as saved) above not served; staging never moves a row.
   const sections = [
@@ -253,6 +258,7 @@ export function ModelAccessMatrix(props: Props) {
         <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
         {t('model_access.hidden_group')}
         <span className={styles.sectionCount}>{hiddenGroup.count}</span>
+        {hiddenOpen && <span className={styles.hiddenNote}>{t('model_access.hidden_note')}</span>}
         {hiddenGroup.stillOn > 0 && (
           <span className={styles.hiddenStillOn}>
             {hiddenGroup.stillOn === 1
