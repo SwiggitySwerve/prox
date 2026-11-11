@@ -440,6 +440,18 @@ export function AuthFilesSourceContent({
     [quotaTargets.length, registerQuotaRefresh, runQuotaRefresh, sourceScope.session.owner]
   );
 
+  // The group's Refresh: one click re-reads the list and loads quota for the shown cards, with
+  // no dialog or toast; a list failure shows in the group's banner, a quota one in its card.
+  const [refreshingGroup, setRefreshingGroup] = useState(false);
+  const handleGroupRefresh = useCallback(async () => {
+    setRefreshingGroup(true);
+    try {
+      await Promise.allSettled([handleHeaderRefresh(), runQuotaRefresh(() => {})]);
+    } finally {
+      setRefreshingGroup(false);
+    }
+  }, [handleHeaderRefresh, runQuotaRefresh]);
+
   /* ---------- one-time card entrance cascade (see AuthFileCard) ---------- */
 
   const [cardsAnimated, setCardsAnimated] = useState(false);
@@ -611,11 +623,12 @@ export function AuthFilesSourceContent({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleRefreshAllCredentials}
-            loading={refreshingAllCredentials}
-            disabled={groupActionsDisabled || Object.keys(manualRefreshing).length > 0}
-            title={t('auth_files.refresh_all_button')}
-            aria-label={t('auth_files.refresh_all_button')}
+            data-testid="auth-files-group-refresh"
+            onClick={handleGroupRefresh}
+            loading={refreshingGroup}
+            disabled={groupActionsDisabled || refreshingGroup}
+            title={t('auth_files.refresh_group_title')}
+            aria-label={t('auth_files.refresh_group_title')}
           >
             <IconRefreshCw size={14} aria-hidden="true" /> {t('auth_files.refresh_all_short')}
           </Button>
@@ -631,6 +644,12 @@ export function AuthFilesSourceContent({
           <GroupMenu
             label={t('auth_files.more_actions', { source: sourceScope.source.label })}
             items={[
+              {
+                key: 'refresh-tokens',
+                label: t('auth_files.refresh_tokens_menu'),
+                disabled: groupActionsDisabled || Object.keys(manualRefreshing).length > 0,
+                run: handleRefreshAllCredentials,
+              },
               {
                 key: 'delete-shown',
                 label: t('auth_files.delete_shown_menu', { count: deleteTargets.length }),

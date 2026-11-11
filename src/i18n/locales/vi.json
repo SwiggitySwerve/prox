@@ -468,6 +468,8 @@
     "source_unreachable": "Không kết nối được nguồn",
     "retry": "Thử lại",
     "refresh_all_short": "Làm mới",
+    "refresh_group_title": "Làm mới credential và hạn mức",
+    "refresh_tokens_menu": "Làm mới token trên máy chủ…",
     "more_actions": "Thao tác khác cho {{source}}",
     "delete_shown_menu": "Xóa {{count}} mục đang hiển thị…",
     "delete_shown_title": "Xóa credential đang hiển thị",

@@ -196,6 +196,37 @@ test('AuthFileQuotaSection renders the same facts and keeps only its refresh ico
   expect(head).toContain('aria-label="Refresh quota only for this credential"');
   expect(html).toContain('data-quota-state="loaded"');
 });
+test('Account details is closed unless defaultOpen is asked for; the user can still toggle it', () => {
+  const props = { provider: 'codex', quota: codex, name: 'Fixture' } as const;
+  expect(markup(h(AccountDetails, props))).not.toMatch(/<details[^>]*\sopen/);
+  const open = markup(h(AccountDetails, { ...props, defaultOpen: true }));
+  expect(open).toMatch(/<details[^>]*\sopen=""/);
+  expect(open).toContain('<summary>Account details</summary>');
+});
+test('Quota page cards stay collapsed while Auth Files cards open Account details by default', () => {
+  const card = markup(
+    h(QuotaCard, {
+      entry: { file, type: 'codex' },
+      adapter: adapters.codex,
+      quota: codex,
+      resolvedTheme: 'dark',
+      canRefresh: true,
+      resetting: false,
+      onRefresh: noop,
+      onReset: noop,
+    })
+  );
+  expect(card).not.toMatch(/<details[^>]*\sopen/);
+  function SeededSection() {
+    const { quotaStore } = useAuthFilesSource();
+    Object.assign(quotaStore.getInitialState(), { codexQuota: { [file.name]: codex } });
+    return h(AuthFileQuotaSection, { file, quotaType: 'codex', disableControls: false });
+  }
+  const section = markup(
+    h(AuthFilesSourceProvider, { source, session, children: h(SeededSection) })
+  );
+  expect(section).toMatch(/<details[^>]*\sopen=""/);
+});
 test('factsInPanel=false preserves the default Codex body markup', () => {
   const classes = bindQuotaClasses(
     Object.fromEntries(QUOTA_CLASS_KEYS.map((key) => [key, key])),

@@ -466,6 +466,8 @@
     "source_unreachable": "来源无法连接",
     "retry": "重试",
     "refresh_all_short": "刷新",
+    "refresh_group_title": "刷新凭证和额度",
+    "refresh_tokens_menu": "在服务器上刷新令牌…",
     "more_actions": "{{source}} 的更多操作",
     "delete_shown_menu": "删除显示的 {{count}} 个…",
     "delete_shown_title": "删除显示的凭证",

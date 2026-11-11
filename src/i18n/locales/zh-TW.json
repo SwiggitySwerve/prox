@@ -466,6 +466,8 @@
     "source_unreachable": "來源無法連線",
     "retry": "重試",
     "refresh_all_short": "重新整理",
+    "refresh_group_title": "重新整理憑證和額度",
+    "refresh_tokens_menu": "在伺服器上重新整理權杖…",
     "more_actions": "{{source}} 的更多操作",
     "delete_shown_menu": "刪除顯示的 {{count}} 個…",
     "delete_shown_title": "刪除顯示的憑證",

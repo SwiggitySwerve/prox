@@ -468,6 +468,8 @@
     "source_unreachable": "Source unreachable",
     "retry": "Try again",
     "refresh_all_short": "Refresh",
+    "refresh_group_title": "Refresh credentials and quota",
+    "refresh_tokens_menu": "Refresh tokens on the server…",
     "more_actions": "More actions for {{source}}",
     "delete_shown_menu": "Delete {{count}} shown…",
     "delete_shown_title": "Delete shown credentials",
