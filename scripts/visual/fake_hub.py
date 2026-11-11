@@ -12,7 +12,9 @@ models. Exclusion patterns are case-insensitive, '*' = any run.
 
 Scenarios: default | loading | empty | error | partial | many (12 Claude accounts) | wide (21 Claude
 models, for sideways scrolling) | shared (the GPT hub also has Claude accounts, so one provider tab
-shows a section per hub). The stale case calls edit_elsewhere().
+shows a section per hub) | aligned (six Claude accounts on the first hub whose quota reads differ in
+windows, billing text and held resets, so a row of cards must still line up section by section; every
+read succeeds). The stale case calls edit_elsewhere().
 """
 from __future__ import annotations
 
@@ -61,6 +63,25 @@ HUBS = {
     },
 }
 
+# The 'aligned' scenario: what each Claude account reports. Windows are the usage payload's own keys
+# ('fable' is the weekly_scoped limit); billing is the profile's organization block; grants is how
+# many reset grants the account holds. Together they make every card's quota rows, Billing block and
+# Manual resets box a different size.
+ALIGNED_CLAUDE = {
+    'alpha-0': {'windows': ['seven_day', 'fable'], 'billing': 'stripe', 'grants': 2},
+    'alpha-1': {'windows': ['five_hour', 'seven_day', 'fable'], 'billing': 'other', 'grants': 0},
+    'alpha-2': {'windows': ['five_hour', 'seven_day', 'seven_day_opus', 'seven_day_sonnet'],
+                'billing': 'canceled', 'grants': 1},
+    'alpha-3': {'windows': ['five_hour'], 'billing': None, 'grants': 3},
+    'alpha-4': {'windows': ['five_hour', 'seven_day', 'seven_day_opus', 'fable'],
+                'billing': 'stripe', 'grants': 1},
+    'alpha-5': {'windows': ['seven_day', 'fable'], 'billing': 'other', 'grants': 2},
+}
+ALIGNED_ACCOUNTS = [
+    {'name': f'claude-slot-{letter}.json', 'type': 'claude', 'email': f'slot-{letter}@example.invalid',
+     'disabled': False, 'own': None}
+    for letter in 'abcdef']
+
 DISCOVERY = {
     'schemaVersion': 1, 'revision': 'b' * 64, 'defaultInstanceId': 'alpha',
     'sources': [
@@ -101,6 +122,8 @@ class FakeHubs:
                 {'name': 'claude-gpt-own.json', 'type': 'claude', 'email': 'gpt-own@example.invalid',
                  'disabled': False, 'own': ['claude-haiku-4-5']},
             ]
+        if scenario == 'aligned':
+            self.hubs['alpha']['accounts'] = copy.deepcopy(ALIGNED_ACCOUNTS)
         if scenario == 'many':
             self.hubs['alpha']['accounts'][4:4] = [
                 {'name': f'claude-seat-{n:02d}.json', 'type': 'claude',
@@ -151,6 +174,31 @@ class FakeHubs:
         sub = api.group(2) if api else '/prox' + prox.groups()[-1]
         await asyncio.sleep(0.6 if self.scenario == 'slow' else 0.02)
         await self._api(route, source, method, sub, parse_qs(url.query), request)
+
+    @staticmethod
+    def _aligned_usage(variant: dict, soon: str, grants_read: bool) -> dict:
+        if grants_read:
+            return {'cedar_ember': {'eligible': True, 'at_limit': False, 'grants': [
+                {'id': f'grant-{n}', 'label': f'Weekly reset {n + 1}', 'resets_total': 2,
+                 'resets_left': 1, 'ends_at': f'203{n}-01-01T00:00:00Z', 'usable_now': True,
+                 'use_requires_limit': True, 'clears': ['five_hour', 'seven_day']}
+                for n in range(variant['grants'])]}}
+        payload = {key: {'utilization': 20 + 17 * n, 'resets_at': soon}
+                   for n, key in enumerate(variant['windows']) if key != 'fable'}
+        if 'fable' in variant['windows']:
+            payload['limits'] = [{'kind': 'weekly_scoped', 'is_active': True, 'percent': 33,
+                                  'resets_at': soon, 'scope': {'model': {'display_name': 'Fable 5'}}}]
+        return payload
+
+    @staticmethod
+    def _aligned_profile(variant: dict) -> dict:
+        kind = variant['billing']
+        if kind is None:
+            return {'account': {'has_claude_max': True}}
+        return {'account': {'has_claude_max': True}, 'organization': {
+            'subscription_status': 'canceled' if kind == 'canceled' else 'active',
+            'subscription_created_at': '2025-03-31T10:00:00Z',
+            'billing_type': 'stripe_subscription' if kind == 'stripe' else 'apple_subscription'}}
 
     async def _json(self, route, body, status=200):
         await route.fulfill(status=status, content_type='application/json', body=json.dumps(body),
@@ -235,9 +283,15 @@ class FakeHubs:
         if path == '/requests/api-call' and method == 'post':
             # The hub proxies a quota read to the provider. Synthetic usage; team-b's read fails.
             url = str(body.get('url', ''))
-            failing = self.scenario != 'default' or body.get('authIndex') == 'alpha-1'
+            failing = self.scenario not in ('default', 'aligned') or (
+                self.scenario == 'default' and body.get('authIndex') == 'alpha-1')
             soon = '2030-01-01T00:00:00Z'
-            if 'anthropic.com/api/oauth/usage' in url:
+            variant = ALIGNED_CLAUDE.get(body.get('authIndex')) if self.scenario == 'aligned' else None
+            if variant and 'anthropic.com/api/oauth/usage' in url:
+                payload = self._aligned_usage(variant, soon, 'cedar_ember' in url)
+            elif variant and 'anthropic.com/api/oauth/profile' in url:
+                payload = self._aligned_profile(variant)
+            elif 'anthropic.com/api/oauth/usage' in url:
                 payload = {'five_hour': {'utilization': 38, 'resets_at': soon},
                            'seven_day': {'utilization': 71, 'resets_at': soon},
                            'seven_day_opus': {'utilization': 12, 'resets_at': soon}}
