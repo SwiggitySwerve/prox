@@ -9,7 +9,9 @@ import type { QuotaFileEntry } from '@/features/quota/logic';
 import type { AuthFileItem } from '@/types';
 import { isDisabledAuthFile } from '@/utils/quota/validators';
 
-export type QuotaUnavailableReason = 'runtime' | 'disabled' | 'unsupported';
+export { claudeQuotaRowSlots, type ClaudeQuotaRowSlot } from '@/domain/quotaWindows/claude';
+
+export type QuotaUnavailableReason ='runtime' | 'disabled' | 'unsupported';
 
 /** Why a card has no quota to read, or null when it has. */
 export function quotaUnavailableReason(

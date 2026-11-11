@@ -1,0 +1,348 @@
+{
+  "url": "http://127.0.0.1:5272",
+  "cases": {
+    "auth-files-card-alignment-1920": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 6",
+        "Claudeslot-a@example.invalid",
+        "Claudeslot-b@example.invalid",
+        "Claudeslot-c@example.invalid",
+        "Claudeslot-d@example.invalid",
+        "Claudeslot-e@example.invalid",
+        "Claudeslot-f@example.invalid",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "auth-files-list=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "alignment": {
+        "cards": 8,
+        "bands": 3,
+        "compared": 37,
+        "maxDelta": 122,
+        "violations": [
+          {
+            "band": 0,
+            "key": "row:7-day limit",
+            "problem": "missing on 1 card(s)"
+          },
+          {
+            "band": 0,
+            "key": "row:7-day limit",
+            "problem": "tops differ by 34px",
+            "tops": [
+              657.4,
+              691.4,
+              691.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "row:7-day Fable 5",
+            "problem": "missing on 2 card(s)"
+          },
+          {
+            "band": 0,
+            "key": "row:7-day Fable 5",
+            "problem": "tops differ by 34px",
+            "tops": [
+              691.4,
+              725.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "details-summary",
+            "problem": "tops differ by 102px",
+            "tops": [
+              725.4,
+              759.4,
+              793.4,
+              691.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "billing",
+            "problem": "tops differ by 102px",
+            "tops": [
+              759.4,
+              793.4,
+              827.4,
+              725.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "resets",
+            "problem": "tops differ by 122px",
+            "tops": [
+              949.4,
+              965.4,
+              923.4,
+              843.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "row:5-hour limit",
+            "problem": "missing on 1 card(s)"
+          },
+          {
+            "band": 0,
+            "key": "row:7-day Opus",
+            "problem": "missing on 3 card(s)"
+          },
+          {
+            "band": 0,
+            "key": "row:7-day Sonnet",
+            "problem": "missing on 3 card(s)"
+          },
+          {
+            "band": 1,
+            "key": "row:5-hour limit",
+            "problem": "missing on 1 card(s)"
+          },
+          {
+            "band": 1,
+            "key": "row:7-day limit",
+            "problem": "tops differ by 34px",
+            "tops": [
+              1644.4,
+              1610.4
+            ]
+          },
+          {
+            "band": 1,
+            "key": "row:7-day Opus",
+            "problem": "missing on 1 card(s)"
+          },
+          {
+            "band": 1,
+            "key": "row:7-day Fable 5",
+            "problem": "tops differ by 68px",
+            "tops": [
+              1712.4,
+              1644.4
+            ]
+          },
+          {
+            "band": 1,
+            "key": "details-summary",
+            "problem": "tops differ by 68px",
+            "tops": [
+              1746.4,
+              1678.4
+            ]
+          },
+          {
+            "band": 1,
+            "key": "billing",
+            "problem": "tops differ by 68px",
+            "tops": [
+              1780.4,
+              1712.4
+            ]
+          }
+        ]
+      },
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "aligned",
+      "writes": [],
+      "credentialReads": 14,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 8,
+        "/credentials": 14,
+        "/prox/pools": 5,
+        "/config/oauth/excluded-models": 3,
+        "/config/oauth/model-alias": 3
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": false
+    },
+    "auth-files-card-alignment-1440": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 6",
+        "Claudeslot-a@example.invalid",
+        "Claudeslot-b@example.invalid",
+        "Claudeslot-c@example.invalid",
+        "Claudeslot-d@example.invalid",
+        "Claudeslot-e@example.invalid",
+        "Claudeslot-f@example.invalid",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "auth-files-list=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "alignment": {
+        "cards": 8,
+        "bands": 3,
+        "compared": 38,
+        "maxDelta": 174,
+        "violations": [
+          {
+            "band": 0,
+            "key": "row:7-day limit",
+            "problem": "tops differ by 34px",
+            "tops": [
+              657.4,
+              691.4,
+              691.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "row:7-day Fable 5",
+            "problem": "missing on 1 card(s)"
+          },
+          {
+            "band": 0,
+            "key": "row:7-day Fable 5",
+            "problem": "tops differ by 34px",
+            "tops": [
+              691.4,
+              725.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "details-summary",
+            "problem": "tops differ by 68px",
+            "tops": [
+              725.4,
+              759.4,
+              793.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "billing",
+            "problem": "tops differ by 68px",
+            "tops": [
+              759.4,
+              793.4,
+              827.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "resets",
+            "problem": "tops differ by 42px",
+            "tops": [
+              949.4,
+              965.4,
+              923.4
+            ]
+          },
+          {
+            "band": 0,
+            "key": "row:5-hour limit",
+            "problem": "missing on 1 card(s)"
+          },
+          {
+            "band": 0,
+            "key": "row:7-day Opus",
+            "problem": "missing on 2 card(s)"
+          },
+          {
+            "band": 0,
+            "key": "row:7-day Sonnet",
+            "problem": "missing on 2 card(s)"
+          },
+          {
+            "band": 1,
+            "key": "row:5-hour limit",
+            "problem": "missing on 1 card(s)"
+          },
+          {
+            "band": 1,
+            "key": "details-summary",
+            "problem": "tops differ by 102px",
+            "tops": [
+              1644.4,
+              1746.4,
+              1678.4
+            ]
+          },
+          {
+            "band": 1,
+            "key": "billing",
+            "problem": "tops differ by 102px",
+            "tops": [
+              1678.4,
+              1780.4,
+              1712.4
+            ]
+          },
+          {
+            "band": 1,
+            "key": "resets",
+            "problem": "tops differ by 174px",
+            "tops": [
+              1796.4,
+              1970.4,
+              1884.4
+            ]
+          },
+          {
+            "band": 1,
+            "key": "row:7-day limit",
+            "problem": "missing on 1 card(s)"
+          },
+          {
+            "band": 1,
+            "key": "row:7-day limit",
+            "problem": "tops differ by 34px",
+            "tops": [
+              1644.4,
+              1610.4
+            ]
+          },
+          {
+            "band": 1,
+            "key": "row:7-day Opus",
+            "problem": "missing on 2 card(s)"
+          }
+        ]
+      },
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "aligned",
+      "writes": [],
+      "credentialReads": 14,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 8,
+        "/credentials": 14,
+        "/config/oauth/excluded-models": 3,
+        "/config/oauth/model-alias": 3
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": false
+    }
+  }
+}
