@@ -7,15 +7,9 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/ui/Select';
-import {
-  IconAlertTriangle,
-  IconCheck,
-  IconChevronDown,
-  IconEye,
-  IconEyeOff,
-} from '@/components/ui/icons';
+import { IconCheck, IconChevronDown, IconEye, IconEyeOff } from '@/components/ui/icons';
 import {
   accessCell,
   type AccessCell,
@@ -264,23 +258,16 @@ export function ModelAccessMatrix(props: Props) {
         <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
         {t('model_access.hidden_group')}
         <span className={styles.sectionCount}>{hiddenGroup.count}</span>
-        {/* Closed: a hidden model still on is said here, so nothing on disappears unseen. */}
-        {!hiddenOpen && hiddenGroup.stillOn > 0 && (
+        {hiddenGroup.stillOn > 0 && (
           <span className={styles.hiddenStillOn}>
-            <IconAlertTriangle size={13} aria-hidden="true" />
-            {hiddenGroup.stillOn === 1 ? (
-              <Trans
-                i18nKey="model_access.hidden_still_on_one"
-                values={{ model: hiddenGroup.rows.find(isLit)?.model ?? '' }}
-                components={{ model: <span className={styles.hiddenStillOnModel} /> }}
-              />
-            ) : (
-              t('model_access.hidden_still_on', { count: hiddenGroup.stillOn })
-            )}
+            {hiddenGroup.stillOn === 1
+              ? t('model_access.hidden_still_on_one', {
+                  model: hiddenGroup.rows.find(isLit)?.model ?? '',
+                })
+              : t('model_access.hidden_still_on', { count: hiddenGroup.stillOn })}
           </span>
         )}
       </button>
-      {hiddenOpen && <span className={styles.hiddenNote}>{t('model_access.hidden_note')}</span>}
       {hiddenOpen && (
         <button
           type="button"

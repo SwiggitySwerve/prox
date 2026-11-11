@@ -112,19 +112,13 @@
   }
 }
 
-/* Its contents sit in from the band's edges, as the grid's do from the card's (phones too). */
-.filterBar {
-  padding-inline: 12px;
-}
-
-/* On Rules and Aliases, and with nothing loaded, the filters stay in place, visibly off: the
-   whole field (border and icon too), not only its text. */
+/* On Rules and Aliases the filters stay in place, visibly off. */
 .controls {
   min-width: 0;
 
   button:disabled,
-  .filterField:has(input:disabled) {
-    opacity: 0.45;
+  input:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 }
@@ -1522,7 +1516,7 @@
   gap: 6px;
   min-height: 24px;
   padding: 0 8px;
-  border: 1px solid var(--border-hover);
+  border: 0;
   border-radius: 6px;
   background: none;
   font: inherit;
@@ -1542,36 +1536,15 @@
 }
 
 .hiddenStillOn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: 6px;
   font-weight: 600;
   color: var(--text-primary);
-}
 
-.hiddenStillOnModel {
-  font-family: $font-mono;
-  font-size: 12px;
-}
-
-/* Open: what hiding does, beside the band's label (its own line on a phone). */
-.hiddenNote {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.phoneView .hiddenNote {
-  flex-basis: 100%;
-  order: 3;
-  padding: 0 0 10px 26px;
-}
-
-.phoneView .bandInner:has(.hiddenNote) {
-  flex-wrap: wrap;
-  row-gap: 0;
+  &::before {
+    content: '·';
+    margin-right: 6px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+  }
 }
 
 /* Hidden, but kept in its band (staged, or found by a search). */
