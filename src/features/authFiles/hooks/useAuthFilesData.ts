@@ -50,7 +50,8 @@ export type UseAuthFilesDataResult = {
   cooldownResetting: Record<string, boolean>;
   batchStatusUpdating: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
-  loadFiles: (options?: LoadFilesOptions) => Promise<void>;
+  /** Resolves to the re-read list, or null when the read failed or a newer one superseded it. */
+  loadFiles: (options?: LoadFilesOptions) => Promise<AuthFileItem[] | null>;
   handleUploadClick: () => void;
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleDelete: (name: string) => void;
@@ -231,16 +232,19 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         const inventory = useCredentialInventoryStore.getState();
         const outcome = await inventory.refresh();
         sourceScope.assertCurrent();
-        if (!isCurrentRequest()) return; // 已被更新的请求/连接/变更取代
+        if (!isCurrentRequest()) return null; // 已被更新的请求/连接/变更取代
         const failure = outcome[owner.instanceId];
         if (failure !== null) throw failure ?? new Error(t('notification.refresh_failed'));
-        setFiles(selectSourceFiles(useCredentialInventoryStore.getState(), owner) ?? []);
+        const list = selectSourceFiles(useCredentialInventoryStore.getState(), owner) ?? [];
+        setFiles(list);
         setError('');
+        return list;
       } catch (err: unknown) {
-        if (!sourceScope.isCurrent()) return;
-        if (!isCurrentRequest()) return;
+        if (!sourceScope.isCurrent()) return null;
+        if (!isCurrentRequest()) return null;
         const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
         setError(errorMessage);
+        return null;
       } finally {
         if (isCurrentRequest()) {
           setLoading(false);

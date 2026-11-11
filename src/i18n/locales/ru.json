@@ -473,6 +473,8 @@
     "source_unreachable": "Источник недоступен",
     "retry": "Повторить",
     "refresh_all_short": "Обновить",
+    "refresh_group_title": "Обновить учётные данные и квоты",
+    "refresh_tokens_menu": "Обновить токены на сервере…",
     "more_actions": "Другие действия для {{source}}",
     "delete_shown_menu": "Удалить показанные ({{count}})…",
     "delete_shown_title": "Удалить показанные учётные данные",

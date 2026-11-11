@@ -4,6 +4,7 @@
  */
 import { isRuntimeOnlyAuthFile, type AuthFileQuotaFilter } from '@/features/authFiles/constants';
 import { resolveAuthFileQuotaType } from '@/features/authFiles/logic';
+import { pageOfAuthFiles, type AuthFilesFilters } from '@/features/authFiles/unifiedList';
 import type { QuotaFileEntry } from '@/features/quota/logic';
 import type { AuthFileItem } from '@/types';
 import { isDisabledAuthFile } from '@/utils/quota/validators';
@@ -32,6 +33,19 @@ export function quotaRefreshTargets(
     if (type && quotaUnavailableReason(file, filter) === null) targets.push({ file, type });
   }
   return targets;
+}
+
+/** The quota targets of the page a group shows for this credential list, filters and page. */
+export function quotaTargetsForList(
+  files: AuthFileItem[],
+  filters: Pick<
+    AuthFilesFilters,
+    'provider' | 'statusFilterMode' | 'search' | 'sortMode' | 'pageSize'
+  >,
+  page: number,
+  quotaFilter: AuthFileQuotaFilter
+): QuotaFileEntry[] {
+  return quotaRefreshTargets(pageOfAuthFiles(files, filters, page).pageItems, quotaFilter);
 }
 
 export type QuotaSlotState =

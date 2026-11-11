@@ -28,10 +28,19 @@ type Props = {
   name: string;
   claudeReset?: ReturnType<typeof useClaudeResetGrants>;
   reset?: { disabled: boolean; onClick: () => void };
+  /** Starts expanded; the user can still collapse it. */
+  defaultOpen?: boolean;
 };
 
 /** Both quota hosts use this one disclosure and the same fact states. */
-export function AccountDetails({ provider, quota, name, claudeReset, reset }: Props) {
+export function AccountDetails({
+  provider,
+  quota,
+  name,
+  claudeReset,
+  reset,
+  defaultOpen,
+}: Props) {
   const { t, i18n } = useTranslation();
   const now = useNow();
   const date = (value: number) => formatPoolDate(value, i18n.resolvedLanguage ?? i18n.language);
@@ -87,6 +96,7 @@ export function AccountDetails({ provider, quota, name, claudeReset, reset }: Pr
   return (
     <details
       className={styles.details}
+      open={defaultOpen}
       style={
         {
           '--fact-accent':

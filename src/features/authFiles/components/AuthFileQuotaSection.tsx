@@ -246,6 +246,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
           provider={quotaType}
           quota={slot.kind === 'loaded' ? quota : undefined}
           name={file.name}
+          defaultOpen
           claudeReset={quotaType === 'claude' ? claudeReset : undefined}
           reset={
             quotaType === 'codex' && adapter.resetQuota

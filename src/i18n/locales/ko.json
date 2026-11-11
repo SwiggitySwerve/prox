@@ -468,6 +468,8 @@
     "source_unreachable": "소스에 연결할 수 없음",
     "retry": "다시 시도",
     "refresh_all_short": "새로 고침",
+    "refresh_group_title": "자격 증명과 할당량 새로 고침",
+    "refresh_tokens_menu": "서버에서 토큰 새로 고침…",
     "more_actions": "{{source}} 추가 작업",
     "delete_shown_menu": "표시된 {{count}}개 삭제…",
     "delete_shown_title": "표시된 자격 증명 삭제",

@@ -30,6 +30,7 @@ _spec.loader.exec_module(fake_hub)
 M = '/auth-files/models?source=alpha&provider=claude'
 # slug, hash route, scenario, steps. A step is (click|wait, selector), ('hub', FakeHubs method),
 # ('goto', hash route), ('scroll', selector): scroll that element to its right end, or
+# ('no-dialog', selector): fail the case when that element is visible, or
 # ('pick-account', label): on a phone the matrix is a per-account list, so pick the account first;
 # a no-op where the table shows every account.
 CASES = [
@@ -66,6 +67,11 @@ CASES = [
     ('auth-files-quota-refreshed', '/auth-files', 'default', [
         ('click', '[data-testid="auth-files-refresh-quota"]'),
         ('wait', '[data-quota-state="loaded"]'), ('wait', '[data-quota-state="failed"]')]),
+    # The alpha group's own Refresh: one click, no dialog, quota loaded with Account details open.
+    ('auth-files-group-refresh', '/auth-files', 'default', [
+        ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
+        ('wait', '[data-quota-state="loaded"]'), ('wait', '[data-quota-state="loaded"] details[open]'),
+        ('no-dialog', '[role=dialog]')]),
     ('auth-files-group-menu', '/auth-files', 'default', [
         ('click', '[data-source-id="alpha"] [aria-haspopup="menu"]')]),
     ('models-preview-everywhere', M, 'default', [('click', '[data-row-action="claude-haiku-4-5"]')]),
@@ -148,6 +154,9 @@ async def run_case(browser, base, origin, out, width, case):
             if action == 'click':
                 await page.locator(selector).first.click()
                 await page.wait_for_timeout(600)
+            elif action == 'no-dialog':
+                if await page.locator(selector).first.is_visible():
+                    raise AssertionError(f'unexpected dialog: {selector}')
             elif action == 'hub':
                 getattr(hubs, selector)()
             elif action == 'pick-account':
