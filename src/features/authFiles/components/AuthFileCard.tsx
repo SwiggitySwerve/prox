@@ -16,13 +16,13 @@ import {
 } from '@/components/ui/icons';
 import { ProviderStatusBar } from '@/components/providers/ProviderStatusBar';
 import type { AuthFileItem } from '@/types';
+import { useNow } from '@/hooks/useNow';
 import { statusBarDataFromRecentRequests } from '@/utils/recentRequests';
 import { formatDateTimeValue, formatFileSize } from '@/utils/format';
 import {
+  authFileStatusWarning,
   formatModified,
   getAuthFileStatusMessage,
-  summarizeAuthFileStatusMessage,
-  hasAuthFileStatusWarning,
   getTypeColor,
   getTypeLabel,
   isRuntimeOnlyAuthFile,
@@ -118,7 +118,13 @@ export function AuthFileCard(props: AuthFileCardProps) {
   const rawStatusMessage = getAuthFileStatusMessage(file);
   const describeStatus = (summary: AuthFileStatusSummary): string => {
     if (summary.kind === 'message') return summary.text;
-    if (summary.kind === 'rate_limit') return t('auth_files.status_rate_limited');
+    if (summary.kind === 'rate_limit') {
+      return summary.resetsAt
+        ? t('auth_files.status_rate_limited_until', {
+            time: formatDateTimeValue(summary.resetsAt, i18n.language),
+          })
+        : t('auth_files.status_rate_limited');
+    }
     const limit = t(
       summary.window === 'weekly'
         ? 'auth_files.status_weekly_limit'
@@ -133,7 +139,9 @@ export function AuthFileCard(props: AuthFileCardProps) {
         })
       : limit;
   };
-  const hasStatusWarning = hasAuthFileStatusWarning(file);
+  // Re-read each minute while a retry time is shown, so a passed one drops off.
+  const now = useNow(Boolean(file.nextRetryAfter));
+  const statusWarning = authFileStatusWarning(file, now);
 
   const priorityValue = Number.isSafeInteger(file.priority) ? file.priority : undefined;
   const weightValue = Number.isSafeInteger(file.weight) ? file.weight : undefined;
@@ -303,7 +311,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
       <div className={styles.foot}>
         {/* Notes and warnings sit under the quota slot so the slots above never move. */}
         {(Boolean(!compact && noteValue) ||
-          Boolean(rawStatusMessage && hasStatusWarning) ||
+          statusWarning !== null ||
           hasCooldownContent ||
           supportsSiwcBinding(file)) && (
           <div className={styles.notices}>
@@ -313,10 +321,10 @@ export function AuthFileCard(props: AuthFileCardProps) {
               </p>
             )}
 
-            {rawStatusMessage && hasStatusWarning && (
+            {statusWarning && (
               <div className={styles.warning} title={rawStatusMessage}>
                 <IconInfo className={styles.warningIcon} size={14} />
-                <span>{describeStatus(summarizeAuthFileStatusMessage(rawStatusMessage))}</span>
+                <span>{describeStatus(statusWarning)}</span>
               </div>
             )}
 

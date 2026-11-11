@@ -388,6 +388,7 @@
     "status_usage_limit": "Đã hết hạn mức sử dụng",
     "status_limit_resets": "{{limit}} · đặt lại lúc {{time}}",
     "status_rate_limited": "Bị giới hạn tốc độ · thử lại sau",
+    "status_rate_limited_until": "Bị giới hạn tốc độ · thử lại sau {{time}}",
     "cooldown_models_one": "{{count}} model đang cooldown",
     "cooldown_models_other": "{{count}} model đang cooldown",
     "cooldown_credential": "Cooldown toàn bộ credential",
