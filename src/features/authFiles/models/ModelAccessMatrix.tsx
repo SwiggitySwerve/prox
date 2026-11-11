@@ -291,6 +291,12 @@ export function ModelAccessMatrix(props: Props) {
     <MatrixTable
       provider={provider}
       accountCount={accounts.length}
+      headerKey={accounts
+        .map(
+          (account) =>
+            `${account.name}:${account.disabled}:${account.ownList.status}:${failed.has(account.name)}`
+        )
+        .join('|')}
       onOverflowChange={props.onOverflowChange}
     >
       <colgroup>
@@ -414,11 +420,15 @@ export function ModelAccessMatrix(props: Props) {
 function MatrixTable({
   provider,
   accountCount,
+  headerKey,
   onOverflowChange,
   children,
 }: {
   provider: string;
   accountCount: number;
+  /** Changes when the header's words change (accounts shown, markers), so they are re-measured:
+   * columns can change without the table or its frame changing size. */
+  headerKey: string;
   onOverflowChange?: (overflow: boolean) => void;
   children: ReactNode;
 }) {
@@ -469,7 +479,7 @@ function MatrixTable({
       observer?.disconnect();
       notifyRef.current?.(false);
     };
-  }, []);
+  }, [headerKey]);
 
   return (
     <div
