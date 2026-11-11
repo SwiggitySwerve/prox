@@ -15,8 +15,10 @@ models, for sideways scrolling) | shared (the GPT hub also has Claude accounts, 
 shows a section per hub) | aligned (six Claude accounts on the first hub whose quota reads differ in
 windows, billing text and held resets, so a row of cards must still line up section by section; every
 read succeeds) | real (one operator's shape: four Claude accounts, two sharing a name before the @,
-twenty Claude models of which four are on for every account through the provider list). The stale
-case calls edit_elsewhere().
+twenty Claude models of which four are on for every account through the provider list) |
+claude-cards (four Claude Max accounts shaped like a real hub: three usage bars, active billing with an
+estimated renewal, three or four reset grants with long upstream descriptions, and extra usage off
+with spend and limit unreported). The stale case calls edit_elsewhere().
 """
 from __future__ import annotations
 
@@ -85,6 +87,32 @@ ALIGNED_ACCOUNTS = [
      'disabled': False, 'own': None}
     for letter in 'abcdef']
 
+# The 'claude-cards' scenario: grants per account as (id, kind field, upstream label, ends_at). The
+# labels are the long descriptions Anthropic sends; the kind comes from `type` or
+# `gives_back_weekly`, as resetKind() reads it.
+CARD_GRANTS = {
+    'weekly': ('weekly-free', {'type': 'weekly'}, 'Free limit reset', '2030-12-16T04:59:00Z'),
+    'full-nov': ('full-nov', {'type': 'full'}, 'One full limit reset (November 2026)',
+                 '2030-12-10T22:00:00Z'),
+    'full-free': ('full-free', {'type': 'full'}, 'Free limit reset', '2030-12-16T04:59:00Z'),
+    'fable-launch': ('fable-launch', {'gives_back_weekly': True},
+                     'New model launch: one Fable reset for Max, Team Premium and Enterprise Premium',
+                     '2031-03-09T07:59:00Z'),
+    'fable-tenure': ('fable-tenure', {'gives_back_weekly': True},
+                     "New model launch: one more Fable reset at 6 months' tenure",
+                     '2031-03-09T07:59:00Z'),
+}
+CARD_CLAUDE = {
+    'alpha-0': {'grants': ['weekly', 'fable-launch', 'fable-tenure', 'full-nov'], 'user_disabled': True},
+    'alpha-1': {'grants': ['full-nov', 'full-free', 'fable-launch'], 'user_disabled': False},
+    'alpha-2': {'grants': ['full-nov', 'full-free', 'fable-launch'], 'user_disabled': False},
+    'alpha-3': {'grants': ['weekly', 'full-free', 'fable-launch'], 'user_disabled': True},
+}
+CARD_ACCOUNTS = [
+    {'name': f'claude-{slug}.json', 'type': 'claude', 'email': f'{slug}@example.invalid',
+     'disabled': False, 'own': None}
+    for slug in ('ops-work', 'ops-mail', 'research', 'personal')]
+
 # The 'real' scenario: four models on, every older one off in the provider list, which all four
 # accounts follow.
 REAL_ON = ['claude-fable-5-2', 'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5']
@@ -144,6 +172,8 @@ class FakeHubs:
             ]
         if scenario == 'aligned':
             self.hubs['alpha']['accounts'] = copy.deepcopy(ALIGNED_ACCOUNTS)
+        if scenario == 'claude-cards':
+            self.hubs['alpha']['accounts'] = copy.deepcopy(CARD_ACCOUNTS)
         if scenario == 'real':
             self.catalog['claude'] = REAL_ON + REAL_OFF
             self.hubs['alpha']['providerLists'] = {'claude': list(REAL_OFF)}
@@ -218,6 +248,24 @@ class FakeHubs:
             payload['limits'] = [{'kind': 'weekly_scoped', 'is_active': True, 'percent': 33,
                                   'resets_at': soon, 'scope': {'model': {'display_name': 'Fable 5'}}}]
         return payload
+
+    @staticmethod
+    def _card_usage(variant: dict, soon: str, grants_read: bool) -> dict:
+        if grants_read:
+            grants = []
+            for key in variant['grants']:
+                grant_id, kind, label, ends = CARD_GRANTS[key]
+                grants.append({'id': grant_id, **kind, 'label': label, 'resets_total': 1,
+                               'resets_left': 1, 'ends_at': ends, 'usable_now': True,
+                               'use_requires_limit': False, 'clears': ['five_hour', 'seven_day']})
+            return {'cedar_ember': {'eligible': True, 'at_limit': False, 'grants': grants}}
+        return {'five_hour': {'utilization': 0, 'resets_at': soon},
+                'seven_day': {'utilization': 0, 'resets_at': soon},
+                'limits': [{'kind': 'weekly_scoped', 'is_active': True, 'percent': 42,
+                            'resets_at': soon, 'scope': {'model': {'display_name': 'Fable 5'}}}],
+                'extra_usage': {'is_enabled': False, 'monthly_limit': None, 'used_credits': None,
+                                'utilization': None, 'currency': None,
+                                'user_disabled': variant['user_disabled']}}
 
     @staticmethod
     def _aligned_profile(variant: dict) -> dict:
@@ -314,11 +362,16 @@ class FakeHubs:
         if path == '/requests/api-call' and method == 'post':
             # The hub proxies a quota read to the provider. Synthetic usage; team-b's read fails.
             url = str(body.get('url', ''))
-            failing = self.scenario not in ('default', 'aligned') or (
+            failing = self.scenario not in ('default', 'aligned', 'claude-cards') or (
                 self.scenario == 'default' and body.get('authIndex') == 'alpha-1')
             soon = '2030-01-01T00:00:00Z'
             variant = ALIGNED_CLAUDE.get(body.get('authIndex')) if self.scenario == 'aligned' else None
-            if variant and 'anthropic.com/api/oauth/usage' in url:
+            card = CARD_CLAUDE.get(body.get('authIndex')) if self.scenario == 'claude-cards' else None
+            if card and 'anthropic.com/api/oauth/usage' in url:
+                payload = self._card_usage(card, soon, 'cedar_ember' in url)
+            elif card and 'anthropic.com/api/oauth/profile' in url:
+                payload = self._aligned_profile({'billing': 'stripe'})
+            elif variant and 'anthropic.com/api/oauth/usage' in url:
                 payload = self._aligned_usage(variant, soon, 'cedar_ember' in url)
             elif variant and 'anthropic.com/api/oauth/profile' in url:
                 payload = self._aligned_profile(variant)

@@ -9,7 +9,7 @@ every management, prox and discovery request at the network layer; any other req
 same-origin static asset is aborted, so no real hub, account or key is touched. Login uses a
 synthetic key typed into the real form.
 
-Each case is captured at 1440x1000 and 390x844: `fold/<case>.png` is the first viewport and
+Each case is captured at 1440x1000 and 390x844 (pass --widths 1920 for a 1920x1080 screen): `fold/<case>.png` is the first viewport and
 `<case>.png` the whole content (the shell scrolls inside an element, so the viewport is grown to
 the content height). results.json records page errors, unexpected or blocked requests, overflow,
 data-state machines on screen, and every write the page sent to the fake hubs.
@@ -145,6 +145,14 @@ CASES = [
     ('auth-files-card-alignment', '/auth-files', 'aligned', [
         ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
         ('wait', '[data-quota-state="loaded"] details[open]'), ('sleep', '4500')]),
+    # Four Claude cards shaped like a real hub (three bars, billing, three or four reset grants with
+    # long descriptions, extra usage off and unreported), Account details open. A whole grid row
+    # must fit a 1080px-tall screen under the hub's own header (about 140px), so on desktop no card
+    # may be taller than 940px. They were 1497px before the compact layout.
+    ('auth-files-claude-cards', '/auth-files', 'claude-cards', [
+        ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
+        ('wait', '[data-quota-state="loaded"] details[open]'), ('sleep', '4500'),
+        ('card-height', '940')]),
     # team-b's write fails, the provider list lands: the bar and team-b's row say so, and team-b's
     # switch stays staged for another Save.
     ('models-partial-failure', M, 'partial', [
@@ -249,6 +257,10 @@ ALIGNMENT = '''(strict) => {
   if (strict && !rowed.length) violations.push({key: 'grid', problem: 'no grid row holds two cards'});
   return {cards: cards.length, bands: rowed.length, compared, maxDelta, violations: violations.slice(0, 16)};
 }'''
+# The height of every credential card of the first hub, in px.
+CARD_HEIGHTS = '''() => [...document.querySelectorAll('[data-source-id="alpha"] article')]
+  .filter(c => c.querySelector('[class*="__head___"]'))
+  .map(c => Math.round(c.getBoundingClientRect().height))'''
 # Sideways scroll of the page and of one scroller, with the widths that decide it.
 HSCROLL = '''(e) => ({
   page: document.documentElement.scrollWidth > innerWidth + 1,
@@ -274,7 +286,8 @@ async def login(page, base):
 async def run_case(browser, base, origin, out, width, case):
     slug, route, scenario, steps = case
     name = f'{slug}-{width}'
-    height = 1000 if width >= 600 else 844
+    # 1920 wide is a 1080p screen; the other desktop captures keep their 1000px height.
+    height = 1080 if width >= 1920 else 1000 if width >= 600 else 844
     context = await browser.new_context(
         viewport={'width': width, 'height': height}, is_mobile=width < 600, has_touch=width < 600,
         locale='en-US', timezone_id='UTC', color_scheme='light', reduced_motion='reduce',
@@ -328,6 +341,12 @@ async def run_case(browser, base, origin, out, width, case):
                     extra['hscroll'] = fit
                     if fit['page'] or fit['table']:
                         raise AssertionError(f'horizontal scroll: {fit}')
+            elif action == 'card-height':
+                heights = await page.evaluate(CARD_HEIGHTS)
+                extra['cardHeights'] = heights
+                # Phones stack one card per row and scroll; the limit is for a desktop grid row.
+                if not heights or (width >= 600 and max(heights) > int(selector)):
+                    extra['cardHeightViolation'] = f'tallest card {max(heights, default=0)}px > {selector}px'
             elif action == 'in-view':
                 box = await page.locator(selector).first.bounding_box()
                 if not box or box['y'] < 0 or box['y'] + box['height'] > page.viewport_size['height'] + 1:
@@ -351,7 +370,8 @@ async def run_case(browser, base, origin, out, width, case):
         result = await page.evaluate(MEASURE)
         result.update(extra)
         # Phones show one card per row, so there is nothing to line up there.
-        result['alignment'] = await page.evaluate(ALIGNMENT, scenario == 'aligned' and width >= 600)
+        result['alignment'] = await page.evaluate(
+            ALIGNMENT, scenario in ('aligned', 'claude-cards') and width >= 600)
         await page.screenshot(path=str(out / 'fold' / f'{name}.png'), timeout=30000)
         content = await page.evaluate(CONTENT_HEIGHT)
         await page.set_viewport_size({'width': width, 'height': min(int(content) + 120, 9000)})
@@ -367,7 +387,8 @@ async def run_case(browser, base, origin, out, width, case):
                   credentialReads=hubs.credential_reads, reads=hubs.reads,
                   unexpected=hubs.unexpected, blocked=hubs.blocked)
     result['pass'] = not any(result.get(k) for k in
-                             ['overflow', 'errors', 'blocked', 'harnessError', 'unexpected']) \
+                             ['overflow', 'errors', 'blocked', 'harnessError', 'unexpected',
+                              'cardHeightViolation']) \
         and not result.get('alignment', {}).get('violations')
     await context.close()
     return name, result

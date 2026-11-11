@@ -1,0 +1,313 @@
+{
+  "url": "http://127.0.0.1:5233",
+  "cases": {
+    "auth-files-card-alignment-1440": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 6",
+        "Claudeslot-a@example.invalid",
+        "Claudeslot-b@example.invalid",
+        "Claudeslot-c@example.invalid",
+        "Claudeslot-d@example.invalid",
+        "Claudeslot-e@example.invalid",
+        "Claudeslot-f@example.invalid",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "auth-files-list=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "gridScrollsSideways": false,
+      "alignment": {
+        "cards": 8,
+        "bands": 3,
+        "compared": 42,
+        "maxDelta": 0,
+        "violations": []
+      },
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "aligned",
+      "writes": [],
+      "credentialReads": 14,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 8,
+        "/credentials": 14,
+        "/prox/pools": 5,
+        "/config/oauth/excluded-models": 3,
+        "/config/oauth/model-alias": 3
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-claude-cards-1440": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 4",
+        "Claudeops-mail@example.invalid",
+        "Claudeops-work@example.invalid",
+        "Claudepersonal@example.invalid",
+        "Clauderesearch@example.invalid",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "auth-files-list=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "gridScrollsSideways": false,
+      "cardHeights": [
+        1497,
+        1497,
+        1497,
+        1349
+      ],
+      "cardHeightViolation": "tallest card 1497px > 940px",
+      "alignment": {
+        "cards": 6,
+        "bands": 2,
+        "compared": 24,
+        "maxDelta": 0,
+        "violations": []
+      },
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "claude-cards",
+      "writes": [],
+      "credentialReads": 14,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 8,
+        "/credentials": 14,
+        "/prox/pools": 5,
+        "/config/oauth/excluded-models": 3,
+        "/config/oauth/model-alias": 3
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": false
+    },
+    "auth-files-card-alignment-1920": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 6",
+        "Claudeslot-a@example.invalid",
+        "Claudeslot-b@example.invalid",
+        "Claudeslot-c@example.invalid",
+        "Claudeslot-d@example.invalid",
+        "Claudeslot-e@example.invalid",
+        "Claudeslot-f@example.invalid",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "auth-files-list=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "gridScrollsSideways": false,
+      "alignment": {
+        "cards": 8,
+        "bands": 3,
+        "compared": 42,
+        "maxDelta": 0,
+        "violations": []
+      },
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "aligned",
+      "writes": [],
+      "credentialReads": 14,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 8,
+        "/credentials": 14,
+        "/prox/pools": 5,
+        "/config/oauth/excluded-models": 3,
+        "/config/oauth/model-alias": 3
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-claude-cards-1920": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 4",
+        "Claudeops-mail@example.invalid",
+        "Claudeops-work@example.invalid",
+        "Claudepersonal@example.invalid",
+        "Clauderesearch@example.invalid",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "auth-files-list=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "gridScrollsSideways": false,
+      "cardHeights": [
+        1497,
+        1497,
+        1497,
+        1497
+      ],
+      "cardHeightViolation": "tallest card 1497px > 940px",
+      "alignment": {
+        "cards": 6,
+        "bands": 2,
+        "compared": 24,
+        "maxDelta": 0,
+        "violations": []
+      },
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "claude-cards",
+      "writes": [],
+      "credentialReads": 14,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 8,
+        "/credentials": 14,
+        "/prox/pools": 5,
+        "/config/oauth/excluded-models": 3,
+        "/config/oauth/model-alias": 3
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": false
+    },
+    "auth-files-card-alignment-390": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 6",
+        "Claudeslot-a@example.invalid",
+        "Claudeslot-b@example.invalid",
+        "Claudeslot-c@example.invalid",
+        "Claudeslot-d@example.invalid",
+        "Claudeslot-e@example.invalid",
+        "Claudeslot-f@example.invalid",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "auth-files-list=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "gridScrollsSideways": false,
+      "alignment": {
+        "cards": 8,
+        "bands": 0,
+        "compared": 0,
+        "maxDelta": 0,
+        "violations": []
+      },
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "aligned",
+      "writes": [],
+      "credentialReads": 14,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 8,
+        "/credentials": 14,
+        "/prox/pools": 5,
+        "/config/oauth/excluded-models": 3,
+        "/config/oauth/model-alias": 3
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    },
+    "auth-files-claude-cards-390": {
+      "headings": [
+        "Auth Files",
+        "Claude hub fixture alpha",
+        "Claude \u00b7 4",
+        "Claudeops-mail@example.invalid",
+        "Claudeops-work@example.invalid",
+        "Claudepersonal@example.invalid",
+        "Clauderesearch@example.invalid",
+        "GPT hub fixture beta",
+        "Codex \u00b7 2",
+        "Codexmain@example.invalid",
+        "Codexspare@example.invalid"
+      ],
+      "alerts": [],
+      "states": [
+        "auth-files-list=ready",
+        "auth-files-list=ready"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "hash": "#/auth-files",
+      "gridScrollsSideways": false,
+      "cardHeights": [
+        1435,
+        1583,
+        1471,
+        1435
+      ],
+      "alignment": {
+        "cards": 6,
+        "bands": 0,
+        "compared": 0,
+        "maxDelta": 0,
+        "violations": []
+      },
+      "errors": [],
+      "route": "/auth-files",
+      "scenario": "claude-cards",
+      "writes": [],
+      "credentialReads": 14,
+      "reads": {
+        "/config": 5,
+        "/prox/inventory": 8,
+        "/credentials": 14,
+        "/prox/pools": 5,
+        "/config/oauth/excluded-models": 3,
+        "/config/oauth/model-alias": 3
+      },
+      "unexpected": [],
+      "blocked": [],
+      "pass": true
+    }
+  }
+}
