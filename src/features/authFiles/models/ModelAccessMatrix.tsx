@@ -304,7 +304,13 @@ export function ModelAccessMatrix(props: Props) {
       <thead>
         <tr>
           <th scope="col" className={styles.corner}>
-            {t('model_access.column_model')}
+            <span className={styles.cornerInner}>
+              {t('model_access.column_model')}
+              {/* Names the row of column checkboxes it sits level with. */}
+              <span className={styles.cornerAll} aria-hidden="true">
+                {t('model_access.corner_all_models')}
+              </span>
+            </span>
           </th>
           {accounts.map((account) => {
             const twin = shared.has(account.label);
@@ -445,6 +451,9 @@ function MatrixTable({
       frame.dataset.fadeRight = String(scroller.scrollLeft < hidden - 1);
       const next = hidden > 1;
       frame.dataset.scroll = next ? 'x' : 'page';
+      // Where a band's label sticks: just under the (sticky) account header.
+      const head = table?.tHead;
+      if (head) frame.style.setProperty('--head-h', `${head.offsetHeight}px`);
       if (next !== overflowing) {
         overflowing = next;
         notifyRef.current?.(next);

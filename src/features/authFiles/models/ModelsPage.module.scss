@@ -435,12 +435,35 @@
   position: sticky;
 }
 
+/* "Model" at the left; "All models" at the right, level with the account checkboxes. */
+.cornerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.cornerAll {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
 /* "Served 4" / "Not served 16": a labelled band over each part of the rows. */
 .sectionRow > th {
   height: 30px;
   padding: 0 10px;
   background: var(--bg-subtle);
   font-weight: 400;
+}
+
+/* The band of the rows in view stays under the account header (the next band slides over it). */
+.matrix .sectionRow > th {
+  position: sticky;
+  top: calc(var(--sticky-top) + var(--head-h, 0px));
+  /* Over the sticky model names scrolling under it (1), under the account header (thead). */
+  z-index: 2;
 }
 
 .sectionLabel {
@@ -504,7 +527,7 @@
   white-space: nowrap;
 
   & + & {
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 400;
     color: var(--text-tertiary);
   }

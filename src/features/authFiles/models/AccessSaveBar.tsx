@@ -113,13 +113,11 @@ export function AccessSaveBar({ hub, accounts, changes, plan, save, onSave, onDi
           >
             {item.replacedBy.length > 0
               ? t('model_access.bar_expansion', {
-                  target: targetText(item.target),
                   rule: item.rule,
                   models: item.replacedBy.join(', '),
                   unblocked: item.unblocked.join(', '),
                 })
               : t('model_access.bar_expansion_removed', {
-                  target: targetText(item.target),
                   rule: item.rule,
                   unblocked: item.unblocked.join(', '),
                 })}
