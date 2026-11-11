@@ -193,6 +193,17 @@ test('identical resets group into one line with a count, keeping where each run 
     { at: 300, kind: 'fable', count: 2, first: 1 },
     { at: 300, kind: 'weekly', count: 1, first: 3 },
   ]);
+  // Kinds that end together may interleave; each kind still collects into one line.
+  expect(
+    groupHeldResets([
+      { at: 300, kind: 'weekly' as const },
+      { at: 300, kind: 'fable' as const },
+      { at: 300, kind: 'weekly' as const },
+    ])
+  ).toEqual([
+    { at: 300, kind: 'weekly', count: 2, first: 0 },
+    { at: 300, kind: 'fable', count: 1, first: 1 },
+  ]);
   // Codex resets carry no kind; equal expiries still group.
   expect(groupHeldResets([{ at: 5 }, { at: 5 }])).toEqual([{ at: 5, count: 2, first: 0 }]);
 });

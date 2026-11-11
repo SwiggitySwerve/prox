@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import i18n from '@/i18n';
 import { ClaudeResetChooser } from '@/features/quota/providers/claude/ClaudeResetChooser';
+import { retryResetText } from '@/features/quota/providers/claude/ClaudeResetGrants';
 import type { ResetGrantChoice } from '@/features/quota/providers/claude/selectResetGrant';
 import type { AnthropicResetGrant } from '@/services/api/claudeResetGrants';
 
@@ -67,5 +68,15 @@ describe('Claude reset chooser', () => {
     expect(markup).toContain('Weekly reset');
     expect(markup).toContain('No expiry date');
     expect(markup).toContain('Spend one reset to clear eligible usage limits');
+  });
+
+  test('a retry names the reset it reuses, with or without an expiry date', () => {
+    const t = i18n.t.bind(i18n);
+    expect(retryResetText(grant({ kind: 'fable', endsAt: null }), t, 'en')).toBe(
+      'Retries the same reset: Fable reset.'
+    );
+    expect(retryResetText(grant({}), t, 'en')).toMatch(
+      /^Retries the same reset: Weekly reset, expires \w{3} \d+, /
+    );
   });
 });

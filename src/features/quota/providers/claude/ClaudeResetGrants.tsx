@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useNow } from '@/hooks/useNow';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNotificationStore } from '@/stores';
 import {
   AnthropicResetGrantError,
+  type AnthropicResetGrant,
   type AnthropicResetGrantStatus,
 } from '@/services/api/claudeResetGrants';
 import type { AuthFileItem } from '@/types';
@@ -19,6 +21,15 @@ import { resetGrantChoices, selectResetGrant } from './selectResetGrant';
 import { ClaudeResetChooser } from './ClaudeResetChooser';
 import { scheduleResetGrantRead } from './resetGrantReads';
 import type { ResetGrantScope } from './resetGrantScope';
+
+/** A retry spends the same reset as the first try, so its dialog names that reset. */
+export function retryResetText(grant: AnthropicResetGrant, t: TFunction, language: string) {
+  const end = grant.endsAt ? Date.parse(grant.endsAt) : NaN;
+  const kind = t(`claude_reset.kind_${grant.kind}`);
+  return Number.isFinite(end)
+    ? t('claude_reset.retry_reset_date', { kind, date: formatPoolDate(end, language) })
+    : t('claude_reset.retry_reset', { kind });
+}
 
 /** Card-owned reads; the session-scoped journal owns spending and ambiguous retries. */
 export function useClaudeResetGrants(
@@ -94,7 +105,6 @@ export function useClaudeResetGrants(
     const version = generation.current;
     const current = () =>
       scope.current() && session === scope.revision() && version === generation.current;
-    const kindName = (kind: string) => t(`claude_reset.kind_${kind}`);
     const spend = async (grantId: string) => {
       if (!current() || lock.current || useAuthStore.getState().connectionStatus !== 'connected')
         return;
@@ -132,24 +142,12 @@ export function useClaudeResetGrants(
         if (current()) onRefresh();
       }
     };
-    const pendingEnd = selectedGrant?.endsAt ? Date.parse(selectedGrant.endsAt) : NaN;
     showConfirmation({
       title: t(choices.length > 1 ? 'claude_reset.choose_title' : 'quota_pool.reset_confirm_title'),
       message: pending ? (
         [
           t('claude_reset.retry_confirm', { name: file.name }),
-          // A retry spends the same reset as the first try, so name it.
-          selectedGrant
-            ? t(
-                Number.isFinite(pendingEnd)
-                  ? 'claude_reset.retry_reset_date'
-                  : 'claude_reset.retry_reset',
-                {
-                  kind: kindName(selectedGrant.kind),
-                  date: formatPoolDate(pendingEnd, i18n.language),
-                }
-              )
-            : '',
+          selectedGrant ? retryResetText(selectedGrant, t, i18n.language) : '',
         ]
           .filter(Boolean)
           .join(' ')

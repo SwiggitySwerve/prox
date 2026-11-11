@@ -119,15 +119,19 @@ function countKinds(counts: readonly ResetKindCount[]): ResetKindCount[] {
   })).filter((entry) => entry.count > 0);
 }
 
-/** Runs of resets that end together and share a kind, as one entry with a count. */
+/**
+ * Resets that end together and share a kind, as one entry with a count, in the order each first
+ * appears. Readings sort only by expiry, so equal ends of different kinds may interleave.
+ */
 export function groupHeldResets<T extends { at: number; kind?: AccountResetKind }>(
   resets: readonly T[]
 ): (T & { count: number; first: number })[] {
-  const groups: (T & { count: number; first: number })[] = [];
+  const groups = new Map<string, T & { count: number; first: number }>();
   resets.forEach((reset, index) => {
-    const last = groups[groups.length - 1];
-    if (last && last.at === reset.at && last.kind === reset.kind) last.count += 1;
-    else groups.push({ ...reset, count: 1, first: index });
+    const key = `${reset.at}\0${reset.kind ?? ''}`;
+    const group = groups.get(key);
+    if (group) group.count += 1;
+    else groups.set(key, { ...reset, count: 1, first: index });
   });
-  return groups;
+  return [...groups.values()];
 }
