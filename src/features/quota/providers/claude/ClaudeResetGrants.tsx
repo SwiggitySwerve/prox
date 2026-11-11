@@ -1,22 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useNow } from '@/hooks/useNow';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNotificationStore } from '@/stores';
 import {
   AnthropicResetGrantError,
+  type AnthropicResetGrant,
   type AnthropicResetGrantStatus,
 } from '@/services/api/claudeResetGrants';
 import type { AuthFileItem } from '@/types';
-import { formatInstantShort, normalizeAuthIndex } from '@/utils/quota';
+import { normalizeAuthIndex } from '@/utils/quota';
+import { formatPoolDate } from '@/features/quotaPool/presentation';
 import {
   RETRY_WINDOW_MS,
   ResetGrantPreflightError,
   resetGrantFailureMessageKey,
 } from './resetGrantOperations';
-import { selectResetGrant } from './selectResetGrant';
+import { resetGrantChoices, selectResetGrant } from './selectResetGrant';
+import { ClaudeResetChooser } from './ClaudeResetChooser';
 import { scheduleResetGrantRead } from './resetGrantReads';
 import type { ResetGrantScope } from './resetGrantScope';
+
+/** A retry spends the same reset as the first try, so its dialog names that reset. */
+export function retryResetText(grant: AnthropicResetGrant, t: TFunction, language: string) {
+  const end = grant.endsAt ? Date.parse(grant.endsAt) : NaN;
+  const kind = t(`claude_reset.kind_${grant.kind}`);
+  return Number.isFinite(end)
+    ? t('claude_reset.retry_reset_date', { kind, date: formatPoolDate(end, language) })
+    : t('claude_reset.retry_reset', { kind });
+}
 
 /** Card-owned reads; the session-scoped journal owns spending and ambiguous retries. */
 export function useClaudeResetGrants(
@@ -27,7 +40,7 @@ export function useClaudeResetGrants(
   onRefresh: () => void,
   scope: ResetGrantScope
 ) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const [session] = useState(() => scope.revision());
   const sessionActive =
@@ -84,89 +97,91 @@ export function useClaudeResetGrants(
   const expired = Boolean(pending && now - pending.createdAt >= RETRY_WINDOW_MS);
   const selected = pending?.grantId ?? (status ? selectResetGrant(status, now)?.id : undefined);
   const selectedGrant = status?.grants.find((grant) => grant.id === selected);
-  const selectedEnd = selectedGrant?.endsAt;
-  const selectedEndMs = selectedEnd ? Date.parse(selectedEnd) : NaN;
+  // What the operator can pick from; a pending claim may only be retried as it was.
+  const choices = status && !pending ? resetGrantChoices(status, now) : [];
   const blocked = disabled || !sessionActive || !authIndex || busy || expired || !selected;
   const confirm = () => {
     if (blocked || lock.current || !selected || !authIndex) return;
     const version = generation.current;
     const current = () =>
       scope.current() && session === scope.revision() && version === generation.current;
+    const spend = async (grantId: string) => {
+      if (!current() || lock.current || useAuthStore.getState().connectionStatus !== 'connected')
+        return;
+      lock.current = true;
+      setBusy(true);
+      try {
+        const answer = await scope.operations.run(key, authIndex, grantId);
+        if (!current()) return;
+        showNotification(
+          t(`claude_reset.${answer.unresolved ? 'unknown' : answer.code}`),
+          !answer.unresolved && (answer.code === 'reset' || answer.code === 'already_used')
+            ? 'success'
+            : 'error'
+        );
+      } catch (error: unknown) {
+        if (!current()) return;
+        const unresolved = scope.operations.inspect(key);
+        showNotification(
+          t(
+            unresolved && !unresolved.code
+              ? 'claude_reset.unknown'
+              : resetGrantFailureMessageKey(error),
+            {
+              code: error instanceof ResetGrantPreflightError ? error.reason : '',
+            }
+          ),
+          'error'
+        );
+      } finally {
+        lock.current = false;
+        // A concurrent page-wide refresh can invalidate this read generation.
+        // Release the local lock regardless, but never refresh a replacement account.
+        setBusy(false);
+        setReload((value) => value + 1);
+        if (current()) onRefresh();
+      }
+    };
     showConfirmation({
-      title: t('claude_reset.title'),
-      message: [
-        t(pending ? 'claude_reset.retry_confirm' : 'claude_reset.confirm_text', {
-          name: file.name,
-        }),
-        // Name the grant being spent, the usable one that ends first, and what kind it is.
-        !pending && selectedGrant
-          ? t(
-              Number.isFinite(selectedEndMs)
-                ? 'claude_reset.confirm_expiry'
-                : 'claude_reset.confirm_kind',
-              {
-                kind: t(`claude_reset.kind_${selectedGrant.kind}`),
-                date: formatInstantShort(selectedEndMs),
-              }
-            )
-          : '',
-        // A Fable reset only returns what Fable used, so say so before it is spent.
-        !pending && selectedGrant?.kind === 'fable' ? t('claude_reset.kind_fable_note') : '',
-      ]
-        .filter(Boolean)
-        .join(' '),
-      confirmText: t(pending ? 'claude_reset.retry' : 'claude_reset.confirm'),
+      title: t(choices.length > 1 ? 'claude_reset.choose_title' : 'quota_pool.reset_confirm_title'),
+      message: pending ? (
+        [
+          t('claude_reset.retry_confirm', { name: file.name }),
+          selectedGrant ? retryResetText(selectedGrant, t, i18n.language) : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      ) : (
+        <ClaudeResetChooser
+          name={file.name}
+          choices={choices}
+          onUse={async (grant) => {
+            const dialog = useNotificationStore.getState();
+            dialog.setConfirmationLoading(true);
+            try {
+              await spend(grant.id);
+            } finally {
+              dialog.setConfirmationLoading(false);
+              dialog.hideConfirmation();
+            }
+          }}
+        />
+      ),
+      // Each choice carries its own Use button; only a retry confirms in the footer.
+      hideConfirm: !pending,
+      confirmText: t('claude_reset.retry'),
       variant: 'primary',
-      onConfirm: async () => {
-        if (!current() || lock.current || useAuthStore.getState().connectionStatus !== 'connected')
-          return;
-        lock.current = true;
-        setBusy(true);
-        try {
-          const answer = await scope.operations.run(key, authIndex, selected);
-          if (!current()) return;
-          showNotification(
-            t(`claude_reset.${answer.unresolved ? 'unknown' : answer.code}`),
-            !answer.unresolved && (answer.code === 'reset' || answer.code === 'already_used')
-              ? 'success'
-              : 'error'
-          );
-        } catch (error: unknown) {
-          if (!current()) return;
-          const unresolved = scope.operations.inspect(key);
-          showNotification(
-            t(
-              unresolved && !unresolved.code
-                ? 'claude_reset.unknown'
-                : resetGrantFailureMessageKey(error),
-              {
-                code: error instanceof ResetGrantPreflightError ? error.reason : '',
-              }
-            ),
-            'error'
-          );
-        } finally {
-          lock.current = false;
-          // A concurrent page-wide refresh can invalidate this read generation.
-          // Release the local lock regardless, but never refresh a replacement account.
-          setBusy(false);
-          setReload((value) => value + 1);
-          if (current()) onRefresh();
-        }
-      },
+      onConfirm: () => spend(selected),
     });
   };
   return {
     count: status?.grants.reduce((sum, grant) => sum + grant.resetsLeft, 0) ?? null,
-    /** End of the grant a confirm would claim, when it has one. */
-    nextEndsAtMs: Number.isFinite(selectedEndMs) ? selectedEndMs : undefined,
-    /** Kind of the grant a confirm would claim. */
-    nextKind: selectedGrant?.kind,
     grants: status?.grants ?? [],
     busy,
     blocked,
     confirm,
     message: pending ? (expired ? 'expired' : 'unknown') : message,
-    buttonLabel: pending ? 'retry' : 'use',
+    /** "choose" when the dialog offers two or more resets to pick from. */
+    buttonLabel: pending ? 'retry' : choices.length > 1 ? 'choose' : 'use',
   };
 }

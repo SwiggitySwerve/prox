@@ -87,7 +87,11 @@ export function AccountDetails({
   const resetAction = claudeReset
     ? {
         label: t(
-          claudeReset.buttonLabel === 'retry' ? 'claude_reset.retry' : 'quota_pool.use_reset'
+          claudeReset.buttonLabel === 'retry'
+            ? 'claude_reset.retry'
+            : claudeReset.buttonLabel === 'choose'
+              ? 'claude_reset.choose_button'
+              : 'quota_pool.use_reset'
         ),
         context: t('quota_pool.reset_action_context', { name }),
         disabled: claudeReset.blocked,

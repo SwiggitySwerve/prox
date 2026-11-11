@@ -13,6 +13,8 @@ interface ConfirmationOptions {
   title?: string;
   message: ReactNode;
   confirmText?: string;
+  /** The message holds its own actions (e.g. one per choice), so only Cancel is shown. */
+  hideConfirm?: boolean;
   cancelText?: string;
   variant?: 'danger' | 'primary' | 'secondary';
   /** Pill-shaped actions and a touch-sized close button, to match the page that asked. */

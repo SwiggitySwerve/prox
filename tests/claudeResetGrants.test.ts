@@ -1,4 +1,7 @@
-import { selectResetGrant } from '../src/features/quota/providers/claude/selectResetGrant';
+import {
+  resetGrantChoices,
+  selectResetGrant,
+} from '../src/features/quota/providers/claude/selectResetGrant';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
@@ -465,7 +468,9 @@ test('Claude card uses the account facts panel and shared confirmation, not a gr
   expect(panel).toContain('disabled: claudeReset.blocked');
   expect(panel).toContain('onClick: claudeReset.confirm');
   expect(hook).toContain('showConfirmation({');
-  expect(hook).toContain("pending ? 'claude_reset.retry_confirm'");
+  // A retry names the same reset; a first use lets the operator pick one in the dialog.
+  expect(hook).toContain("t('claude_reset.retry_confirm'");
+  expect(hook).toContain('<ClaudeResetChooser');
   expect(hook).not.toContain('<Modal');
   expect(hook).not.toContain('status.grants.map');
 });
@@ -501,4 +506,37 @@ test('card selection spends the usable grant that expires first, even over the r
   expect(selectResetGrant({ ...state, grants: [sooner, twin], nextGrantId: 'twin' }, 0)?.id).toBe(
     'twin'
   );
+});
+
+test('reset choices offer one entry per kind and expiry, in spend order', () => {
+  const base = status();
+  const day = (n: number) => new Date(n * 86400_000).toISOString();
+  const weekly = {
+    ...base.grants[0],
+    id: 'weekly',
+    kind: 'weekly' as const,
+    endsAt: day(2),
+    resetsLeft: 1,
+  };
+  const fableA = { ...weekly, id: 'fable-a', kind: 'fable' as const, endsAt: day(9) };
+  const fableB = { ...fableA, id: 'fable-b', resetsLeft: 2 };
+  const fullSameDay = { ...fableA, id: 'full', kind: 'full' as const };
+  const paused = { ...weekly, id: 'paused', endsAt: day(1), paused: true };
+  const state = {
+    ...base,
+    grants: [fableA, paused, fullSameDay, fableB, weekly],
+    nextGrantId: 'fable-b',
+  };
+  // Interchangeable Fable grants become one choice led by the one a spend would use; the
+  // paused grant isn't offered; the full reset ending the same day stays its own choice.
+  expect(
+    resetGrantChoices(state, 0).map((choice) => [choice.grant.id, choice.grant.kind, choice.count])
+  ).toEqual([
+    ['weekly', 'weekly', 1],
+    ['fable-b', 'fable', 3],
+    ['full', 'full', 1],
+  ]);
+  // The first choice is always the grant a plain spend uses.
+  expect(resetGrantChoices(state, 0)[0]!.grant.id).toBe(selectResetGrant(state, 0)!.id);
+  expect(resetGrantChoices({ ...state, cooldownUntil: day(1) }, 0)).toEqual([]);
 });
