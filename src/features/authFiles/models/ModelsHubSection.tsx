@@ -15,6 +15,13 @@ import { useModelEditSession } from '@/features/authFiles/hooks/useModelEditSess
 import { buildMatrix, followsProviderList, inventoryOf } from '@/features/authFiles/modelAccess';
 import { AccessSaveBar } from './AccessSaveBar';
 import { AccessKey, ModelAccessMatrix } from './ModelAccessMatrix';
+import {
+  browserStorage,
+  hiddenStorageKey,
+  readHidden,
+  withHidden,
+  writeHidden,
+} from './hiddenModels';
 import { ModelEditDialog } from './ModelEditDialog';
 import { ModelAliasesPanel } from './ModelAliasesPanel';
 import { ModelRulesPanel } from './ModelRulesPanel';
@@ -111,6 +118,19 @@ export function ModelsHubSection({
   const edit = useModelEditSession(inventory, io, reload, onChanged);
   const draft = useAccessDraft(inventory, io, reload, onChanged);
   const [overflowing, setOverflowing] = useState(false);
+
+  // Models hidden from the bands: this browser's view of this hub and provider, never access.
+  const hiddenKey = hiddenStorageKey(hubId, provider);
+  const [hidden, setHidden] = useState(() => readHidden(browserStorage(), hiddenKey));
+  const setModelsHidden = useCallback(
+    (models: string[], hide: boolean) =>
+      setHidden((prev) => {
+        const next = withHidden(prev, models, hide);
+        writeHidden(browserStorage(), hiddenKey, next);
+        return next;
+      }),
+    [hiddenKey]
+  );
 
   // The top bar's refresh re-lists the credentials and re-reads this provider's model access.
   useEffect(
@@ -251,6 +271,9 @@ export function ModelsHubSection({
             failed={failed}
             onStage={draft.stage}
             onOverflowChange={setOverflowing}
+            hidden={hidden}
+            searching={modelQuery.trim() !== ''}
+            onHide={setModelsHidden}
           />
         )}
         {saveBar(

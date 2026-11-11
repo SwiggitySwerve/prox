@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/ui/Select';
-import { IconCheck } from '@/components/ui/icons';
+import { IconCheck, IconChevronDown, IconEye, IconEyeOff } from '@/components/ui/icons';
 import {
   accessCell,
   type AccessCell,
@@ -19,6 +19,7 @@ import {
   type MatrixRow,
   type ModelAccessInventory,
 } from '@/features/authFiles/modelAccess';
+import { arrangeRows, hiddenSummary } from './hiddenModels';
 import { sharedLabels } from './matrixView';
 import styles from './ModelsPage.module.scss';
 
@@ -40,7 +41,14 @@ type Props = {
   onStage: (changes: AccessChange[]) => void;
   /** The accounts do not fit and the table scrolls sideways inside its frame. */
   onOverflowChange?: (overflow: boolean) => void;
+  /** Models hidden from the bands (this browser's view only; never changes access). */
+  hidden: ReadonlySet<string>;
+  /** A model search is active: hidden models it finds stay in their band, marked. */
+  searching: boolean;
+  onHide: (models: string[], hide: boolean) => void;
 };
+
+type Section = { key: string; label: string; rows: MatrixRow[]; unsaved: number };
 
 type SwitchState = 'on' | 'off' | 'mixed';
 
@@ -139,16 +147,30 @@ export function ModelAccessMatrix(props: Props) {
   const modelState = (row: MatrixRow) => combined(accounts.map((account) => cellOf(account, row)));
   /** Some account serves it, counting staged switches. */
   const isLit = (row: MatrixRow) => (modelState(row)?.on ?? 0) > 0;
+  const isHidden = (row: MatrixRow) => props.hidden.has(row.model);
+  // Hidden models are never set from a column checkbox, and its count leaves them out.
+  const bulkRows = rows.filter((row) => !isHidden(row));
   const accountState = (account: AccountAccess) =>
-    combined(rows.map((row) => cellOf(account, row)));
+    combined(bulkRows.map((row) => cellOf(account, row)));
+
+  // A hidden row stays in its band while it has staged switches or a search finds it.
+  const { shown, collapsed } = arrangeRows(
+    rows,
+    props.hidden,
+    (row) => props.searching || Boolean(modelState(row)?.changed)
+  );
+  const hiddenGroup = { rows: collapsed, ...hiddenSummary(collapsed, isLit) };
+  /** Hidden but still in its band (staged, or found by a search): say so on the row. */
+  const markHidden = (row: MatrixRow) => isHidden(row) && !collapsed.includes(row);
+  const [hiddenOpen, setHiddenOpen] = useState(false);
 
   // Served (by at least one account, as saved) above not served; staging never moves a row.
   const sections = [
-    { key: 'served', label: t('model_access.view_served'), rows: rows.filter(isServed) },
+    { key: 'served', label: t('model_access.view_served'), rows: shown.filter(isServed) },
     {
       key: 'not-served',
       label: t('model_access.view_excluded'),
-      rows: rows.filter((row) => !isServed(row)),
+      rows: shown.filter((row) => !isServed(row)),
     },
   ]
     .filter((section) => section.rows.length > 0)
@@ -160,7 +182,90 @@ export function ModelAccessMatrix(props: Props) {
   const stageModel = (row: MatrixRow, on: boolean) =>
     props.onStage(accounts.map((account) => ({ account: account.name, model: row.model, on })));
   const stageAccount = (account: AccountAccess, on: boolean) =>
-    props.onStage(rows.map((row) => ({ account: account.name, model: row.model, on })));
+    props.onStage(bulkRows.map((row) => ({ account: account.name, model: row.model, on })));
+
+  /** Hide or show one model: a view preference, never written to the hub. */
+  const renderHide = (row: MatrixRow) => {
+    const hide = !isHidden(row);
+    const label = t(hide ? 'model_access.hide_aria' : 'model_access.unhide_aria', {
+      model: row.model,
+    });
+    return (
+      <button
+        type="button"
+        className={styles.hideButton}
+        aria-label={label}
+        title={label}
+        onClick={() => props.onHide([row.model], hide)}
+        {...(hide ? { 'data-hide-model': row.model } : { 'data-unhide-model': row.model })}
+      >
+        {hide ? <IconEyeOff size={14} /> : <IconEye size={14} />}
+      </button>
+    );
+  };
+
+  /** A band's label, count and actions; the same in the table and the phone list. */
+  const renderBand = (section: Section) => {
+    const hideable = section.rows.filter((row) => !isHidden(row)).map((row) => row.model);
+    return (
+      <span className={styles.bandInner}>
+        <span className={styles.sectionLabel}>
+          {section.label}
+          <span className={styles.sectionCount}>{section.rows.length}</span>
+          {section.unsaved > 0 && (
+            <span className={styles.sectionUnsaved}>
+              {t('model_access.grid_section_unsaved', { count: section.unsaved })}
+            </span>
+          )}
+        </span>
+        {section.key === 'not-served' && hideable.length > 0 && (
+          <button
+            type="button"
+            className={styles.bandAction}
+            aria-label={t('model_access.hide_all_aria', { count: hideable.length })}
+            onClick={() => props.onHide(hideable, true)}
+            data-hide-all
+          >
+            <IconEyeOff size={14} />
+            {t('model_access.hide_all')}
+          </button>
+        )}
+      </span>
+    );
+  };
+
+  /** The collapsed group at the bottom: how many are hidden and how many are still on. */
+  const renderHiddenBand = () => (
+    <span className={styles.bandInner}>
+      <button
+        type="button"
+        className={styles.hiddenToggle}
+        aria-expanded={hiddenOpen}
+        onClick={() => setHiddenOpen((open) => !open)}
+        data-hidden-toggle
+      >
+        <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
+        {t('model_access.hidden_group')}
+        <span className={styles.sectionCount}>{hiddenGroup.count}</span>
+        {hiddenGroup.stillOn > 0 && (
+          <span className={styles.hiddenStillOn}>
+            {t('model_access.hidden_still_on', { count: hiddenGroup.stillOn })}
+          </span>
+        )}
+      </button>
+      {hiddenOpen && (
+        <button
+          type="button"
+          className={styles.bandAction}
+          onClick={() => props.onHide(hiddenGroup.rows.map((row) => row.model), false)}
+          data-unhide-all
+        >
+          <IconEye size={14} />
+          {t('model_access.unhide_all')}
+        </button>
+      )}
+    </span>
+  );
 
   const renderCell = (account: AccountAccess, row: MatrixRow) => {
     const cell = cellOf(account, row);
@@ -271,6 +376,12 @@ export function ModelAccessMatrix(props: Props) {
       <AccessList
         provider={provider}
         sections={sections}
+        hiddenRows={hiddenGroup.count > 0 ? (hiddenOpen ? hiddenGroup.rows : []) : null}
+        renderBand={renderBand}
+        renderHiddenBand={renderHiddenBand}
+        renderHide={renderHide}
+        isHidden={isHidden}
+        markHidden={markHidden}
         accounts={accounts}
         isLit={isLit}
         shared={shared}
@@ -284,6 +395,42 @@ export function ModelAccessMatrix(props: Props) {
         renderAccountSwitch={renderAccountSwitch}
         renderMarkers={renderMarkers}
       />
+    );
+  }
+
+  function renderRow(row: MatrixRow) {
+    return (
+      <tr
+        key={row.model}
+        data-model={row.model}
+        data-served={row.servedBy.length ? 'yes' : 'no'}
+        data-lit={String(isLit(row))}
+        data-hidden={isHidden(row) ? 'true' : undefined}
+      >
+        <th scope="row" className={styles.rowHead}>
+          <span className={styles.rowHeadInner}>
+            {renderModelSwitch(row)}
+            <span className={styles.modelId} title={row.model}>
+              {row.model}
+            </span>
+            {markHidden(row) && (
+              <span className={styles.hiddenTag}>{t('model_access.hidden_tag')}</span>
+            )}
+            {modelCount(row)}
+            {renderHide(row)}
+          </span>
+        </th>
+        {accounts.map((account) => (
+          <td
+            key={account.name}
+            className={styles.switchCell}
+            data-off={account.disabled ? 'true' : undefined}
+          >
+            {renderCell(account, row)}
+          </td>
+        ))}
+        <td className={styles.fill} aria-hidden="true" />
+      </tr>
     );
   }
 
@@ -364,47 +511,22 @@ export function ModelAccessMatrix(props: Props) {
         <tbody key={section.key} data-section={section.key}>
           <tr className={styles.sectionRow}>
             <th scope="rowgroup" colSpan={accounts.length + 2}>
-              <span className={styles.sectionLabel}>
-                {section.label}
-                <span className={styles.sectionCount}>{section.rows.length}</span>
-                {section.unsaved > 0 && (
-                  <span className={styles.sectionUnsaved}>
-                    {t('model_access.grid_section_unsaved', { count: section.unsaved })}
-                  </span>
-                )}
-              </span>
+              {renderBand(section)}
             </th>
           </tr>
-          {section.rows.map((row) => (
-            <tr
-              key={row.model}
-              data-model={row.model}
-              data-served={row.servedBy.length ? 'yes' : 'no'}
-              data-lit={String(isLit(row))}
-            >
-              <th scope="row" className={styles.rowHead}>
-                <span className={styles.rowHeadInner}>
-                  {renderModelSwitch(row)}
-                  <span className={styles.modelId} title={row.model}>
-                    {row.model}
-                  </span>
-                  {modelCount(row)}
-                </span>
-              </th>
-              {accounts.map((account) => (
-                <td
-                  key={account.name}
-                  className={styles.switchCell}
-                  data-off={account.disabled ? 'true' : undefined}
-                >
-                  {renderCell(account, row)}
-                </td>
-              ))}
-              <td className={styles.fill} aria-hidden="true" />
-            </tr>
-          ))}
+          {section.rows.map(renderRow)}
         </tbody>
       ))}
+      {hiddenGroup.count > 0 && (
+        <tbody data-section="hidden">
+          <tr className={styles.sectionRow}>
+            <th scope="rowgroup" colSpan={accounts.length + 2}>
+              {renderHiddenBand()}
+            </th>
+          </tr>
+          {hiddenOpen && hiddenGroup.rows.map(renderRow)}
+        </tbody>
+      )}
     </MatrixTable>
   );
 }
@@ -518,6 +640,12 @@ const accountViewKey = (name: string) => `account:${name}`;
 function AccessList({
   provider,
   sections,
+  hiddenRows,
+  renderBand,
+  renderHiddenBand,
+  renderHide,
+  isHidden,
+  markHidden,
   accounts,
   isLit,
   shared,
@@ -527,7 +655,14 @@ function AccessList({
   renderMarkers,
 }: {
   provider: string;
-  sections: { key: string; label: string; rows: MatrixRow[]; unsaved: number }[];
+  sections: Section[];
+  /** Rows of the open Hidden group; [] when it is closed, null when nothing is hidden. */
+  hiddenRows: MatrixRow[] | null;
+  renderBand: (section: Section) => ReactNode;
+  renderHiddenBand: () => ReactNode;
+  renderHide: (row: MatrixRow) => ReactNode;
+  isHidden: (row: MatrixRow) => boolean;
+  markHidden: (row: MatrixRow) => boolean;
   accounts: AccountAccess[];
   isLit: (row: MatrixRow) => boolean;
   shared: Set<string>;
@@ -552,6 +687,31 @@ function AccessList({
       label: shared.has(item.label) ? `${item.label} (${item.name})` : item.label,
     })),
   ];
+
+  function renderItem(row: MatrixRow) {
+    return (
+      <li
+        key={row.model}
+        data-model={row.model}
+        data-served={row.servedBy.length ? 'yes' : 'no'}
+        data-lit={String(isLit(row))}
+        data-hidden={isHidden(row) ? 'true' : undefined}
+      >
+        <span className={styles.phoneModel}>
+          <span className={styles.modelId} title={row.model}>
+            {row.model}
+          </span>
+          {markHidden(row) && (
+            <span className={styles.hiddenTag}>{t('model_access.hidden_tag')}</span>
+          )}
+        </span>
+        <span className={styles.phoneCell}>
+          {account ? renderCell(account, row) : renderModelSwitch(row)}
+          {renderHide(row)}
+        </span>
+      </li>
+    );
+  }
 
   return (
     <div className={styles.phoneView} data-layout="list">
@@ -585,35 +745,19 @@ function AccessList({
         {sections.map((section) => (
           <Fragment key={section.key}>
             <li className={styles.phoneSection} data-section={section.key}>
-              <span className={styles.sectionLabel}>
-                {section.label}
-                <span className={styles.sectionCount}>{section.rows.length}</span>
-                {section.unsaved > 0 && (
-                  <span className={styles.sectionUnsaved}>
-                    {t('model_access.grid_section_unsaved', { count: section.unsaved })}
-                  </span>
-                )}
-              </span>
+              {renderBand(section)}
             </li>
-            {section.rows.map((row) => (
-              <li
-                key={row.model}
-                data-model={row.model}
-                data-served={row.servedBy.length ? 'yes' : 'no'}
-                data-lit={String(isLit(row))}
-              >
-                <span className={styles.phoneModel}>
-                  <span className={styles.modelId} title={row.model}>
-                    {row.model}
-                  </span>
-                </span>
-                <span className={styles.phoneCell}>
-                  {account ? renderCell(account, row) : renderModelSwitch(row)}
-                </span>
-              </li>
-            ))}
+            {section.rows.map(renderItem)}
           </Fragment>
         ))}
+        {hiddenRows && (
+          <>
+            <li className={styles.phoneSection} data-section="hidden">
+              {renderHiddenBand()}
+            </li>
+            {hiddenRows.map(renderItem)}
+          </>
+        )}
       </ul>
     </div>
   );
