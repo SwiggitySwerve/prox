@@ -166,10 +166,9 @@ export function ModelsHubSection({
   const models = showsTable ? visibleRows.length : 0;
   const served = showsTable ? counts.served : 0;
   const accounts = showsTable ? visibleAccounts.length : 0;
-  const hiddenCount = showsTable ? visibleRows.filter((row) => hidden.has(row.model)).length : 0;
   useEffect(() => {
-    reportCounts(hubId, showsTable ? { models, served, accounts, hidden: hiddenCount } : null);
-  }, [accounts, hiddenCount, hubId, models, reportCounts, served, showsTable]);
+    reportCounts(hubId, showsTable ? { models, served, accounts } : null);
+  }, [accounts, hubId, models, reportCounts, served, showsTable]);
   useEffect(() => () => reportCounts(hubId, null), [hubId, reportCounts]);
   const columns = inventory?.accounts.length ?? null;
   useEffect(() => reportColumns(hubId, columns), [columns, hubId, reportColumns]);

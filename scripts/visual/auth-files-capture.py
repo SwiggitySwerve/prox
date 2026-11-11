@@ -311,6 +311,8 @@ async def run_case(browser, base, origin, out, width, case):
         for action, selector in steps:
             if action == 'click':
                 await page.locator(selector).first.click()
+                # Move off the control, as a user would: captures show rest states, not hover.
+                await page.mouse.move(0, 0)
                 await page.wait_for_timeout(600)
             elif action == 'no-dialog':
                 if await page.locator(selector).first.is_visible():

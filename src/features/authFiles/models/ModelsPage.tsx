@@ -198,8 +198,7 @@ export function ModelsPage() {
         current &&
         current.models === counts.models &&
         current.served === counts.served &&
-        current.accounts === counts.accounts &&
-        current.hidden === counts.hidden
+        current.accounts === counts.accounts
       ) {
         return prev;
       }
@@ -430,10 +429,7 @@ export function ModelsPage() {
                 models: shownCounts.models,
                 served: shownCounts.served,
                 accounts: shownCounts.accounts,
-              }) +
-              (shownCounts.hidden > 0
-                ? ` · ${t('model_access.counts_hidden', { count: shownCounts.hidden })}`
-                : '')
+              })
             : ''}
         </span>
       </div>

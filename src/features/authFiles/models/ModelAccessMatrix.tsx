@@ -154,10 +154,10 @@ export function ModelAccessMatrix(props: Props) {
   /** Some account serves it, counting staged switches. */
   const isLit = (row: MatrixRow) => (modelState(row)?.on ?? 0) > 0;
   const isHidden = (row: MatrixRow) => props.hidden.has(row.model);
-  // Hidden models are never set from a column checkbox, and its count leaves them out.
-  const bulkRows = rows.filter((row) => !isHidden(row));
+  // Hiding is a view only: a column's count and checkbox cover every model, hidden ones too
+  // (a change to hidden models is listed in the Save bar before anything is written).
   const accountState = (account: AccountAccess) =>
-    combined(bulkRows.map((row) => cellOf(account, row)));
+    combined(rows.map((row) => cellOf(account, row)));
 
   // A hidden row stays in its band while it has staged switches or a search finds it.
   const { shown, collapsed } = arrangeRows(
@@ -188,7 +188,7 @@ export function ModelAccessMatrix(props: Props) {
   const stageModel = (row: MatrixRow, on: boolean) =>
     props.onStage(accounts.map((account) => ({ account: account.name, model: row.model, on })));
   const stageAccount = (account: AccountAccess, on: boolean) =>
-    props.onStage(bulkRows.map((row) => ({ account: account.name, model: row.model, on })));
+    props.onStage(rows.map((row) => ({ account: account.name, model: row.model, on })));
 
   /** Hide or show one model: a view preference, never written to the hub. */
   const renderHide = (row: MatrixRow) => {
@@ -250,6 +250,7 @@ export function ModelAccessMatrix(props: Props) {
         onClick={() => setHiddenOpen((open) => !open)}
         data-hidden-toggle
       >
+        <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
         {t('model_access.hidden_group')}
         <span className={styles.sectionCount}>{hiddenGroup.count}</span>
         {hiddenGroup.stillOn > 0 && (
@@ -261,7 +262,6 @@ export function ModelAccessMatrix(props: Props) {
               : t('model_access.hidden_still_on', { count: hiddenGroup.stillOn })}
           </span>
         )}
-        <IconChevronDown size={14} className={styles.hiddenChevron} aria-hidden="true" />
       </button>
       {hiddenOpen && (
         <button
@@ -657,7 +657,14 @@ function MatrixTable({
 }
 
 /** The words of an account header that must never be cut short. */
-const HEADER_WORDS = [styles.accountLabel, styles.labelLine, styles.marker, styles.rowFile]
+// The header cell too: its centred grid sizes a word to the word, which then overflows the cell.
+const HEADER_WORDS = [
+  styles.accountHeadInner,
+  styles.accountLabel,
+  styles.labelLine,
+  styles.marker,
+  styles.rowFile,
+]
   .map((name) => `thead .${name}`)
   .join(', ');
 

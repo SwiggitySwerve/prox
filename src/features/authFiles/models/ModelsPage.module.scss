@@ -1484,16 +1484,9 @@
 
 .hiddenToggle {
   position: sticky;
-  left: 10px;
-  padding: 0;
+  left: 2px;
+  padding: 0 8px 0 4px;
   font-weight: 600;
-
-  /* A band label like Served / Not served, not a pill. */
-  &:hover {
-    background: none;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
 }
 
 /* Right when closed, down when open. */
@@ -1559,14 +1552,14 @@
   }
 }
 
-/* With a mouse, a served row shows Hide only when hovered or focused; not-served and hidden rows
- * always show theirs, and so does every row on touch screens. */
+/* With a mouse, every row's Hide / Unhide is faint until the row is hovered or focused (one rule
+ * for every band); on touch screens it is always shown in full. */
 @media (hover: hover) and (pointer: fine) {
-  .matrix tr[data-served='yes']:not([data-hidden]) .hideButton {
-    opacity: 0;
+  .matrix tr .hideButton {
+    opacity: 0.35;
   }
 
-  .matrix tr[data-served='yes']:not([data-hidden]):is(:hover, :focus-within) .hideButton {
+  .matrix tr:is(:hover, :focus-within) .hideButton {
     opacity: 1;
   }
 }
