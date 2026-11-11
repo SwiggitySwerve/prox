@@ -3,15 +3,25 @@ import { useTranslation } from 'react-i18next';
 import { Fact, FactSection, type FactState } from '@/components/ui/FactPanel';
 import type { ClaudeQuotaState } from '@/types';
 import { resolveResetMs } from '@/utils/quota';
-import { claudeExtraUsageNotes, formatClaudeMoney } from '../providers/claude/presentation';
+import {
+  claudeExtraUsageNotes,
+  formatClaudeMoney,
+  unreportedClaudeExtraUsage,
+} from '../providers/claude/presentation';
 
 /** Dollar balances are independent of plan quota; missing amounts remain explicit. */
 export function ClaudeBalanceFacts({
   quota,
   formatDate,
+  compact = false,
 }: {
   quota: ClaudeQuotaState;
   formatDate: (value: number) => string;
+  /**
+   * A card's tight layout: the spent and limit amounts the provider left out are named once on
+   * the Extra usage line, with its status notes, instead of a "Not reported" fact each.
+   */
+  compact?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const extra = quota.extraUsage;
@@ -28,12 +38,19 @@ export function ClaudeBalanceFacts({
           value: formatClaudeMoney(i18n.resolvedLanguage, value, currency, divisor),
         };
   const notes = claudeExtraUsageNotes(extra ?? null, t);
+  const unreported = compact && extra ? unreportedClaudeExtraUsage(extra) : [];
+  const collapsed = (amount: 'spent' | 'limit') => unreported.includes(amount);
+  const extraNote = [
+    ...(compact ? notes : []),
+    ...(unreported.length ? [t(`account_details.unreported_${unreported.join('_')}`)] : []),
+  ].join(' · ');
   return (
     <FactSection title={t('account_details.balances')}>
       {extra && (
         <>
           <Fact
             label={t('claude_quota.extra_usage_label')}
+            note={extraNote || undefined}
             {...(extra.isEnabled === null
               ? missing()
               : {
@@ -45,14 +62,18 @@ export function ClaudeBalanceFacts({
                   ),
                 })}
           />
-          <Fact
-            label={t('account_details.spent')}
-            {...money(extra.usedCredits, extra.currency ?? 'USD', 100)}
-          />
-          <Fact
-            label={t('account_details.limit')}
-            {...money(extra.monthlyLimit, extra.currency ?? 'USD', 100)}
-          />
+          {!collapsed('spent') && (
+            <Fact
+              label={t('account_details.spent')}
+              {...money(extra.usedCredits, extra.currency ?? 'USD', 100)}
+            />
+          )}
+          {!collapsed('limit') && (
+            <Fact
+              label={t('account_details.limit')}
+              {...money(extra.monthlyLimit, extra.currency ?? 'USD', 100)}
+            />
+          )}
           {extra.utilization !== null && (
             <Fact
               label={t('account_details.spending')}
@@ -60,7 +81,7 @@ export function ClaudeBalanceFacts({
               value={t('claude_quota.usage_utilization', { percent: extra.utilization })}
             />
           )}
-          {notes.length > 0 && (
+          {!compact && notes.length > 0 && (
             <Fact label={t('account_details.status')} state="known" value={notes.join(' · ')} />
           )}
         </>

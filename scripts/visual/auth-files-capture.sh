@@ -3,6 +3,7 @@
 #   scripts/visual/auth-files-capture.sh dev   <out-dir> [case ...]   # Vite dev server
 #   scripts/visual/auth-files-capture.sh build <out-dir> [case ...]   # bun run build + vite preview of dist/
 #   scripts/visual/auth-files-capture.sh url=http://127.0.0.1:18318 <out-dir> [case ...]  # an existing server
+# PROX_CAPTURE_WIDTHS="1440 1920 390" picks the viewport widths (default: the capture's 1440 and 390).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 mode="$1"; out="$2"; shift 2
@@ -24,4 +25,5 @@ for _ in $(seq 1 60); do curl -sf "$url/" >/dev/null && break; sleep 0.5; done
 [ "$mode" = dev ] && curl -sf "$url/src/App.tsx" >/dev/null || true
 cases=()
 [ "$#" -gt 0 ] && cases=(--cases "$@")
+[ -n "${PROX_CAPTURE_WIDTHS:-}" ] && read -ra widths <<<"$PROX_CAPTURE_WIDTHS" && cases+=(--widths "${widths[@]}")
 uv run -q --with playwright python -I -B scripts/visual/auth-files-capture.py --url "$url" --out "$out" "${cases[@]}"

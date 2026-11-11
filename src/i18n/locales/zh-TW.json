@@ -2578,6 +2578,7 @@
     "retry": "重試同一請求",
     "empty": "沒有儲備重置權益。",
     "count": "剩餘 {{left}} / {{total}} 次重置",
+    "count_short": "剩餘 {{left}}/{{total}}",
     "ends": "到期：{{date}}",
     "use": "重置額度",
     "confirm": "確認重置",
@@ -3167,6 +3168,10 @@
     "not_reported_reason": "供應商未回報此項詳情。",
     "reset_disabled": "使用手動重設前，重新整理必須完成且帳戶必須啟用。",
     "spent": "已支出",
-    "limit": "限額"
+    "limit": "限額",
+    "held": "持有 {{count}} 次",
+    "unreported_spent_limit": "已用金額和限額未回報",
+    "unreported_spent": "已用金額未回報",
+    "unreported_limit": "限額未回報"
   }
 }

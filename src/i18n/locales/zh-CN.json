@@ -2550,6 +2550,7 @@
     "retry": "重试同一请求",
     "empty": "没有储备重置权益。",
     "count": "剩余 {{left}} / {{total}} 次重置",
+    "count_short": "剩余 {{left}}/{{total}}",
     "ends": "到期：{{date}}",
     "use": "重置额度",
     "confirm": "确认重置",
@@ -3139,6 +3140,10 @@
     "not_reported_reason": "提供商未报告此项详情。",
     "reset_disabled": "使用手动重置前，刷新必须完成且账户必须启用。",
     "spent": "已支出",
-    "limit": "限额"
+    "limit": "限额",
+    "held": "持有 {{count}} 次",
+    "unreported_spent_limit": "已用金额和限额未报告",
+    "unreported_spent": "已用金额未报告",
+    "unreported_limit": "限额未报告"
   }
 }
