@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createAnalyticsHandler } from '../server/analytics/handler';
+import { dashboardAnalyticsQuery } from '../src/features/dashboard/analyticsTraffic';
 import {
   validateSourceManifest,
   publicSourceDiscovery,
@@ -26,6 +27,7 @@ function fixture() {
       label: id,
       publicBasePath: `/${id}`,
       aliases: [],
+      providers: [id === 'alpha' ? 'codex' : 'claude'],
       authScope: 'shared',
       upstreamOrigin: `http://${id}.test`,
       managementKeyFile: `/private/${id}`,
@@ -35,6 +37,8 @@ function fixture() {
   let betaFailed = false;
   let cpaStatus = 200;
   let now = 1_000_000_000_000;
+  let modelId = 'same-model';
+  let cpaGate: Promise<void> | undefined;
   const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     const key = new Headers(init?.headers).get('Authorization') ?? '';
@@ -45,10 +49,13 @@ function fixture() {
     if (url.endsWith('/config/access/api-keys'))
       return Response.json([url.includes('alpha') ? 'alpha-client' : 'beta-client']);
     if (url.endsWith('/v1/models'))
-      return Response.json({ data: [{ id: 'same-model', owned_by: 'publisher' }] });
+      return Response.json({ data: [{ id: modelId, owned_by: 'publisher' }] });
+    await cpaGate;
     if (cpaStatus !== 200)
       return new Response('private cpa credential leak sentinel', { status: cpaStatus });
+    const sent = JSON.parse(String(init?.body ?? '{}')) as { catalog?: { id: string }[] };
     return Response.json({
+      catalog_ids: [...new Set((sent.catalog ?? []).map((entry) => entry.id))],
       generated_at_ms: calls.filter((call) => call.url.startsWith('http://cpa.test')).length,
       schema_version: 1,
       summary: {},
@@ -68,6 +75,7 @@ function fixture() {
       () => now
     ),
     cpaCalls: () => calls.filter((call) => call.url.startsWith('http://cpa.test')).length,
+    catalogCalls: () => calls.filter((call) => !call.url.startsWith('http://cpa.test')).length,
     advance: (milliseconds: number) => {
       now += milliseconds;
     },
@@ -75,8 +83,23 @@ function fixture() {
     failBeta: () => {
       betaFailed = true;
     },
+    restoreBeta: () => {
+      betaFailed = false;
+    },
     failCpa: (status: number) => {
       cpaStatus = status;
+    },
+    register: (id: string) => {
+      modelId = id;
+    },
+    /** Hold CPA answers until the returned release is called. */
+    holdCpa: () => {
+      let release!: () => void;
+      cpaGate = new Promise((resolve) => (release = resolve));
+      return () => {
+        cpaGate = undefined;
+        release();
+      };
     },
     clean: () => rmSync(directory, { recursive: true, force: true }),
   };
@@ -264,6 +287,8 @@ describe('Prox analytics bridge', () => {
         f.advance(5000);
         await f.handler.warm();
         expect(f.cpaCalls()).toBe(seeded);
+        // Someone is using the page, so the views keep their active cadence.
+        await f.handler(request(live(f, 30 * DAY, { granularity: 'day', limit: 25 })));
         f.advance(10 * 60_000);
         await f.handler.warm();
         expect(f.cpaCalls()).toBe(seeded * 2);
@@ -273,6 +298,222 @@ describe('Prox analytics bridge', () => {
         );
         expect(response.status).toBe(200);
         expect(f.cpaCalls()).toBe(before);
+      } finally {
+        f.clean();
+      }
+    });
+    test('backs off to a slow heartbeat when idle, and the first visit still answers from the snapshot', async () => {
+      const f = fixture();
+      try {
+        await f.handler.warm();
+        const seeded = f.cpaCalls();
+        f.advance(20 * 60_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(seeded);
+        f.advance(15 * 60_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(seeded * 2);
+        // Well past the live stale limit, but within the idle cap: served at once.
+        f.advance(40 * 60_000);
+        const before = f.cpaCalls();
+        const first = await f.handler(
+          request(live(f, 30 * DAY, { granularity: 'day', limit: 25 }))
+        );
+        expect(await generation(first)).toBeLessThanOrEqual(before);
+        await settle();
+        expect(f.cpaCalls()).toBe(before + 1);
+        // The visit wakes the warmer: the other views refresh on the active cadence again.
+        f.advance(60_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(before + 1 + seeded);
+      } finally {
+        f.clean();
+      }
+    });
+    test('never serves a default view past the idle cap: it recomputes, and a failure surfaces', async () => {
+      const f = fixture();
+      try {
+        await f.handler.warm();
+        // Refreshes have been failing for hours; the dashboard must fall back, not draw a cliff.
+        f.failCpa(500);
+        f.advance(3 * 60 * 60_000);
+        const response = await f.handler(
+          request(live(f, 30 * DAY, { granularity: 'day', limit: 25 }))
+        );
+        expect(response.status).toBe(503);
+      } finally {
+        f.clean();
+      }
+    });
+    test('backs off retrying a failing view instead of trying every tick', async () => {
+      const f = fixture();
+      try {
+        f.failCpa(500);
+        await f.handler.warm();
+        const tried = f.cpaCalls();
+        expect(tried).toBeGreaterThan(0);
+        f.advance(15_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(tried);
+      } finally {
+        f.clean();
+      }
+    });
+    test("does not answer just after midnight's yesterday with the last snapshot of today", async () => {
+      const f = fixture();
+      try {
+        const midnight = Math.ceil(f.now() / DAY) * DAY;
+        f.advance(midnight - 4 * 60_000 - f.now());
+        await f.handler(request({ ...query, from_ms: midnight - DAY, to_ms: f.now() }));
+        f.advance(4 * 60_000 + 30_000);
+        const yesterday = await f.handler(
+          request({ ...query, from_ms: midnight - DAY, to_ms: midnight })
+        );
+        expect(await generation(yesterday)).toBe(2);
+      } finally {
+        f.clean();
+      }
+    });
+    test('warms the dashboard traffic view for every provider the sources declare', async () => {
+      const f = fixture();
+      try {
+        await f.handler.warm();
+        const before = f.cpaCalls();
+        for (const provider of ['codex', 'claude']) {
+          const response = await f.handler(request(dashboardAnalyticsQuery(f.now(), provider)));
+          expect(response.status).toBe(200);
+        }
+        expect(f.cpaCalls()).toBe(before);
+        await f.handler(request(dashboardAnalyticsQuery(f.now(), 'gemini')));
+        expect(f.cpaCalls()).toBe(before + 1);
+      } finally {
+        f.clean();
+      }
+    });
+  });
+  describe('catalog reuse', () => {
+    const DAY = 86_400_000;
+    const view = (f: { now: () => number }, span: number) => ({
+      ...query,
+      from_ms: f.now() - span,
+      to_ms: f.now(),
+    });
+    test('reads the catalog once for several views, and again after a few minutes', async () => {
+      const f = fixture();
+      try {
+        await f.handler(request(view(f, 7 * DAY)));
+        await f.handler(request(view(f, 30 * DAY)));
+        expect(f.cpaCalls()).toBe(2);
+        expect(f.catalogCalls()).toBe(4);
+        f.advance(6 * 60_000);
+        await f.handler(request(view(f, DAY)));
+        expect(f.catalogCalls()).toBe(8);
+      } finally {
+        f.clean();
+      }
+    });
+    test('a Refresh reads the catalog again, so a new registration shows at once', async () => {
+      const f = fixture();
+      try {
+        await f.handler(request(view(f, 7 * DAY)));
+        expect(f.catalogCalls()).toBe(4);
+        await f.handler(request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' }));
+        expect(f.catalogCalls()).toBe(8);
+      } finally {
+        f.clean();
+      }
+    });
+    test('a Refresh supersedes a background recompute: it starts at once, and the older result never overwrites it', async () => {
+      const f = fixture();
+      try {
+        await f.handler(request(view(f, 7 * DAY)));
+        // Stale while the catalog is still cached: the visit starts a background recompute
+        // with that catalog, held at CPA.
+        f.advance(2 * 60_000);
+        const releaseOld = f.holdCpa();
+        await f.handler(request(view(f, 7 * DAY)));
+        await Bun.sleep(10);
+        expect(f.cpaCalls()).toBe(2);
+        f.register('new-model');
+        const releaseNew = f.holdCpa();
+        const refreshed = f.handler(
+          request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' })
+        );
+        await Bun.sleep(10);
+        // The Refresh asked CPA right away instead of waiting out the earlier recompute.
+        expect(f.cpaCalls()).toBe(3);
+        releaseNew();
+        expect((await (await refreshed).json()).catalog_ids).toEqual(['new-model']);
+        releaseOld();
+        await Bun.sleep(10);
+        const after = await (await f.handler(request(view(f, 7 * DAY)))).json();
+        expect(after.catalog_ids).toEqual(['new-model']);
+      } finally {
+        f.clean();
+      }
+    });
+    test('a superseded first load that fails does not drop the Refresh that replaced it', async () => {
+      const f = fixture();
+      try {
+        const releaseOld = f.holdCpa();
+        const first = f.handler(request(view(f, 7 * DAY)));
+        await Bun.sleep(10);
+        const releaseNew = f.holdCpa();
+        const refreshed = f.handler(
+          request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' })
+        );
+        await Bun.sleep(10);
+        expect(f.cpaCalls()).toBe(2);
+        f.failCpa(500);
+        releaseOld();
+        expect((await first).status).toBe(503);
+        f.failCpa(200);
+        releaseNew();
+        expect((await refreshed).status).toBe(200);
+        // The Refresh's snapshot is kept, so the next visit is answered without CPA.
+        expect((await f.handler(request(view(f, 7 * DAY)))).status).toBe(200);
+        expect(f.cpaCalls()).toBe(2);
+      } finally {
+        f.clean();
+      }
+    });
+    test('a failed Refresh does not drop the first load still running behind it', async () => {
+      const f = fixture();
+      try {
+        const releaseOld = f.holdCpa();
+        const first = f.handler(request(view(f, 7 * DAY)));
+        await Bun.sleep(10);
+        const releaseNew = f.holdCpa();
+        const refreshed = f.handler(
+          request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' })
+        );
+        await Bun.sleep(10);
+        expect(f.cpaCalls()).toBe(2);
+        f.failCpa(500);
+        releaseNew();
+        expect((await refreshed).status).toBe(503);
+        f.failCpa(200);
+        releaseOld();
+        expect((await first).status).toBe(200);
+        // The first load's snapshot is kept, so the next visit is answered without CPA.
+        expect((await f.handler(request(view(f, 7 * DAY)))).status).toBe(200);
+        expect(f.cpaCalls()).toBe(2);
+      } finally {
+        f.clean();
+      }
+    });
+    test('never keeps a failed source: it reads unavailable, then recovers at once', async () => {
+      const f = fixture();
+      try {
+        f.failBeta();
+        const states = async (span: number) =>
+          (await (await f.handler(request(view(f, span)))).json()).catalog_sources.map(
+            (row: { state: string }) => row.state
+          );
+        expect(await states(7 * DAY)).toEqual(['ready', 'unavailable']);
+        expect(await states(30 * DAY)).toEqual(['ready', 'unavailable']);
+        f.restoreBeta();
+        expect(await states(DAY)).toEqual(['ready', 'ready']);
       } finally {
         f.clean();
       }

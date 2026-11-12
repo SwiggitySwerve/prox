@@ -16,9 +16,11 @@ const window = analyticsWindow(now);
 const response = (
   summary: [number, number],
   timeline: Array<[number, number, number]>,
-  rawComplete = true
+  rawComplete = true,
+  toMs = now
 ) =>
   ({
+    to_ms: toMs,
     coverage: { raw_complete: rawComplete },
     summary: {
       calls: summary[0] + summary[1],
@@ -106,7 +108,8 @@ describe('when analytics may be used', () => {
         new Map([
           ['claude', ok],
           ['codex', ok],
-        ])
+        ]),
+        window
       )
     ).toBe(true);
     expect(
@@ -115,11 +118,26 @@ describe('when analytics may be used', () => {
         new Map([
           ['claude', ok],
           ['codex', partial],
-        ])
+        ]),
+        window
       )
     ).toBe(false);
-    expect(analyticsUsable(['claude', 'codex'], new Map([['claude', ok]]))).toBe(false);
-    expect(analyticsUsable([], new Map())).toBe(false);
+    expect(analyticsUsable(['claude', 'codex'], new Map([['claude', ok]]), window)).toBe(false);
+    expect(analyticsUsable([], new Map(), window)).toBe(false);
+  });
+  test('not when a response is an old snapshot: its newest hours would read as zero traffic', () => {
+    const old = response([1, 0], [], true, now - 30 * 60_000);
+    const recent = response([1, 0], [], true, now - 5 * 60_000);
+    expect(analyticsUsable(['claude'], new Map([['claude', old]]), window)).toBe(false);
+    expect(analyticsUsable(['claude'], new Map([['claude', recent]]), window)).toBe(true);
+  });
+  test('the dashboard skips its analytics poll while the tab is hidden', () => {
+    const source = readFileSync('src/features/dashboard/hooks/useDashboardOverview.ts', 'utf8');
+    const poll = source.slice(
+      source.indexOf('useInterval('),
+      source.indexOf('PROVIDER_RECENT_REQUESTS_STALE_TIME_MS : null')
+    );
+    expect(poll).toContain("document.visibilityState === 'hidden'");
   });
 });
 
@@ -127,6 +145,6 @@ describe('analytics numbers stay current', () => {
   test('polls on the same cadence as the counters, not only when the provider set changes', () => {
     const source = readFileSync('src/features/dashboard/hooks/useDashboardOverview.ts', 'utf8');
     expect(source).toContain('PROVIDER_RECENT_REQUESTS_STALE_TIME_MS');
-    expect(source).toMatch(/useInterval\(\s*\(\) => \{\s*void loadAnalytics\(\)/);
+    expect(source).toMatch(/useInterval\(\s*\(\) => \{[^}]*void loadAnalytics\(\)/);
   });
 });

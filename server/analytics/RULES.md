@@ -27,7 +27,12 @@ never waits on CPA's multi-second scans. A live window (ending near now) is keye
 span or UTC-midnight start plus filters, not by the caller's clock; cursor pages and
 fixed windows are keyed exactly. A stale view is served at once and recomputed behind
 the request; a warmer refreshes the default views and any live view asked for in the
-last 15 minutes. A failure is never cached and never replaces a good snapshot. The
+last 15 minutes. The default views include the dashboard's 24-hour traffic view for each
+credential type a source declares in `providers`. When no view has been asked for in 15
+minutes the warmer drops to one refresh per default view every 30 minutes, and a default
+view is answered from its last snapshot however old, refreshing behind the visit. The
+registered catalog is read once and shared by every view for 5 minutes, only when every
+source answered. A failure is never cached and never replaces a good snapshot. The
 response's own `generated_at_ms` and window stay authoritative, so snapshot age is
 visible. `Cache-Control: no-cache` (the page's Refresh) forces a recompute.
 

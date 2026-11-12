@@ -140,6 +140,14 @@ describe('Analytics query and transport contracts', () => {
     expect(success).toContain('appliedRefresh.current = refresh');
     expect(failure).toContain('appliedRefresh.current = refresh');
   });
+  test('an old snapshot is asked for once more, after the refresh behind it has had time', () => {
+    const source = read('src/features/analytics/useAnalytics.ts');
+    const success = source.slice(source.indexOf('.then('), source.indexOf('.catch('));
+    expect(success).toContain('data.generated_at_ms');
+    expect(success).toContain('recheckedFor.current = query');
+    expect(success).toContain('setTimeout(');
+    expect(source).toContain('clearTimeout(');
+  });
   test('refresh advances the selected window and clears paging while preserving filters', () => {
     const source = read('src/features/analytics/AnalyticsPage.tsx');
     const reload = source.slice(source.indexOf('const reload ='), source.indexOf('return <'));
