@@ -14,6 +14,7 @@ import {
   MANUAL_REFRESH_INTERVAL_MS,
   type StoredAccount,
 } from '../server/quota/types';
+import { until } from './helpers/inventoryHarness';
 import { validateSourceManifest } from '../src/domain/providerSources/manifest';
 import type { PoolDashboard, PoolProviderId } from '../src/domain/quotaPool/types';
 import {
@@ -307,7 +308,8 @@ describe('enumerated quota sources', () => {
     });
     const targeted = f.collector.refreshAccount(account.id);
     const full = f.collector.refresh();
-    await Bun.sleep(5);
+    await until(() => f.calls.length > 0); // The targeted read is parked at the gate.
+    await Bun.sleep(5); // Then give the blocked full refresh a chance to wrongly proceed.
     expect(f.calls).toHaveLength(1);
     release();
     expect(await targeted).toBe(true);
@@ -336,8 +338,9 @@ describe('enumerated quota sources', () => {
     f.delay(async () => {
       await gate;
     });
+    const started = f.calls.length;
     const targeted = f.collector.refreshAccount(account.id);
-    await Bun.sleep(5);
+    await until(() => f.calls.length > started); // The read is in flight, parked at the gate.
     f.collector.stop();
     release();
     expect(await targeted).toBe(false);
