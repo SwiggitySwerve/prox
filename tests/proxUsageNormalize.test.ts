@@ -405,9 +405,9 @@ describe('usage payload normalization: identity and request fields', () => {
       executionId: '12345678-1234-4234-8234-123456789abc',
       requestId: '000000ab',
       traceId: '000000ab',
-      sessionId: '0f0e0d0c-0b0a-4908-8706-050403020100',
+      session: { uuid: '0f0e0d0c-0b0a-4908-8706-050403020100', derived: false },
       parentExecutionId: 'parent-1',
-      parentSessionId: null,
+      parentSession: null,
       instance: null,
       effort: 'medium',
       executor: 'ClaudeExecutor',
@@ -417,8 +417,38 @@ describe('usage payload normalization: identity and request fields', () => {
     expect(event({ stream: undefined }).stream).toBeNull();
   });
 
+  test('a version 8 session id is one the proxy derived; any other came from a client', () => {
+    const session = (version: number) => `0f0e0d0c-0b0a-${version}908-8706-050403020100`;
+    for (const version of [1, 4, 5, 7]) {
+      expect(event({ session_id: session(version) }).session).toEqual({
+        uuid: session(version),
+        derived: false,
+      });
+    }
+    expect(event({ session_id: session(8) }).session).toEqual({ uuid: session(8), derived: true });
+    // Only the version digit counts: an 8 elsewhere in the id means nothing.
+    expect(event({ session_id: '88888888-8888-4888-8888-888888888888' }).session?.derived).toBe(
+      false
+    );
+    expect(event({ session_id: '' }).session).toBeNull();
+  });
+
+  test('a parent session is kept with its own provenance, never as its own parent', () => {
+    const child = '0f0e0d0c-0b0a-8908-8706-0504030201aa';
+    const parent = '0f0e0d0c-0b0a-4908-8706-0504030201bb';
+    expect(event({ session_id: child, parent_session_id: parent })).toMatchObject({
+      session: { uuid: child, derived: true },
+      parentSession: { uuid: parent, derived: false },
+    });
+    expect(event({ session_id: child, parent_session_id: child }).parentSession).toBeNull();
+    expect(event({ session_id: '', parent_session_id: parent })).toMatchObject({
+      session: null,
+      parentSession: null,
+    });
+  });
+
   test('the account is the credential label when one is known, else the auth index', () => {
-    expect(event()).toMatchObject({ account: '3', accountLabel: null });
+    expect(event()).toMatchObject({ account: '3', accountLabel: null, authIndex: '3' });
     const labelled = normalizeUsagePayload(JSON.stringify(usagePayload()), (authIndex) =>
       authIndex === '3'
         ? { account: 'synthetic@example.test', label: 'Synthetic account' }
@@ -429,7 +459,13 @@ describe('usage payload normalization: identity and request fields', () => {
     });
     const unknown = normalizeUsagePayload(JSON.stringify(usagePayload()), () => undefined);
     expect(unknown).toMatchObject({ event: { account: '3', accountLabel: null } });
-    expect(event({ auth_index: '' })).toMatchObject({ account: null, accountLabel: null });
+    // The auth index itself is kept whatever the label says: it is the key that joins to quota.
+    expect(labelled).toMatchObject({ event: { authIndex: '3' } });
+    expect(event({ auth_index: '' })).toMatchObject({
+      account: null,
+      accountLabel: null,
+      authIndex: null,
+    });
   });
 });
 

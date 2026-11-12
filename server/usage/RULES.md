@@ -60,6 +60,21 @@ unit, not part of the history server.
   `execution_id` is unique there, and the insert is `ON CONFLICT DO NOTHING`: the
   first arrival of an execution stays, whichever way it arrived (`ingest`).
 - `seq` is ingestion order from `meta.next_seq`. A duplicate consumes none.
+- Schema changes are numbered, forward-only migrations (`USAGE_MIGRATIONS` in
+  `schema.ts`), counted in `meta.schema_version` and run by the writer at start.
+  The initial schema is migration 1. Append; never edit one that has shipped. A
+  database newer than the build is refused. A migration that rewrites a table
+  runs as a governed bulk job, not at start. The raw buffer has no migrations.
+- Sessions live in `session`, one row per UUID, never in `dim`: there are
+  hundreds of thousands a year and search scans `dim`. `derived` is 1 for a UUID
+  of version 8, which the proxy derives itself (from context or a hash of the
+  first messages), so a derived session can merge unrelated conversations and
+  must be labelled, never attributed across clients. `parent_id` links a
+  subagent's session to its parent; the first parent reported for a session
+  stays. `event_detail` keeps what each event itself reported.
+- `events.auth_index_id` is the proxy's credential index (`dim` kind
+  `auth_index`), kept whatever the account label says: it is the only key that
+  joins usage to quota.
 - `usage_flags`: bit 0 usage presence reported, bits 1 to 6 the components the
   proxy observed (input, output, reasoning, cache read, cache creation, total),
   bit 7 the token columns come from a complete canonical breakdown, bit 8 the

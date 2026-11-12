@@ -8,6 +8,7 @@ export const DIM_KINDS = [
   'instance',
   'account',
   'account_label',
+  'auth_index',
   'api_key',
   'user_agent',
   'client_ip',
@@ -78,6 +79,14 @@ export interface EventTiming {
   recordedMs: number | null;
 }
 
+/** A session as the proxy reports it: always a canonical UUID. */
+export interface EventSession {
+  uuid: string;
+  /** Version 8: derived by the proxy (from context or a hash of the first messages), not sent
+   * by a client. Derived sessions can merge unrelated conversations that start alike. */
+  derived: boolean;
+}
+
 /** One usage record after normalization: strings are still strings, the store interns them. */
 export interface NormalizedEvent {
   /** The event's identity. */
@@ -107,6 +116,8 @@ export interface NormalizedEvent {
   usageFlags: number;
   recordKind: RecordKindCode;
   stream: boolean | null;
+  /** The proxy's index of the credential that served the request; the key that joins to quota. */
+  authIndex: string | null;
   /** Grouping identity of the credential: its label when known, else the proxy's auth index. */
   account: string | null;
   accountLabel: string | null;
@@ -121,8 +132,9 @@ export interface NormalizedEvent {
   executor: string | null;
   requestId: string | null;
   parentExecutionId: string | null;
-  sessionId: string | null;
-  parentSessionId: string | null;
+  session: EventSession | null;
+  /** Never the session itself, and null without a session. */
+  parentSession: EventSession | null;
   traceId: string | null;
   timing: EventTiming | null;
 }

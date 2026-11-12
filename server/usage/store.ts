@@ -5,14 +5,15 @@ import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import {
-  EVENTS_SCHEMA_SQL,
+  META_TABLE_SQL,
   RAW_SCHEMA_SQL,
   READER_PRAGMAS_SQL,
-  USAGE_SCHEMA_VERSION,
+  USAGE_MIGRATIONS,
   WRITER_PRAGMAS_SQL,
 } from './schema';
 import type {
   DimKind,
+  EventSession,
   IngestItem,
   IngestSource,
   InsertResult,
@@ -57,6 +58,8 @@ const EVENT_COLUMNS = [
   'executor_id',
   'requested_tier_id',
   'effective_tier_id',
+  'session_id',
+  'auth_index_id',
   'ingest',
 ] as const;
 const DETAIL_COLUMNS = [
@@ -92,6 +95,35 @@ function openWritable(path: string, schemaSql: string): Database {
   return db;
 }
 
+/**
+ * Bring usage.sqlite forward, one migration at a time. A migration and its version number
+ * commit together, so a failure leaves the database at the last version that fully applied.
+ */
+export function migrateUsageDatabase(
+  db: Database,
+  migrations: readonly string[] = USAGE_MIGRATIONS
+): void {
+  db.exec(META_TABLE_SQL);
+  const stored = db
+    .query<{ value: string }, []>(`SELECT value FROM meta WHERE key = 'schema_version'`)
+    .get();
+  const version = Number(stored?.value ?? 0);
+  if (version > migrations.length) {
+    throw new Error(
+      `usage database has schema version ${version}; this build reads up to ${migrations.length}`
+    );
+  }
+  for (let next = version; next < migrations.length; next += 1) {
+    db.transaction(() => {
+      db.exec(migrations[next]);
+      db.query(
+        `INSERT INTO meta (key, value) VALUES ('schema_version', ?)
+         ON CONFLICT (key) DO UPDATE SET value = excluded.value`
+      ).run(String(next + 1));
+    }).immediate();
+  }
+}
+
 /** A read-only connection for a query worker. The writer must have created the file. */
 export function openUsageReader(path: string): Database {
   const db = new Database(path, { readonly: true, strict: true });
@@ -110,6 +142,9 @@ export class UsageStore {
   private nextSeq: number;
   private readonly insertDim: Statement;
   private readonly selectDim: Statement<{ id: number }, [string, string]>;
+  private readonly insertSession: Statement;
+  private readonly selectSession: Statement<{ id: number }, [string]>;
+  private readonly adoptParent: Statement;
   private readonly insertDetail: Statement;
   private readonly insertEvent: Statement;
   private readonly insertAll: {
@@ -121,14 +156,12 @@ export class UsageStore {
     paths: { events: string; raw: string | null },
     private readonly now: () => number = Date.now
   ) {
-    this.db = openWritable(paths.events, EVENTS_SCHEMA_SQL);
-    const version = this.getMeta('schema_version');
-    if (version === null) this.setMeta('schema_version', String(USAGE_SCHEMA_VERSION));
-    else if (version !== String(USAGE_SCHEMA_VERSION)) {
+    this.db = openWritable(paths.events, META_TABLE_SQL);
+    try {
+      migrateUsageDatabase(this.db);
+    } catch (error) {
       this.db.close();
-      throw new Error(
-        `usage database has schema version ${version}; this build reads ${USAGE_SCHEMA_VERSION}`
-      );
+      throw error;
     }
     this.nextSeq = Number(this.getMeta('next_seq') ?? 1);
     this.raw = paths.raw === null ? null : openWritable(paths.raw, RAW_SCHEMA_SQL);
@@ -137,6 +170,13 @@ export class UsageStore {
       'INSERT INTO dim (kind, value) VALUES (?, ?) ON CONFLICT (kind, value) DO NOTHING'
     );
     this.selectDim = this.db.query('SELECT id FROM dim WHERE kind = ? AND value = ?');
+    this.insertSession = this.db.query(
+      'INSERT INTO session (uuid, parent_id, derived) VALUES (?, ?, ?) ON CONFLICT (uuid) DO NOTHING'
+    );
+    this.selectSession = this.db.query('SELECT id FROM session WHERE uuid = ?');
+    this.adoptParent = this.db.query(
+      'UPDATE session SET parent_id = ? WHERE id = ? AND parent_id IS NULL'
+    );
     this.insertDetail = this.db.query(
       `${insertSql('event_detail', DETAIL_COLUMNS)} ON CONFLICT (execution_id) DO NOTHING`
     );
@@ -234,6 +274,17 @@ export class UsageStore {
     return value === null ? null : this.dim(kind, value);
   }
 
+  /** One row per session uuid. The first parent a session is reported with stays its parent. */
+  private session(session: EventSession | null, parent: EventSession | null): number | null {
+    if (!session) return null;
+    const parentId = this.session(parent, null);
+    this.insertSession.run(session.uuid, parentId, session.derived ? 1 : 0);
+    const { id } = this.selectSession.get(session.uuid)!;
+    // The row may be older than this report: a session first seen as another one's parent.
+    if (parentId !== null) this.adoptParent.run(parentId, id);
+    return id;
+  }
+
   private eventRow(
     event: NormalizedEvent,
     seq: number,
@@ -275,6 +326,8 @@ export class UsageStore {
       executor_id: this.optionalDim('executor', event.executor),
       requested_tier_id: this.optionalDim('tier', event.requestedTier),
       effective_tier_id: this.optionalDim('tier', event.effectiveTier),
+      session_id: this.session(event.session, event.parentSession),
+      auth_index_id: this.optionalDim('auth_index', event.authIndex),
       ingest,
     };
   }
@@ -286,8 +339,8 @@ export class UsageStore {
       ts_ms: event.tsMs,
       request_id: event.requestId,
       parent_execution_id: event.parentExecutionId,
-      session_id: event.sessionId,
-      parent_session_id: event.parentSessionId,
+      session_id: event.session?.uuid ?? null,
+      parent_session_id: event.parentSession?.uuid ?? null,
       trace_id: event.traceId,
       upstream_start_ms: event.timing?.upstreamStartMs ?? null,
       first_response_ms: event.timing?.firstResponseMs ?? null,

@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { normalizeUsagePayload } from '../server/usage/normalize';
-import { READER_PRAGMAS_SQL, WRITER_PRAGMAS_SQL } from '../server/usage/schema';
-import { openUsageReader, UsageStore } from '../server/usage/store';
+import { READER_PRAGMAS_SQL, USAGE_MIGRATIONS, WRITER_PRAGMAS_SQL } from '../server/usage/schema';
+import { migrateUsageDatabase, openUsageReader, UsageStore } from '../server/usage/store';
 import { INGEST, USAGE_FLAG, type IngestItem } from '../server/usage/types';
 import { SECRET, usagePayload, usagePayloadNumber } from './fixtures/usagePayloads';
 
@@ -61,6 +61,12 @@ describe('usage store schema', () => {
         );
     expect(columns('meta')).toEqual(['key TEXT NOT NULL PK1', 'value TEXT NOT NULL']);
     expect(columns('dim')).toEqual(['id INTEGER PK1', 'kind TEXT NOT NULL', 'value TEXT NOT NULL']);
+    expect(columns('session')).toEqual([
+      'id INTEGER PK1',
+      'uuid TEXT NOT NULL',
+      'parent_id INTEGER',
+      'derived INTEGER NOT NULL',
+    ]);
     expect(columns('events')).toEqual([
       'ts_ms INTEGER NOT NULL PK1',
       'seq INTEGER NOT NULL PK2',
@@ -97,6 +103,8 @@ describe('usage store schema', () => {
       'executor_id INTEGER',
       'requested_tier_id INTEGER',
       'effective_tier_id INTEGER',
+      'session_id INTEGER',
+      'auth_index_id INTEGER',
       'ingest INTEGER NOT NULL',
     ]);
     expect(columns('event_detail')).toEqual([
@@ -144,11 +152,11 @@ describe('usage store schema', () => {
       'table dim',
       'table event_detail',
       'index event_detail_request',
-      'index event_detail_session',
       'table events',
       'table import_conflicts',
       'table ingest_gaps',
       'table meta',
+      'table session',
     ]);
     const withoutRowid = objects.filter((object) => /WITHOUT ROWID/.test(object.sql ?? ''));
     expect(withoutRowid.map((object) => object.name)).toEqual(['client_alias', 'events', 'meta']);
@@ -167,6 +175,7 @@ describe('usage store schema', () => {
         );
     expect(unique('event_detail')).toEqual(['execution_id']);
     expect(unique('dim')).toEqual(['kind,value']);
+    expect(unique('session')).toEqual(['uuid']);
     expect(db.query('SELECT value FROM meta WHERE key = ?').get('schema_version')).toEqual({
       value: '1',
     });
@@ -229,6 +238,7 @@ describe('usage store inserts', () => {
                 ip.value AS client_ip, path.value AS path, method.value AS method,
                 effort.value AS effort, executor.value AS executor,
                 requested_tier.value AS requested_tier, e.effective_tier_id, e.account_label_id,
+                auth_index.value AS auth_index, session.uuid AS session_uuid,
                 d.execution_id, d.ts_ms AS detail_ts_ms, d.request_id, d.session_id, d.trace_id,
                 d.parent_execution_id, d.upstream_start_ms, d.first_response_ms,
                 d.first_content_ms, d.recorded_ms, d.ingested_at_ms
@@ -250,7 +260,9 @@ describe('usage store inserts', () => {
          LEFT JOIN dim method ON method.id = e.method_id
          LEFT JOIN dim effort ON effort.id = e.effort_id
          LEFT JOIN dim executor ON executor.id = e.executor_id
-         LEFT JOIN dim requested_tier ON requested_tier.id = e.requested_tier_id`
+         LEFT JOIN dim requested_tier ON requested_tier.id = e.requested_tier_id
+         LEFT JOIN dim auth_index ON auth_index.id = e.auth_index_id AND auth_index.kind = 'auth_index'
+         LEFT JOIN session ON session.id = e.session_id`
       )
       .get();
     expect(row).toEqual({
@@ -289,6 +301,8 @@ describe('usage store inserts', () => {
       requested_tier: 'auto',
       effective_tier_id: null,
       account_label_id: null,
+      auth_index: '3',
+      session_uuid: '0f0e0d0c-0b0a-4908-8706-050403020100',
       execution_id: '12345678-1234-4234-8234-123456789abc',
       detail_ts_ms: Date.UTC(2026, 3, 25, 0, 0, 0, 123),
       request_id: '000000ab',
@@ -444,6 +458,202 @@ describe('usage store inserts', () => {
     expect(count(db, 'events')).toBe(0);
     store.insert([item(usagePayload())], INGEST.subscribed);
     expect(count(db, 'events')).toBe(1);
+  });
+});
+
+describe('usage store sessions and credentials', () => {
+  const uuid = (version: number, tail: string) =>
+    `0f0e0d0c-0b0a-${version}908-8706-0000000000${tail}`;
+  const sessions = (db: Database) =>
+    db
+      .query<{ uuid: string; parent: string | null; derived: number }, []>(
+        `SELECT s.uuid, p.uuid AS parent, s.derived FROM session s
+         LEFT JOIN session p ON p.id = s.parent_id ORDER BY s.id`
+      )
+      .all();
+
+  test('a session is stored once, however many events and batches name it', () => {
+    const { store, reader } = open();
+    const session = { session_id: uuid(7, 'aa') };
+    store.insert(
+      [item(usagePayloadNumber(1, session)), item(usagePayloadNumber(2, session))],
+      INGEST.subscribed
+    );
+    store.insert(
+      [item(usagePayloadNumber(2, session)), item(usagePayloadNumber(3, session))],
+      INGEST.drained
+    );
+    store.insert([item(usagePayloadNumber(4, { session_id: '' }))], INGEST.subscribed);
+    const db = reader();
+    expect(sessions(db)).toEqual([{ uuid: uuid(7, 'aa'), parent: null, derived: 0 }]);
+    expect(
+      db
+        .query(
+          `SELECT e.seq, s.uuid FROM events e LEFT JOIN session s ON s.id = e.session_id ORDER BY e.seq`
+        )
+        .all()
+    ).toEqual([
+      { seq: 1, uuid: uuid(7, 'aa') },
+      { seq: 2, uuid: uuid(7, 'aa') },
+      { seq: 3, uuid: uuid(7, 'aa') },
+      { seq: 4, uuid: null },
+    ]);
+    // Sessions stay out of the dictionary that search scans.
+    expect(count(db, `dim WHERE value = '${uuid(7, 'aa')}'`)).toBe(0);
+  });
+
+  test('a derived session is flagged, and a subagent session links to its parent', () => {
+    const { store, reader } = open();
+    const child = { session_id: uuid(8, 'c1'), parent_session_id: uuid(4, 'a1') };
+    store.insert([item(usagePayloadNumber(1, child))], INGEST.subscribed);
+    const db = reader();
+    // The parent row exists before any event of its own, with its own provenance.
+    expect(sessions(db)).toEqual([
+      { uuid: uuid(4, 'a1'), parent: null, derived: 0 },
+      { uuid: uuid(8, 'c1'), parent: uuid(4, 'a1'), derived: 1 },
+    ]);
+    // The parent's own event reuses that row, and can still report a parent of its own.
+    store.insert(
+      [
+        item(
+          usagePayloadNumber(2, { session_id: uuid(4, 'a1'), parent_session_id: uuid(8, 'f0') })
+        ),
+        item(usagePayloadNumber(3, child)),
+      ],
+      INGEST.subscribed
+    );
+    expect(sessions(db)).toEqual([
+      { uuid: uuid(4, 'a1'), parent: uuid(8, 'f0'), derived: 0 },
+      { uuid: uuid(8, 'c1'), parent: uuid(4, 'a1'), derived: 1 },
+      { uuid: uuid(8, 'f0'), parent: null, derived: 1 },
+    ]);
+    // The first parent a session is reported with stays its parent.
+    store.insert(
+      [
+        item(
+          usagePayloadNumber(4, { session_id: uuid(8, 'c1'), parent_session_id: uuid(8, 'f0') })
+        ),
+      ],
+      INGEST.subscribed
+    );
+    expect(sessions(db)[1]).toEqual({ uuid: uuid(8, 'c1'), parent: uuid(4, 'a1'), derived: 1 });
+    // What each event itself reported stays readable for the request inspector.
+    expect(
+      db.query('SELECT session_id, parent_session_id FROM event_detail WHERE seq = 4').get()
+    ).toEqual({ session_id: uuid(8, 'c1'), parent_session_id: uuid(8, 'f0') });
+  });
+
+  test('the auth index is interned as its own kind, apart from the account label', () => {
+    const { store, reader } = open();
+    const labelled = normalizeUsagePayload(JSON.stringify(usagePayloadNumber(1)), () => ({
+      account: 'synthetic@example.test',
+      label: 'Synthetic account',
+    }));
+    if (labelled.kind !== 'event') throw new Error('expected an event');
+    store.insert(
+      [
+        labelled,
+        item(usagePayloadNumber(2)),
+        item(usagePayloadNumber(3, { auth_index: '' })),
+        item(usagePayloadNumber(4, { auth_index: '9' })),
+      ],
+      INGEST.subscribed
+    );
+    const db = reader();
+    expect(
+      db
+        .query(
+          `SELECT e.seq, i.kind, i.value AS auth_index, a.value AS account FROM events e
+           LEFT JOIN dim i ON i.id = e.auth_index_id LEFT JOIN dim a ON a.id = e.account_id
+           ORDER BY e.seq`
+        )
+        .all()
+    ).toEqual([
+      { seq: 1, kind: 'auth_index', auth_index: '3', account: 'synthetic@example.test' },
+      { seq: 2, kind: 'auth_index', auth_index: '3', account: '3' },
+      { seq: 3, kind: null, auth_index: null, account: null },
+      { seq: 4, kind: 'auth_index', auth_index: '9', account: '9' },
+    ]);
+    expect(count(db, `dim WHERE kind = 'auth_index'`)).toBe(2);
+  });
+});
+
+describe('usage store migrations', () => {
+  const database = () => {
+    const root = mkdtempSync(join(tmpdir(), 'prox-usage-migrate-'));
+    cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+    const db = new Database(join(root, 'usage.sqlite'), { create: true, strict: true });
+    cleanups.push(() => db.close());
+    return db;
+  };
+  const version = (db: Database) =>
+    (db.query(`SELECT value FROM meta WHERE key = 'schema_version'`).get() as { value: string })
+      .value;
+  const tables = (db: Database) =>
+    db
+      .query<{ name: string }, []>(
+        `SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`
+      )
+      .all()
+      .map((table) => table.name);
+  const SECOND = 'CREATE TABLE second (id INTEGER PRIMARY KEY); INSERT INTO second VALUES (1);';
+  const THIRD = 'CREATE TABLE third (id INTEGER PRIMARY KEY);';
+
+  test('the initial schema is migration 1, and running it again changes nothing', () => {
+    const db = database();
+    migrateUsageDatabase(db);
+    expect(version(db)).toBe(String(USAGE_MIGRATIONS.length));
+    expect(USAGE_MIGRATIONS).toHaveLength(1);
+    const before = tables(db);
+    expect(before).toContain('events');
+    // Migration 1 is plain CREATE TABLE: a second run of it would fail, so it did not run.
+    migrateUsageDatabase(db);
+    migrateUsageDatabase(db);
+    expect(tables(db)).toEqual(before);
+    expect(version(db)).toBe('1');
+  });
+
+  test('only the migrations a database has not seen are applied, in order', () => {
+    const db = database();
+    migrateUsageDatabase(db);
+    db.exec(`INSERT INTO dim (kind, value) VALUES ('model', 'kept')`);
+    migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND, THIRD]);
+    expect(version(db)).toBe('3');
+    expect(tables(db)).toEqual(expect.arrayContaining(['second', 'third']));
+    expect(count(db, 'dim')).toBe(1);
+    // Again with the same list: the second migration's insert must not repeat.
+    migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND, THIRD]);
+    expect(count(db, 'second')).toBe(1);
+    expect(version(db)).toBe('3');
+  });
+
+  test('a failing migration rolls back whole and leaves the version where it was', () => {
+    const db = database();
+    migrateUsageDatabase(db);
+    const broken = 'CREATE TABLE half (id INTEGER PRIMARY KEY); INSERT INTO missing VALUES (1);';
+    expect(() => migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND, broken])).toThrow();
+    // The one before it committed; the broken one left nothing behind.
+    expect(version(db)).toBe('2');
+    expect(tables(db)).toContain('second');
+    expect(tables(db)).not.toContain('half');
+  });
+
+  test('migrations never run backwards: a newer database is refused untouched', () => {
+    const db = database();
+    migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND]);
+    const before = tables(db);
+    expect(() => migrateUsageDatabase(db)).toThrow(/schema version 2/);
+    expect(tables(db)).toEqual(before);
+    expect(version(db)).toBe('2');
+  });
+
+  test('the writer migrates at start and reopening is a no-op', () => {
+    const first = open();
+    first.store.insert([item(usagePayload())], INGEST.subscribed);
+    first.close();
+    const second = open({ root: first.root });
+    expect(second.store.getMeta('schema_version')).toBe('1');
+    expect(count(second.reader(), 'events')).toBe(1);
   });
 });
 

@@ -6,6 +6,7 @@ import {
   TIMING_METHODS,
   USAGE_FLAG,
   type AccountLabelLookup,
+  type EventSession,
   type EventTiming,
   type EventTokens,
   type NormalizeResult,
@@ -195,6 +196,14 @@ function requestMetadata(value: unknown, maxBytes: number): string | null {
     .replace(/[\s\p{C}\p{Zl}\p{Zp}]+/gu, ' ')
     .trim();
   return orNull(truncateUtf8(cleaned, maxBytes));
+}
+
+const UUID_VERSION = /^[0-9a-f]{8}-[0-9a-f]{4}-([0-9a-f])[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** The proxy projects every id it derives itself to a version 8 UUID (session/identity.go). */
+function eventSession(value: unknown): EventSession | null {
+  const uuid = text(value);
+  return uuid ? { uuid, derived: UUID_VERSION.exec(uuid)?.[1] === '8' } : null;
 }
 
 const ENDPOINT = /^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+(\S+)/;
@@ -410,6 +419,8 @@ export function normalizeUsagePayload(
         : RECORD_KIND.unknown;
 
   const authIndex = text(record.auth_index);
+  const session = eventSession(record.session_id);
+  const parentSession = session ? eventSession(record.parent_session_id) : null;
   const label = authIndex && labelFor ? labelFor(authIndex) : undefined;
   const apiKey = text(record.api_key);
   const endpoint = ENDPOINT.exec(text(record.endpoint));
@@ -439,6 +450,7 @@ export function normalizeUsagePayload(
       usageFlags,
       recordKind,
       stream: typeof record.stream === 'boolean' ? record.stream : null,
+      authIndex: orNull(authIndex),
       account: orNull(label?.account ?? '') ?? orNull(authIndex),
       accountLabel: orNull(label?.label ?? ''),
       apiKeyHash: apiKey ? createHash('sha256').update(apiKey).digest('hex') : null,
@@ -450,8 +462,8 @@ export function normalizeUsagePayload(
       executor: orNull(executor),
       requestId: orNull(text(record.request_id)),
       parentExecutionId: orNull(text(record.parent_execution_id)),
-      sessionId: orNull(text(record.session_id)),
-      parentSessionId: orNull(text(record.parent_session_id)),
+      session,
+      parentSession: parentSession?.uuid === session?.uuid ? null : parentSession,
       traceId: orNull(text(record.trace_id)),
       timing: eventTiming(record.timing),
     },
