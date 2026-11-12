@@ -396,6 +396,10 @@ columns are authoritative, including `service_tier`; raw tiers cannot override
 it. Model identities follow CPAMP's persisted-column aggregation expressions;
 metadata-only flags/kind/identifiers follow CPAMP's Go envelope contract. This
 independent audit intentionally does not reuse the algorithm under test.
+Known decoded metadata objects accept only canonical field casing and JSON types.
+Case aliases or wrong types produce an unexplained event with reason
+`non-canonical CPAMP metadata encoding`; they are never normalized into a match.
+Nullable timing offsets and unrelated extension keys retain their existing meaning.
 
 The harness compares the seven token fields and the event identity, timing,
 models, provider, tier, failure, status, flags and record kind, plus exporter

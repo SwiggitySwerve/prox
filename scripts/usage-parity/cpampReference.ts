@@ -88,6 +88,77 @@ const counters = [
 ] as const;
 const count = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+const USAGE_FIELD_BITS = {
+  input_tokens: USAGE_FLAG.inputTokens,
+  output_tokens: USAGE_FLAG.outputTokens,
+  reasoning_tokens: USAGE_FLAG.reasoningTokens,
+  cache_read_tokens: USAGE_FLAG.cacheReadTokens,
+  cache_creation_tokens: USAGE_FLAG.cacheCreationTokens,
+  total_tokens: USAGE_FLAG.totalTokens,
+};
+
+type MetadataShape = {
+  readonly [key: string]: 'string' | 'boolean' | 'integer' | 'nullable-integer' | MetadataShape;
+};
+const METADATA_SHAPE: MetadataShape = {
+  ...Object.fromEntries(CPAMP_METADATA_KEYS.map((key) => [key, 'string' as const])),
+  accounting_version: 'integer',
+  usage_fields: Object.fromEntries(
+    Object.keys(USAGE_FIELD_BITS).map((key) => [key, 'boolean' as const])
+  ),
+  token_breakdown: {
+    schema_version: 'integer',
+    quality: 'string',
+    total_tokens: 'integer',
+    unclassified_tokens: 'integer',
+    input: {
+      total_tokens: 'integer',
+      uncached_tokens: 'integer',
+      cache_read_tokens: 'integer',
+      cache_write_tokens: 'integer',
+    },
+    output: {
+      total_tokens: 'integer',
+      non_reasoning_tokens: 'integer',
+      reasoning_tokens: 'integer',
+    },
+  },
+  timing: {
+    origin: 'string',
+    upstream_start_ms: 'nullable-integer',
+    first_response_ms: 'nullable-integer',
+    first_content_ms: 'nullable-integer',
+    recorded_ms: 'nullable-integer',
+  },
+};
+// Go's struct decoder folds field names; the oracle supports only canonical encodings.
+// Reject aliases instead of trying to reproduce Go's matching/assignment precedence.
+function canonicalMetadata(value: unknown, shape: MetadataShape, optionalValues = false): boolean {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  for (const [key, child] of Object.entries(value)) {
+    if (!Object.hasOwn(shape, key)) {
+      // The fixed ASCII field names contain no regexp metacharacters. Unicode case folding
+      // also catches aliases such as input_tokenſ, which Go matches to input_tokens.
+      if (Object.keys(shape).some((known) => new RegExp(`^${known}$`, 'iu').test(key)))
+        return false;
+      continue; // Unrelated extensions are ignored by both decoders.
+    }
+    const rule = shape[key];
+    if (child === null && (optionalValues || rule === 'nullable-integer')) continue;
+    if (typeof rule === 'object') {
+      if (!canonicalMetadata(child, rule)) return false;
+    } else if (rule === 'integer' || rule === 'nullable-integer') {
+      if (typeof child !== 'number' || !Number.isSafeInteger(child)) return false;
+    } else if (typeof child !== rule) return false;
+  }
+  return true;
+}
+export interface NonCanonicalMetadata {
+  execution_id: string;
+  id: number;
+  timestamp_ms: number;
+  error: 'non-canonical CPAMP metadata encoding';
+}
 // Flags have no CPAMP columns: independently encode CPAMP's envelope metadata in Prox's bit layout.
 function metadataFlags(
   metadata: Record<string, unknown>,
@@ -96,22 +167,17 @@ function metadataFlags(
 ) {
   let flags = identifier(metadata.usage_presence) === 'reported' ? USAGE_FLAG.presenceReported : 0;
   const fields = object(metadata.usage_fields);
-  const bits = {
-    input_tokens: USAGE_FLAG.inputTokens,
-    output_tokens: USAGE_FLAG.outputTokens,
-    reasoning_tokens: USAGE_FLAG.reasoningTokens,
-    cache_read_tokens: USAGE_FLAG.cacheReadTokens,
-    cache_creation_tokens: USAGE_FLAG.cacheCreationTokens,
-    total_tokens: USAGE_FLAG.totalTokens,
-  };
   if (
     metadata.usage_fields &&
     !Array.isArray(metadata.usage_fields) &&
     typeof metadata.usage_fields === 'object' &&
-    Object.keys(bits).every((key) => fields[key] == null || typeof fields[key] === 'boolean')
+    Object.keys(USAGE_FIELD_BITS).every(
+      (key) => fields[key] == null || typeof fields[key] === 'boolean'
+    )
   ) {
     flags |= USAGE_FLAG.fieldsPresent;
-    for (const [key, bit] of Object.entries(bits)) if (fields[key] === true) flags |= bit;
+    for (const [key, bit] of Object.entries(USAGE_FIELD_BITS))
+      if (fields[key] === true) flags |= bit;
   }
   const b = object(metadata.token_breakdown),
     input = object(b.input),
@@ -147,7 +213,7 @@ export function cpampReference(
   row: CpampSourceRow,
   checks: Preconditions,
   seen: Set<string>
-): EventValues | null {
+): EventValues | NonCanonicalMetadata | null {
   if (!row.valid_json) checks.invalidJson++;
   const extracted = JSON.parse(row.metadata) as unknown[];
   const metadata = Object.fromEntries(CPAMP_METADATA_KEYS.map((key, i) => [key, extracted[i]]));
@@ -156,6 +222,13 @@ export function cpampReference(
   if (!execution) checks.missingExecutionId++;
   else if (duplicate) checks.duplicateExecutionId++;
   else seen.add(execution);
+  if (!canonicalMetadata(metadata, METADATA_SHAPE, true))
+    return {
+      execution_id: execution,
+      id: row.id,
+      timestamp_ms: Number(row.timestamp_ms),
+      error: 'non-canonical CPAMP metadata encoding',
+    };
   const validTimestamp =
     Number.isSafeInteger(row.timestamp_ms) && Math.abs(Number(row.timestamp_ms)) <= 8.64e15;
   const validTokens = counters.every((key) => count(row[key]));

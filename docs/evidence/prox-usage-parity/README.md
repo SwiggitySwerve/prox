@@ -265,7 +265,7 @@ sentences and every extra condition. Its tests reject missing fixed sentences,
 unknown or duplicated extras, malformed/out-of-range gap claims and incompatible
 raw-completeness claims. No live comparison was run for these corrections.
 
-Review validation used Bun 1.4.3, with every heavy command prefixed by
+Review validation at `649ef21e` used Bun 1.4.3, with every heavy command prefixed by
 `ionice -c3 nice -n10`:
 
 - Harness: **43 passed, 0 failed**, 6,162 assertions across the four parity suites.
@@ -280,3 +280,22 @@ Review validation used Bun 1.4.3, with every heavy command prefixed by
   deadline termination; known coverage changes are counted separately.
 - `git diff --check` passed. No live comparisons, DB writes, unit installs,
   timer activation or deployment were performed.
+
+
+## Round 2 correction (N1)
+
+The oracle now fails closed on case aliases or incorrect JSON types in the known
+decoded metadata objects (`usage_fields`, timing and token-breakdown subobjects),
+and on wrong types in selected metadata values. Such a row is an unexplained
+comparison with the fixed reason `non-canonical CPAMP metadata encoding`. It
+cannot count as matched or be overwritten by a later valid duplicate. The report
+includes the corresponding Prox row without copying the rejected raw metadata.
+Canonical nullable timing offsets and unrelated extension keys remain supported.
+
+Validation on Bun 1.4.3: **48 harness tests passed**, 6,233 assertions. The new
+regressions include mixed-case/duplicate-case field aliases, the zero-token case
+where Prox returns null, wrong types across the decoded objects, nullable/extension
+compatibility, and a later duplicate. Standalone script/test TypeScript,
+changed-file ESLint and `git diff --check` passed. The last full verification is
+the 3,135-test run at `649ef21e` recorded above; this focused N1 request reran the
+harness checks. No live comparison, database change or unit activation occurred.

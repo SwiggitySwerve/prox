@@ -3,7 +3,12 @@ import { constants, Database } from 'bun:sqlite';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { cpampPreconditions, type CpampSourceRow } from '../../server/usage/importCpamp';
-import { cpampReference, CPAMP_PARITY_COLUMNS, type EventValues } from './cpampReference';
+import {
+  cpampReference,
+  CPAMP_PARITY_COLUMNS,
+  type EventValues,
+  type NonCanonicalMetadata,
+} from './cpampReference';
 import { DUAL_RUN_START } from './matrix';
 import { diffValues, type Difference } from './compare';
 import type { QueryGate } from './io';
@@ -140,7 +145,7 @@ export async function compareEvents(
   const seen = new Set<string>();
   for (let start = from; start < toMs; start += 300_000) {
     const end = Math.min(toMs, start + 300_000);
-    const expected = new Map<string, EventValues>();
+    const expected = new Map<string | number, EventValues | NonCanonicalMetadata>();
     const actual = new Map<string, TargetRow>();
     let timestamp = start,
       id = -1;
@@ -160,7 +165,7 @@ export async function compareEvents(
             },
             prox: null,
           });
-        else expected.set(event.execution_id, event);
+        else expected.set('error' in event ? row.id : event.execution_id, event);
       }
       if (rows.length < 1000) break;
       timestamp = Number(rows.at(-1)!.timestamp_ms);
@@ -178,8 +183,19 @@ export async function compareEvents(
       timestamp = rows.at(-1)!.ts_ms;
       id = rows.at(-1)!.seq;
     }
-    for (const [execution, row] of expected) {
+    for (const [key, row] of expected) {
+      const execution = row.execution_id;
       const found = actual.get(execution);
+      if ('error' in row) {
+        emit({
+          class: 'unexplained',
+          path: `events.${execution || `cpamp-row-${key}`}.metadata`,
+          cpamp: { id: row.id, timestamp_ms: row.timestamp_ms, error: row.error },
+          prox: found ?? null,
+        });
+        actual.delete(execution);
+        continue;
+      }
       if (!found) {
         const gap = result.gaps.find((interval) => overlaps(row, interval));
         emit({

@@ -14,6 +14,9 @@ import {
   mapCpampRow,
   type CpampSourceRow,
 } from '../server/usage/importCpamp';
+import { queryAnalytics } from '../server/usage/analytics';
+import { query, rateState } from './helpers/usageAnalytics';
+import { usagePayloadNumber } from './fixtures/usagePayloads';
 import { UsageStore } from '../server/usage/store';
 import type { NormalizedEvent } from '../server/usage/types';
 import type { Difference } from '../scripts/usage-parity/compare';
@@ -274,4 +277,135 @@ test('independent CPAMP flag decoding keeps Go whitespace semantics rather than 
     cpamp: f.events[0].usageFlags & ~128,
     prox: f.events[0].usageFlags,
   });
+});
+
+function proxMappedEvent(f: ReturnType<typeof fixture>) {
+  const row = f.source
+    .query<CpampSourceRow, []>(`SELECT ${CPAMP_EVENT_COLUMNS} FROM usage_events`)
+    .get()!;
+  const event = mapCpampRow(row, cpampPreconditions(), new Set());
+  if (!event) throw new Error('Expected a valid Prox-side fixture');
+  return event;
+}
+test('mixed-case CPAMP usage_fields fails closed even when the old oracle and Prox flags agree', async () => {
+  const f = fixture();
+  f.cpamp.db.exec(
+    `UPDATE usage_events SET raw_json=json_set(raw_json,'$.usage_fields',json('{"INPUT_TOKENS":true}'))`
+  );
+  const prox = proxMappedEvent(f);
+  expect(prox.usageFlags).toBe(385); // Go struct decoding would set input_tokens too: 387.
+  f.insert(prox);
+  const report = await f.run();
+  expect(report.matched).toBe(0);
+  expect(f.differences).toHaveLength(1);
+  expect(f.differences[0]).toMatchObject({
+    class: 'unexplained',
+    cpamp: { error: 'non-canonical CPAMP metadata encoding' },
+    prox: { usage_flags: 385 },
+  });
+});
+test('mixed-case zero-token reporting cannot be silently matched to Prox null', async () => {
+  const f = fixture();
+  const raw = usagePayloadNumber(1, {
+    usage_fields: { INPUT_TOKENS: true },
+    tokens: {
+      input_tokens: 0,
+      output_tokens: 0,
+      reasoning_tokens: 0,
+      cache_read_tokens: 0,
+      cache_creation_tokens: 0,
+      total_tokens: 0,
+    },
+    token_breakdown: {
+      schema_version: 2,
+      quality: 'complete',
+      total_tokens: 0,
+      unclassified_tokens: 0,
+      input: { total_tokens: 0, uncached_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 },
+      output: { total_tokens: 0, non_reasoning_tokens: 0, reasoning_tokens: 0 },
+    },
+  });
+  f.cpamp.db
+    .query(
+      `UPDATE usage_events SET normalized_total_input_tokens=0,
+    normalized_uncached_input_tokens=0, normalized_cache_read_tokens=0,
+    normalized_cache_creation_tokens=0, output_tokens=0, reasoning_tokens=0, total_tokens=0,
+    raw_json=?`
+    )
+    .run(JSON.stringify(raw));
+  const prox = proxMappedEvent(f);
+  expect(prox.usageFlags).toBe(385);
+  f.insert(prox);
+  const response = queryAnalytics(
+    f.target,
+    query({ from_ms: START, to_ms: START + 300000 }),
+    rateState()
+  );
+  // CPAMP's Go decoder reports input_tokens=0; Prox treats the uppercase flag as absent.
+  expect(response.requests.items[0].input_tokens).toBeNull();
+  expect((await f.run()).matched).toBe(0);
+  expect(f.differences).toHaveLength(1);
+  expect(f.differences[0].cpamp).toMatchObject({ error: 'non-canonical CPAMP metadata encoding' });
+});
+test('all decoded metadata objects reject case aliases and wrong JSON types', async () => {
+  const cases: [string, unknown][] = [
+    ['$.usage_fields', { Input_Tokens: true }],
+    ['$.usage_fields', { input_tokens: false, INPUT_TOKENS: true }],
+    ['$.usage_fields', { input_tokenſ: true }],
+    ['$.usage_fields', { input_tokens: 'true' }],
+    ['$.usage_fields', { input_tokens: 1 }],
+    ['$.usage_fields', { input_tokens: null }],
+    ['$.usage_fields', []],
+    ['$.usage_fields', true],
+    ['$.token_breakdown.INPUT', {}],
+    ['$.token_breakdown.schema_version', '2'],
+    ['$.token_breakdown.input.Total_Tokens', 950],
+    ['$.token_breakdown.output.reasoning_tokens', '60'],
+    ['$.token_breakdown.input', []],
+    ['$.token_breakdown.quality', false],
+    ['$.timing.FIRST_RESPONSE_MS', 340],
+    ['$.timing.first_response_ms', '340'],
+    ['$.timing.origin', []],
+    ['$.instance_id', 123],
+    ['$.accounting_version', '2'],
+  ];
+  for (const [path, value] of cases) {
+    const f = fixture();
+    f.cpamp.db
+      .query('UPDATE usage_events SET raw_json=json_set(raw_json,?,json(?))')
+      .run(path, JSON.stringify(value));
+    f.insert(proxMappedEvent(f));
+    expect((await f.run()).matched).toBe(0);
+    expect(f.differences).toHaveLength(1);
+    expect(f.differences[0]).toMatchObject({
+      class: 'unexplained',
+      cpamp: { error: 'non-canonical CPAMP metadata encoding' },
+    });
+  }
+});
+test('canonical nullable timing and unrelated extension keys remain supported', async () => {
+  const f = fixture();
+  f.cpamp.db.exec(`UPDATE usage_events SET raw_json=json_set(raw_json,
+    '$.usage_fields.extension',json('{"INPUT_TOKENS":"ignored extension"}'),
+    '$.timing.first_response_ms',NULL)`);
+  f.insert(proxMappedEvent(f));
+  expect((await f.run()).matched).toBe(1);
+  expect(f.differences).toEqual([]);
+});
+
+test('a later valid duplicate cannot overwrite a rejected metadata event', async () => {
+  const f = fixture();
+  f.cpamp.db.exec(
+    `UPDATE usage_events SET raw_json=json_set(raw_json,'$.usage_fields',json('{"INPUT_TOKENS":true}'))`
+  );
+  f.cpamp.add(cpampRow(1, { id: 2, timestamp_ms: START + 1 }));
+  f.insert(f.events[0]);
+  const report = await f.run();
+  expect(report.matched).toBe(0);
+  expect(report.preconditions.duplicateExecutionId).toBe(1);
+  expect(
+    f.differences.some(
+      (d) => (d.cpamp as { error?: string })?.error === 'non-canonical CPAMP metadata encoding'
+    )
+  ).toBe(true);
 });
