@@ -57,6 +57,16 @@ const COMPONENT_FLAGS =
   USAGE_FLAG.cacheReadTokens |
   USAGE_FLAG.cacheCreationTokens;
 
+/** Shared money arithmetic. Preserve each term's rounding and cache-write inheritance. */
+export function tokenCostUsd(tokens: EventTokens, rates: RateValues): number {
+  return (
+    (tokens.inputUncached * (rates.input ?? 0)) / 1_000_000 +
+    (tokens.cacheRead * (rates.cache_read ?? 0)) / 1_000_000 +
+    (tokens.cacheWrite * (rates.cache_write ?? rates.input ?? 0)) / 1_000_000 +
+    (tokens.outputTotal * (rates.output ?? 0)) / 1_000_000
+  );
+}
+
 export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost {
   const calls = group.calls ?? 1;
   for (const [key, value] of Object.entries({ ...group.tokens, calls })) {
@@ -122,11 +132,7 @@ export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost
         if (name && name !== 'default' && name !== 'standard' && !serviceRate(price, tier)) {
           result.reasons.push('service-tier-rate-not-explicit');
         }
-        result.usd =
-          (tokens.inputUncached * (effective.input ?? 0)) / 1_000_000 +
-          (tokens.cacheRead * (effective.cache_read ?? 0)) / 1_000_000 +
-          (tokens.cacheWrite * (effective.cache_write ?? effective.input ?? 0)) / 1_000_000 +
-          (tokens.outputTotal * (effective.output ?? 0)) / 1_000_000;
+        result.usd = tokenCostUsd(tokens, effective);
         result.status = result.reasons.length
           ? 'partial'
           : result.usd === 0 && effective.input === 0 && effective.output === 0
