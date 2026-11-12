@@ -303,17 +303,22 @@ describe('enumerated quota sources', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    f.delay(async () => {
+    let targetedSettled = false;
+    const early: string[] = [];
+    f.delay(async (call) => {
+      // Only the full refresh reads the other sources; it must not start before the targeted read ends.
+      if (!targetedSettled && call.instanceId !== account.instanceId) early.push(call.instanceId);
       await gate;
     });
-    const targeted = f.collector.refreshAccount(account.id);
+    const targeted = f.collector.refreshAccount(account.id).finally(() => {
+      targetedSettled = true;
+    });
     const full = f.collector.refresh();
     await until(() => f.calls.length > 0); // The targeted read is parked at the gate.
-    await Bun.sleep(5); // Then give the blocked full refresh a chance to wrongly proceed.
-    expect(f.calls).toHaveLength(1);
     release();
     expect(await targeted).toBe(true);
     await full;
+    expect(early).toEqual([]);
     f.advance();
     f.calls.length = 0;
     const before = f.store.listAccounts();
