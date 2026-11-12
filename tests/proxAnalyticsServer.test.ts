@@ -53,7 +53,9 @@ function fixture() {
     await cpaGate;
     if (cpaStatus !== 200)
       return new Response('private cpa credential leak sentinel', { status: cpaStatus });
+    const sent = JSON.parse(String(init?.body ?? '{}')) as { catalog?: { id: string }[] };
     return Response.json({
+      catalog_ids: [...new Set((sent.catalog ?? []).map((entry) => entry.id))],
       generated_at_ms: calls.filter((call) => call.url.startsWith('http://cpa.test')).length,
       schema_version: 1,
       summary: {},
@@ -421,25 +423,31 @@ describe('Prox analytics bridge', () => {
         f.clean();
       }
     });
-    test('a Refresh during a background recompute still uses the newly registered catalog', async () => {
+    test('a Refresh supersedes a background recompute: it starts at once, and the older result never overwrites it', async () => {
       const f = fixture();
       try {
         await f.handler(request(view(f, 7 * DAY)));
-        // The snapshot goes stale while the catalog is still cached; the next visit starts a
-        // background recompute with that cached catalog, held at CPA.
+        // Stale while the catalog is still cached: the visit starts a background recompute
+        // with that catalog, held at CPA.
         f.advance(2 * 60_000);
-        const release = f.holdCpa();
+        const releaseOld = f.holdCpa();
         await f.handler(request(view(f, 7 * DAY)));
         await Bun.sleep(10);
+        expect(f.cpaCalls()).toBe(2);
         f.register('new-model');
+        const releaseNew = f.holdCpa();
         const refreshed = f.handler(
           request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' })
         );
         await Bun.sleep(10);
-        release();
-        expect((await refreshed).status).toBe(200);
-        const last = f.calls.filter((call) => call.url.startsWith('http://cpa.test')).at(-1);
-        expect(JSON.stringify(last?.body?.catalog)).toContain('new-model');
+        // The Refresh asked CPA right away instead of waiting out the earlier recompute.
+        expect(f.cpaCalls()).toBe(3);
+        releaseNew();
+        expect((await (await refreshed).json()).catalog_ids).toEqual(['new-model']);
+        releaseOld();
+        await Bun.sleep(10);
+        const after = await (await f.handler(request(view(f, 7 * DAY)))).json();
+        expect(after.catalog_ids).toEqual(['new-model']);
       } finally {
         f.clean();
       }

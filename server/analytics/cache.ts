@@ -32,6 +32,10 @@ interface Entry {
   tried: number;
   touched: number;
   inflight?: Promise<Outcome>;
+  // The inflight recompute was started by a Refresh, so another Refresh may share it.
+  inflightFresh?: boolean;
+  // Sequence number of the recompute whose result is in body; an older one never replaces it.
+  applied: number;
 }
 
 /**
@@ -86,12 +90,21 @@ export function createSnapshotCache(
         ? SEED_TTL
         : FIXED_TTL;
 
-  function refresh(key: string, entry: Entry, query: Query): Promise<Outcome> {
-    if (entry.inflight) return entry.inflight;
+  let sequence = 0;
+  /**
+   * A Refresh (supersede) never joins a recompute that started before it, which may hold the
+   * catalog or data it was meant to replace, and never waits for one either: waiting plus its
+   * own recompute could outlast the browser's timeout. It starts at once; whichever result is
+   * newer wins.
+   */
+  function refresh(key: string, entry: Entry, query: Query, supersede = false): Promise<Outcome> {
+    if (entry.inflight && (!supersede || entry.inflightFresh)) return entry.inflight;
     const started = clock();
+    const mine = ++sequence;
     entry.tried = started;
     const work = compute(query).then((outcome) => {
-      if (outcome.ok) {
+      if (outcome.ok && mine > entry.applied) {
+        entry.applied = mine;
         entry.body = outcome.body;
         entry.query = query;
         entry.at = clock();
@@ -102,8 +115,9 @@ export function createSnapshotCache(
       return outcome;
     });
     entry.inflight = work;
+    entry.inflightFresh = supersede;
     void work.finally(() => {
-      entry.inflight = undefined;
+      if (entry.inflight === work) entry.inflight = undefined;
     });
     return work;
   }
@@ -111,7 +125,17 @@ export function createSnapshotCache(
   function entryFor(key: string, query: Query, live: boolean, now: number): Entry {
     let entry = entries.get(key);
     if (entry) entries.delete(key);
-    else entry = { query, live, pinned: false, at: 0, took: 0, tried: -Infinity, touched: now };
+    else
+      entry = {
+        query,
+        live,
+        pinned: false,
+        at: 0,
+        took: 0,
+        tried: -Infinity,
+        touched: now,
+        applied: 0,
+      };
     entries.set(key, entry);
     for (const [other, candidate] of entries) {
       if (entries.size <= MAX_ENTRIES) break;
@@ -127,9 +151,6 @@ export function createSnapshotCache(
       const entry = entryFor(key, query, live, now);
       entry.touched = now;
       lastUsed = now;
-      // A Refresh never joins a recompute that started before it: that one may hold a catalog
-      // or data the Refresh was meant to replace. Let it finish, then start a new one.
-      if (fresh && entry.inflight) await entry.inflight;
       if (!fresh && entry.body !== undefined) {
         const age = now - entry.at;
         if (age < refreshAfter(entry)) return { ok: true, body: entry.body };
@@ -140,7 +161,7 @@ export function createSnapshotCache(
           return { ok: true, body: entry.body };
         }
       }
-      return refresh(key, entry, query);
+      return refresh(key, entry, query, fresh);
     },
     /** Refresh the default views, and any live view someone opened recently, one at a time. */
     async warm(): Promise<void> {
