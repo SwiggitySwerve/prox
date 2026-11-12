@@ -34,6 +34,8 @@ interface Entry {
   body?: unknown;
   // body came from a recompute whose catalog had every source ready.
   ready: boolean;
+  // The latest recompute had a source's catalog unavailable, whether or not body took it.
+  degraded: boolean;
   at: number;
   took: number;
   tried: number;
@@ -116,16 +118,18 @@ export function createSnapshotCache(
     entry.pending += 1;
     const work = compute(query).then((outcome) => {
       entry.pending -= 1;
-      // A catalog blip never replaces a fully ready snapshot that is still servable: the
-      // previous body stays, and the warmer retries on its backoff instead of its full period.
-      const blip = outcome.ok && outcome.degraded && entry.ready && clock() - entry.at < MAX_STALE;
-      if (outcome.ok && !blip && mine > entry.applied) {
-        entry.applied = mine;
-        entry.body = outcome.body;
-        entry.ready = !outcome.degraded;
-        entry.query = query;
-        entry.at = clock();
-        entry.took = entry.at - started;
+      if (outcome.ok && mine > entry.applied) {
+        entry.degraded = outcome.degraded === true;
+        // A catalog blip never replaces a fully ready snapshot that is still servable: the
+        // previous body stays, and the warmer retries on its backoff instead of its full period.
+        if (!(entry.degraded && entry.ready && clock() - entry.at < MAX_STALE)) {
+          entry.applied = mine;
+          entry.body = outcome.body;
+          entry.ready = !entry.degraded;
+          entry.query = query;
+          entry.at = clock();
+          entry.took = entry.at - started;
+        }
       } else if (
         entry.body === undefined &&
         !entry.pinned &&
@@ -154,6 +158,7 @@ export function createSnapshotCache(
         live,
         pinned: false,
         ready: false,
+        degraded: false,
         at: 0,
         took: 0,
         tried: -Infinity,
@@ -221,8 +226,8 @@ export function createSnapshotCache(
             idle || (!entry.pinned && now - entry.touched > HOT_FOR)
               ? Math.max(IDLE_REFRESH, refreshAfter(entry))
               : refreshAfter(entry);
-          // A degraded snapshot is never fresh, so it is retried on the backoff below.
-          const fresh = entry.ready && now - entry.at < every;
+          // After a degraded recompute nothing is fresh, so it is retried on the backoff below.
+          const fresh = entry.ready && !entry.degraded && now - entry.at < every;
           // A failing view is retried on its own cadence (30 s to 5 min), not on every tick.
           const backingOff = now - entry.tried < Math.min(every, MAX_REFRESH);
           // A view evicted while it waited in the queue is not worth a CPA query.

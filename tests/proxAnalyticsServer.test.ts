@@ -448,6 +448,31 @@ describe('Prox analytics bridge', () => {
         f.clean();
       }
     });
+    test('a blip on an active view is still retried soon after the page goes idle', async () => {
+      const f = fixture();
+      try {
+        const view = () => live(f, 2 * DAY);
+        const viewCalls = () =>
+          f.calls.filter(
+            ({ url, body }) =>
+              url.startsWith('http://cpa.test') &&
+              Number(body?.to_ms) - Number(body?.from_ms) === 2 * DAY
+          ).length;
+        await f.handler(request(view()));
+        f.failBeta();
+        // Past the catalog's reuse period, so the background recompute sees the blip.
+        f.advance(6 * 60_000);
+        await f.handler(request(view()));
+        await settle();
+        expect(viewCalls()).toBe(2);
+        // Idle now, and the retained ready snapshot is younger than the idle period.
+        f.advance(16 * 60_000);
+        await f.handler.warm();
+        expect(viewCalls()).toBe(3);
+      } finally {
+        f.clean();
+      }
+    });
   });
   describe('catalog reuse', () => {
     const DAY = 86_400_000;
