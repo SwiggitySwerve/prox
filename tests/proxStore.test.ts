@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 describe('QuotaStore', () => {
-  test('commits without an fsync each: WAL with synchronous NORMAL, so a busy disk cannot stall the server', () => {
+  test('opens the quota connection with synchronous NORMAL', () => {
     // The same Bun thread serves cached analytics; FULL would fsync on every inventory poll.
     const { store } = open();
     const db = (store as unknown as { db: Database }).db;
