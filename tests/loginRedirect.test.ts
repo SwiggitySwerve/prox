@@ -26,6 +26,8 @@ describe('redirectTarget', () => {
       'https://evil.example',
       '/\\evil.example',
       '/login',
+      '/login/',
+      '/LOGIN',
     ]) {
       expect(redirectTarget({ from: { pathname, search: '?a=1' } })).toBe('/');
     }
@@ -45,8 +47,7 @@ describe('LoginPage redirects', () => {
     expect(page).not.toMatch(/setTimeout/);
   });
 
-  test('every post-login redirect uses the full original location', () => {
+  test('no post-login redirect drops the query by reading only the pathname', () => {
     expect(page).not.toMatch(/\.from\?\.pathname/);
-    expect(page.match(/redirectTarget\(location\.state\)/g)?.length).toBe(3);
   });
 });

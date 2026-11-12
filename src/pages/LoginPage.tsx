@@ -126,9 +126,10 @@ export function LoginPage() {
 
   useEffect(() => {
     const init = async () => {
+      let restored = false;
       try {
-        const autoLoggedIn = await restoreSession();
-        if (autoLoggedIn) {
+        restored = await restoreSession();
+        if (restored) {
           // The splash is already showing; waiting on it would delay the page the user asked for.
           navigate(redirectTarget(location.state), { replace: true });
         } else {
@@ -137,7 +138,9 @@ export function LoginPage() {
           setRememberPassword(storedRememberPassword || Boolean(storedKey));
         }
       } finally {
-        setAutoLoading(false);
+        // Keep the splash until the route swaps: ending it here would also render <Navigate>,
+        // a second navigation to the same place with a blank frame between.
+        if (!restored) setAutoLoading(false);
       }
     };
 
