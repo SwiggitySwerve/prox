@@ -94,7 +94,11 @@ const nonempty = (value: string | number | null): string | null =>
   typeof value === 'string' && value.trim() ? value.trim() : null;
 
 /** Copy persisted accounting; reuse the normalizer for metadata validation and session provenance. */
-export function mapCpampRow(row: CpampSourceRow, checks: Preconditions, seen: Set<string>): NormalizedEvent | null {
+export function mapCpampRow(
+  row: CpampSourceRow,
+  checks: Preconditions,
+  seen: Set<string>
+): NormalizedEvent | null {
   if (!row.valid_json) checks.invalidJson += 1;
   const extracted = JSON.parse(row.metadata) as unknown[];
   const metadata = Object.fromEntries(METADATA_KEYS.map((key, index) => [key, extracted[index]]));

@@ -5,8 +5,9 @@ the analytics calculations. It is the `prox-usage` service: its own process and
 unit, not part of the history server.
 
 - `prox-usage` is the only consumer of the proxies' usage stream and the only
-  process that opens `usage.sqlite`. Everything else reads through its loopback
-  HTTP API. The history server, the browser and the exporter never open the file.
+  live process that opens `usage.sqlite`. Other services read through its loopback
+  HTTP API. The offline operator parity reader is the exception documented below.
+  The history server, the browser and the exporter never open the file.
 - The thread that owns sockets makes no SQLite call. There is exactly one write
   connection, in the writer worker; every write is a job in its queue. Readers
   are read-only and bounded by the request deadline.
@@ -438,3 +439,41 @@ API, and records 50 warm worker responses per view while inserting synthetic
 traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
 The live performance/parity gate is a separate deployment responsibility; a
 30-day p95 above 1 s requires P5b before P6, per the plan.
+
+## Offline parity evidence
+
+`scripts/usage-parity.ts` is the operator-only read exception during the dual run.
+It opens CPAMP and Prox with SQLite URI `mode=ro`, read-only flags and
+`query_only=1`; it never imports/reconciles, writes events or joins either server's
+runtime graph. CPAMP reads force `idx_usage_events_timestamp`, use five-minute
+windows and 1,000-row keyset pages. `importCpamp.ts` exports its allowlisted
+`CPAMP_EVENT_COLUMNS`, `mapCpampRow` and `cpampPreconditions` for this reader;
+there is one CPAMP accounting/metadata mapping for import and parity.
+
+The harness compares the seven token fields and the event identity, timing,
+models, provider, tier, failure, status, flags and record kind, plus exporter
+account, account-label and client-key-hash dimensions. The import owner's account
+fallback (snapshot, then label, then credential index) still applies. No label
+snapshot timing exception is authorized by this harness. A missing Prox event is
+explained only by a matching instance/time in `ingest_gaps`; a Prox-only drained
+event needs an explicit, documented CPAMP outage interval. Subscribed extras fail.
+
+All operations share the existing IO governor and one serial query gate, with a
+2-second default minimum gap after completion, cancellable PSI waits, measured
+DB-byte pacing and a nonzero exit on unexplained differences, failure or abort.
+There are no retries of expensive queries. The only response normalization is
+plan §3.3's four volatile fields, relative `cost.usd` tolerance and ordering inside
+equal-timestamp runs. Provider and trace provenance differences apply only to
+request-detail fields and are counted. A D5 price exception needs two read-only
+replays through `queryAnalytics`: the approved deployed book must reproduce the
+Prox value, and removing only the two D5 models must reproduce CPAMP's value.
+Other differences, including coverage and one-sided paging, fail the run.
+
+The matrix is ported from CPAMP commit `52b12b45e010a766bd69ff55a55e566263d8bede`.
+Its current source has 672 quick / 5,904 full base queries, with coupled view
+rotation rather than extra time-zone/granularity factors. All view slots are kept
+and mapped to UTC. Each backend supplies its own second-page cursor. Reports
+reconcile the stale plan counts, expose each axis and window clipping, and retain
+both values for every difference. The disabled user timer template runs quick
+plus events for the previous UTC day at 04:30 UTC; installation and the two-night
+cutover decision belong to the coordinator.
