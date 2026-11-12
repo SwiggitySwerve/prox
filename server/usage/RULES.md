@@ -224,11 +224,15 @@ the measured interval. Tests inject PSI, the clock and byte counters.
   both handles and must close them. `store` is the writer's `UsageStore`;
   `cpampReader` is opened read-only through `store.ts`'s `openUsageReader` with
   `query_only=1` and `temp_store=MEMORY`. No raw payload buffer is needed.
-- Worker integration is deliberately pending. Do **not** enqueue either whole
-  job in P2's `WriterQueue`: its contract requires one bounded chunk per job.
-  `betweenChunks` runs without a transaction, before IO admission; it alone is
-  not a queue adapter. The direct job API currently serves tests and the bounded
-  in-memory mapping check. Do not run two jobs with one governor concurrently.
+- `scheduleChunk(kind, work)` adapts both APIs to `WriterQueue.enqueueJob`.
+  Do **not** enqueue a whole orchestration: the queue receives only synchronous,
+  bounded IO, with byte measurement inside that callback. `runIoChunk` waits for
+  PSI before enqueueing, rechecks admission at execution, releases the queue and
+  retries if pressure rose, then paces the measured bytes outside the queue.
+  Before each queued chunk it yields to the worker's macrotask queue, even when
+  the byte budget requires no sleep, so live and cancel messages are serviced.
+  `betweenChunks` remains an optional pre-admission hook for direct callers.
+  Do not run two jobs with one governor concurrently.
 - Import and reconcile keyset by source `id`, 1,000 rows per transaction. The
   store's `importChunk` commits inserts, deduplicated field conflicts and
   `import:cpamp:last_id` together. Existing events always win. Reconcile continues
@@ -295,8 +299,8 @@ that operational gate belongs to the coordinator, not these job functions.
 ### Backups
 
 The backup job API is `new UsageBackup(config, {governor}).run(store, signal)`.
-Future P2 integration must queue only its snapshot operation, with upload and
-pacing outside the writer queue. `lastSuccessAtMs` starts at null and advances
+The worker queues only its snapshot operation, with upload and pacing outside
+the writer queue. `lastSuccessAtMs` starts at null and advances
 only after all required uploads succeed. It is in-memory health state for later metrics, not a durable
 backup manifest. Job modules open no databases or network listeners.
 
@@ -330,33 +334,53 @@ The coordinator configures the off-pool target and records the quarterly restore
 drill. This PR does not contact MinIO, run a real backup or perform a restore drill.
 
 
-### Remaining worker integration
+### Worker integration and manual controls
 
-P2 landed while this change was being built. Its queue accepts one bounded
-chunk per job, its RPC currently replies only with `WriterStatus`, and any RPC
-failure stops collection. A correct adapter also needs cancellation so shutdown
-cannot wait indefinitely behind PSI or an upload. Together this exceeds the
-coordinator's roughly 150-line limit for wiring in this PR. No worker or admin
-trigger is added here. The integration PR must:
+- `writerRuntime.ts` installs the writer worker's message handler; the separately
+  bundled `writer.worker.ts` calls it. `bulkJobs.ts` owns one active orchestration,
+  a shared governor, the read-only CPAMP handle and a retained `UsageBackup`.
+  Source opening and each bounded import/verification chunk use `enqueueJob`.
+  Only the backup snapshot uses that queue; upload and all waits stay outside.
+- `writerProtocol.ts` carries `import`, `reconcile`, `verify`, `backup`, `cancel`
+  and `job-status` requests. Replies include a typed `job` report in writer status.
+  Start acknowledges admission promptly; poll for completion. A rejected command,
+  bad config, source failure, bulk transaction failure or upload failure is
+  nonfatal. An event-commit failure remains fatal to collection and flush.
+- Reports include an ID, kind, state, timestamps, chunk progress and typed final
+  result. Failure text is fixed and never includes paths, source rows, secrets or
+  signed URLs. The latest report stays until the next manual start, in memory
+  only. IO counters are cumulative for the shared governor, including all jobs;
+  backup last-success state survives subsequent failed/cancelled runs for this
+  worker's lifetime. Save reports externally before starting another run.
+- Shutdown refuses new starts, aborts the active job and settles its orchestration
+  (including an in-flight upload pull and source cleanup) before closing the
+  store. PSI/pacing checks observe cancellation within a one-second sleep; an
+  already-running synchronous chunk or VACUUM must finish first. A failed live
+  flush still requests this worker cleanup and retains its unsuccessful result.
+  A worker error/exit is tracked separately: outstanding RPCs reject and shutdown
+  skips cleanup RPCs to an unavailable worker instead of waiting indefinitely.
+- Worker configuration is lazy: `PROX_USAGE_CPAMP_DB_PATH` is the read-only source;
+  `PROX_USAGE_BULK_BYTES_PER_SECOND` optionally overrides the 4,000,000-byte budget.
+  Backup settings use `loadBackupConfig` above. `UsageWriter.init` also accepts
+  these paths/budget as typed config for embedding and synthetic tests. HTTP
+  never accepts file paths, budget overrides or backup credentials.
+- Nothing starts a bulk job at boot or on a timer. On the existing listener at
+  `127.0.0.1:18320`, the coordinator explicitly calls:
+  - `POST /v1/jobs` with exactly `{"kind":"import"}` (or `reconcile`, `verify`,
+    `backup`): 202 with the running report, 409 if a job is already active.
+  - `POST /v1/jobs/cancel` with exactly `{"jobId":1}`: 202; stale IDs return 409.
+    Cancellation is idempotent for the latest finished job. Poll until settled.
+  - `GET /v1/jobs`: latest report or null. `GET /v1/status` includes the same
+    progress under `writer.job`. Both reads refresh the report through worker RPC.
+  These routes use `server/http/auth.ts`'s same bearer check as `/v1/status`;
+  only `/healthz` is public. Unknown command fields, invalid kinds/IDs, malformed
+  JSON and bodies above 1 KiB are rejected. During shutdown starts return 503.
+- `proxUsageJobs`, `proxUsageWriter`, `proxUsageIoGovernor` and `proxUsageService`
+  tests enforce live commits during PSI, pacing and upload waits; execution-time
+  admission; source/transaction/config failures; cancellation and shutdown;
+  fatal event failures; bearer protection; and the SQLite-free main runtime graph.
+  They use synthetic tmpfs databases and a loopback fake S3 endpoint only.
 
-1. Add a generic chunk scheduler to the job options. Keep PSI waits and byte
-   sleeps outside `WriterQueue`, and recheck admission when a queued chunk
-   starts. Queue each 1,000-row source read/transaction and verification read
-   with `enqueueJob(kind, fn)`; queue only the snapshot for backups. Retain
-   synchronous IO measurement inside each queued chunk so live writes are not
-   charged to it. Upload chunks remain outside the queue.
-2. Extend `writerProtocol.ts` with import/reconcile/verify/backup and cancellation
-   requests and typed job reports/errors. Expose them through `UsageWriter`
-   without making a rejected config/source/backup job fatal to live ingestion.
-3. Have `writer.worker.ts` own a single active bulk orchestration, shared
-   governor, read-only CPAMP handle, backup config and last-success state.
-   Close the source in `finally`; cancel and settle active orchestration before
-   closing the write connection. Live flush/shutdown must not wait six hours on
-   a bulk job's pressure wait. No job/config/source handle belongs in `main.ts`.
-4. Test real worker messages with synthetic CPAMP/fake S3, live commits during
-   PSI and pacing waits, cancellation/shutdown, nonfatal bulk-job failures and
-   the existing main-thread module-graph guard. Keep any later HTTP admin
-   trigger loopback-only and bearer-protected; validate its inputs at the edge.
 
 ## Analytics queries
 

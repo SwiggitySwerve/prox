@@ -125,7 +125,7 @@ Default DBs are `~/.local/share/cpa-manager-plus/usage.sqlite` and
 `~/.local/share/prox-usage/usage.sqlite`; bearer files are
 `~/.config/prox/cpa-admin-key` and
 `~/.config/cli-proxy-rerank/management-key`. The default D5 witness book is
-`~/.config/prox/usage-rates.json`; use `--rate-book` for another deployed path.
+`~/.local/share/prox-usage/usage-rates.json`; use `--rate-book` for another deployed path.
 `--cpamp-outages` accepts a JSON array of
 `{from_ms,to_ms,instance,reason}`; an interval needs an operational reason, not a
 guessed gap. All paths/endpoints have documented `--help` overrides.
@@ -187,6 +187,14 @@ confirming the lockfiles matched; no install or deletion was performed.
   **exit 130**, `status=aborted`, partial report written. IO full avg10 was 2.81;
   the temporary script, databases and keys were deleted. An earlier manual
   preflight stopped before any query because PSI was at least 5.
+- After PR creation, integrated newer `main` at `7741214b` (P3 worker wiring and
+  deployment paths). The import-helper conflict preserves preparation inside the
+  governed chunk and uses the exported row type there. **85 tests across nine
+  affected parity/import/governor/jobs/writer/service suites passed** (6,443
+  assertions), as did `bun run type-check`, standalone script/test TypeScript,
+  changed-file ESLint and `bun run build:usage`. The harness default rate book
+  now matches deployment at `~/.local/share/prox-usage/usage-rates.json`; its CLI
+  regression passed with all nine runner tests after that path adjustment.
 - `git diff --check` passed. No UI route changed, so browser checks do not apply.
 No browser route changed. Live smoke, full matrix, two-night evidence and unit
 installation remain for the coordinator.

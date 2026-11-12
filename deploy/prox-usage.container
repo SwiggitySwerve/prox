@@ -10,6 +10,14 @@ Exec=bun /app/usage/main.js
 Network=host
 Volume=%h/.local/share/prox-usage:/data:rw
 Volume=%h/.config/cli-proxy-rerank/management-key:/run/secrets/proxy-management-key:ro
+# Manual bulk jobs only (POST /v1/jobs). CPAMP's history is read-only here; backup.json is optional
+# until the off-pool target exists, and a backup job fails cleanly without it.
+Volume=%h/.local/share/cpa-manager-plus:/cpamp:ro
+Environment=PROX_USAGE_CPAMP_DB_PATH=/cpamp/usage.sqlite
+Volume=%h/.config/prox-usage:/config:ro
+Environment=PROX_USAGE_BACKUP_CONFIG=/config/backup.json
+# The backup snapshot is written to tmpfs and needs twice the database size free.
+ShmSize=2g
 
 [Service]
 Restart=always

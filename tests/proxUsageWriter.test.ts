@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { UsageWriter, writerWorkerPath } from '../server/usage/writer';
 import { UsageStore, openUsageReader } from '../server/usage/store';
 import { WriterQueue } from '../server/usage/writerQueue';
@@ -14,7 +13,7 @@ afterEach(async () => {
   for (const clean of cleanups.splice(0).reverse()) await clean();
 });
 function paths() {
-  const dir = mkdtempSync(join(tmpdir(), 'prox-usage-writer-'));
+  const dir = mkdtempSync(join('/dev/shm', 'prox-usage-writer-'));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   return { events: join(dir, 'usage.sqlite'), raw: join(dir, 'usage-raw.sqlite'), dir };
 }
@@ -208,4 +207,37 @@ test('live jobs run before queued bulk chunks, with one running job at a time', 
     })
   ).rejects.toThrow('test');
   expect(await queue.enqueueJob('live', () => 42)).toBe(42);
+});
+
+test('close rejects promptly after a worker exits instead of posting to a dead worker', async () => {
+  const files = paths();
+  const entry = join(files.dir, 'exits.worker.ts');
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(
+    entry,
+    `
+    self.onmessage = ({ data }) => {
+      self.postMessage({ id: data.id, ok: true, body: {
+        backlog: 0, inserted: 0, duplicates: 0, rejected: 0, rawBufferFailures: 0, gaps: 0
+      } });
+      setTimeout(() => process.exit(1), 0);
+    };
+  `
+  );
+  const writer = new UsageWriter(entry);
+  let failed = false;
+  writer.onFailure = () => {
+    failed = true;
+  };
+  await writer.init({ events: files.events, raw: null }, []);
+  await eventually(() => failed, 'worker exit notification');
+  const began = performance.now();
+  let error: unknown;
+  try {
+    await writer.close();
+  } catch (caught) {
+    error = caught;
+  }
+  expect(String(error)).toContain('Usage writer unavailable');
+  expect(performance.now() - began).toBeLessThan(500);
 });

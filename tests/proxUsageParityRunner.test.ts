@@ -151,6 +151,7 @@ test('CLI uses fixed UTC windows, validates controls, and preserves nightly sett
   expect(opts.mode).toBe('quick');
   expect(opts.level).toBe('both');
   expect(opts.toMs).toBe(Date.UTC(2026, 10, 13));
+  expect(opts.rateBookFile).toEndWith('/.local/share/prox-usage/usage-rates.json');
   expect(() => parseArgs(['--previous-utc-day', '--limit', '0'], now)).toThrow();
   expect(() => parseArgs(['--previous-utc-day', '--sample', '1.5'], now)).toThrow();
   expect(() => parseArgs(['--previous-utc-day', '--from', '2026-11-12T00:00:00Z'], now)).toThrow();

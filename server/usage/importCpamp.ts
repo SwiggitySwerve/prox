@@ -1,7 +1,7 @@
 // Queue these jobs in the writer worker. No sockets, worker lifecycle or connection opening here.
 import type { Database } from 'bun:sqlite';
 import { checkCpampRollups } from './cpampRollupCheck';
-import { IoGovernor, readIoBytes, type IoBytes } from './ioGovernor';
+import { IoGovernor, runIoChunk, type ChunkScheduler, type IoBytes } from './ioGovernor';
 import { normalizeUsagePayload } from './normalize';
 import type { ImportValues, UsageStore } from './store';
 import { INGEST, USAGE_FLAG, type NormalizedEvent } from './types';
@@ -16,9 +16,20 @@ export interface CpampJobOptions {
   /** A diagnostic limit also bounds verification; never use it for the final migration check. */
   maxRows?: number;
   ioBytes?: () => IoBytes;
+  scheduleChunk?: ChunkScheduler;
+  onProgress?: (progress: CpampProgress) => void;
   /** Wall clock captured before the source maximum; open hours are not rollup-comparable. */
   nowMs?: number;
 }
+
+export interface CpampProgress {
+  phase: 'import' | 'verify';
+  read: number;
+  inserted: number;
+  lastId: number;
+  chunks: number;
+}
+export type CpampReport = Awaited<ReturnType<typeof runCpampJob>>;
 
 export interface Preconditions {
   missingExecutionId: number;
@@ -227,47 +238,37 @@ function compareHours(source: Hours, target: Hours) {
  * Target-only live traffic is excluded. Independent CPAMP rollups check fully covered hours.
  */
 export async function runCpampJob(store: UsageStore, source: Database, options: CpampJobOptions) {
-  if (source.query<{ query_only: number }, []>('PRAGMA query_only').get()?.query_only !== 1) {
-    throw new Error('CPAMP handle must be read-only with PRAGMA query_only=1');
-  }
   if (
     options.maxRows !== undefined &&
     (!Number.isSafeInteger(options.maxRows) || options.maxRows < 1)
   ) {
     throw new Error('maxRows must be a positive safe integer');
   }
-  // mmap reads are invisible to syscall byte counters; do not use them for bulk scans.
-  source.exec('PRAGMA mmap_size=0');
-  const { governor, signal } = options;
   const nowMs = options.nowMs ?? Date.now();
-  const ioBytes = options.ioBytes ?? readIoBytes;
   async function chunk<T>(work: () => T): Promise<T> {
     await options.betweenChunks?.();
-    await governor.waitForQuietIo(signal);
-    const before = ioBytes();
-    try {
-      return work();
-    } finally {
-      const after = ioBytes();
-      await governor.reportBytes(
-        {
-          read: Math.max(0, after.read - before.read),
-          written: Math.max(0, after.written - before.written),
-        },
-        signal
-      );
-    }
+    return runIoChunk(options.mode, work, options);
   }
-  const maxId = await chunk(() =>
-    Number(
-      source.query<{ id: number }, []>('SELECT coalesce(max(id), 0) AS id FROM usage_events').get()!
-        .id
-    )
-  );
+  const { maxId, lastId, select } = await chunk(() => {
+    if (source.query<{ query_only: number }, []>('PRAGMA query_only').get()?.query_only !== 1) {
+      throw new Error('CPAMP handle must be read-only with PRAGMA query_only=1');
+    }
+    // mmap reads are invisible to syscall byte counters.
+    source.exec('PRAGMA mmap_size=0');
+    return {
+      maxId: Number(
+        source
+          .query<{ id: number }, []>('SELECT coalesce(max(id), 0) AS id FROM usage_events')
+          .get()!.id
+      ),
+      lastId: Number(store.getMeta('import:cpamp:last_id') ?? 0),
+      select: source.query<CpampSourceRow, [number, number, number]>(SELECT_CHUNK),
+    };
+  });
   const report = {
     mode: options.mode,
     maxId,
-    lastId: Number(store.getMeta('import:cpamp:last_id') ?? 0),
+    lastId,
     read: 0,
     inserted: 0,
     duplicates: 0,
@@ -283,7 +284,6 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
   ) {
     throw new Error('Invalid CPAMP ID or import cursor; source may differ from the saved import');
   }
-  const select = source.query<CpampSourceRow, [number, number, number]>(SELECT_CHUNK);
   const map = (rows: CpampSourceRow[], checks: Preconditions, seen: Set<string>) => {
     const mapped: { event: NormalizedEvent; row: CpampSourceRow }[] = [];
     for (const row of rows) {
@@ -308,6 +308,13 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
         report.duplicates += result.duplicates;
         report.conflicts += result.conflicts;
         report.chunks += 1;
+        options.onProgress?.({
+          phase: 'import',
+          read: report.read,
+          inserted: report.inserted,
+          lastId: report.lastId,
+          chunks: report.chunks,
+        });
         return rows.length;
       });
       if (!count) break;
@@ -361,6 +368,13 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
       });
       cursor = rows[rows.length - 1].id;
       verification.read += rows.length;
+      options.onProgress?.({
+        phase: 'verify',
+        read: verification.read,
+        inserted: report.inserted,
+        lastId: cursor,
+        chunks: Math.ceil(verification.read / 1000),
+      });
       return rows.length;
     });
     if (!count) break;

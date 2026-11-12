@@ -107,7 +107,7 @@ export function parseArgs(args: string[], now = Date.now()): ParityOptions {
     proxUrl: get('prox-url', 'http://127.0.0.1:18320/v1/analytics'),
     cpampKeyFile: get('cpamp-key-file', `${home}/.config/prox/cpa-admin-key`),
     proxKeyFile: get('prox-key-file', `${home}/.config/cli-proxy-rerank/management-key`),
-    rateBookFile: get('rate-book', `${home}/.config/prox/usage-rates.json`),
+    rateBookFile: get('rate-book', `${home}/.local/share/prox-usage/usage-rates.json`),
     output: resolve(
       get(
         'output',
