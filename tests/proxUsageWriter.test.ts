@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { UsageWriter, writerWorkerPath } from '../server/usage/writer';
 import { UsageStore, openUsageReader } from '../server/usage/store';
 import { WriterQueue } from '../server/usage/writerQueue';
@@ -14,7 +13,7 @@ afterEach(async () => {
   for (const clean of cleanups.splice(0).reverse()) await clean();
 });
 function paths() {
-  const dir = mkdtempSync(join(tmpdir(), 'prox-usage-writer-'));
+  const dir = mkdtempSync(join('/dev/shm', 'prox-usage-writer-'));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   return { events: join(dir, 'usage.sqlite'), raw: join(dir, 'usage-raw.sqlite'), dir };
 }
@@ -214,37 +213,19 @@ test('worker rebuilds a closed hour through paced maintenance using its configur
   const files = paths();
   const rateBookPath = join(files.dir, 'rates.json');
   await Bun.write(rateBookPath, JSON.stringify({ version: 1, models: {} }));
-  // Fake host pressure at the IO boundary; the real governor is covered with fake clocks in
-  // proxUsageIoGovernor.test.ts. This worker regression must not depend on other host jobs.
-  const built = await Bun.build({
-    entrypoints: [join(import.meta.dir, '../server/usage/writer.worker.ts')],
-    outdir: files.dir,
-    target: 'bun',
-    naming: 'maintenance.worker.js',
-    plugins: [
-      {
-        name: 'quiet-host-io',
-        setup(build) {
-          build.onResolve({ filter: /^\.\/ioGovernor$/ }, () => ({
-            path: 'host-io',
-            namespace: 'synthetic-io',
-          }));
-          build.onLoad({ filter: /.*/, namespace: 'synthetic-io' }, () => ({
-            loader: 'ts',
-            contents: `
-        export class IoGovernor {
-          async waitForQuietIo(signal) { signal?.throwIfAborted(); }
-          async reportBytes(_bytes, signal) { signal?.throwIfAborted(); }
-        }
-        export const readIoBytes = () => ({ read: 0, written: 0 });
-      `,
-          }));
-        },
-      },
-    ],
-  });
-  expect(built.success).toBe(true);
-  const writer = new UsageWriter(join(files.dir, 'maintenance.worker.js'));
+  // Inject only host pressure, through the runtime's existing governor test boundary.
+  const psiPath = join(files.dir, 'psi');
+  await Bun.write(psiPath, 'full avg10=0.00 avg60=0.00');
+  const entry = join(files.dir, 'maintenance.worker.ts');
+  await Bun.write(
+    entry,
+    `
+    import { readFileSync } from 'node:fs';
+    import { startUsageWriterWorker } from ${JSON.stringify(join(import.meta.dir, '../server/usage/writerRuntime.ts'))};
+    startUsageWriterWorker({ readPsi: () => readFileSync(${JSON.stringify(psiPath)}, 'utf8') });
+  `
+  );
+  const writer = new UsageWriter(entry);
   cleanups.push(() => writer.close());
   await writer.init({ ...files, rateBookPath }, ['test-proxy']);
   writer.enqueue(item('hourly-maintenance'));
@@ -264,7 +245,51 @@ test('worker rebuilds a closed hour through paced maintenance using its configur
       'late rebuild'
     );
     expect(reader.query('SELECT calls FROM usage_hour_rollup').get()).toEqual({ calls: 2 });
+    await Bun.write(psiPath, 'full avg10=5.00 avg60=0.00');
+    writer.enqueue(item('dirty-during-pressure'));
+    await writer.flush();
+    await Bun.sleep(1100); // Let the next maintenance tick enter its pressure wait.
+    expect(reader.query('SELECT dirty FROM usage_hour_state').get()).toEqual({ dirty: 1 });
+    writer.enqueue(item('live-while-rollup-paused'));
+    await writer.flush();
+    expect(writer.status.inserted).toBe(4);
+    const closingAt = performance.now();
+    await writer.close();
+    expect(performance.now() - closingAt).toBeLessThan(1500);
   } finally {
     reader.close();
   }
+}, 10000);
+
+test('close rejects promptly after a worker exits instead of posting to a dead worker', async () => {
+  const files = paths();
+  const entry = join(files.dir, 'exits.worker.ts');
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(
+    entry,
+    `
+    self.onmessage = ({ data }) => {
+      self.postMessage({ id: data.id, ok: true, body: {
+        backlog: 0, inserted: 0, duplicates: 0, rejected: 0, rawBufferFailures: 0, gaps: 0
+      } });
+      setTimeout(() => process.exit(1), 0);
+    };
+  `
+  );
+  const writer = new UsageWriter(entry);
+  let failed = false;
+  writer.onFailure = () => {
+    failed = true;
+  };
+  await writer.init({ events: files.events, raw: null }, []);
+  await eventually(() => failed, 'worker exit notification');
+  const began = performance.now();
+  let error: unknown;
+  try {
+    await writer.close();
+  } catch (caught) {
+    error = caught;
+  }
+  expect(String(error)).toContain('Usage writer unavailable');
+  expect(performance.now() - began).toBeLessThan(500);
 });

@@ -26,7 +26,9 @@ revision=$(git rev-parse HEAD)
 podman build -f deploy/Dockerfile --label "org.opencontainers.image.revision=$revision" -t localhost/prox:dev .
 podman run --rm --network host --entrypoint nginx localhost/prox:dev -t
 podman build -f deploy/Dockerfile.history --label "org.opencontainers.image.revision=$revision" -t localhost/prox-history:dev .
-install -d -m 700 "$HOME/.local/share/prox-history" "$HOME/.local/share/prox-usage"
+install -d -m 700 "$HOME/.local/share/prox-history" "$HOME/.local/share/prox-usage" "$HOME/.config/prox-usage"
+# The rate book is re-read on its modification time; no restart is needed for a price change.
+install -m 644 deploy/usage-rates.json "$HOME/.local/share/prox-usage/usage-rates.json"
 install -D -m 644 deploy/prox-usage.container "$HOME/.config/containers/systemd/prox-usage.container"
 install -D -m 644 deploy/prox-history.container "$HOME/.config/containers/systemd/prox-history.container"
 install -D -m 644 deploy/prox.container "$HOME/.config/containers/systemd/prox.container"

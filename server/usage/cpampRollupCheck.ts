@@ -87,11 +87,13 @@ export async function checkCpampRollups(
       .map((hourMs) => ({ hourMs, reason: 'rollups-unavailable' }));
     return result;
   }
-  const stateQuery = source.query<State, []>(`
+  const stateQuery = await chunk(() =>
+    source.query<State, []>(`
     SELECT schema_version, structure_revision, status, coverage_event_id,
       min_bucket_ms, max_bucket_ms, last_error
     FROM usage_pricing_rollup_state WHERE rollup_name = 'pricing_v1'
-  `);
+  `)
+  );
   const initial = await chunk(() => stateQuery.get());
   if (initial) {
     // Include rollup-only hours: otherwise a whole hour absent from both raw stores could pass.

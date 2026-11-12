@@ -172,8 +172,13 @@ export function migrateUsageDatabase(
 /** A read-only connection for a query worker. The writer must have created the file. */
 export function openUsageReader(path: string): Database {
   const db = new Database(path, { readonly: true, strict: true });
-  db.exec(READER_PRAGMAS_SQL);
-  return db;
+  try {
+    db.exec(READER_PRAGMAS_SQL);
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 }
 
 /**
