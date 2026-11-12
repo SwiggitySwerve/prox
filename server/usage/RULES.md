@@ -255,3 +255,62 @@ API, and records 50 warm worker responses per view while inserting synthetic
 traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
 The live performance/parity gate is a separate deployment responsibility; a
 30-day p95 above 1 s requires P5b before P6, per the plan.
+
+## Hourly rollup (P5b)
+
+- `aggregate.ts` owns the SQL group dimensions, additive integer columns and
+  context-band expression shared by raw reads and rebuilds. Migration 2 adds
+  `usage_hour_rollup`: its key is the UTC hour plus provider, model, billing
+  model, requested model, tier, context band, usage flags, record kind and failed.
+  Base bands use the internal sentinel -1. No price or rate is stored.
+- `rollup.ts` replaces one closed hour in one writer transaction. Rows are pure
+  functions of that hour's events; sums are never incremented. Each row stores
+  sorted positive latency and TTFT samples as signed 32-bit integer blobs.
+  A timing above 2,147,483,647 ms makes the entire hour unsupported and raw, so
+  conversion cannot wrap or lose precision. Zero TTFT stays out of percentiles.
+- `UsageStore.insert` marks each affected hour dirty in the event transaction,
+  including imports, late events, and the open hour. Duplicate execution ids
+  invalidate nothing. Rebuild, state publication and dirty clearing commit
+  together; failure preserves the old rollup and dirty state. Consumers never
+  read stale rows while dirty. Future event retention must invalidate affected
+  hours in its deletion transaction as well; no event pruning exists here yet.
+- The writer schedules at most one `enqueueJob('rollup', ...)` at a time, one
+  hour per job, with a one-second timer between jobs. Live jobs have priority.
+  The event-loop yield lets live messages enter the queue between hours. A bulk
+  import can leave thousands of durable dirty hours without creating thousands
+  of queued callbacks. Shutdown cancels maintenance instead of draining history.
+  A failed background replacement logs a safe error and retries; raw reads remain
+  correct. This fixed pacing is not P3's general byte/IO governor.
+- Migration 2 creates empty tables only. Pre-migration events are discovered
+  using a persisted time cursor and a primary-key seek, one hour per maintenance
+  job, without rewriting or grouping the events table at startup. Already-built
+  hours are skipped. Late imports behind the cursor carry their own dirty marks.
+- Context bands depend on the book's model membership and thresholds. Each
+  completed hour carries a hash of that layout. A layout change makes old hours
+  read raw until rebuilt; rate-only, service-rate and provenance edits reuse
+  sums and samples and apply current prices at query time. Different worker
+  book snapshots remain safe because a reader checks its own layout hash.
+- `rollupRead.ts` selects only fully included, closed, clean, supported hours
+  under the reader's current layout. All other time spans read `events` in the
+  same snapshot. It merges integer sums by the full raw SQL group key in
+  TypeScript before pricing, and merges exact samples into the same nearest-rank
+  owner (`latency.ts`). Pricing and ordered reasons use the same groups and
+  ordering in both paths. Request detail stays raw. `coverage.ts` owns range-wide
+  import/provider facts, including supplementary events; rebuilds retain those
+  facts in `usage_hour_coverage` and reads merge them with the same raw time spans.
+  Coverage therefore avoids an otherwise redundant full-range scan without
+  changing which events it describes.
+- Any model/provider/outcome filter or nonempty search forces the whole response
+  to raw events. A future dimension may use rollups only if the rollup retains
+  it and equivalence coverage is extended. The authenticated query-only boolean
+  `debug_force_raw: true` forces raw reads for P6; it adds no response fields and
+  changes no shared browser contract. Range, catalog, pagination and UTC bucket
+  choices otherwise retain their existing semantics.
+
+`tests/proxUsageRollup.test.ts` compares entire `AnalyticsResponse` documents
+without normalizing floats, reason arrays or any field, using a fixed clock on
+four seeded randomized stores, mixed dirty/imported/open/partial hours, band and
+tier mixtures, pagination, layout changes and unsupported timings. Additional
+checks cover transactional failure, duplicates, pre-migration discovery and a
+3,000-hour import drained one job at a time. These synthetic tests do not replace
+P6's comparison with CPAMP or a live performance gate.

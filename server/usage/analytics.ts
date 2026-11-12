@@ -5,12 +5,12 @@ import type {
   AnalyticsResponse,
   AnalyticsCost,
 } from '../../src/domain/analytics/types';
-import { LatencyGroups } from './latency';
-import { contextBandSql, tokenColumns, type AggregateRow } from './aggregate';
+import { readAnalyticsGroups } from './rollupRead';
+import { HOUR_MS, DAY_MS, type AggregateRow } from './aggregate';
 import { aggregateEstimate, sourceAttribution } from './parity';
 import { buildRateInventory, combineEstimates, estimateCost } from './pricing';
 import { eventTokens, queryFilter, requestPage, type Dimension } from './search';
-import { INGEST, KNOWN_PROVIDERS } from './types';
+import { KNOWN_PROVIDERS } from './types';
 import type { RateBookState } from './rates';
 import type { UsageAnalyticsQuery } from './validate';
 
@@ -74,6 +74,8 @@ function group(map: Map<number, Metrics>, key: number): Metrics {
 }
 export interface AnalyticsReadOptions {
   now?: () => number;
+  /** Internal benchmark observer; never serialized in an AnalyticsResponse. */
+  onPhase?: (phase: string) => void;
   /** Boundary observer for deterministic concurrent-write regression tests. Runs in the snapshot. */
   afterAggregate?: () => void;
   checkDeadline?: () => void;
@@ -93,46 +95,25 @@ export function queryAnalytics(
       const dims = db.query<Dimension, []>('SELECT id, kind, value FROM dim').all();
       const names = new Map(dims.map((d) => [d.id, d.value]));
       const filter = queryFilter(db, q, dims);
-      const bucketSize = q.granularity === 'day' ? 86400000 : 3600000;
-      const bucket = `(e.ts_ms / ${bucketSize}) * ${bucketSize}`;
-      const rows = db
-        .query<AggregateRow, (number | string)[]>(
-          `SELECT ${bucket} AS bucket,
-      e.provider_id, e.model_id, e.billing_model_id, e.requested_model_id, e.tier_id,
-      ${contextBandSql(dims, book)} AS band, e.usage_flags, e.record_kind,
-      count(*) AS calls, sum(e.failed) AS failures,
-      ${tokenColumns.map((key) => `sum(e.${key}) AS ${key}`).join(', ')},
-      coalesce(sum(e.latency_ms), 0) AS latency_sum, count(e.latency_ms) AS latency_count
-      FROM events e WHERE ${filter.sql}
-      GROUP BY bucket, provider_id, model_id, billing_model_id, requested_model_id,
-        tier_id, band, usage_flags, record_kind, failed
-      ORDER BY bucket, model_id, billing_model_id, tier_id, band, usage_flags, record_kind, failed`
-        )
-        .all(...filter.args);
+      const bucketSize = q.granularity === 'day' ? DAY_MS : HOUR_MS;
+      const { rows, latency, coverageRows } = readAnalyticsGroups(
+        db,
+        q,
+        filter,
+        dims,
+        book,
+        bucketSize,
+        (options.now ?? Date.now)(),
+        check,
+        options.onPhase
+      );
       options.afterAggregate?.();
       check();
-      const latency = new LatencyGroups();
-      // Iterate instead of materializing a million JS row objects. Samples grow in typed arrays.
-      const samples = db.query<
-        {
-          bucket: number;
-          model_id: number;
-          provider_id: number;
-          latency_ms: number | null;
-          ttft_ms: number | null;
-        },
-        (number | string)[]
-      >(
-        `SELECT ${bucket} AS bucket, e.model_id, e.provider_id, e.latency_ms, e.ttft_ms FROM events e WHERE ${filter.sql}`
-      );
-      let scanned = 0;
-      for (const row of samples.iterate(...filter.args)) {
-        latency.add(row.bucket, row.model_id, row.provider_id, row.latency_ms, row.ttft_ms);
-        if ((++scanned & 4095) === 0) check();
-      }
       const ranks = latency.result();
       check();
+      options.onPhase?.('percentiles');
       const page = requestPage(db, q, filter, names, book);
+      options.onPhase?.('request-page');
       const summary = new Metrics();
       const timeline = new Map<number, Metrics>();
       const models = new Map<number, Metrics>();
@@ -163,6 +144,7 @@ export function queryAnalytics(
         group(providers, row.provider_id).add(row, cost);
         observed.set(`${provider}\0${model}`, { provider, id: model });
       }
+      options.onPhase?.('pricing');
       // Selectors ignore provider/model/outcome, while retaining the range and search.
       let selectorRows: { model_id: number; provider_id: number }[];
       if (!q.model?.trim() && !q.provider?.trim() && q.outcome === 'all') selectorRows = rows;
@@ -187,11 +169,6 @@ export function queryAnalytics(
         )
         .all(q.to_ms, q.from_ms);
       // Coverage describes the range, including rows hidden by filters or supplementary exclusion.
-      const coverageRows = db
-        .query<{ imported: number; provider_id: number }, [number, number]>(
-          `SELECT max(ingest = ${INGEST.imported}) AS imported, provider_id FROM events WHERE ts_ms >= ? AND ts_ms < ? GROUP BY provider_id`
-        )
-        .all(q.from_ms, q.to_ms);
       const limitations = [...COVERAGE_LIMITATIONS];
       if (q.from_ms < floor)
         limitations.push(`History before retention_floor_ms ${floor} has been pruned.`);
@@ -210,6 +187,7 @@ export function queryAnalytics(
           'Records from an unknown provider are stored as reported; normalization is limited.'
         );
       limitations.push('records in flight during a collector or proxy restart may be absent');
+      options.onPhase?.('coverage');
       const breakdown = (map: Map<number, Metrics>, ranked: typeof ranks.models) =>
         [...map]
           .map(([id, metrics]) => ({

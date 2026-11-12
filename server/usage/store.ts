@@ -11,6 +11,9 @@ import {
   USAGE_MIGRATIONS,
   WRITER_PRAGMAS_SQL,
 } from './schema';
+import { HOUR_MS } from './aggregate';
+import { rebuildNextHour } from './rollup';
+import type { RateBook } from './rates';
 import type { IngestGap } from './writerProtocol';
 import type {
   DimKind,
@@ -185,6 +188,7 @@ export class UsageStore {
     this.insertEvent = this.db.query(insertSql('events', EVENT_COLUMNS));
     this.insertAll = this.db.transaction((items: readonly IngestItem[], ingest: IngestSource) => {
       const stored: Stored[] = [];
+      const dirtyHours = new Set<number>();
       for (const item of items) {
         const seq = this.nextSeq;
         // The identity check and the write are one statement: a known execution_id writes nothing.
@@ -192,7 +196,11 @@ export class UsageStore {
         this.nextSeq += 1;
         this.insertEvent.run(this.eventRow(item.event, seq, ingest));
         stored.push({ seq, item });
+        dirtyHours.add(Math.floor(item.event.tsMs / HOUR_MS) * HOUR_MS);
       }
+      const markDirty = this.db.query(`INSERT INTO usage_hour_state (hour_ms) VALUES (?)
+        ON CONFLICT (hour_ms) DO UPDATE SET dirty = 1`);
+      for (const hour of dirtyHours) markDirty.run(hour);
       this.setMeta('next_seq', String(this.nextSeq));
       return stored;
     });
@@ -223,6 +231,11 @@ export class UsageStore {
       })();
     });
     return { inserted: stored.length, duplicates: items.length - stored.length };
+  }
+
+  /** One bounded maintenance job; imports use insert(), so their hours invalidate atomically. */
+  rebuildNextHour(book: RateBook, nowMs = this.now()) {
+    return rebuildNextHour(this.db, book, nowMs);
   }
 
   /** Keep what can be kept of a payload that did not become an event. */

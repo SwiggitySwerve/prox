@@ -1,6 +1,7 @@
 // The only write connections live here. Main-thread code refers to this entry by runtime path.
 import { UsageStore } from './store';
 import { normalizeUsagePayload } from './normalize';
+import { createRateBookLoader } from './rates';
 import { WriterQueue } from './writerQueue';
 import { QUEUE_RETENTION_MS, type WriterRequest, type WriterStatus } from './writerProtocol';
 import type { IngestItem } from './types';
@@ -9,6 +10,30 @@ const queue = new WriterQueue();
 /** P3 plugs bounded import, backup and prune chunks into this same queue inside the worker. */
 export const enqueueJob = queue.enqueueJob.bind(queue);
 let store: UsageStore | null = null;
+let maintenance: ReturnType<typeof setTimeout> | null = null;
+let closing = false;
+function startRollups(path?: string) {
+  const loader = createRateBookLoader(path ?? '/data/usage-rates.json');
+  const schedule = () => {
+    if (closing) return;
+    maintenance = setTimeout(() => {
+      maintenance = null;
+      // At most one background hour is pending. Yield to the worker event loop between jobs
+      // so incoming live messages can enter the live-first queue, even after a bulk import.
+      void enqueueJob('rollup', () => {
+        if (!store || closing) return;
+        const book = loader.load().book ?? { version: 1 as const, models: {} };
+        store.rebuildNextHour(book);
+      })
+        .catch(() => {
+          // Replacement is transactional; failed hours remain raw and retry on the next tick.
+          console.error('Usage hourly rollup rebuild failed; raw events retained');
+        })
+        .finally(schedule);
+    }, 1000);
+  };
+  schedule();
+}
 const status: WriterStatus = {
   backlog: 0,
   inserted: 0,
@@ -20,6 +45,11 @@ const status: WriterStatus = {
 
 self.onmessage = (event: MessageEvent<WriterRequest>) => {
   const { id, kind, body } = event.data;
+  if (kind === 'close') {
+    closing = true;
+    if (maintenance) clearTimeout(maintenance);
+    maintenance = null;
+  }
   if (kind === 'live') status.backlog += body.length;
   void enqueueJob(kind, () => {
     if (kind === 'init') {
@@ -37,6 +67,7 @@ self.onmessage = (event: MessageEvent<WriterRequest>) => {
         }
       }
       status.gaps = store.gapCount();
+      startRollups(body.rateBookPath);
     } else {
       if (!store) throw new Error('Writer not initialized');
       if (kind === 'live') {

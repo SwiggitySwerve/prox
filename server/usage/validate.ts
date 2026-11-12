@@ -3,6 +3,8 @@ import type { AnalyticsQuery, RegisteredAnalyticsModel } from '../../src/domain/
 
 export interface UsageAnalyticsQuery extends AnalyticsQuery {
   catalog: RegisteredAnalyticsModel[];
+  /** Authenticated parity/debug escape hatch; never affects the response schema. */
+  debug_force_raw?: boolean;
 }
 export class AnalyticsError extends Error {
   constructor(
@@ -44,6 +46,7 @@ export function validateAnalyticsQuery(input: unknown): UsageAnalyticsQuery {
     'before_ms',
     'before_id',
     'catalog',
+    'debug_force_raw',
   ]);
   if (
     !integer(q.from_ms) ||
@@ -76,6 +79,8 @@ export function validateAnalyticsQuery(input: unknown): UsageAnalyticsQuery {
     ['provider', 128],
   ] as const)
     if (q[key] != null && !text(q[key], bound)) invalid('search or filter exceeds bounds');
+  if (q.debug_force_raw !== undefined && typeof q.debug_force_raw !== 'boolean')
+    invalid('debug_force_raw must be boolean');
   const catalog = q.catalog ?? [];
   if (!Array.isArray(catalog) || catalog.length > 1000)
     invalid('catalog must contain at most 1000 models');
@@ -104,6 +109,7 @@ export function validateAnalyticsQuery(input: unknown): UsageAnalyticsQuery {
     search: (q.search ?? '') as string,
     limit: (q.limit as number) || 100,
     ...(ms === undefined ? {} : { before_ms: ms as number, before_id: id as number }),
+    ...(q.debug_force_raw === undefined ? {} : { debug_force_raw: q.debug_force_raw as boolean }),
     catalog: catalog.map((m) => ({ ...m, instance_label: m.instance_label ?? '' })),
   };
 }

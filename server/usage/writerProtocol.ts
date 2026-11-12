@@ -31,7 +31,13 @@ export type WriterRequest =
   | {
       id: number;
       kind: 'init';
-      body: { events: string; raw: string | null; sources: string[]; nowMs: number };
+      body: {
+        events: string;
+        raw: string | null;
+        sources: string[];
+        nowMs: number;
+        rateBookPath?: string;
+      };
     }
   | { id: number; kind: 'live'; body: UsagePayload[] }
   | { id: number; kind: 'gap'; body: IngestGap }

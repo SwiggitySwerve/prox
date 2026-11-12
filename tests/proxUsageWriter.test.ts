@@ -209,3 +209,32 @@ test('live jobs run before queued bulk chunks, with one running job at a time', 
   ).rejects.toThrow('test');
   expect(await queue.enqueueJob('live', () => 42)).toBe(42);
 });
+
+test('worker rebuilds a closed hour through paced maintenance using its configured rate book', async () => {
+  const files = paths();
+  const rateBookPath = join(files.dir, 'rates.json');
+  await Bun.write(rateBookPath, JSON.stringify({ version: 1, models: {} }));
+  const writer = new UsageWriter();
+  cleanups.push(() => writer.close());
+  await writer.init({ ...files, rateBookPath }, ['test-proxy']);
+  writer.enqueue(item('hourly-maintenance'));
+  await writer.flush();
+  const reader = openUsageReader(files.events);
+  try {
+    await eventually(
+      () => !!reader.query('SELECT hour_ms FROM usage_hour_state WHERE dirty = 0').get(),
+      'hour rebuild'
+    );
+    expect(reader.query('SELECT calls FROM usage_hour_rollup').get()).toEqual({ calls: 1 });
+    writer.enqueue(item('late-hourly-maintenance'));
+    await writer.flush();
+    expect(reader.query('SELECT dirty FROM usage_hour_state').get()).toEqual({ dirty: 1 });
+    await eventually(
+      () => !!reader.query('SELECT hour_ms FROM usage_hour_state WHERE dirty = 0').get(),
+      'late rebuild'
+    );
+    expect(reader.query('SELECT calls FROM usage_hour_rollup').get()).toEqual({ calls: 2 });
+  } finally {
+    reader.close();
+  }
+});
