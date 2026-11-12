@@ -2557,7 +2557,7 @@
     "choice_expires": "Истекает {{date}}",
     "use_short": "Использовать",
     "choice_no_expiry": "Без срока действия",
-    "choice_uses_one": "Тратит 1 из {{count}}",
+    "choice_uses_one": "Использует 1 из {{count}}",
     "use_kind": "Использовать: {{kind}}",
     "irreversible": "Использует один ручной сброс. Это нельзя отменить.",
     "retry_reset": "Повтор того же сброса: {{kind}}.",
