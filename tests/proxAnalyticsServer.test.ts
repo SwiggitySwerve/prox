@@ -268,7 +268,9 @@ describe('Prox analytics bridge', () => {
         await f.handler.warm();
         expect(f.cpaCalls()).toBe(seeded * 2);
         const before = f.cpaCalls();
-        const response = await f.handler(request(live(f, 30 * DAY, { granularity: 'day', limit: 25 })));
+        const response = await f.handler(
+          request(live(f, 30 * DAY, { granularity: 'day', limit: 25 }))
+        );
         expect(response.status).toBe(200);
         expect(f.cpaCalls()).toBe(before);
       } finally {
