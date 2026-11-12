@@ -7,10 +7,14 @@ import { validateAnalyticsQuery } from '../server/usage/validate';
 import { UsageStore, openUsageReader } from '../server/usage/store';
 import { createAnalyticsHandler } from '../server/usage/handler';
 import { parseRateBook, priceRevision } from '../server/usage/rates';
-import { event } from '../tests/helpers/usageAnalytics';
+import { event, BASE as P5_BASE } from '../tests/helpers/usageAnalytics';
 
-// Same P5 distribution and row count; anchor the range to closed hours at execution time.
-const BASE = Math.floor(Date.now() / HOUR_MS) * HOUR_MS - 30 * DAY_MS;
+// Preserve P5's UTC day/hour phase (21:20), anchoring the end in the past. Both boundary
+// hours remain partial raw reads, even after every closed hour has been rebuilt.
+const nowHour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+let end = Math.floor(nowHour / DAY_MS) * DAY_MS + (P5_BASE % DAY_MS);
+if (end > nowHour) end -= DAY_MS;
+const BASE = end - 30 * DAY_MS;
 const directory = mkdtempSync('/dev/shm/prox-query-budget-');
 const dbPath = join(directory, 'usage.sqlite');
 const keyFile = join(directory, 'key');
@@ -106,12 +110,13 @@ try {
   // Measure WAL bytes for one representative hour on a separate tiny synthetic store.
   // Closing/reopening checkpoints the seed writes, so the first rebuild starts with an empty WAL.
   const probePath = join(directory, 'write-probe.sqlite');
+  const probeHour = Math.floor(BASE / HOUR_MS) * HOUR_MS;
   let probe = new UsageStore({ events: probePath, raw: null });
   try {
     const count = Math.ceil(rows / (30 * 24));
     probe.insert(
       Array.from({ length: count }, (_, i) => ({
-        event: makeEvent(i, BASE + Math.floor((i * HOUR_MS) / count)),
+        event: makeEvent(i, probeHour + Math.floor((i * HOUR_MS) / count)),
         raw: null,
       })),
       0
@@ -129,7 +134,7 @@ try {
         walBytesPerRow: (statSync(probePath + '-wal').size - before) / initial.rows,
       })
     );
-    probe.insert([{ event: makeEvent(rows + 999, BASE + 1), raw: null }], 2);
+    probe.insert([{ event: makeEvent(rows + 999, probeHour + 1), raw: null }], 2);
     before = statSync(probePath + '-wal').size;
     const replacement = probe.rebuildNextHour(book)!;
     console.log(
