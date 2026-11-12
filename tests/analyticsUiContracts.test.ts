@@ -132,6 +132,14 @@ describe('Analytics query and transport contracts', () => {
     expect(source).toContain('result?.session === session');
     expect(source).toContain('createPoolSessionObserver');
   });
+  test('a Refresh recomputes once, whether its load succeeds or fails', () => {
+    const source = read('src/features/analytics/useAnalytics.ts');
+    const success = source.slice(source.indexOf('.then('), source.indexOf('.catch('));
+    const failure = source.slice(source.indexOf('.catch('), source.indexOf('return () =>'));
+    // A failed Refresh left pending would bypass the warm snapshot on every later view change.
+    expect(success).toContain('appliedRefresh.current = refresh');
+    expect(failure).toContain('appliedRefresh.current = refresh');
+  });
   test('refresh advances the selected window and clears paging while preserving filters', () => {
     const source = read('src/features/analytics/AnalyticsPage.tsx');
     const reload = source.slice(source.indexOf('const reload ='), source.indexOf('return <'));

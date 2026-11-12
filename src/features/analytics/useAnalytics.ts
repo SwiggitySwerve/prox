@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { AnalyticsQuery, AnalyticsResponse } from '@/domain/analytics/types';
 import { createAnalyticsApi } from '@/services/api/analytics';
 import { apiClient } from '@/services/api/client';
@@ -16,6 +16,9 @@ export function useAnalytics(query: AnalyticsQuery, refresh: number) {
   const authenticated = useAuthStore((s) => s.isAuthenticated);
   const connection = useAuthStore((s) => s.connectionStatus);
   const revision = apiClient.getConnectionRevision();
+  // Only a load that follows a Refresh click recomputes; filter and range changes use the warm snapshot.
+  // The click is consumed when a load settles, not when it is sent, so StrictMode's re-run still recomputes.
+  const appliedRefresh = useRef(refresh);
   const [result, setResult] = useState<{
     query: AnalyticsQuery;
     session: number;
@@ -35,12 +38,15 @@ export function useAnalytics(query: AnalyticsQuery, refresh: number) {
       observer.getSnapshot() === session &&
       apiClient.getConnectionRevision() === revision;
     void createAnalyticsApi()
-      .query(query, controller.signal)
+      .query(query, controller.signal, refresh !== appliedRefresh.current)
       .then((data) => {
-        if (current()) setResult({ query, session, refresh, revision, data });
+        if (!current()) return;
+        appliedRefresh.current = refresh;
+        setResult({ query, session, refresh, revision, data });
       })
       .catch((error: unknown) => {
         if (!current()) return;
+        appliedRefresh.current = refresh;
         const status =
           error && typeof error === 'object' && 'status' in error ? error.status : undefined;
         setResult({
