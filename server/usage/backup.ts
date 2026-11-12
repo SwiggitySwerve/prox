@@ -1,6 +1,6 @@
 import { mkdtempSync, readFileSync, rmSync, statfsSync } from 'node:fs';
 import { join } from 'node:path';
-import { IoGovernor, readIoBytes, type IoBytes } from './ioGovernor';
+import { IoGovernor, runIoChunk, type ChunkScheduler, type IoBytes } from './ioGovernor';
 import type { UsageStore } from './store';
 
 export interface BackupConfig {
@@ -72,6 +72,7 @@ export interface BackupOptions {
   /** Linux tmpfs probe and syscall counters are injectable for synthetic failure tests. */
   filesystemInfo?: (path: string) => { isTmpfs: boolean; freeBytes: number };
   ioBytes?: () => IoBytes;
+  scheduleChunk?: ChunkScheduler;
 }
 
 function filesystemInfo(path: string) {
@@ -95,7 +96,6 @@ export class UsageBackup {
   }
 
   async run(store: UsageStore, signal?: AbortSignal) {
-    const { governor } = this.options;
     const tmpfsDir = this.config.tmpfsDir ?? '/dev/shm';
     const now = this.options.now ?? Date.now;
     const date = new Date(now());
@@ -103,35 +103,27 @@ export class UsageBackup {
     const filename = `usage-${stamp}.sqlite`;
     const keys = [`usage/daily/${filename}`];
     if (date.getUTCDay() === 0) keys.push(`usage/weekly/${filename}`);
-    const ioBytes = this.options.ioBytes ?? readIoBytes;
-    await governor.waitForQuietIo(signal);
-    const before = ioBytes();
     let directory: string | undefined;
     try {
-      let path: string;
-      try {
-        const info = (this.options.filesystemInfo ?? filesystemInfo)(tmpfsDir);
-        if (!info.isTmpfs) throw new Error('Usage backup directory must be tmpfs');
-        // Check WAL-inclusive size just before VACUUM, while the writer job owns the handle.
-        if (info.freeBytes < 2 * store.databaseSizeBytes()) {
-          throw new Error(
-            'Insufficient tmpfs space: usage backup requires twice the database size'
-          );
-        }
-        directory = mkdtempSync(join(tmpfsDir, 'prox-usage-backup-'));
-        path = join(directory, filename);
-        // VACUUM is one SQLite operation: tmpfs avoids pool writes, but its read cannot be sliced.
-        store.vacuumInto(path);
-      } finally {
-        const after = ioBytes();
-        await governor.reportBytes(
-          {
-            read: Math.max(0, after.read - before.read),
-            written: Math.max(0, after.written - before.written),
-          },
-          signal
-        );
-      }
+      const path = await runIoChunk(
+        'backup',
+        () => {
+          const info = (this.options.filesystemInfo ?? filesystemInfo)(tmpfsDir);
+          if (!info.isTmpfs) throw new Error('Usage backup directory must be tmpfs');
+          // Check WAL-inclusive size just before VACUUM, while the writer job owns the handle.
+          if (info.freeBytes < 2 * store.databaseSizeBytes()) {
+            throw new Error(
+              'Insufficient tmpfs space: usage backup requires twice the database size'
+            );
+          }
+          directory = mkdtempSync(join(tmpfsDir, 'prox-usage-backup-'));
+          const path = join(directory, filename);
+          // VACUUM is one SQLite operation: tmpfs avoids pool writes, but its read cannot be sliced.
+          store.vacuumInto(path);
+          return path;
+        },
+        { ...this.options, signal }
+      );
       const size = Bun.file(path).size;
       for (const key of keys) await this.upload(path, key, size, signal);
       this.lastSuccess = now();
@@ -154,47 +146,66 @@ export class UsageBackup {
     const { governor } = this.options;
     const file = Bun.file(path);
     let offset = 0;
+    const transfer = new AbortController();
+    const uploadSignal = signal ? AbortSignal.any([signal, transfer.signal]) : transfer.signal;
+    let pulling: Promise<void> | undefined;
     const body = new ReadableStream<Uint8Array>(
       {
-        async pull(controller) {
-          try {
-            signal?.throwIfAborted();
-            if (offset === size) {
-              controller.close();
-              return;
+        pull(controller) {
+          pulling = (async () => {
+            try {
+              uploadSignal.throwIfAborted();
+              if (offset === size) {
+                controller.close();
+                return;
+              }
+              await governor.waitForQuietIo(uploadSignal);
+              const bytes = new Uint8Array(
+                await file.slice(offset, offset + 64 * 1024).arrayBuffer()
+              );
+              if (!bytes.length)
+                throw new Error('Usage backup file ended before its declared size');
+              // Count the tmpfs read and the upload write. Pace BEFORE enqueueing network bytes.
+              await governor.reportBytes(
+                { read: bytes.length, written: bytes.length },
+                uploadSignal
+              );
+              offset += bytes.length;
+              controller.enqueue(bytes);
+            } catch (error) {
+              controller.error(error);
             }
-            await governor.waitForQuietIo(signal);
-            const bytes = new Uint8Array(
-              await file.slice(offset, offset + 64 * 1024).arrayBuffer()
-            );
-            if (!bytes.length) throw new Error('Usage backup file ended before its declared size');
-            // Count the tmpfs read and the upload write. Pace BEFORE enqueueing network bytes.
-            await governor.reportBytes({ read: bytes.length, written: bytes.length }, signal);
-            offset += bytes.length;
-            controller.enqueue(bytes);
-          } catch (error) {
-            controller.error(error);
-          }
+          })();
+          return pulling;
         },
       },
       { highWaterMark: 0 }
     );
-    let response: Response;
     try {
-      response = await fetch(client.presign(key, { method: 'PUT', expiresIn: 86_400 }), {
-        method: 'PUT',
-        headers: { 'Content-Length': String(size) },
-        body,
-        signal,
-        // Never send the presigned credentials to a redirect target.
-        redirect: 'error',
-      });
-    } catch {
-      signal?.throwIfAborted();
-      throw new Error('Usage backup upload failed');
+      let response: Response;
+      try {
+        response = await fetch(client.presign(key, { method: 'PUT', expiresIn: 86_400 }), {
+          method: 'PUT',
+          headers: { 'Content-Length': String(size) },
+          body,
+          signal: uploadSignal,
+          // Never send the presigned credentials to a redirect target.
+          redirect: 'error',
+        });
+      } catch {
+        signal?.throwIfAborted();
+        throw new Error('Usage backup upload failed');
+      }
+      await response.body?.cancel();
+      if (!response.ok) throw new Error(`Usage backup upload failed: HTTP ${response.status}`);
+      if (offset !== size) throw new Error('Usage backup upload did not consume the entire file');
+    } finally {
+      // fetch abort may settle before a paced stream pull does. Settle it before reusing
+      // the shared governor or removing the snapshot during cancellation/shutdown.
+      transfer.abort();
+      await pulling;
     }
-    await response.body?.cancel();
-    if (!response.ok) throw new Error(`Usage backup upload failed: HTTP ${response.status}`);
-    if (offset !== size) throw new Error('Usage backup upload did not consume the entire file');
   }
 }
+
+export type BackupReport = Awaited<ReturnType<UsageBackup['run']>>;
