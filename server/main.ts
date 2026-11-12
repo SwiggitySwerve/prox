@@ -4,6 +4,7 @@ import { QuotaCollector } from './quota/collector';
 import { loadSourceManifest } from './providerSources/config';
 import { LEGACY_SOURCE_MAPPING } from './quota/identity';
 import { createAnalyticsHandler } from './analytics/handler';
+import { startEventLoopLagProbe } from './eventLoopLag';
 
 const { manifest, revision } = loadSourceManifest(
   process.env.PROX_SOURCE_MANIFEST ??
@@ -29,6 +30,7 @@ const server = Bun.serve({
       : quotaHandler(request),
 });
 collector.start();
+startEventLoopLagProbe();
 // Keep the default analytics views warm so page loads never wait on CPA's slow scans.
 void analyticsHandler.warm();
 const analyticsWarmer = setInterval(() => void analyticsHandler.warm(), 15_000);
