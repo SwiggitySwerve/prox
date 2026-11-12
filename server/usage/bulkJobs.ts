@@ -2,7 +2,7 @@
 import { loadBackupConfig, UsageBackup } from './backup';
 import { runCpampJob } from './importCpamp';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoGovernorOptions } from './ioGovernor';
-import { openUsageReader, type UsageStore } from './store';
+import { openUsageReader, type RawPruneCursor, type UsageStore } from './store';
 import type { BulkJobConfig, BulkJobKind, BulkJobReport } from './writerProtocol';
 
 export class UsageBulkJobs {
@@ -77,7 +77,26 @@ export class UsageBulkJobs {
         ...this.governorOptions,
       });
       const options = { governor: this.governor, signal, scheduleChunk: this.scheduleChunk };
-      if (kind === 'backup') {
+      if (kind === 'prune') {
+        const prune = {
+          beforeMs: report.startedAtMs - 30 * 24 * 60 * 60 * 1000,
+          deleted: 0,
+          chunks: 0,
+        };
+        report.result = { kind: 'prune', report: prune };
+        let cursor: RawPruneCursor = { rejectId: 0 };
+        for (;;) {
+          const chunk = await runIoChunk(
+            'prune',
+            () => this.store.pruneRawBefore(prune.beforeMs, cursor),
+            options
+          );
+          prune.deleted += chunk.deleted;
+          prune.chunks += 1;
+          cursor = chunk.cursor;
+          if (chunk.done) break;
+        }
+      } else if (kind === 'backup') {
         this.backup ??= new UsageBackup(loadBackupConfig(this.config.backupConfigPath), {
           governor: this.governor,
           scheduleChunk: this.scheduleChunk,

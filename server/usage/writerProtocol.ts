@@ -3,7 +3,7 @@ import type { AccountLabel, IngestSource } from './types';
 import type { CpampProgress, CpampReport } from './importCpamp';
 import type { BackupReport } from './backup';
 
-export const BULK_JOB_KINDS = ['import', 'reconcile', 'verify', 'backup'] as const;
+export const BULK_JOB_KINDS = ['import', 'reconcile', 'verify', 'backup', 'prune'] as const;
 export type BulkJobKind = (typeof BULK_JOB_KINDS)[number];
 export function isBulkJobKind(value: unknown): value is BulkJobKind {
   return typeof value === 'string' && BULK_JOB_KINDS.some((kind) => kind === value);
@@ -20,7 +20,10 @@ export interface BulkJobReport {
   startedAtMs: number;
   finishedAtMs: number | null;
   progress?: CpampProgress;
-  result?: { kind: 'cpamp'; report: CpampReport } | { kind: 'backup'; report: BackupReport };
+  result?:
+    | { kind: 'cpamp'; report: CpampReport }
+    | { kind: 'backup'; report: BackupReport }
+    | { kind: 'prune'; report: { beforeMs: number; deleted: number; chunks: number } };
   error?: string;
   io: { bytesRead: number; bytesWritten: number; pauseSeconds: number; longPauses: number };
   lastBackupSuccessAtMs: number | null;
