@@ -185,7 +185,10 @@ test('per-event context bands, candidate precedence and service tiers equal inde
   );
   expect(response.coverage.price_revision).toBe(rateState(rateBook).price_revision!);
   // Several base-band events sum above a threshold; none may be repriced as long context.
-  expect(response.summary.cost.reasons).toEqual(['legacy-record-kind-unknown']);
+  expect(response.summary.cost.reasons).toEqual([
+    'usage-presence-unknown',
+    'legacy-record-kind-unknown',
+  ]);
 });
 test('presence nulls, speed, diagnostics and unknown provider/trace provenance', () => {
   const f = setup();
@@ -342,7 +345,7 @@ test('CPAMP status and reason cases survive SQL grouping and request projection'
       flags: complete & ~USAGE_FLAG.breakdownComplete,
       reasons: ['usage-components-unreported'],
     },
-    { model: 'paid', status: 'partial', recordKind: 0, reasons: ['legacy-record-kind-unknown'] },
+    { model: 'paid', status: 'estimated', recordKind: 0, reasons: [] },
   ] as const;
   f.insert(
     cases.map((c, i) =>

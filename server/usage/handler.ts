@@ -10,32 +10,53 @@ export function queryWorkerPath(): string {
   return new URL(`./query.worker.${extension}`, import.meta.url).pathname;
 }
 function workerExecutor(dbPath: string, rates: () => RateBookState, path: string) {
-  let worker: Worker | null = null;
+  interface CachedWorker {
+    thread: Worker;
+    failActive: (() => void) | null;
+    invalidate(): void;
+  }
+  let worker: CachedWorker | null = null;
   let nextId = 0;
+  const createWorker = (): CachedWorker => {
+    const thread = new Worker(path);
+    const current: CachedWorker = {
+      thread,
+      failActive: null,
+      invalidate() {
+        if (worker === current) worker = null;
+        thread.removeEventListener('error', invalidate);
+        thread.removeEventListener('close', invalidate);
+        thread.terminate();
+        current.failActive?.();
+      },
+    };
+    const invalidate = () => current.invalidate();
+    // These listeners outlive a job: an idle exit must invalidate the cached worker too.
+    thread.addEventListener('error', invalidate);
+    thread.addEventListener('close', invalidate);
+    worker = current;
+    return current;
+  };
   const execute: QueryExecutor<string> = (query, deadline, signal) =>
     new Promise((resolve, reject) => {
       if (signal.aborted) {
         reject(new AnalyticsError('Request cancelled', 499));
         return;
       }
-      const current = (worker ??= new Worker(path));
+      const current = worker ?? createWorker();
       const id = ++nextId;
       const cleanup = () => {
         signal.removeEventListener('abort', abort);
-        current.removeEventListener('message', receive);
-        current.removeEventListener('error', fail);
-        current.removeEventListener('close', fail);
+        current.thread.removeEventListener('message', receive);
+        current.failActive = null;
       };
       const fail = () => {
         cleanup();
-        current.terminate();
-        worker = null;
         reject(new AnalyticsError('Analytics worker unavailable', 503));
       };
       const abort = () => {
         cleanup();
-        current.terminate();
-        worker = null;
+        current.invalidate();
         reject(signal.reason ?? new AnalyticsError('Request cancelled', 499));
       };
       const receive = ({ data }: MessageEvent<QueryReply>) => {
@@ -44,9 +65,8 @@ function workerExecutor(dbPath: string, rates: () => RateBookState, path: string
         if (data.ok) resolve(data.body);
         else reject(new AnalyticsError(data.body.error, data.body.status));
       };
-      current.addEventListener('message', receive);
-      current.addEventListener('error', fail);
-      current.addEventListener('close', fail);
+      current.failActive = fail;
+      current.thread.addEventListener('message', receive);
       signal.addEventListener('abort', abort, { once: true });
       try {
         const message: QueryRequest = {
@@ -54,16 +74,15 @@ function workerExecutor(dbPath: string, rates: () => RateBookState, path: string
           kind: 'analytics',
           body: { dbPath, query, deadline, rates: rates() },
         };
-        current.postMessage(message);
+        current.thread.postMessage(message);
       } catch {
-        fail();
+        current.invalidate();
       }
     });
   return {
     execute,
     close() {
-      worker?.terminate();
-      worker = null;
+      worker?.invalidate();
     },
   };
 }

@@ -1,6 +1,7 @@
 # P5 query-engine evidence
 
-Measured on 2026-11-12 with Bun 1.4.3, on the branch based on `d979473b`
+Initial benchmark measured on 2026-11-12 with Bun 1.4.3, before the S1–S4
+review fixes (PR head `58b68c0c`), on the branch based on `d979473b`
 (P2 and the approved rate-book PR merged). No live proxy, CPAMP API or live database was queried or changed.
 `src/domain/analytics/types.ts` has no diff.
 
@@ -43,7 +44,7 @@ benchmark script; these values are its final `stage: result` output. This run
 was not concurrent with `bun run verify` or a build from this worktree. Other
 host activity was not controlled.
 
-## Verification
+## Initial verification (before S1–S4 fixes)
 
 - Focused: `bun test tests/proxUsageAnalytics.test.ts tests/proxUsageLatency.test.ts
   tests/proxUsageSearch.test.ts tests/proxUsageCredentialText.test.ts
@@ -85,6 +86,53 @@ Paths below are relative to CPAMP's `apps/manager-server/internal`.
 | Exact positive nearest rank at every dimension | `repository/usageevent/analytics_latency_groups_test.go: TestLatencyBreakdownMatchesSQLRanks`, `analytics_latency_groups.go: nearestRank` | Random data versus full sort, 1–1,000 samples; grouped ranks |
 | User-agent credentials, cookies, authorization schemes, escaped/unterminated assignments | `usage/persistence_security_test.go`: 34 literal input/expected cases, each with its source test name in `usageCredentialText.json` | Credential text tests, idempotence, all PEM/token formats, safe diagnostics |
 | One snapshot; gap/prune/import/rate/normalization coverage | Plan §§2.6–2.7 (new behavior; no CPAMP test falsely claimed) | Concurrent insert after aggregate; coverage conditions |
+
+## S1–S4 review fixes
+
+The original implementation failed these CPAMP parity cases despite the initial
+suite passing. The regression suite now includes exact cost objects and ordered
+reason arrays, rather than checking only monetary subtotals or reason membership.
+
+- S1: `estimateAggregateCost` passes `usagePresent: null` and uses token-sum
+  component semantics, as `pricingTokensForStat`/`pricingTokensForTimelinePoint`
+  do. Positive aggregate reasons begin with `usage-presence-unknown` before the
+  legacy reason. Zero-only groups combine to unpriced null costs and unpriced
+  call counts. Event component flags add no request-only aggregate limitation.
+- S2: `estimateRequestCost` shares P4 arithmetic and preserves event presence,
+  without aggregate call counts or the legacy-kind reason/status change.
+- S3: `analyticsPricing.ts` ports `pricingRowLess` including resolved pricing
+  model, tier, context band and UTF-8 byte ordering. Summary/model costs use
+  calls-descending model stats; timeline costs use bucket/lexical order. Provider
+  costs follow CPAMP's global-stat reuse or provider-specific-query ordering.
+  Regressions cover cross-bucket call counts, missing versus unconfigured rates,
+  both provider paths and an exact floating-point subtotal sensitive to order.
+- S4: worker close/error listeners now remain for the worker lifetime. An idle
+  exit invalidates the cache; a regression serves another request on a new
+  worker, bounded to one second so a stale-cache failure cannot wait 30 seconds.
+
+**P5b integration:** SQL grouping keys, row fields, schema, request contract and
+read-snapshot boundary are unchanged. Pricing now folds those SQL rows into
+CPAMP keys `(model, billing model, resolved pricing model, band, tier)`, adding
+bucket for timeline or provider for provider-specific pricing. SQL-only flags,
+record kind, outcome and the other view dimensions are folded for pricing;
+retained-event counters still use the original SQL rows. P5b must feed raw/rollup
+rows through this same pricing projection. The earlier benchmark was not rerun
+after these fixes; its 30-day miss remains the reason for P5b, not a current-head
+performance claim.
+
+Focused follow-up validation: nine suites (the original seven plus P4 pricing
+and the new pricing-parity suite), 82 passed / 0 failed, 3,499 assertions.
+Targeted ESLint passed with no warnings. One follow-up full verification ran:
+
+```sh
+ionice -c3 nice -n10 env PATH=/dev/shm/prox-bun-1.4.3/bun-linux-x64:$PATH TMPDIR=/dev/shm/prox-query-review-verify-temp bun run verify
+```
+
+Result: PASS; 3,032 tests passed / 0 failed across 262 files. Lint had zero errors
+and the same six existing React Refresh warnings. TypeScript, source-manifest
+validation, the single-file UI, history bundle and all usage worker bundles
+passed. The shared `node_modules` symlink was preserved. No new benchmark, live
+query, deployment, or response-matrix claim is made for this follow-up.
 
 ## Evidence limits and integration notes
 
