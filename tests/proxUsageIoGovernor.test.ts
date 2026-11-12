@@ -58,7 +58,7 @@ describe('usage bulk IO governor', () => {
     await expect(slow.governor.reportBytes({ read: -1, written: 0 })).rejects.toThrow();
   });
 
-  test('cancelling a severe wait preserves its recovery latch and quiet interval on reuse', async () => {
+  test('cancelling a severe wait preserves its latch but restarts the quiet interval on reuse', async () => {
     let time = 0;
     let pressure = 15;
     let cancelAt = 1000;
@@ -81,12 +81,47 @@ describe('usage bulk IO governor', () => {
     expect(time).toBe(11_000); // cancellation during the quiet recovery period
     cancelAt = Infinity;
     await governor.waitForQuietIo();
-    expect(time).toBe(31_000); // retain the quiet interval begun at t=1s
-    expect(governor.counters.pauseSeconds).toBe(31);
+    expect(time).toBe(41_000); // observe a fresh 30 seconds after the second cancellation
+    expect(governor.counters.pauseSeconds).toBe(41);
     await governor.reportBytes({ read: 0, written: 0 });
     await governor.waitForQuietIo();
-    expect(time).toBe(31_000);
+    expect(time).toBe(41_000);
   });
+
+  test.each(['cancel', 'error'] as const)(
+    'restarts recovery after an unmonitored pressure spike when a wait exits by %s',
+    async (exit) => {
+      let time = 0;
+      const controller = new AbortController();
+      const observed: number[] = [];
+      const pressureAt = (ms: number) => (ms === 0 || (ms >= 30_000 && ms < 60_000) ? 15 : 0);
+      const governor = new IoGovernor({
+        readPsi: () => {
+          observed.push(time);
+          if (exit === 'error' && time === 2000) throw new Error('synthetic PSI error');
+          return `full avg10=${pressureAt(time).toFixed(2)} avg60=0`;
+        },
+        clock: {
+          now: () => time,
+          sleep: async (ms) => {
+            time += ms;
+            if (exit === 'cancel' && time === 2000) controller.abort();
+          },
+        },
+      });
+      await expect(governor.waitForQuietIo(controller.signal)).rejects.toThrow();
+      expect(time).toBe(2000);
+      expect(observed).toContain(0); // severe pressure
+      expect(observed).toContain(1000); // quiet recovery began, then monitoring stopped
+      expect(pressureAt(30_000)).toBe(15);
+      expect(pressureAt(59_000)).toBe(15);
+      time = 60_000; // no PSI observations during the gap
+      observed.length = 0;
+      await governor.waitForQuietIo();
+      expect(time).toBe(90_000);
+      expect(observed).toEqual(Array.from({ length: 31 }, (_, i) => 60_000 + i * 1000));
+    }
+  );
 
   test('cancelling byte pacing preserves the outstanding debt before the next admission', async () => {
     let time = 0;

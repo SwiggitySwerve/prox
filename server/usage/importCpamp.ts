@@ -374,7 +374,7 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
     if (!count) break;
   }
   // A full verification checks the whole imported cohort, including extra hours at either edge.
-  // Diagnostic prefixes are limited to their source UTC-hour range.
+  // Diagnostic prefixes count only verified identities within their source UTC-hour range.
   const sourceBuckets = [...sourceHours.keys()];
   const fromMs =
     options.maxRows === undefined
@@ -394,9 +394,10 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
     const rows = await chunk(() => store.readVerificationChunk(after, boundary, fromMs, toMs));
     for (const row of rows) {
       if (row.ingest !== INGEST.imported) continue;
+      const verifiedIdentity = typeof row.execution_id === 'string' && seen.has(row.execution_id);
+      if (options.maxRows !== undefined && !verifiedIdentity) continue;
       addHour(targetHours, row);
-      if (typeof row.execution_id !== 'string' || !seen.has(row.execution_id))
-        verification.targetOnlyImported += 1;
+      if (!verifiedIdentity) verification.targetOnlyImported += 1;
     }
     if (rows.length < 1000) break;
     const last = rows[rows.length - 1];

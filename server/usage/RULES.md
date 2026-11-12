@@ -202,9 +202,10 @@ PSI. At or above 15%, recovery requires 30 continuous seconds below 5%. Missing
 PSI fails closed. A pause longer than six hours invokes `reportLongPause` once
 (or warns to stderr when no callback is supplied); it never overrides the wait.
 `counters` exposes pause seconds, read bytes, written bytes and long-pause count.
-The severe-pressure latch, quiet recovery interval and outstanding byte deadline
-belong to the governor instance. Cancellation preserves them: a later job must
-pay the remaining byte debt and complete pressure recovery before admission.
+The severe-pressure latch and outstanding byte deadline belong to the governor
+instance and survive cancellation. The quiet recovery interval restarts whenever
+monitoring exits: a later job must pay remaining byte debt and observe a fresh,
+continuous quiet recovery before admission.
 
 After each chunk, call `reportBytes({read, written}, signal)`. Reads plus writes
 are capped at 4,000,000 bytes/second by default (`bytesPerSecond` overrides it).
@@ -283,9 +284,11 @@ the measured interval. Tests inject PSI, the clock and byte counters.
   differing from the validated canonical breakdown clears the complete flag.
   Sessions and credential indexes use the store's existing insert path.
 - `maxRows` is diagnostic only: it limits each pass, and the verification report
-  covers only that prefix. The final migration check must omit it. An import
-  followed by verification reads that prefix twice; respect any diagnostic read
-  limit across both passes.
+  covers only that prefix. Target accounting includes only the verified execution
+  IDs, even when later imported events share their hour. Unlimited runs retain
+  the independent target cohort scan and assertions for extra imported rows.
+  The final migration check must omit it. An import followed by verification reads
+  that prefix twice; respect any diagnostic read limit across both passes.
 
 Run the actual import only in a quiet window: outside 01:00–04:00 UTC and the
 12:30 UTC daily fstrim. This module does not schedule jobs or enforce calendar
@@ -376,3 +379,111 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   admission; source/transaction/config failures; cancellation and shutdown;
   fatal event failures; bearer protection; and the SQLite-free main runtime graph.
   They use synthetic tmpfs databases and a loopback fake S3 endpoint only.
+
+P2 landed while this change was being built. Its queue accepts one bounded
+chunk per job, its RPC currently replies only with `WriterStatus`, and any RPC
+failure stops collection. A correct adapter also needs cancellation so shutdown
+cannot wait indefinitely behind PSI or an upload. Together this exceeds the
+coordinator's roughly 150-line limit for wiring in this PR. No worker or admin
+trigger is added here. The integration PR must:
+
+1. Add a generic chunk scheduler to the job options. Keep PSI waits and byte
+   sleeps outside `WriterQueue`, and recheck admission when a queued chunk
+   starts. Queue each 1,000-row source read/transaction and verification read
+   with `enqueueJob(kind, fn)`; queue only the snapshot for backups. Retain
+   synchronous IO measurement inside each queued chunk so live writes are not
+   charged to it. Upload chunks remain outside the queue.
+2. Extend `writerProtocol.ts` with import/reconcile/verify/backup and cancellation
+   requests and typed job reports/errors. Expose them through `UsageWriter`
+   without making a rejected config/source/backup job fatal to live ingestion.
+3. Have `writer.worker.ts` own a single active bulk orchestration, shared
+   governor, read-only CPAMP handle, backup config and last-success state.
+   Close the source in `finally`; cancel and settle active orchestration before
+   closing the write connection. Live flush/shutdown must not wait six hours on
+   a bulk job's pressure wait. No job/config/source handle belongs in `main.ts`.
+4. Test real worker messages with synthetic CPAMP/fake S3, live commits during
+   PSI and pacing waits, cancellation/shutdown, nonfatal bulk-job failures and
+   the existing main-thread module-graph guard. Keep any later HTTP admin
+   trigger loopback-only and bearer-protected; validate its inputs at the edge.
+
+## Analytics queries
+
+- `validate.ts` owns the strict `AnalyticsQuery` plus catalog boundary (one JSON
+  value, no unknown fields, CPAMP byte/range/cursor bounds); only UTC is accepted.
+  `handler.ts` authenticates both POST paths with the shared management bearer
+  check, bounds streamed JSON to 1 MiB, and never imports a SQLite runtime module.
+- `main.ts` mounts `/v1/analytics` and the temporary
+  `/v0/management/monitoring/prox-analytics` alias alongside health/status. Rates
+  come from `PROX_USAGE_RATES_PATH` (default `/data/usage-rates.json`). A missing
+  initial book produces unpriced estimates and a coverage limitation; a failed
+  reload keeps the last good book. The mount and approved rate file are deployment
+  responsibilities; queries never update the book.
+- `lanes.ts` has independent FIFO fast/search lanes, one active query and eight
+  waiting in each. Overflow is 503. A 30-second deadline includes body reading,
+  admission and execution; expiry is 504, client cancellation 499. Cancellation
+  terminates the active worker, releasing its SQLite snapshot, before replacing
+  it. Idle workers are reused; close/error listeners stay attached for the worker's
+  lifetime, so an idle exit invalidates the cache. Shutdown rejects admission and
+  terminates both.
+- `query.worker.ts` opens its read-only connection through `store.ts`, performs
+  the entire response in one deferred read transaction, serializes the response
+  there and closes the connection. It uses the standard `{id, kind, body}` /
+  `{id, ok, body}` RPC and also accepts child-process IPC. Its bundle is a separate
+  `build:usage` entry beside `main.js` and `writer.worker.js`.
+- `analytics.ts` groups by UTC bucket, provider, all three pricing candidates,
+  tier, per-event context band, usage flags, record kind and outcome. The current
+  book snapshot generates nested SQL CASE expressions over dictionary ids:
+  billing, canonical, then requested candidate; thresholds descending, strictly
+  exceeded; a configured base-only candidate stops fallback. No stored price
+  table or index exists. SQL sums are priced with explicit bands and the P4
+  pricing owner. All response sections use the same book/revision and snapshot.
+- `analyticsPricing.ts` folds the unchanged SQL rows into CPAMP's pricing keys:
+  `(model, billing model, resolved pricing model, context band, tier)`, adding bucket
+  for timeline or provider for provider-specific stats. This folds across the
+  SQL-only metadata/outcome keys for pricing; retained-event metrics still use all
+  SQL rows. Summary stats sort by calls descending then `pricingRowLess` (model,
+  billing model, pricing model, tier, band); model views inherit that order.
+  Timeline sorts by bucket then `pricingRowLess`. Providers reuse global stats
+  when each model has one provider; otherwise they follow the provider query's
+  calls-descending order, with ties in its SQL key order (band before tier).
+- `pricing.ts` exposes separate aggregate/request estimate boundaries over the
+  shared money calculation. CPAMP aggregate tokens have no event metadata:
+  presence is always unknown, component-reporting flags do not add request-only
+  reasons, and only aggregate costs carry call counts. `parity.ts` adds the legacy
+  reason after the aggregate's pricing reasons. Request costs keep event presence
+  and component limitations, but no legacy-kind reason or call counts.
+- Known supplementary rows are excluded from counts, pricing, latency, selectors
+  and request detail, as CPAMP does. Selectors preserve the range/search while
+  ignoring the provider, model and outcome filters. The page cursor changes only
+  detail, never whole-scope totals.
+- `latency.ts` selects exact positive-sample nearest ranks in typed arrays for
+  the range, bucket, model and provider. Zero TTFT remains visible in detail but
+  does not enter percentile samples. Average latency uses positive measurements.
+- `search.ts` filters the time-clustered events after matching dictionary values;
+  identifier detail is looked up only for events in that range. Long identifiers
+  additionally try indexed exact execution/request/session matches. Substring
+  fallback remains, including CPAMP's SQL LIKE wildcards, ASCII SQL lower(), and
+  Unicode-lowercased query. It adds no search index or persisted projection.
+- The inspector is an explicit allowlist. Token zero is visible only when its
+  presence/component flags report it; positive counters stay visible. User agents
+  pass `credentialText.ts`, a port of CPAMP's credential-text scrubber; path queries
+  are removed again at serialization. Error summaries contain only the safe code
+  or `Execution failed`. No key/hash or fail body is returned.
+- `parity.ts` contains exactly the two P10 compatibility oddities: the legacy
+  record-kind reason on every nonempty aggregate estimate and source attribution
+  based on the current page. Coverage otherwise uses range-wide retention/gaps,
+  import provenance, rate-book state and unknown providers, without claiming the
+  event stream is an ingress ledger.
+- Provider/trace provenance is limited by P1: `provider` and `trace_id` are the
+  stored payload fields. CPAMP detail uses credential-provider snapshot and
+  response-header trace id. Neither is inferred from another field. P6 must check
+  these against imported/live rows; the response schema remains version 1.
+
+Regression tests cover snapshot isolation, SQL pricing bands, null measurements,
+search, coverage, worker IPC, bearer routing, bounded lanes, cancellation and a
+main-thread graph free of SQLite. `scripts/usage-query-benchmark.ts` creates and
+removes its 960,000-row synthetic store entirely in `/dev/shm`, using the P1 store
+API, and records 50 warm worker responses per view while inserting synthetic
+traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
+The live performance/parity gate is a separate deployment responsibility; a
+30-day p95 above 1 s requires P5b before P6, per the plan.

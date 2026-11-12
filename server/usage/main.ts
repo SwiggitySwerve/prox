@@ -3,38 +3,52 @@ import { loadSourceManifest } from '../providerSources/config';
 import { UsageCollector } from './collector';
 import { UsageWriter } from './writer';
 import { createUsageStatusHandler } from './status';
+import { createAnalyticsHandler, ANALYTICS_PATHS } from './handler';
 import { startEventLoopLagProbe } from '../eventLoopLag';
 
 const { manifest } = loadSourceManifest(
   process.env.PROX_SOURCE_MANIFEST ??
     new URL('../../deploy/provider-sources.json', import.meta.url).pathname
 );
+const dbPath = process.env.PROX_USAGE_DB_PATH ?? '/data/usage.sqlite';
 const writer = new UsageWriter();
 await writer.init(
   {
-    events: process.env.PROX_USAGE_DB_PATH ?? '/data/usage.sqlite',
+    events: dbPath,
     raw: process.env.PROX_USAGE_RAW_PATH ?? '/data/usage-raw.sqlite',
   },
   manifest.sources.map((source) => source.instanceId)
 );
+const analytics = createAnalyticsHandler({
+  dbPath,
+  keyFile: manifest.history.managementKeyFile,
+  rateBookPath: process.env.PROX_USAGE_RATES_PATH,
+});
 let healthy = true;
 const collectors = manifest.sources.map((source) => new UsageCollector(source, writer));
 writer.onOverflow = () => collectors.forEach((collector) => collector.overflow());
+const statusHandler = createUsageStatusHandler({
+  keyFile: manifest.history.managementKeyFile,
+  sources: () => collectors.map((collector) => collector.status),
+  writer: () => writer.status,
+  jobs: writer,
+  healthy: () => healthy,
+});
 const server = Bun.serve({
   hostname: '127.0.0.1',
   port: 18320,
-  fetch: createUsageStatusHandler({
-    keyFile: manifest.history.managementKeyFile,
-    sources: () => collectors.map((collector) => collector.status),
-    writer: () => writer.status,
-    jobs: writer,
-    healthy: () => healthy,
-  }),
+  // Let a query's 30-second deadline decide expiry before Bun closes an idle socket.
+  idleTimeout: 35,
+  fetch: (request) =>
+    ANALYTICS_PATHS.includes(new URL(request.url).pathname)
+      ? analytics(request)
+      : statusHandler(request),
 });
 let closing: Promise<void> | null = null;
 const shutdown = (): Promise<void> => {
   if (closing) return closing;
   healthy = false;
+  analytics.close();
   closing = (async () => {
     const stops = await Promise.allSettled(collectors.map((collector) => collector.stop()));
     try {

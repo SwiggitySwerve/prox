@@ -97,6 +97,8 @@ export class IoGovernor {
         await this.clock.sleep(1000);
       }
     } finally {
+      // A later call cannot prove pressure stayed quiet while this wait was not monitoring it.
+      this.quietSince = null;
       if (this.pausedAtMs !== null) {
         this.pauseMs += this.clock.now() - this.pausedAtMs;
         this.pausedAtMs = null;

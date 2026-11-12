@@ -250,6 +250,45 @@ describe('CPAMP migration jobs', () => {
     expect(f.reader.serialize()).toEqual(before);
   });
 
+  test('limited verification counts only verified identities after a full or resumed import', async () => {
+    const f = fixture(0);
+    for (const id of [1, 2]) f.writableSource.add(cpampRow(id, { timestamp_ms: ROLLUP_HOUR }));
+    const full = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+    });
+    expect(full.verification.exact).toBe(true);
+    const before = f.reader.serialize();
+    const limited = await runCpampJob(f.store, f.source, {
+      mode: 'verify',
+      maxRows: 1,
+      governor: fakeIo().governor,
+    });
+    expect(limited.verification).toMatchObject({ read: 1, targetOnlyImported: 0, exact: true });
+    expect(limited.verification.hours[0]).toMatchObject({
+      source: { rows: '1' },
+      target: { rows: '1' },
+      equal: true,
+    });
+    expect(f.reader.serialize()).toEqual(before);
+    f.writableSource.add(cpampRow(3, { timestamp_ms: ROLLUP_HOUR }));
+    const resumed = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      maxRows: 1,
+      governor: fakeIo().governor,
+    });
+    expect(resumed).toMatchObject({
+      inserted: 1,
+      lastId: 3,
+      verification: { read: 1, targetOnlyImported: 0, exact: true },
+    });
+    expect(resumed.verification.hours[0]).toMatchObject({
+      source: { rows: '1' },
+      target: { rows: '1' },
+      equal: true,
+    });
+  });
+
   test('cross-checks active CPAMP rollup calls and token sums across every provider/outcome group', async () => {
     const f = fixture(0);
     for (const id of [1, 2]) f.writableSource.add(cpampRow(id, { timestamp_ms: ROLLUP_HOUR }));
