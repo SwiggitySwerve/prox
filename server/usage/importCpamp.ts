@@ -31,7 +31,7 @@ export interface Preconditions {
   invalidJson: number;
 }
 
-const preconditions = (): Preconditions => ({
+export const cpampPreconditions = (): Preconditions => ({
   missingExecutionId: 0,
   duplicateExecutionId: 0,
   invalidTimestamp: 0,
@@ -65,7 +65,7 @@ const metadataSql = `json_extract(
   CASE WHEN json_valid(raw_json) THEN raw_json ELSE '{}' END,
   ${METADATA_KEYS.map((key) => `'$.${key}'`).join(', ')}
 )`;
-const SELECT_CHUNK = `SELECT
+export const CPAMP_EVENT_COLUMNS = `
   id, timestamp_ms, provider, model, requested_model, resolved_model, response_model,
   auth_index, account_snapshot, auth_label_snapshot, api_key_hash, user_agent, client_ip,
   path, method, reasoning_effort, executor_type, request_id, session_id, parent_session_id,
@@ -76,9 +76,11 @@ const SELECT_CHUNK = `SELECT
   normalized_cache_creation_tokens AS cache_write,
   output_tokens AS output_total, reasoning_tokens AS reasoning, total_tokens AS total,
   json_valid(raw_json) AS valid_json, ${metadataSql} AS metadata
+`;
+const SELECT_CHUNK = `SELECT ${CPAMP_EVENT_COLUMNS}
   FROM usage_events WHERE id > ? AND id <= ? ORDER BY id LIMIT ?`;
 
-type SourceRow = ImportValues & { id: number; metadata: string; valid_json: number };
+export type CpampSourceRow = ImportValues & { id: number; metadata: string; valid_json: number };
 const tokenColumns = [
   'input_total',
   'input_uncached',
@@ -92,7 +94,7 @@ const nonempty = (value: string | number | null): string | null =>
   typeof value === 'string' && value.trim() ? value.trim() : null;
 
 /** Copy persisted accounting; reuse the normalizer for metadata validation and session provenance. */
-function mapRow(row: SourceRow, checks: Preconditions, seen: Set<string>): NormalizedEvent | null {
+export function mapCpampRow(row: CpampSourceRow, checks: Preconditions, seen: Set<string>): NormalizedEvent | null {
   if (!row.valid_json) checks.invalidJson += 1;
   const extracted = JSON.parse(row.metadata) as unknown[];
   const metadata = Object.fromEntries(METADATA_KEYS.map((key, index) => [key, extracted[index]]));
@@ -267,7 +269,7 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
     duplicates: 0,
     conflicts: 0,
     chunks: 0,
-    preconditions: preconditions(),
+    preconditions: cpampPreconditions(),
   };
   if (
     !Number.isSafeInteger(maxId) ||
@@ -277,11 +279,11 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
   ) {
     throw new Error('Invalid CPAMP ID or import cursor; source may differ from the saved import');
   }
-  const select = source.query<SourceRow, [number, number, number]>(SELECT_CHUNK);
-  const map = (rows: SourceRow[], checks: Preconditions, seen: Set<string>) => {
-    const mapped: { event: NormalizedEvent; row: SourceRow }[] = [];
+  const select = source.query<CpampSourceRow, [number, number, number]>(SELECT_CHUNK);
+  const map = (rows: CpampSourceRow[], checks: Preconditions, seen: Set<string>) => {
+    const mapped: { event: NormalizedEvent; row: CpampSourceRow }[] = [];
     for (const row of rows) {
-      const event = mapRow(row, checks, seen);
+      const event = mapCpampRow(row, checks, seen);
       if (event) mapped.push({ event, row });
     }
     return mapped;
@@ -312,7 +314,7 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
     missing: 0,
     different: 0,
     targetOnlyImported: 0,
-    preconditions: preconditions(),
+    preconditions: cpampPreconditions(),
     hours: [] as ReturnType<typeof compareHours>,
     exact: false,
   };
