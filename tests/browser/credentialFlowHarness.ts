@@ -48,6 +48,10 @@ export class CredentialFlow {
   /** Every request to prox-history, so tests can see what the screens asked for. */
   readonly proxRequests: string[] = [];
   analytics: AnalyticsQuery[] = [];
+  /** When set, every hub says it supports plugins and answers `/plugins` with an empty list. */
+  pluginSupport = false;
+  /** Every `/plugins` list request, by path, so tests can count the reads per hub. */
+  readonly pluginRequests: string[] = [];
   private child!: ChildProcess;
   private ports!: Ports;
 
@@ -117,7 +121,14 @@ export class CredentialFlow {
       const request = route.request();
       const url = new URL(request.url());
       const reply = (json: unknown, status = 200) =>
-        route.fulfill({ status, json, headers: { 'X-CPA-Version': 'v8.0.44' } });
+        route.fulfill({
+          status,
+          json,
+          headers: {
+            'X-CPA-Version': 'v8.0.44',
+            ...(this.pluginSupport ? { 'X-CPA-Support-Plugin': 'true' } : {}),
+          },
+        });
       if (url.origin !== origin) {
         this.unexpected.push(`${request.method()} ${url.origin}${url.pathname}`);
         return route.abort();
@@ -157,6 +168,10 @@ export class CredentialFlow {
           if (path.startsWith('/routing/model-definitions/')) return reply({ models: [] });
           if (path === '/credentials/download') return reply({});
           if (path === '/credentials/models') return reply({ models: [] });
+          if (path === '/plugins' && this.pluginSupport) {
+            this.pluginRequests.push(url.pathname);
+            return reply({ plugins_enabled: true, plugins_dir: 'plugins', plugins: [] });
+          }
         }
       }
       if (

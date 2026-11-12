@@ -409,15 +409,21 @@ export function MainLayout() {
     });
   }, [fetchConfig]);
 
+  // A hub's version or plugin-support header republishes the registry in the middle of the first
+  // load. That is not a new hub set or connection, so only the hubs and their sign-in state key
+  // the loader; it reads the live snapshot instead of closing over the one it was built with.
+  const hubStates = registry.sources
+    .map((view) => `${view.source.instanceId}:${view.status}`)
+    .join();
   /** Resolves to the hubs whose plugin list could not be read (for the header's notice). */
   const loadPluginResources = useCallback(async (): Promise<string[]> => {
-    const captured = registry.resolution;
-    if (registry.status !== 'ready') {
+    const { status, resolution: captured, sources } = providerSources.getSnapshot();
+    if (status !== 'ready') {
       setPluginResources([]);
       return [];
     }
     const outcomes = await loadPluginSourceInventories(
-      registry.sources,
+      sources,
       () => providerSources.getSnapshot().sources
     );
     if (providerSources.getSnapshot().resolution !== captured) return [];
@@ -439,7 +445,8 @@ export function MainLayout() {
     return outcomes.flatMap((outcome) =>
       outcome.status === 'unavailable' ? [outcome.view.source.instanceId] : []
     );
-  }, [registry]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hubStates keys the hubs and their sign-in state; the body reads the live snapshot
+  }, [registry.status, registry.resolution, hubStates]);
 
   // The one poller and the browser wiring of the credential inventory live with the app shell.
   useEffect(() => startCredentialInventory(), []);
