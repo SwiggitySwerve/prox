@@ -326,7 +326,8 @@ Object keys are `usage/daily/usage-YYYYMMDD.sqlite` in UTC and, on Sundays,
 `usage/weekly/usage-YYYYMMDD.sqlite`. Configure bucket lifecycle expiration at
 14 days for the daily prefix and 56 days for the weekly prefix (eight weekly
 copies). The client never lists, prunes or deletes objects. It backs up
-`usage.sqlite`, including `client_alias`; the rate book remains a separate git
+`usage.sqlite`, including the reserved `client_alias` table; active aliases are a separate private file,
+not a backup of that table. The rate book remains a separate git
 artifact and the raw buffer is excluded. P4/P2 must arrange rate-book distribution
 alongside the backup; there is no rate-book table in the P1 schema.
 
@@ -546,3 +547,104 @@ starts with 409; inspect its report and retry manually rather than queueing bulk
 **Backup timer gate:** keep it disabled until the tracked paced backup snapshot
 follow-up replaces the indivisible VACUUM snapshot. Upload pacing alone does not
 make the snapshot bounded. No timer enablement or live install is part of this work.
+
+
+## Exporter lifetime counters and client names
+
+`exporter.ts` owns a writer-worker in-memory fold over the existing canonical event
+columns. Startup folds retained events once; `store.onCommit` adds only newly
+committed events after the outer transaction succeeds. Duplicate executions and
+rolled-back transactions add nothing. No derived state is persisted. The schema
+remains migration 1: no original-counter metadata, backfill or secondary import
+cursor is required. Raw-buffer expiry never deletes events or lowers counters.
+Any future event archive must preserve lifetime totals before deleting events.
+
+Metrics use the same canonical input/output/cache/reasoning counters as analytics.
+Known supplementary rows are excluded, as in analytics. Non-null latency samples
+supply the latency sum/count; only positive TTFT supplies its sum/count. Successful
+zero-total events supply the accounting-gap count. Pricing calls P4's
+`estimateAggregateCost` with per-event context bands and the same ordered
+billing/canonical/requested model fallback as analytics. No exporter-only `-fast`,
+billing-only, generic cache-price or Python summation rules remain. Partial and
+unknown prices keep P4's semantics. Priced-model count uses the shared rate
+inventory's priced classification.
+
+The public model label still uses the requested model, matching the deployed
+exporter, while pricing uses the canonical model internally. Account/provider
+values retain their stored snapshots. Client aliases preserve exact names and the
+old `key <first 8 hash chars>` / `unknown` fallbacks. The shared fixture
+`tests/fixtures/usageExporterLabels.json` compares actual old SQL label values with
+the authenticated endpoint response, including a model suffix and Unicode names.
+
+Historical account-label limits are explicit. CPAMP's exporter used
+`COALESCE(NULLIF(account_snapshot,''), auth_label_snapshot, auth_index)` without
+trimming: a whitespace-bearing account snapshot stays whitespace-bearing, and an
+empty non-null auth label stays empty (rendered as `unknown`). The importer trims
+both snapshots and treats an empty auth label as absent, falling back to the auth
+index. Those two historical cases cannot be reconstructed from the retained dims;
+analytics normalization and storage remain unchanged.
+
+The coordinator checked Prometheus's distinct account sets for both request and
+token counters across all history: exactly `321267c5b92801be`, `d5a08f237a58a2e5`,
+`research@astrabit.io`, `wrollings@astrabit.io`, `wrollings@gmail.com`, and
+`wrollings@pm.me`. No value has surrounding whitespace or is empty/`unknown`.
+This is coordinator-provided evidence, not a live query run by this implementation.
+NULL-auth-label fallbacks already match. The cutover must still compare the
+**distinct account/client/provider/model label sets** from the old exporter and
+this endpoint and block on any difference; see the swap PR's label guard.
+
+For live events, CPAMP fills account/auth-label snapshots from its credential
+snapshot resolver: account first, then auth label, with provider-specific identity
+validation and name/email/file fallbacks. Prox `labels.ts` instead takes the
+management listing's safe account, explicit label or auth index and captures that
+value at ingestion. Existing safe account/explicit-label cases match; differing
+refresh snapshots or missing fields can differ. No claim of universal live-label
+identity is made. The required swap guard covers actual label sets, while P5's
+analytics dimensions and response normalization remain untouched.
+
+Rate-only edits reprice groups without reading events; changed thresholds or
+pricing-candidate membership trigger a new fold, because a newly configured
+base-only candidate can stop fallback to a different candidate's context tiers.
+Client-name edits relabel groups without a scan. A failed projection invalidates
+the fold for a later rebuild; it never turns a committed event into failed ingest.
+
+`GET /v1/exporter` uses the existing loopback listener and management bearer check.
+Its version-1 JSON contains groups per provider, requested model, account, client
+and success/failed status, token/cache totals, seconds sums/counts, zero-token
+successes and nullable current-rate cost; plus newest event epoch seconds and
+priced-model count. It remains additive during the dual run. Source health reports
+instance, state, subscribed and last-event age in seconds; no event since process
+start is `null`, never a healthy zero age.
+
+`rate_book_loaded` and `client_aliases_loaded` distinguish a first-load failure
+from a failed edit with a last-good snapshot. `rate_book_error` and
+`client_alias_error` report the latest reload result. The HTTP response can carry
+source health when configuration has never loaded. The cutover shim must skip its
+usage counters until both loaded flags are true. A reload error with loaded=true
+may keep serving the last-good values. An explicit empty alias map counts as
+loaded; unknown clients then deliberately use the documented fallbacks.
+
+Aliases come from `~/.config/prox-usage/client-aliases.json` (0600), or
+`PROX_USAGE_CLIENT_ALIASES_PATH`; the unit sets `/config/client-aliases.json` on its
+existing read-only config mount. The P4 format is
+`{"client_alias":[{"api_key_hash":"<64 lowercase SHA-256 hex>","alias":"<name>"}]}`.
+The loader checks permissions, reloads on mtime changes, validates hashes/names,
+and retains last-good names on invalid edits. It never writes the file or database.
+Full hashes and raw keys never leave the endpoint. Alias files and P4 alias
+artifacts are ignored by git. See `docs/PROX-SETUP.md` for naming a new client.
+
+The exporter rollout has two steps. First add source health beside the unchanged
+CPAMP counters. At Step E, after Step B's history import completes, switch counters
+to this endpoint and add `source="prox-usage"` to every usage counter/gauge. Old
+series end; new series start at canonical lifetime totals. Prometheus rate/increase
+does not count a new series' first sample, avoiding a legacy-value reset spike.
+Lifetime-total dashboards jump once. Canonical output and P4 pricing change values,
+including D5's Fable/Terra cost and removal of old pricing quirks. Apply the Sonnet
+5.5 cache-read correction at the identity change. Any later price decrease can
+lower the cost counter and requires a fresh source identity (e.g. `prox-usage-2`).
+A rollback resumes old counters and can count traffic already counted in the new
+series. None of these rollout actions is performed by this implementation.
+
+Tests compare independent fixture totals and the analytics engine over identical
+scopes, enforce commit/rollback/deduplication and schema 1, exercise reload readiness
+and private aliases, and verify bearer routing, exact label values and source health.

@@ -16,6 +16,7 @@ Volume=%h/.local/share/cpa-manager-plus:/cpamp:ro
 Environment=PROX_USAGE_CPAMP_DB_PATH=/cpamp/usage.sqlite
 Volume=%h/.config/prox-usage:/config:ro
 Environment=PROX_USAGE_BACKUP_CONFIG=/config/backup.json
+Environment=PROX_USAGE_CLIENT_ALIASES_PATH=/config/client-aliases.json
 # The backup snapshot is written to tmpfs and needs twice the database size free.
 ShmSize=2g
 

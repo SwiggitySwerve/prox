@@ -50,6 +50,8 @@ export function createUsageStatusHandler(options: {
   writer: () => WriterStatus;
   healthy: () => boolean;
   jobs?: JobControls;
+  exporter?: () => Promise<NonNullable<WriterStatus['exporter']>>;
+  now?: () => number;
 }): (request: Request) => Promise<Response> {
   return async (request) => {
     const path = new URL(request.url).pathname;
@@ -62,13 +64,36 @@ export function createUsageStatusHandler(options: {
       if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
       return json({ ok: options.healthy() }, options.healthy() ? 200 : 503);
     }
-    if (!['/v1/status', '/v1/jobs', '/v1/jobs/cancel'].includes(path)) {
+    if (!['/v1/status', '/v1/jobs', '/v1/jobs/cancel', '/v1/exporter'].includes(path)) {
       return json({ error: 'Not found' }, 404);
     }
     try {
       if (!authorized(request, options.keyFile)) return json({ error: 'Unauthorized' }, 401);
     } catch {
       return json({ error: 'Management key unavailable' }, 503);
+    }
+    if (path === '/v1/exporter') {
+      if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
+      if (!options.healthy() || !options.exporter)
+        return json({ error: 'Exporter unavailable' }, 503);
+      try {
+        const snapshot = await options.exporter();
+        const now = (options.now ?? Date.now)();
+        return json({
+          ...snapshot,
+          sources: options.sources().map((source) => ({
+            instance: source.instance,
+            state: source.state,
+            subscribed: source.state === 'subscribed',
+            last_event_age_seconds:
+              source.lastEventAtMs === null
+                ? null
+                : Math.max(0, (now - source.lastEventAtMs) / 1000),
+          })),
+        });
+      } catch {
+        return json({ error: 'Usage exporter unavailable' }, 503);
+      }
     }
     if (request.method === 'GET' && path !== '/v1/jobs/cancel') {
       try {
