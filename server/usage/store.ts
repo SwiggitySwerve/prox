@@ -49,6 +49,16 @@ const EVENT_DIMENSIONS: Record<string, DimKind> = {
 };
 
 export type ImportValues = Record<string, string | number | null>;
+export interface RawPruneCursor {
+  rejectId: number;
+}
+export interface RawPruneChunk {
+  cursor: RawPruneCursor;
+  deleted: number;
+  done: boolean;
+}
+export const RAW_PRUNE_PAGE_SIZE = 1000;
+
 export interface EventCursor {
   tsMs: number;
   seq: number;
@@ -282,12 +292,40 @@ export class UsageStore {
     );
   }
 
-  /** Drop buffered payloads and rejects older than `beforeMs`. Events are not touched. */
-  pruneRawBefore(beforeMs: number): number {
-    if (!this.raw) return 0;
-    const payloads = this.raw.query('DELETE FROM payloads WHERE ts_ms < ?').run(beforeMs);
-    const rejects = this.raw.query('DELETE FROM rejects WHERE received_at_ms < ?').run(beforeMs);
-    return payloads.changes + rejects.changes;
+  /** Select expired payload keys via the covering time index, without reading fresh BLOB pages.
+   * Rejects keyset by id so their scan stays bounded without a startup index build. */
+  pruneRawBefore(beforeMs: number, cursor: RawPruneCursor = { rejectId: 0 }): RawPruneChunk {
+    if (!this.raw) return { cursor, deleted: 0, done: true };
+    return this.raw.transaction(() => {
+      const page = (table: string, key: string, after: number) =>
+        this.raw!.query<{ id: number }, [number, number]>(
+          `SELECT ${key} AS id FROM ${table} WHERE ${key} > ? ORDER BY ${key} LIMIT ?`
+        ).all(after, RAW_PRUNE_PAGE_SIZE);
+      const payloads = this.raw!.query<{ seq: number }, [number, number]>(
+        'SELECT seq FROM payloads WHERE ts_ms < ? ORDER BY ts_ms, seq LIMIT ?'
+      ).all(beforeMs, RAW_PRUNE_PAGE_SIZE);
+      const rejects = page('rejects', 'id', cursor.rejectId);
+      const next = {
+        rejectId: rejects[rejects.length - 1]?.id ?? cursor.rejectId,
+      };
+      const payloadDeleted = payloads.length
+        ? this.raw!.query(
+            `DELETE FROM payloads WHERE seq IN (${payloads.map(() => '?').join(',')})`
+          ).run(...payloads.map((row) => row.seq)).changes
+        : 0;
+      const deleted =
+        payloadDeleted +
+        this.raw!.query('DELETE FROM rejects WHERE id > ? AND id <= ? AND received_at_ms < ?').run(
+          cursor.rejectId,
+          next.rejectId,
+          beforeMs
+        ).changes;
+      return {
+        cursor: next,
+        deleted,
+        done: payloads.length < RAW_PRUNE_PAGE_SIZE && rejects.length < RAW_PRUNE_PAGE_SIZE,
+      };
+    })();
   }
 
   getMeta(key: string): string | null {

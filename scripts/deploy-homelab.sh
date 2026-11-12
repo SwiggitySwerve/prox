@@ -36,6 +36,12 @@ install -D -m 755 deploy/prox-auth-janitor.sh "$HOME/.local/share/prox/prox-auth
 install -D -m 644 deploy/prox-auth-janitor.service "$HOME/.config/systemd/user/prox-auth-janitor.service"
 install -D -m 644 deploy/prox-auth-janitor.path "$HOME/.config/systemd/user/prox-auth-janitor.path"
 install -D -m 644 deploy/prox-auth-janitor.timer "$HOME/.config/systemd/user/prox-auth-janitor.timer"
+# Ship job schedules disabled. The operator enables them after the migration gates.
+install -D -m 755 deploy/prox-usage-job.sh "$HOME/.local/share/prox/prox-usage-job.sh"
+install -D -m 644 deploy/prox-usage-job@.service "$HOME/.config/systemd/user/prox-usage-job@.service"
+for job in prune reconcile backup; do
+  install -D -m 644 "deploy/prox-usage-$job.timer" "$HOME/.config/systemd/user/prox-usage-$job.timer"
+done
 systemctl --user daemon-reload
 systemctl --user enable --now prox-auth-janitor.path prox-auth-janitor.timer
 # UI/history deploys leave the live usage subscription alone when its code did not change.

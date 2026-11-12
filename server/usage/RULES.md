@@ -195,7 +195,7 @@ Collector, writer and service regressions use the ephemeral in-process proxy in
   D5's two missing models are added with null rates and source `pending D5`;
   approved prices are required before deploying that book.
 
-## Bulk jobs (import, reconcile, verify and backup)
+## Bulk jobs (import, reconcile, verify, backup and prune)
 
 `ioGovernor.ts` owns bulk IO admission and pacing. Share one `IoGovernor` in the
 writer worker. `waitForQuietIo(signal)` admits work only below 5% `full avg10` IO
@@ -341,7 +341,7 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   a shared governor, the read-only CPAMP handle and a retained `UsageBackup`.
   Source opening and each bounded import/verification chunk use `enqueueJob`.
   Only the backup snapshot uses that queue; upload and all waits stay outside.
-- `writerProtocol.ts` carries `import`, `reconcile`, `verify`, `backup`, `cancel`
+- `writerProtocol.ts` carries `import`, `reconcile`, `verify`, `backup`, `prune`, `cancel`
   and `job-status` requests. Replies include a typed `job` report in writer status.
   Start acknowledges admission promptly; poll for completion. A rejected command,
   bad config, source failure, bulk transaction failure or upload failure is
@@ -364,10 +364,10 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   Backup settings use `loadBackupConfig` above. `UsageWriter.init` also accepts
   these paths/budget as typed config for embedding and synthetic tests. HTTP
   never accepts file paths, budget overrides or backup credentials.
-- Nothing starts a bulk job at boot or on a timer. On the existing listener at
+- Nothing starts a bulk job at boot. Deployment copies optional timers without enabling them. On the existing listener at
   `127.0.0.1:18320`, the coordinator explicitly calls:
   - `POST /v1/jobs` with exactly `{"kind":"import"}` (or `reconcile`, `verify`,
-    `backup`): 202 with the running report, 409 if a job is already active.
+    `backup`, `prune`): 202 with the running report, 409 if a job is already active.
   - `POST /v1/jobs/cancel` with exactly `{"jobId":1}`: 202; stale IDs return 409.
     Cancellation is idempotent for the latest finished job. Poll until settled.
   - `GET /v1/jobs`: latest report or null. `GET /v1/status` includes the same
@@ -381,6 +381,44 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   fatal event failures; bearer protection; and the SQLite-free main runtime graph.
   They use synthetic tmpfs databases and a loopback fake S3 endpoint only.
 
+
+## Offline parity evidence
+
+`scripts/usage-parity.ts` is the operator-only read exception during the dual run.
+It opens CPAMP and Prox with SQLite URI `mode=ro`, read-only flags and
+`query_only=1`; it never imports/reconciles, writes events or joins either server's
+runtime graph. CPAMP reads force `idx_usage_events_timestamp`, use five-minute
+windows and 1,000-row keyset pages. `importCpamp.ts` exports its allowlisted
+`CPAMP_EVENT_COLUMNS`, `mapCpampRow` and `cpampPreconditions` for this reader;
+there is one CPAMP accounting/metadata mapping for import and parity.
+
+The harness compares the seven token fields and the event identity, timing,
+models, provider, tier, failure, status, flags and record kind, plus exporter
+account, account-label and client-key-hash dimensions. The import owner's account
+fallback (snapshot, then label, then credential index) still applies. No label
+snapshot timing exception is authorized by this harness. A missing Prox event is
+explained only by a matching instance/time in `ingest_gaps`; a Prox-only drained
+event needs an explicit, documented CPAMP outage interval. Subscribed extras fail.
+
+All operations share the existing IO governor and one serial query gate, with a
+2-second default minimum gap after completion, cancellable PSI waits, measured
+DB-byte pacing and a nonzero exit on unexplained differences, failure or abort.
+There are no retries of expensive queries. The only response normalization is
+plan §3.3's four volatile fields, relative `cost.usd` tolerance and ordering inside
+equal-timestamp runs. Provider and trace provenance differences apply only to
+request-detail fields and are counted. A D5 price exception needs two read-only
+replays through `queryAnalytics`: the approved deployed book must reproduce the
+Prox value, and removing only the two D5 models must reproduce CPAMP's value.
+Other differences, including coverage and one-sided paging, fail the run.
+
+The matrix is ported from CPAMP commit `52b12b45e010a766bd69ff55a55e566263d8bede`.
+Its current source has 672 quick / 5,904 full base queries, with coupled view
+rotation rather than extra time-zone/granularity factors. All view slots are kept
+and mapped to UTC. Each backend supplies its own second-page cursor. Reports
+reconcile the stale plan counts, expose each axis and window clipping, and retain
+both values for every difference. The disabled user timer template runs quick
+plus events for the previous UTC day at 04:30 UTC; installation and the two-night
+cutover decision belong to the coordinator.
 
 ## Analytics queries
 
@@ -464,40 +502,23 @@ traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
 The live performance/parity gate is a separate deployment responsibility; a
 30-day p95 above 1 s requires P5b before P6, per the plan.
 
-## Offline parity evidence
+### Raw-buffer expiry and schedules
 
-`scripts/usage-parity.ts` is the operator-only read exception during the dual run.
-It opens CPAMP and Prox with SQLite URI `mode=ro`, read-only flags and
-`query_only=1`; it never imports/reconciles, writes events or joins either server's
-runtime graph. CPAMP reads force `idx_usage_events_timestamp`, use five-minute
-windows and 1,000-row keyset pages. `importCpamp.ts` exports its allowlisted
-`CPAMP_EVENT_COLUMNS`, `mapCpampRow` and `cpampPreconditions` for this reader;
-there is one CPAMP accounting/metadata mapping for import and parity.
+`prune` fixes its cutoff at job admission minus 30 days. `store.pruneRawBefore`
+selects at most 1,000 expired payload keys through the existing covering time
+index, then deletes those keys. Fresh payload BLOB pages are never scanned. Rejects
+keep a bounded 1,000-id scan, including fresh rows, without a startup index build. Events and event metadata are never
+pruned. Each page uses the shared 4 MB/s read-plus-write governor and yields to live
+batches. A failed raw transaction fails only the bulk job; collection continues.
 
-The harness compares the seven token fields and the event identity, timing,
-models, provider, tier, failure, status, flags and record kind, plus exporter
-account, account-label and client-key-hash dimensions. The import owner's account
-fallback (snapshot, then label, then credential index) still applies. No label
-snapshot timing exception is authorized by this harness. A missing Prox event is
-explained only by a matching instance/time in `ingest_gaps`; a Prox-only drained
-event needs an explicit, documented CPAMP outage interval. Subscribed extras fail.
+`deploy/prox-usage-job@.service` submits a bearer-protected POST; the key is read
+by its installed shell script and piped as a header, never placed in curl's argv or logs. Timers
+run prune at 04:20 UTC, reconcile at 04:40 UTC and backup at 05:10 UTC. They are
+nonpersistent, so a missed run cannot catch up during the 01:00–04:00 or 12:30 IO
+windows. The deployment script copies units only; fresh installs stay disabled.
+Manual enablement is an operator migration step. A running job rejects overlapping
+starts with 409; inspect its report and retry manually rather than queueing bulk IO.
 
-All operations share the existing IO governor and one serial query gate, with a
-2-second default minimum gap after completion, cancellable PSI waits, measured
-DB-byte pacing and a nonzero exit on unexplained differences, failure or abort.
-There are no retries of expensive queries. The only response normalization is
-plan §3.3's four volatile fields, relative `cost.usd` tolerance and ordering inside
-equal-timestamp runs. Provider and trace provenance differences apply only to
-request-detail fields and are counted. A D5 price exception needs two read-only
-replays through `queryAnalytics`: the approved deployed book must reproduce the
-Prox value, and removing only the two D5 models must reproduce CPAMP's value.
-Other differences, including coverage and one-sided paging, fail the run.
-
-The matrix is ported from CPAMP commit `52b12b45e010a766bd69ff55a55e566263d8bede`.
-Its current source has 672 quick / 5,904 full base queries, with coupled view
-rotation rather than extra time-zone/granularity factors. All view slots are kept
-and mapped to UTC. Each backend supplies its own second-page cursor. Reports
-reconcile the stale plan counts, expose each axis and window clipping, and retain
-both values for every difference. The disabled user timer template runs quick
-plus events for the previous UTC day at 04:30 UTC; installation and the two-night
-cutover decision belong to the coordinator.
+**Backup timer gate:** keep it disabled until the tracked paced backup snapshot
+follow-up replaces the indivisible VACUUM snapshot. Upload pacing alone does not
+make the snapshot bounded. No timer enablement or live install is part of this work.

@@ -195,6 +195,13 @@ confirming the lockfiles matched; no install or deletion was performed.
   changed-file ESLint and `bun run build:usage`. The harness default rate book
   now matches deployment at `~/.local/share/prox-usage/usage-rates.json`; its CLI
   regression passed with all nine runner tests after that path adjustment.
+- Integrated the subsequent raw-expiry/schedule update at `dbd54039` (PR #74).
+  Its only conflict was appended rules documentation; both sections were kept,
+  with parity rules moved before the analytics section. **73 tests across eight
+  affected parity/store/jobs/service/job-script suites passed** (6,462 assertions).
+  Application/server typecheck, standalone script/test TypeScript and usage
+  production builds passed again. The harness runtime was unchanged by this
+  documentation resolution.
 - `git diff --check` passed. No UI route changed, so browser checks do not apply.
 No browser route changed. Live smoke, full matrix, two-night evidence and unit
 installation remain for the coordinator.
