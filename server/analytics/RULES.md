@@ -22,6 +22,15 @@ Publisher names come from that catalog; they are not inferred from model names.
 A failed source appears unavailable, not empty. Catalogs and historical usage
 remain distinct; CPA resolves current configured prices and labels unknowns.
 
+`cache.ts` keeps the last good CPA response per view in memory only, so a page load
+never waits on CPA's multi-second scans. A live window (ending near now) is keyed by
+span or UTC-midnight start plus filters, not by the caller's clock; cursor pages and
+fixed windows are keyed exactly. A stale view is served at once and recomputed behind
+the request; a warmer refreshes the default views and any live view asked for in the
+last 15 minutes. A failure is never cached and never replaces a good snapshot. The
+response's own `generated_at_ms` and window stay authoritative, so snapshot age is
+visible. `Cache-Control: no-cache` (the page's Refresh) forces a recompute.
+
 Retained events cannot establish all-ingress completeness. Pre-admission failures,
 process loss and old missing-usage paths may be absent. Coverage and timing
 limitations must remain visible; API-equivalent estimates are not billed totals.

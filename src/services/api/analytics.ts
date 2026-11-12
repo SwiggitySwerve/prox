@@ -5,7 +5,11 @@ import { apiClient } from './client';
 export function createAnalyticsApi() {
   const client = apiClient.captureConnection();
   return {
-    query: (query: AnalyticsQuery, signal: AbortSignal) =>
-      client.post<AnalyticsResponse>('/prox/analytics', query, { signal }),
+    /** The server answers from a warm snapshot unless the caller asks for a recompute. */
+    query: (query: AnalyticsQuery, signal: AbortSignal, fresh = false) =>
+      client.post<AnalyticsResponse>('/prox/analytics', query, {
+        signal,
+        ...(fresh ? { headers: { 'Cache-Control': 'no-cache' } } : {}),
+      }),
   };
 }
