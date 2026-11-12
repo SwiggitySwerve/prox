@@ -3,8 +3,7 @@ import { authorized } from '../app';
 import { readJson } from '../http/readJson';
 import { isRecord } from '../../src/utils/helpers';
 import type { SourceManifest } from '../../src/domain/providerSources/types';
-import { rangeQuery, ranges } from '../../src/features/analytics/queryState';
-import { dashboardAnalyticsQuery } from '../../src/features/dashboard/analyticsTraffic';
+import { rangeQuery } from '../../src/features/analytics/queryState';
 import { readCatalogs, type Fetcher } from './catalog';
 import { createSnapshotCache, type Outcome, type Query } from './cache';
 
@@ -41,22 +40,15 @@ export function createAnalyticsHandler(
   const config = manifest.analytics;
   // The registered catalog rarely changes, so every view shares one read for a few minutes.
   // Only a catalog with every source ready is kept: a failed source is asked again next time.
-  let catalogs: { at: number; read: ReturnType<typeof readCatalogs> } | undefined;
-  function catalogFor(signal: AbortSignal) {
+  // Views that start together may each read it once; that is four small local requests.
+  let catalogs: { at: number; value: Awaited<ReturnType<typeof readCatalogs>> } | undefined;
+  async function catalogFor(signal: AbortSignal) {
     const now = clock();
-    if (catalogs && now - catalogs.at < CATALOG_TTL) return catalogs.read;
-    const entry = { at: now, read: readCatalogs(manifest.sources, signal, fetcher, readKey) };
-    catalogs = entry;
-    void entry.read.then(
-      (result) => {
-        if (result.catalog_sources.some((source) => source.state !== 'ready') && catalogs === entry)
-          catalogs = undefined;
-      },
-      () => {
-        if (catalogs === entry) catalogs = undefined;
-      }
-    );
-    return entry.read;
+    if (catalogs && now - catalogs.at < CATALOG_TTL) return catalogs.value;
+    const value = await readCatalogs(manifest.sources, signal, fetcher, readKey);
+    if (value.catalog_sources.every((source) => source.state === 'ready'))
+      catalogs = { at: now, value };
+    return value;
   }
   async function compute(query: Query): Promise<Outcome> {
     if (!config) return { ok: false, status: 503 };
@@ -92,12 +84,16 @@ export function createAnalyticsHandler(
         !Array.isArray(result.timeline)
       )
         throw new Error('Invalid analytics response');
-      return { ok: true, body: { ...result, catalog_sources } };
+      return {
+        ok: true,
+        body: { ...result, catalog_sources },
+        degraded: catalog_sources.some((source) => source.state !== 'ready'),
+      };
     } catch {
       return { ok: false, status: 503 };
     }
   }
-  const cache = createSnapshotCache(compute, clock, (now) => defaultViews(manifest, now));
+  const cache = createSnapshotCache(compute, clock, defaultViews);
   const handler = async (request: Request): Promise<Response> => {
     try {
       if (!authorized(request, manifest.history.managementKeyFile))
@@ -136,16 +132,20 @@ export function createAnalyticsHandler(
   return Object.assign(handler, { warm: () => cache.warm() });
 }
 
-/** The views the page opens by default, so the first visit of the day is already warm. */
-function defaultViews(manifest: SourceManifest, now: number): Query[] {
-  // The dashboard asks per provider. Sources declare the credential types they own, the same
-  // values the dashboard reads off its credentials; providers nobody declares warm on first use.
-  const providers = [...new Set(manifest.sources.flatMap((source) => source.providers ?? []))];
+/**
+ * The page's ranges, most used first, so a restart warms the views people open before the rest.
+ * Any other live view (a filter, a provider, the dashboard's traffic view) stays warm for a day
+ * after it is asked for.
+ */
+function defaultViews(now: number): Query[] {
   return [
-    ...ranges.map((range) => ({ ...rangeQuery(range, now) })),
-    // The hourly spreads of the longer ranges are the heaviest views people ask for.
     { ...rangeQuery('7d', now, 'hour') },
+    { ...rangeQuery('30d', now) },
     { ...rangeQuery('30d', now, 'hour') },
-    ...providers.map((provider) => ({ ...dashboardAnalyticsQuery(now, provider) })),
+    { ...rangeQuery('24h', now) },
+    { ...rangeQuery('7d', now) },
+    { ...rangeQuery('today', now) },
+    { ...rangeQuery('1h', now) },
+    { ...rangeQuery('yesterday', now) },
   ];
 }

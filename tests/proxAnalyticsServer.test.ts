@@ -374,18 +374,76 @@ describe('Prox analytics bridge', () => {
         f.clean();
       }
     });
-    test('warms the dashboard traffic view for every provider the sources declare', async () => {
+    test('keeps any live view asked for in the last day warm, even a provider no source declares', async () => {
+      const f = fixture();
+      try {
+        const views = () => [
+          dashboardAnalyticsQuery(f.now(), 'gemini'),
+          live(f, 7 * DAY, { provider: 'remembered', limit: 25 }),
+        ];
+        for (const view of views()) await f.handler(request(view));
+        // Nobody has asked for hours: the warmer keeps them on the idle cadence.
+        f.advance(3 * 60 * 60_000);
+        await f.handler.warm();
+        const before = f.cpaCalls();
+        for (const view of views()) expect((await f.handler(request(view))).status).toBe(200);
+        expect(f.cpaCalls()).toBe(before);
+        // A day after the last visit, the views are let go.
+        f.advance(25 * 60 * 60_000);
+        await f.handler.warm();
+        const later = f.cpaCalls();
+        await f.handler(request(views()[0]));
+        expect(f.cpaCalls()).toBe(later + 1);
+      } finally {
+        f.clean();
+      }
+    });
+    test('a restart warms the goal views first, two at a time', async () => {
+      const f = fixture();
+      try {
+        const release = f.holdCpa();
+        const warming = f.handler.warm();
+        await settle();
+        expect(f.cpaCalls()).toBe(2);
+        release();
+        await warming;
+        const sent = f.calls
+          .filter((call) => call.url.startsWith('http://cpa.test'))
+          .slice(0, 3)
+          .map(({ body }) => [
+            Math.round((Number(body?.to_ms) - Number(body?.from_ms)) / DAY),
+            body?.granularity,
+          ]);
+        expect(sent).toEqual([
+          [7, 'hour'],
+          [30, 'day'],
+          [30, 'hour'],
+        ]);
+      } finally {
+        f.clean();
+      }
+    });
+    test('a catalog blip never replaces a ready snapshot, and is retried sooner than the idle period', async () => {
       const f = fixture();
       try {
         await f.handler.warm();
-        const before = f.cpaCalls();
-        for (const provider of ['codex', 'claude']) {
-          const response = await f.handler(request(dashboardAnalyticsQuery(f.now(), provider)));
-          expect(response.status).toBe(200);
-        }
-        expect(f.cpaCalls()).toBe(before);
-        await f.handler(request(dashboardAnalyticsQuery(f.now(), 'gemini')));
-        expect(f.cpaCalls()).toBe(before + 1);
+        const seeded = f.cpaCalls();
+        f.failBeta();
+        f.advance(31 * 60_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(seeded * 2);
+        // Retried on the failure backoff, well inside the 30-minute idle period.
+        f.advance(5 * 60_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(seeded * 3);
+        f.restoreBeta();
+        const view = live(f, 30 * DAY, { granularity: 'day', limit: 25 });
+        const data = await (await f.handler(request(view))).json();
+        expect(data.catalog_sources.map((row: { state: string }) => row.state)).toEqual([
+          'ready',
+          'ready',
+        ]);
+        expect(data.generated_at_ms).toBeLessThanOrEqual(seeded);
       } finally {
         f.clean();
       }

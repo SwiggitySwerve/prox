@@ -21,6 +21,7 @@ import {
   nextPageQuery,
   rangeQuery,
   ranges,
+  shownWindow,
   withoutCursor,
   type AnalyticsBucket,
   type AnalyticsRange,
@@ -224,14 +225,15 @@ export function AnalyticsPage() {
     setRefresh((value) => value + 1);
   };
   useHeaderRefresh(reload);
+  const covered = shownWindow(query, data);
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headline}>
           <h1>{t('analytics.title')}</h1>
           <p className={styles.scope}>
-            {analyticsTime(query.from_ms, i18n.language)} →{' '}
-            {analyticsTime(query.to_ms, i18n.language)} UTC
+            {analyticsTime(covered.from_ms, i18n.language)} →{' '}
+            {analyticsTime(covered.to_ms, i18n.language)} UTC
             {bucketSelected && <span> · {t('analytics.selected_bucket')}</span>}
             {query.search && <span> {`· ${t('analytics.search')}: ${query.search}`}</span>}
           </p>

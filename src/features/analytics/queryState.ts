@@ -63,6 +63,13 @@ export function startingFilters(provider: string | undefined, saved: Partial<Fil
         search: saved.search,
       };
 }
+/** The window the answer covers: a served snapshot can end before the page's own clock. */
+export function shownWindow(
+  query: Pick<AnalyticsQuery, 'from_ms' | 'to_ms'>,
+  data?: Partial<Pick<AnalyticsResponse, 'from_ms' | 'to_ms'>>
+) {
+  return { from_ms: data?.from_ms ?? query.from_ms, to_ms: data?.to_ms ?? query.to_ms };
+}
 export function withoutCursor(query: AnalyticsQuery): AnalyticsQuery {
   const filters = { ...query };
   delete filters.before_id;
