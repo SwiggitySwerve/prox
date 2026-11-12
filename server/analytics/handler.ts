@@ -4,8 +4,11 @@ import { readJson } from '../http/readJson';
 import { isRecord } from '../../src/utils/helpers';
 import type { SourceManifest } from '../../src/domain/providerSources/types';
 import { rangeQuery, ranges } from '../../src/features/analytics/queryState';
+import { dashboardAnalyticsQuery } from '../../src/features/dashboard/analyticsTraffic';
 import { readCatalogs, type Fetcher } from './catalog';
 import { createSnapshotCache, type Outcome, type Query } from './cache';
+
+const CATALOG_TTL = 5 * 60_000;
 
 const QUERY_FIELDS = new Set([
   'from_ms',
@@ -36,17 +39,31 @@ export function createAnalyticsHandler(
   clock: () => number = Date.now
 ) {
   const config = manifest.analytics;
+  // The registered catalog rarely changes, so every view shares one read for a few minutes.
+  // Only a catalog with every source ready is kept: a failed source is asked again next time.
+  let catalogs: { at: number; read: ReturnType<typeof readCatalogs> } | undefined;
+  function catalogFor(signal: AbortSignal) {
+    const now = clock();
+    if (catalogs && now - catalogs.at < CATALOG_TTL) return catalogs.read;
+    const entry = { at: now, read: readCatalogs(manifest.sources, signal, fetcher, readKey) };
+    catalogs = entry;
+    void entry.read.then(
+      (result) => {
+        if (result.catalog_sources.some((source) => source.state !== 'ready') && catalogs === entry)
+          catalogs = undefined;
+      },
+      () => {
+        if (catalogs === entry) catalogs = undefined;
+      }
+    );
+    return entry.read;
+  }
   async function compute(query: Query): Promise<Outcome> {
     if (!config) return { ok: false, status: 503 };
     try {
       // Not tied to the caller's connection: the result is shared with later requests.
       const signal = AbortSignal.timeout(30000);
-      const { catalog, catalog_sources } = await readCatalogs(
-        manifest.sources,
-        signal,
-        fetcher,
-        readKey
-      );
+      const { catalog, catalog_sources } = await catalogFor(signal);
       const key = await readKey(config.adminKeyFile);
       if (!key) throw new Error('Missing dataset credential');
       signal.throwIfAborted();
@@ -80,7 +97,7 @@ export function createAnalyticsHandler(
       return { ok: false, status: 503 };
     }
   }
-  const cache = createSnapshotCache(compute, clock, defaultViews);
+  const cache = createSnapshotCache(compute, clock, (now) => defaultViews(manifest, now));
   const handler = async (request: Request): Promise<Response> => {
     try {
       if (!authorized(request, manifest.history.managementKeyFile))
@@ -118,11 +135,15 @@ export function createAnalyticsHandler(
 }
 
 /** The views the page opens by default, so the first visit of the day is already warm. */
-function defaultViews(now: number): Query[] {
+function defaultViews(manifest: SourceManifest, now: number): Query[] {
+  // The dashboard asks per provider. Sources declare the credential types they own, the same
+  // values the dashboard reads off its credentials; providers nobody declares warm on first use.
+  const providers = [...new Set(manifest.sources.flatMap((source) => source.providers ?? []))];
   return [
     ...ranges.map((range) => ({ ...rangeQuery(range, now) })),
     // The hourly spreads of the longer ranges are the heaviest views people ask for.
     { ...rangeQuery('7d', now, 'hour') },
     { ...rangeQuery('30d', now, 'hour') },
+    ...providers.map((provider) => ({ ...dashboardAnalyticsQuery(now, provider) })),
   ];
 }

@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createAnalyticsHandler } from '../server/analytics/handler';
+import { dashboardAnalyticsQuery } from '../src/features/dashboard/analyticsTraffic';
 import {
   validateSourceManifest,
   publicSourceDiscovery,
@@ -26,6 +27,7 @@ function fixture() {
       label: id,
       publicBasePath: `/${id}`,
       aliases: [],
+      providers: [id === 'alpha' ? 'codex' : 'claude'],
       authScope: 'shared',
       upstreamOrigin: `http://${id}.test`,
       managementKeyFile: `/private/${id}`,
@@ -68,12 +70,16 @@ function fixture() {
       () => now
     ),
     cpaCalls: () => calls.filter((call) => call.url.startsWith('http://cpa.test')).length,
+    catalogCalls: () => calls.filter((call) => !call.url.startsWith('http://cpa.test')).length,
     advance: (milliseconds: number) => {
       now += milliseconds;
     },
     now: () => now,
     failBeta: () => {
       betaFailed = true;
+    },
+    restoreBeta: () => {
+      betaFailed = false;
     },
     failCpa: (status: number) => {
       cpaStatus = status;
@@ -264,6 +270,8 @@ describe('Prox analytics bridge', () => {
         f.advance(5000);
         await f.handler.warm();
         expect(f.cpaCalls()).toBe(seeded);
+        // Someone is using the page, so the views keep their active cadence.
+        await f.handler(request(live(f, 30 * DAY, { granularity: 'day', limit: 25 })));
         f.advance(10 * 60_000);
         await f.handler.warm();
         expect(f.cpaCalls()).toBe(seeded * 2);
@@ -273,6 +281,88 @@ describe('Prox analytics bridge', () => {
         );
         expect(response.status).toBe(200);
         expect(f.cpaCalls()).toBe(before);
+      } finally {
+        f.clean();
+      }
+    });
+    test('backs off to a slow heartbeat when idle, and the first visit still answers from the snapshot', async () => {
+      const f = fixture();
+      try {
+        await f.handler.warm();
+        const seeded = f.cpaCalls();
+        f.advance(20 * 60_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(seeded);
+        f.advance(15 * 60_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(seeded * 2);
+        // Hours later, long past any stale limit: the old snapshot is served at once.
+        f.advance(3 * 60 * 60_000);
+        const before = f.cpaCalls();
+        const first = await f.handler(
+          request(live(f, 30 * DAY, { granularity: 'day', limit: 25 }))
+        );
+        expect(await generation(first)).toBeLessThanOrEqual(before);
+        await settle();
+        expect(f.cpaCalls()).toBe(before + 1);
+        // The visit wakes the warmer: the other views refresh on the active cadence again.
+        f.advance(60_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(before + 1 + seeded);
+      } finally {
+        f.clean();
+      }
+    });
+    test('warms the dashboard traffic view for every provider the sources declare', async () => {
+      const f = fixture();
+      try {
+        await f.handler.warm();
+        const before = f.cpaCalls();
+        for (const provider of ['codex', 'claude']) {
+          const response = await f.handler(request(dashboardAnalyticsQuery(f.now(), provider)));
+          expect(response.status).toBe(200);
+        }
+        expect(f.cpaCalls()).toBe(before);
+        await f.handler(request(dashboardAnalyticsQuery(f.now(), 'gemini')));
+        expect(f.cpaCalls()).toBe(before + 1);
+      } finally {
+        f.clean();
+      }
+    });
+  });
+  describe('catalog reuse', () => {
+    const DAY = 86_400_000;
+    const view = (f: { now: () => number }, span: number) => ({
+      ...query,
+      from_ms: f.now() - span,
+      to_ms: f.now(),
+    });
+    test('reads the catalog once for several views, and again after a few minutes', async () => {
+      const f = fixture();
+      try {
+        await f.handler(request(view(f, 7 * DAY)));
+        await f.handler(request(view(f, 30 * DAY)));
+        expect(f.cpaCalls()).toBe(2);
+        expect(f.catalogCalls()).toBe(4);
+        f.advance(6 * 60_000);
+        await f.handler(request(view(f, DAY)));
+        expect(f.catalogCalls()).toBe(8);
+      } finally {
+        f.clean();
+      }
+    });
+    test('never keeps a failed source: it reads unavailable, then recovers at once', async () => {
+      const f = fixture();
+      try {
+        f.failBeta();
+        const states = async (span: number) =>
+          (await (await f.handler(request(view(f, span)))).json()).catalog_sources.map(
+            (row: { state: string }) => row.state
+          );
+        expect(await states(7 * DAY)).toEqual(['ready', 'unavailable']);
+        expect(await states(30 * DAY)).toEqual(['ready', 'unavailable']);
+        f.restoreBeta();
+        expect(await states(DAY)).toEqual(['ready', 'ready']);
       } finally {
         f.clean();
       }

@@ -7,12 +7,16 @@ const DAY = 86_400_000;
 const LIVE_SLACK = 2 * MINUTE;
 const MIN_REFRESH = 30_000;
 const MAX_REFRESH = 5 * MINUTE;
-// Past this age a snapshot is too old to serve while refreshing; the caller waits instead.
+// Past this age a snapshot of a view nobody keeps warm is too old to serve while refreshing.
 const MAX_STALE = 15 * MINUTE;
 const FIXED_TTL = MINUTE;
 const SEED_TTL = 10 * MINUTE;
-// The warmer keeps a live view fresh this long after anyone last asked for it.
+// The warmer keeps a live view fresh this long after anyone last asked for it, and keeps
+// the default views on their active cadence for as long after any view was last asked for.
 const HOT_FOR = 15 * MINUTE;
+// While nobody has asked for anything, the default views refresh only this often (about 1%
+// of CPA's time, against about 25% when active), so a first visit finds a recent snapshot.
+const IDLE_REFRESH = 30 * MINUTE;
 const MAX_ENTRIES = 64;
 
 interface Entry {
@@ -68,6 +72,7 @@ export function createSnapshotCache(
 ) {
   const entries = new Map<string, Entry>();
   let warming = false;
+  let lastUsed = -Infinity;
 
   const refreshAfter = (entry: Entry) =>
     entry.live
@@ -115,10 +120,13 @@ export function createSnapshotCache(
       const { key, live } = shape(query, now);
       const entry = entryFor(key, query, live, now);
       entry.touched = now;
+      lastUsed = now;
       if (!fresh && entry.body !== undefined) {
         const age = now - entry.at;
         if (age < refreshAfter(entry)) return { ok: true, body: entry.body };
-        if ((live || entry.pinned) && age < MAX_STALE) {
+        // A default view is always answered from its last snapshot: its own generated_at_ms
+        // tells the page how old that is, and the refresh behind it never blocks the visit.
+        if (entry.pinned || (live && age < MAX_STALE)) {
           void refresh(key, entry, query);
           return { ok: true, body: entry.body };
         }
@@ -132,6 +140,7 @@ export function createSnapshotCache(
       try {
         for (const entry of entries.values()) entry.pinned = false;
         const start = clock();
+        const idle = start - lastUsed > HOT_FOR;
         for (const query of seeds(start)) {
           const { key, live } = shape(query, start);
           entryFor(key, query, live, start).pinned = true;
@@ -139,8 +148,8 @@ export function createSnapshotCache(
         for (const [key, entry] of [...entries]) {
           const now = clock();
           const wanted = entry.pinned || (entry.live && now - entry.touched <= HOT_FOR);
-          if (!wanted || (entry.body !== undefined && now - entry.at < refreshAfter(entry)))
-            continue;
+          const every = idle ? Math.max(IDLE_REFRESH, refreshAfter(entry)) : refreshAfter(entry);
+          if (!wanted || (entry.body !== undefined && now - entry.at < every)) continue;
           await refresh(key, entry, entry.live ? rebase(entry.query, now) : entry.query);
         }
       } finally {
