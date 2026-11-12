@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { UsageWriter } from '../server/usage/writer';
 import type { BulkJobConfig, BulkJobReport } from '../server/usage/writerProtocol';
 import { openUsageReader } from '../server/usage/store';
-import { createCpamp, cpampRow } from './fixtures/cpampUsage';
+import { createCpamp, cpampRow, createCpampRollups } from './fixtures/cpampUsage';
 import { usagePayload } from './fixtures/usagePayloads';
 import { eventually } from './helpers/usageFakeProxy';
 
@@ -335,4 +335,82 @@ test('cancel settles a paced upload pull before reusing the shared governor', as
   f.writer.enqueue(live('after-paced-upload-cancel'));
   await f.writer.flush();
   expect(f.writer.status.inserted).toBe(1);
+});
+
+test('without pacing sleeps, worker messages interrupt a pass between bounded chunks', async () => {
+  const f = await fixture(15_001, 0, { bytesPerSecond: 1e15 });
+  const started = await f.writer.startJob('verify');
+  await reportWhen(f.writer, (r) => (r.progress?.read ?? 0) > 0);
+  f.writer.enqueue(live('no-pacing-live'));
+  await f.writer.flush();
+  const during = await f.writer.jobReport();
+  expect(f.writer.status.inserted).toBe(1);
+  expect(during?.state).toBe('running');
+  expect(during?.progress?.read).toBeLessThan(15_001);
+  const cancelled = await f.writer.cancelJob(started.id);
+  expect(cancelled.state).toBe('cancelling');
+  const settled = await reportWhen(f.writer, finished);
+  expect(settled.state).toBe('cancelled');
+  // No further chunk runs after the worker handles the cancel message.
+  expect(settled.progress).toEqual(cancelled.progress);
+}, 15_000);
+
+test('worker reuse preserves outstanding byte debt after a cancelled job', async () => {
+  const f = await fixture(1, 0, { bytesPerSecond: 1 });
+  const started = await f.writer.startJob('import');
+  const pacing = await reportWhen(f.writer, (r) => r.io.bytesRead > 0);
+  await f.writer.cancelJob(started.id);
+  expect((await reportWhen(f.writer, finished)).state).toBe('cancelled');
+  const restarted = await f.writer.startJob('verify');
+  await Bun.sleep(100);
+  const waiting = await f.writer.jobReport();
+  expect(waiting?.state).toBe('running');
+  expect(waiting?.io.bytesRead).toBe(pacing.io.bytesRead);
+  expect(waiting?.io.bytesWritten).toBe(pacing.io.bytesWritten);
+  f.writer.enqueue(live('during-retained-debt'));
+  await f.writer.flush();
+  expect(f.writer.status.inserted).toBe(1);
+  await f.writer.cancelJob(restarted.id);
+  expect((await reportWhen(f.writer, finished)).state).toBe('cancelled');
+});
+
+test('worker reports imported-cohort counts and independent CPAMP rollup checks', async () => {
+  const f = await fixture(1, 0, { bytesPerSecond: 1e15 });
+  const addRollup = createCpampRollups(f.source.db);
+  addRollup();
+  await f.writer.startJob('import');
+  const imported = await reportWhen(f.writer, finished);
+  expect(imported).toMatchObject({
+    state: 'succeeded',
+    result: {
+      kind: 'cpamp',
+      report: {
+        verification: {
+          exact: true,
+          targetOnlyImported: 0,
+          rollups: {
+            available: true,
+            complete: true,
+            mismatches: [],
+            uncovered: [],
+            hours: [{ equal: true, cpamp: { rows: '1' }, prox: { rows: '1' } }],
+          },
+        },
+      },
+    },
+  });
+  f.source.db.exec('UPDATE usage_pricing_hourly_provider_rollups_v1 SET calls=2');
+  await f.writer.startJob('verify');
+  const mismatch = await reportWhen(f.writer, finished);
+  expect(mismatch).toMatchObject({
+    state: 'succeeded',
+    result: {
+      report: {
+        verification: {
+          exact: false,
+          rollups: { complete: true, mismatches: [{ equal: false }] },
+        },
+      },
+    },
+  });
 });

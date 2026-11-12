@@ -1,9 +1,10 @@
 // Queue these jobs in the writer worker. No sockets, worker lifecycle or connection opening here.
 import type { Database } from 'bun:sqlite';
+import { checkCpampRollups } from './cpampRollupCheck';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoBytes } from './ioGovernor';
 import { normalizeUsagePayload } from './normalize';
 import type { ImportValues, UsageStore } from './store';
-import { USAGE_FLAG, type NormalizedEvent } from './types';
+import { INGEST, USAGE_FLAG, type NormalizedEvent } from './types';
 
 export type CpampMode = 'import' | 'reconcile' | 'verify';
 export interface CpampJobOptions {
@@ -17,6 +18,8 @@ export interface CpampJobOptions {
   ioBytes?: () => IoBytes;
   scheduleChunk?: ChunkScheduler;
   onProgress?: (progress: CpampProgress) => void;
+  /** Wall clock captured before the source maximum; open hours are not rollup-comparable. */
+  nowMs?: number;
 }
 
 export interface CpampProgress {
@@ -225,8 +228,8 @@ function compareHours(source: Hours, target: Hours) {
 /**
  * import/reconcile continue the atomic cursor; verify starts at id 0 and writes nothing.
  * A mutating pass ends with a full, governed verification up to its captured source maximum.
- * Verification compares exactly the source execution IDs, including overlaps collected live;
- * target-only live traffic is outside this migration self-check.
+ * Verification includes matched live overlaps and independently scans all imported target rows.
+ * Target-only live traffic is excluded. Independent CPAMP rollups check fully covered hours.
  */
 export async function runCpampJob(store: UsageStore, source: Database, options: CpampJobOptions) {
   if (
@@ -235,6 +238,7 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
   ) {
     throw new Error('maxRows must be a positive safe integer');
   }
+  const nowMs = options.nowMs ?? Date.now();
   async function chunk<T>(work: () => T): Promise<T> {
     await options.betweenChunks?.();
     return runIoChunk(options.mode, work, options);
@@ -314,11 +318,13 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
     read: 0,
     missing: 0,
     different: 0,
+    targetOnlyImported: 0,
     preconditions: preconditions(),
     hours: [] as ReturnType<typeof compareHours>,
     exact: false,
   };
   const sourceHours: Hours = new Map();
+  const sourceMaxIds = new Map<number, number>();
   const targetHours: Hours = new Map();
   const seen = new Set<string>();
   let cursor = 0;
@@ -332,6 +338,11 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
         Math.min(1000, (options.maxRows ?? Infinity) - verification.read)
       );
       if (!rows.length) return 0;
+      for (const row of rows) {
+        if (!Number.isSafeInteger(row.timestamp_ms)) continue;
+        const hour = Math.floor(Number(row.timestamp_ms) / 3_600_000) * 3_600_000;
+        sourceMaxIds.set(hour, Math.max(sourceMaxIds.get(hour) ?? 0, row.id));
+      }
       const mapped = map(rows, verification.preconditions, seen);
       const inspected = store.inspectImportEvents(mapped.map(({ event }) => event));
       mapped.forEach(({ event, row }, index) => {
@@ -343,8 +354,10 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
           ttft_ms: event.ttftMs,
         });
         const { stored, differences } = inspected[index];
-        if (stored) addHour(targetHours, stored);
-        else verification.missing += 1;
+        if (stored) {
+          // Imported rows are accounted independently below; include only matched live overlaps here.
+          if (stored.ingest !== INGEST.imported) addHour(targetHours, stored);
+        } else verification.missing += 1;
         if (differences.length) verification.different += 1;
       });
       cursor = rows[rows.length - 1].id;
@@ -360,15 +373,52 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
     });
     if (!count) break;
   }
+  // A full verification checks the whole imported cohort, including extra hours at either edge.
+  // Diagnostic prefixes are limited to their source UTC-hour range.
+  const sourceBuckets = [...sourceHours.keys()];
+  const fromMs =
+    options.maxRows === undefined
+      ? -Number.MAX_SAFE_INTEGER
+      : sourceBuckets.length
+        ? Math.min(...sourceBuckets)
+        : 0;
+  const toMs =
+    options.maxRows === undefined
+      ? Number.MAX_SAFE_INTEGER
+      : sourceBuckets.length
+        ? Math.max(...sourceBuckets) + 3_600_000
+        : 0;
+  const boundary = await chunk(() => store.verificationBoundary(fromMs, toMs));
+  let after = { tsMs: fromMs, seq: -1 };
+  while (boundary) {
+    const rows = await chunk(() => store.readVerificationChunk(after, boundary, fromMs, toMs));
+    for (const row of rows) {
+      if (row.ingest !== INGEST.imported) continue;
+      addHour(targetHours, row);
+      if (typeof row.execution_id !== 'string' || !seen.has(row.execution_id))
+        verification.targetOnlyImported += 1;
+    }
+    if (rows.length < 1000) break;
+    const last = rows[rows.length - 1];
+    after = { tsMs: Number(last.ts_ms), seq: Number(last.seq) };
+  }
   verification.hours = compareHours(sourceHours, targetHours);
+  const rollups = await checkCpampRollups(source, targetHours, sourceMaxIds, {
+    verifiedMaxId: verifyMax,
+    limited: options.maxRows !== undefined,
+    nowMs,
+    chunk,
+  });
   verification.exact =
     verification.missing === 0 &&
     verification.different === 0 &&
+    verification.targetOnlyImported === 0 &&
+    rollups.mismatches.length === 0 &&
     verification.hours.every((hour) => hour.equal) &&
     verification.preconditions.missingExecutionId === 0 &&
     verification.preconditions.duplicateExecutionId === 0 &&
     verification.preconditions.invalidTimestamp === 0 &&
     verification.preconditions.invalidTokens === 0 &&
     verification.preconditions.invalidJson === 0;
-  return { ...report, verification };
+  return { ...report, verification: { ...verification, rollups } };
 }

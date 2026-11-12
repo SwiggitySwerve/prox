@@ -6,7 +6,14 @@ import { runCpampJob } from '../server/usage/importCpamp';
 import { normalizeUsagePayload } from '../server/usage/normalize';
 import { openUsageReader, UsageStore } from '../server/usage/store';
 import { INGEST } from '../server/usage/types';
-import { cpampRow, createCpamp, PARENT_SESSION, V8_SESSION } from './fixtures/cpampUsage';
+import {
+  cpampRow,
+  createCpamp,
+  createCpampRollups,
+  ROLLUP_HOUR,
+  PARENT_SESSION,
+  V8_SESSION,
+} from './fixtures/cpampUsage';
 import { usagePayloadNumber } from './fixtures/usagePayloads';
 import { fakeIo } from './helpers/usageIo';
 
@@ -218,6 +225,170 @@ describe('CPAMP migration jobs', () => {
     expect(scalar(f.reader, 'SELECT count(*) FROM events')).toBe(3);
   });
 
+  test('independently detects target-only imported rows, while excluding subscribed and drained rows', async () => {
+    const f = fixture(1);
+    await runCpampJob(f.store, f.source, { mode: 'import', governor: fakeIo().governor });
+    f.store.insert([item(90), item(91)], INGEST.subscribed);
+    f.store.insert([item(92)], INGEST.drained);
+    let verified = await runCpampJob(f.store, f.source, {
+      mode: 'verify',
+      governor: fakeIo().governor,
+    });
+    expect(verified.verification.exact).toBe(true);
+    // Exercise the reported repro and an extra imported hour outside the source timestamps.
+    f.store.insert([item(93, { timestamp: '2026-11-01T01:00:00Z' }), item(94)], INGEST.imported);
+    const before = f.reader.serialize();
+    verified = await runCpampJob(f.store, f.source, {
+      mode: 'verify',
+      governor: fakeIo().governor,
+    });
+    expect(verified.verification).toMatchObject({ exact: false, targetOnlyImported: 2 });
+    const hour = verified.verification.hours.find((h) => h.hourMs === Date.UTC(2026, 10, 1, 1))!;
+    expect(hour.source.rows).toBe('1');
+    expect(hour.target.rows).toBe('2');
+    expect(hour.equal).toBe(false);
+    expect(f.reader.serialize()).toEqual(before);
+  });
+
+  test('cross-checks active CPAMP rollup calls and token sums across every provider/outcome group', async () => {
+    const f = fixture(0);
+    for (const id of [1, 2]) f.writableSource.add(cpampRow(id, { timestamp_ms: ROLLUP_HOUR }));
+    const add = createCpampRollups(f.writableSource.db, { coverage_event_id: 2 });
+    add({ cache_read_tokens: 500, cached_tokens: 300 });
+    add({ failed: 0, provider: 'codex', cache_read_tokens: 500, cached_tokens: 300 });
+    add({ structure_revision: 'stale-revision', calls: 999, total_tokens: 999 });
+    const report = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+    });
+    expect(report.verification.exact).toBe(true);
+    const rolls = report.verification.rollups;
+    expect(rolls).toMatchObject({ available: true, complete: true, mismatches: [], uncovered: [] });
+    expect(rolls.hours).toHaveLength(1);
+    expect(rolls.hours[0].cpamp).toEqual({
+      rows: '2',
+      input_total: '1900',
+      output_total: '400',
+      reasoning: '120',
+      cache_read: '1600',
+      cache_write: '100',
+      total: '2300',
+    });
+    expect(rolls.hours[0].cpamp).toEqual(rolls.hours[0].prox);
+    const before = f.reader.serialize();
+    await runCpampJob(f.store, f.source, { mode: 'verify', governor: fakeIo().governor });
+    expect(f.reader.serialize()).toEqual(before);
+  });
+
+  test('rollup mismatches fail exact even when the event self-check matches', async () => {
+    const f = fixture(1);
+    createCpampRollups(f.writableSource.db)({ total_tokens: 1151 });
+    const report = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+    });
+    expect(report.verification.hours.every((hour) => hour.equal)).toBe(true);
+    expect(report.verification.exact).toBe(false);
+    expect(report.verification.rollups).toMatchObject({ complete: true, uncovered: [] });
+    expect(report.verification.rollups.mismatches[0]).toMatchObject({
+      hourMs: ROLLUP_HOUR,
+      cpamp: { total: '1151' },
+      prox: { total: '1150' },
+      equal: false,
+    });
+  });
+
+  test('reports lagging hours separately using event IDs, including late events in older hours', async () => {
+    const f = fixture(0);
+    f.writableSource.add(cpampRow(1, { timestamp_ms: ROLLUP_HOUR }));
+    f.writableSource.add(cpampRow(2, { timestamp_ms: ROLLUP_HOUR + 3_600_000 }));
+    f.writableSource.add(cpampRow(3, { timestamp_ms: ROLLUP_HOUR }));
+    const add = createCpampRollups(f.writableSource.db, {
+      status: 'catching_up',
+      coverage_event_id: 2,
+      max_bucket_ms: ROLLUP_HOUR + 3_600_000,
+    });
+    add();
+    add({ bucket_ms: ROLLUP_HOUR + 3_600_000, failed: 0 });
+    const report = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+    });
+    expect(report.verification.exact).toBe(true);
+    expect(report.verification.rollups).toMatchObject({
+      complete: false,
+      mismatches: [],
+      uncovered: [{ hourMs: ROLLUP_HOUR, reason: 'rollup-behind-hour' }],
+    });
+    expect(report.verification.rollups.hours.map((hour) => hour.hourMs)).toEqual([
+      ROLLUP_HOUR + 3_600_000,
+    ]);
+  });
+
+  test('checks rollup-only hours missing from both event stores', async () => {
+    const f = fixture(1);
+    const add = createCpampRollups(f.writableSource.db, { max_bucket_ms: ROLLUP_HOUR + 3_600_000 });
+    add();
+    add({ bucket_ms: ROLLUP_HOUR + 3_600_000 });
+    const report = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+    });
+    expect(report.verification.exact).toBe(false);
+    expect(report.verification.rollups.mismatches[0]).toMatchObject({
+      hourMs: ROLLUP_HOUR + 3_600_000,
+      cpamp: { rows: '1' },
+      prox: { rows: '0' },
+    });
+  });
+
+  test.each([
+    [{ status: 'rebuilding' }, {}, 'rollup-not-ready'],
+    [{ coverage_event_id: 2 }, {}, 'rollup-ahead-of-source'],
+    [{ schema_version: 2 }, {}, 'rollup-state-unavailable'],
+    [{ min_bucket_ms: ROLLUP_HOUR + 3_600_000 }, {}, 'outside-rollup-range'],
+    [{}, { nowMs: ROLLUP_HOUR + 1000 }, 'open-hour'],
+    [{}, { maxRows: 1 }, 'limited-source-pass'],
+  ] as const)(
+    'reports an uncovered hour without claiming a mismatch (%s)',
+    async (state, options, reason) => {
+      const f = fixture(1);
+      createCpampRollups(f.writableSource.db, state)();
+      const report = await runCpampJob(f.store, f.source, {
+        mode: 'import',
+        governor: fakeIo().governor,
+        ...options,
+      });
+      expect(report.verification.exact).toBe(true);
+      expect(report.verification.rollups).toMatchObject({
+        complete: false,
+        hours: [],
+        mismatches: [],
+        uncovered: [{ hourMs: ROLLUP_HOUR, reason }],
+      });
+    }
+  );
+
+  test('reports archived hours as uncovered because rollups can include deleted raw events', async () => {
+    const f = fixture(1);
+    createCpampRollups(f.writableSource.db)();
+    f.writableSource.db
+      .exec(`CREATE TABLE usage_archive_event_refs (timestamp_ms INTEGER, raw_deleted_at_ms INTEGER);
+      CREATE INDEX archive_time ON usage_archive_event_refs(timestamp_ms, raw_deleted_at_ms)`);
+    f.writableSource.db
+      .query('INSERT INTO usage_archive_event_refs VALUES (?, ?)')
+      .run(ROLLUP_HOUR, ROLLUP_HOUR + 3_600_000);
+    const report = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+    });
+    expect(report.verification.rollups).toMatchObject({
+      complete: false,
+      mismatches: [],
+      uncovered: [{ hourMs: ROLLUP_HOUR, reason: 'archived-source-hour' }],
+    });
+  });
+
   test('counts per-row preconditions without inventing missing identities or canonical tokens', async () => {
     const f = fixture(0);
     f.writableSource.add(cpampRow(1, { raw_json: '{}' }));
@@ -324,6 +495,28 @@ describe('CPAMP migration jobs', () => {
     });
     expect(report.verification.exact).toBe(true);
     expect(report.verification.hours[0].source.input_total).toBe('10000000000000002');
+    const add = createCpampRollups(f.writableSource.db, {
+      coverage_event_id: 2,
+      min_bucket_ms: Date.UTC(2026, 10, 1),
+      max_bucket_ms: Date.UTC(2026, 10, 1),
+    });
+    add({
+      bucket_ms: Date.UTC(2026, 10, 1),
+      calls: 2,
+      input_tokens: '10000000000000002',
+      output_tokens: 0,
+      reasoning_tokens: 0,
+      cache_read_tokens: 0,
+      cache_creation_tokens: 0,
+      total_tokens: '10000000000000002',
+    });
+    const checked = await runCpampJob(f.store, f.source, {
+      mode: 'verify',
+      governor: fakeIo().governor,
+    });
+    expect(checked.verification.rollups.complete).toBe(true);
+    expect(checked.verification.rollups.hours[0].cpamp.input_total).toBe('10000000000000002');
+    expect(checked.verification.exact).toBe(true);
     expect(
       f.reader
         .query(
@@ -348,8 +541,13 @@ describe('CPAMP migration jobs', () => {
       governor: io.governor,
       ioBytes: () => ({ read: ++calls * 2_000_000, written: calls * 2_000_000 }),
     });
-    expect(io.clock.now()).toBe(5000); // high-water read + two import + two verification chunks
-    expect(io.governor.counters).toMatchObject({ bytesRead: 10_000_000, bytesWritten: 10_000_000 });
+    expect(calls).toBeGreaterThanOrEqual(10);
+    expect(calls % 2).toBe(0);
+    expect(io.clock.now()).toBe((calls / 2) * 1000);
+    expect(io.governor.counters).toMatchObject({
+      bytesRead: calls * 1_000_000,
+      bytesWritten: calls * 1_000_000,
+    });
   });
 
   test('keeps the unsuffixed grouping model and the full requested model when its column is absent', async () => {

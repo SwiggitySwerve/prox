@@ -208,3 +208,36 @@ test('live jobs run before queued bulk chunks, with one running job at a time', 
   ).rejects.toThrow('test');
   expect(await queue.enqueueJob('live', () => 42)).toBe(42);
 });
+
+test('close rejects promptly after a worker exits instead of posting to a dead worker', async () => {
+  const files = paths();
+  const entry = join(files.dir, 'exits.worker.ts');
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(
+    entry,
+    `
+    self.onmessage = ({ data }) => {
+      self.postMessage({ id: data.id, ok: true, body: {
+        backlog: 0, inserted: 0, duplicates: 0, rejected: 0, rawBufferFailures: 0, gaps: 0
+      } });
+      setTimeout(() => process.exit(1), 0);
+    };
+  `
+  );
+  const writer = new UsageWriter(entry);
+  let failed = false;
+  writer.onFailure = () => {
+    failed = true;
+  };
+  await writer.init({ events: files.events, raw: null }, []);
+  await eventually(() => failed, 'worker exit notification');
+  const began = performance.now();
+  let error: unknown;
+  try {
+    await writer.close();
+  } catch (caught) {
+    error = caught;
+  }
+  expect(String(error)).toContain('Usage writer unavailable');
+  expect(performance.now() - began).toBeLessThan(500);
+});

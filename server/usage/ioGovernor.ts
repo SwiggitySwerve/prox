@@ -44,10 +44,12 @@ export class IoGovernor {
   private chunkStartedAtMs: number | null = null;
   private pausedAtMs: number | null = null;
   private pauseMs = 0;
-  private bytes: IoBytes = { read: 0, written: 0 };
-  private longPauses = 0;
   private severe = false;
   private quietSince: number | null = null;
+  private pauseReported = false;
+  private pacingDeadlineMs = 0;
+  private bytes: IoBytes = { read: 0, written: 0 };
+  private longPauses = 0;
 
   constructor(private readonly options: IoGovernorOptions = {}) {
     this.rate = options.bytesPerSecond ?? 4_000_000;
@@ -59,9 +61,10 @@ export class IoGovernor {
     this.readPsi = options.readPsi ?? (() => readFileSync('/proc/pressure/io', 'utf8'));
   }
 
-  /** Recheck at queue execution without sleeping or holding the queue during recovery. */
+  /** Check pressure and debt at execution without sleeping inside the writer queue. */
   async admitChunk(signal?: AbortSignal): Promise<boolean> {
     signal?.throwIfAborted();
+    if (this.clock.now() < this.pacingDeadlineMs) return false;
     const pressure = fullIoPressure(await this.readPsi());
     signal?.throwIfAborted();
     const now = this.clock.now();
@@ -70,20 +73,22 @@ export class IoGovernor {
     else this.quietSince = null;
     if (pressure >= 5 || (this.severe && now - this.quietSince! < 30_000)) return false;
     this.severe = false;
+    this.quietSince = null;
+    this.pauseReported = false;
     this.chunkStartedAtMs = now;
     return true;
   }
 
   /** No chunk starts at 5% or above. At 15%, require 30 continuous seconds below 5%. */
   async waitForQuietIo(signal?: AbortSignal): Promise<void> {
-    let reported = false;
     try {
+      await this.settleByteDebt(signal);
       for (;;) {
         if (await this.admitChunk(signal)) return;
         const now = this.clock.now();
         this.pausedAtMs ??= now;
-        if (!reported && now - this.pausedAtMs > 6 * 60 * 60 * 1000) {
-          reported = true;
+        if (!this.pauseReported && now - this.pausedAtMs > 6 * 60 * 60 * 1000) {
+          this.pauseReported = true;
           this.longPauses += 1;
           const seconds = (now - this.pausedAtMs) / 1000;
           if (this.options.reportLongPause) this.options.reportLongPause(seconds);
@@ -107,12 +112,20 @@ export class IoGovernor {
     const started = this.chunkStartedAtMs ?? this.clock.now();
     this.bytes.read += bytes.read;
     this.bytes.written += bytes.written;
-    const deadline = started + Math.ceil(((bytes.read + bytes.written) * 1000) / this.rate);
-    while (this.clock.now() < deadline) {
-      signal?.throwIfAborted();
-      await this.clock.sleep(Math.min(1000, deadline - this.clock.now()));
-    }
+    this.pacingDeadlineMs =
+      Math.max(this.pacingDeadlineMs, started) +
+      Math.ceil(((bytes.read + bytes.written) * 1000) / this.rate);
+    // The charge is durable on this governor before the first cancellable sleep.
     this.chunkStartedAtMs = null;
+    await this.settleByteDebt(signal);
+  }
+
+  private async settleByteDebt(signal?: AbortSignal): Promise<void> {
+    while (this.clock.now() < this.pacingDeadlineMs) {
+      signal?.throwIfAborted();
+      await this.clock.sleep(Math.min(1000, this.pacingDeadlineMs - this.clock.now()));
+    }
+    this.pacingDeadlineMs = 0;
   }
 
   get counters() {
@@ -142,6 +155,9 @@ export async function runIoChunk<T>(
   const { governor, signal, scheduleChunk } = options;
   const ioBytes = options.ioBytes ?? readIoBytes;
   for (;;) {
+    // Promise continuations alone starve worker messages when pacing has no sleep.
+    // Yield outside the queue so live/cancel messages run before the next chunk.
+    if (scheduleChunk) await new Promise<void>((resolve) => setTimeout(resolve, 0));
     await governor.waitForQuietIo(signal);
     let bytes: IoBytes | undefined;
     const execute = () => {

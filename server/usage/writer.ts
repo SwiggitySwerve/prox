@@ -36,6 +36,7 @@ export class UsageWriter implements CollectorWriter {
   private failure: Error | null = null;
   private closing: Promise<void> | null = null;
   private terminated = false;
+  private workerDead = false;
   private snapshot: WriterStatus = {
     backlog: 0,
     inserted: 0,
@@ -62,8 +63,8 @@ export class UsageWriter implements CollectorWriter {
       this.snapshot = data.body;
       pending.resolve(data.body);
     };
-    this.worker.onerror = () => this.fail();
-    this.worker.addEventListener('close', () => this.fail());
+    this.worker.onerror = () => this.workerDied();
+    this.worker.addEventListener('close', () => this.workerDied());
   }
 
   get backlog(): number {
@@ -132,7 +133,7 @@ export class UsageWriter implements CollectorWriter {
       }
       try {
         // A failed live commit still needs worker-owned cancellation and handle cleanup.
-        await this.send({ kind: 'close', body: null });
+        if (!this.workerDead) await this.send({ kind: 'close', body: null });
       } finally {
         this.terminated = true;
         this.worker.terminate();
@@ -154,6 +155,7 @@ export class UsageWriter implements CollectorWriter {
 
   private send(message: Omit<WriterRequest, 'id'>, count = 0, fatal = true): Promise<WriterStatus> {
     if (this.failure && message.kind !== 'close') return Promise.reject(this.failure);
+    if (this.workerDead) return Promise.reject(new Error('Usage worker exited'));
     if (this.terminated || (this.closing && !fatal)) {
       return Promise.reject(new Error('Usage writer is closing'));
     }
@@ -165,8 +167,22 @@ export class UsageWriter implements CollectorWriter {
       reject = fail;
     });
     this.pending.set(id, { resolve, reject, count, promise, fatal });
-    this.worker.postMessage({ id, ...message });
+    try {
+      this.worker.postMessage({ id, ...message });
+    } catch {
+      this.workerDied();
+    }
     return promise;
+  }
+
+  private workerDied(): void {
+    if (this.terminated) return;
+    this.workerDead = true;
+    // A live-commit failure may have been recorded already. Reject cleanup RPCs too.
+    const error = this.failure ?? new Error('Usage worker exited');
+    for (const pending of this.pending.values()) pending.reject(error);
+    this.pending.clear();
+    this.fail();
   }
 
   private fail(): void {

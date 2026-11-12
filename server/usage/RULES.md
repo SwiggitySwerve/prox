@@ -202,6 +202,9 @@ PSI. At or above 15%, recovery requires 30 continuous seconds below 5%. Missing
 PSI fails closed. A pause longer than six hours invokes `reportLongPause` once
 (or warns to stderr when no callback is supplied); it never overrides the wait.
 `counters` exposes pause seconds, read bytes, written bytes and long-pause count.
+The severe-pressure latch, quiet recovery interval and outstanding byte deadline
+belong to the governor instance. Cancellation preserves them: a later job must
+pay the remaining byte debt and complete pressure recovery before admission.
 
 After each chunk, call `reportBytes({read, written}, signal)`. Reads plus writes
 are capped at 4,000,000 bytes/second by default (`bytesPerSecond` overrides it).
@@ -224,6 +227,8 @@ the measured interval. Tests inject PSI, the clock and byte counters.
   bounded IO, with byte measurement inside that callback. `runIoChunk` waits for
   PSI before enqueueing, rechecks admission at execution, releases the queue and
   retries if pressure rose, then paces the measured bytes outside the queue.
+  Before each queued chunk it yields to the worker's macrotask queue, even when
+  the byte budget requires no sleep, so live and cancel messages are serviced.
   `betweenChunks` remains an optional pre-admission hook for direct callers.
   Do not run two jobs with one governor concurrently.
 - Import and reconcile keyset by source `id`, 1,000 rows per transaction. The
@@ -232,14 +237,45 @@ the measured interval. Tests inject PSI, the clock and byte counters.
   that same cursor. Re-running a completed import writes nothing.
 - Verify writes nothing. Every mutating pass ends with a separate governed full
   verification up to the captured source maximum, including previously committed
-  chunks after a restart. It matches source execution IDs, including live overlaps;
-  target-only live events are outside this migration check. It compares all mapped
+  chunks after a restart. It matches source execution IDs, including live overlaps,
+  and independently keyset-scans the target table in bounded pages. Every imported
+  target event counts, including extra hours or executions absent from CPAMP;
+  `targetOnlyImported` and hourly totals make those extras fail `exact`. Unmatched
+  subscribed/drained traffic remains excluded. It compares all mapped
   fields and exact per-UTC-hour rows, failures, seven token sums, latency sum, and
   positive TTFT sum/count. Sums are BigInt internally and decimal strings in the
   report. A missing or duplicate identity prevents an exact verdict. The report
   counts invalid JSON, timestamps and tokens, incomplete/invalid canonical
   breakdowns and non-positive latency. Unmappable rows are skipped and reported;
   review the report before accepting a cursor. No invalid identity is fabricated.
+- `cpampRollupCheck.ts` adds the independent level-1 check against CPAMP's own
+  `usage_pricing_hourly_provider_rollups_v1`. Its contract comes from CPAMP's
+  `internal/repository/usagepricing/repository.go` (`upsertHourlyTableBatch`,
+  `CatchUp`, `LoadHourlyRowsTx`) and the live schema, inspected read-only. It sums
+  all provider/outcome/model/tier groups for the active `structure_revision`.
+  Counters are calls, normalized total input, total output, reasoning, cache read,
+  cache creation and total tokens. Cache read includes the rollup's compatible
+  legacy `cached_tokens` plus `cache_read_tokens`, matching CPAMP's normalization.
+  Uncached input has no independent rollup column; it is still checked against
+  raw source rows. SQLite sums are returned as decimal strings to preserve exact
+  integers above JavaScript's safe range.
+- Rollup metadata, bucket pages and each hour's read snapshot all pass through
+  the governor. Candidate hours also include rollup-only buckets, so a whole
+  hour missing from both raw stores cannot silently pass. Compare only closed
+  hours as of the job's captured wall clock (`nowMs` can be injected), schema 1,
+  the same active revision, ready/catching-up state without an error, and buckets
+  within the recorded range. The covered event ID must reach that hour's greatest
+  source ID and must not exceed the source maximum captured by this job. Using
+  IDs rather than a timestamp watermark handles late arrivals into older hours.
+  Deleted-raw archive markers also make an hour uncovered: a rebuilt cache can
+  include retained history no longer in the raw source table.
+- `verification.rollups` reports `hours`, `mismatches` and `uncovered` separately,
+  with a reason for each uncovered hour (missing tables/state, rebuild/error,
+  revision changes, lag/ahead, open or archived hours and limited source passes).
+  A rollup mismatch makes overall `verification.exact` false. Uncovered hours
+  are not mismatches; `rollups.complete` means all candidate hours were covered,
+  and accepting the independent check requires both complete coverage and no
+  mismatches. Diagnostic `maxRows` passes never claim complete rollup coverage.
 - CPAMP's persisted accounting columns are copied. Metadata from `raw_json` is an
   explicit `json_extract` allowlist; headers, fail bodies and client keys are never
   selected. Metadata validation, model suffix handling, timing, presence, tiers
@@ -317,6 +353,8 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   store. PSI/pacing checks observe cancellation within a one-second sleep; an
   already-running synchronous chunk or VACUUM must finish first. A failed live
   flush still requests this worker cleanup and retains its unsuccessful result.
+  A worker error/exit is tracked separately: outstanding RPCs reject and shutdown
+  skips cleanup RPCs to an unavailable worker instead of waiting indefinitely.
 - Worker configuration is lazy: `PROX_USAGE_CPAMP_DB_PATH` is the read-only source;
   `PROX_USAGE_BULK_BYTES_PER_SECOND` optionally overrides the 4,000,000-byte budget.
   Backup settings use `loadBackupConfig` above. `UsageWriter.init` also accepts
