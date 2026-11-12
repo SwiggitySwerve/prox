@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "models": {
+    "gpt-6.1-sol": {
+      "input": 2,
+      "output": 10,
+      "cache_read": 0.1,
+      "cache_write": 2.5,
+      "source": "illustrative only; replace with approved rates",
+      "updated_at_ms": 1791407523000,
+      "context_tiers": [
+        {
+          "above_input_tokens": 272000,
+          "input": 4,
+          "output": 15,
+          "cache_read": 0.2,
+          "cache_write": 5
+        }
+      ],
+      "service_tiers": [
+        {
+          "names": ["fast", "priority"],
+          "input": 4,
+          "output": 20,
+          "cache_read": 0.2,
+          "cache_write": 5
+        }
+      ]
+    },
+    "claude-fable-5-2": {
+      "input": null,
+      "output": null,
+      "cache_read": null,
+      "cache_write": null,
+      "source": "pending D5",
+      "context_tiers": [],
+      "service_tiers": []
+    },
+    "gpt-6.1-terra": {
+      "input": null,
+      "output": null,
+      "cache_read": null,
+      "cache_write": null,
+      "source": "pending D5",
+      "context_tiers": [],
+      "service_tiers": []
+    }
+  }
+}

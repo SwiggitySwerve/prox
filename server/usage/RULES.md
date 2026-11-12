@@ -157,3 +157,36 @@ Regression coverage lives in `tests/proxUsageNormalize.test.ts` and
 
 Collector, writer and service regressions use the ephemeral in-process proxy in
 `tests/helpers/usageFakeProxy.ts`, synthetic payloads, and small temporary files.
+
+## Rate book and pricing
+
+- `rates.ts` validates the version-1 JSON boundary and owns rate overrides,
+  canonical revisions and the loader. All four rate fields are required; use
+  `null` for unconfigured and `0` for explicitly free. Unconfigured tier fields
+  inherit the base rate. Context thresholds must be distinct positive integers;
+  service names match case-insensitively and cannot overlap between rows.
+- `price_revision` hashes canonical JSON with sorted object keys after removing
+  model `source` and `updated_at_ms`. It is specific to this book format, not
+  CPAMP's Go serialization. Loader snapshots are immutable; each query uses one
+  snapshot. Failed reads/validation retain the previous book and expose `error`.
+- `pricing.ts` owns candidate resolution, estimate statuses/reasons, combining
+  known subtotals, context-band selection and the catalog/observed rate inventory.
+  The final service `names` entry is its inventory label; the CPAMP exporter
+  writes `[mode, service_tier]` (deduplicated). All names price the same row.
+- SQL aggregation must group by usage flags and record kind as well as model,
+  tier and context band, so measured zero and unknown presence cannot be merged.
+  Pass `contextThreshold: null` for the base band or the selected threshold for
+  a context band. Never classify a sum as if it were one large request. An
+  aggregate with multiple calls and configured context tiers must pass its band.
+- Incomplete breakdowns (bit 7 clear) add `usage-components-unreported`; raw
+  counters remain raw. No provider cache inference, built-in prices, premiums,
+  service multipliers or legacy cache rate is used. Missing cache-write rates
+  use input; other missing components are dropped with CPAMP's exact reason.
+- One-time migration: `bun scripts/usage-export-cpamp-rates.ts <book.json>
+  [cpamp-usage.sqlite]`. It opens only the CPAMP source with `mode=ro`, read-only
+  flags and `query_only=1`; only the three price tables and `api_key_aliases` are
+  read. It refuses existing output files and also writes
+  `<book.json>.client-aliases.json` containing `client_alias` rows for a later
+  writer-worker import. Neither the Prox database nor configuration is updated.
+  D5's two missing models are added with null rates and source `pending D5`;
+  approved prices are required before deploying that book.
