@@ -128,7 +128,11 @@ test('shutdown cancels pressure wait and retains the final accepted live batch',
   await f.writer.startJob('import');
   f.writer.enqueue(live('shutdown-pressure'));
   const began = performance.now();
-  await f.writer.close();
+  const closing = f.writer.close();
+  expect(await rejection(f.writer.startJob('backup'))).toContain('closing');
+  await closing;
+  expect(await rejection(f.writer.jobReport())).toContain('closing');
+  expect(() => f.writer.enqueue(live('too-late'))).toThrow('closing');
   expect(performance.now() - began).toBeLessThan(1500);
   expect(f.writer.status.job).toMatchObject({
     state: 'cancelled',

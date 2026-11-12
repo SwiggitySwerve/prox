@@ -84,6 +84,7 @@ export class UsageWriter implements CollectorWriter {
 
   enqueue(payload: UsagePayload): void {
     if (this.failure) throw this.failure;
+    if (this.closing || this.terminated) throw new Error('Usage writer is closing');
     const wasHigh = this.backlog > WRITER_HIGH_WATER;
     this.buffered.push(payload);
     if (this.buffered.length >= 100) this.dispatch();
@@ -153,6 +154,9 @@ export class UsageWriter implements CollectorWriter {
 
   private send(message: Omit<WriterRequest, 'id'>, count = 0, fatal = true): Promise<WriterStatus> {
     if (this.failure && message.kind !== 'close') return Promise.reject(this.failure);
+    if (this.terminated || (this.closing && !fatal)) {
+      return Promise.reject(new Error('Usage writer is closing'));
+    }
     const id = ++this.nextId;
     let resolve!: (status: WriterStatus) => void;
     let reject!: (error: Error) => void;

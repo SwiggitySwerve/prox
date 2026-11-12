@@ -298,14 +298,14 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
         report.duplicates += result.duplicates;
         report.conflicts += result.conflicts;
         report.chunks += 1;
+        options.onProgress?.({
+          phase: 'import',
+          read: report.read,
+          inserted: report.inserted,
+          lastId: report.lastId,
+          chunks: report.chunks,
+        });
         return rows.length;
-      });
-      options.onProgress?.({
-        phase: 'import',
-        read: report.read,
-        inserted: report.inserted,
-        lastId: report.lastId,
-        chunks: report.chunks,
       });
       if (!count) break;
     }
@@ -349,14 +349,14 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
       });
       cursor = rows[rows.length - 1].id;
       verification.read += rows.length;
+      options.onProgress?.({
+        phase: 'verify',
+        read: verification.read,
+        inserted: report.inserted,
+        lastId: cursor,
+        chunks: Math.ceil(verification.read / 1000),
+      });
       return rows.length;
-    });
-    options.onProgress?.({
-      phase: 'verify',
-      read: verification.read,
-      inserted: report.inserted,
-      lastId: cursor,
-      chunks: Math.ceil(verification.read / 1000),
     });
     if (!count) break;
   }
