@@ -22,7 +22,7 @@ import { movePool, orderPools, poolKey, usePoolOrder } from './poolOrder';
 import { PoolProviderMark } from './PoolProviderMark';
 import { viewRange } from './chartGeometry';
 import { readViewState, sameView, writeViewState, type QuotaViewState } from './model/viewState';
-import { formatPoolDate, formatPoolNumber } from './presentation';
+import { formatPoolDate, formatPoolNumber, providerAccountCount } from './presentation';
 import styles from './QuotaPoolPage.module.scss';
 
 /** Points per plan (server/quota/plans.ts), listed in About so each weight reads on its own line. */
@@ -216,7 +216,7 @@ export function QuotaPoolPage() {
                 {t(`quota_pool.${item}`)}
                 {item !== 'all' && data && (
                   <span className={styles.count}>
-                    {data.pools.find((pool) => pool.provider === item)?.accountCount ?? 0}
+                    {providerAccountCount(data.pools, item)}
                   </span>
                 )}
               </button>
