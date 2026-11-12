@@ -4,6 +4,8 @@ import { accessSync, constants } from 'node:fs';
 // jobs keep busy, every fsync waits on the shared filesystem journal, so a store test that takes
 // milliseconds on a quiet machine can take minutes and trips bun's 5s per-test timeout. Nothing
 // here needs durability, so keep the scratch files on tmpfs when the host has one.
+// bunfig.toml loads this preload only for `bun test` run from the repo root (bun does not read it
+// from a subdirectory), and an explicitly set TMPDIR wins over the tmpfs default.
 if (!process.env.TMPDIR) {
   try {
     accessSync('/dev/shm', constants.W_OK);
