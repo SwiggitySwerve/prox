@@ -75,6 +75,26 @@ test('a cold load with a saved session restores in place with one config read', 
   expect(reads).toEqual(['/v8/management/config']);
 });
 
+test('the splash shows on the deep link while the session restores', async ({ page, app }) => {
+  await page.goto(link);
+  await signIn(page);
+  await app.loaded();
+
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/v8/management/config', async (route) => {
+    await held;
+    await route.fallback();
+  });
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Prox', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(linkUrl);
+  await expect(page.locator('input[type=password]')).toHaveCount(0);
+  release();
+  await app.loaded();
+  await expect(page).toHaveURL(linkUrl);
+});
+
 test('a saved session the server refuses lands on the login form', async ({ page, app }) => {
   await page.goto(link);
   await signIn(page);

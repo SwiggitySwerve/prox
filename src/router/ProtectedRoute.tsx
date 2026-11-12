@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { LoginShell, LoginSplash } from '@/pages/LoginSplash';
 
 export function ProtectedRoute({ children }: { children: ReactElement }) {
   const location = useLocation();
@@ -28,9 +28,9 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
 
   if (restoring) {
     return (
-      <div className="main-content">
-        <LoadingSpinner />
-      </div>
+      <LoginShell>
+        <LoginSplash />
+      </LoginShell>
     );
   }
 
