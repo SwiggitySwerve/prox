@@ -151,6 +151,12 @@ export class CredentialFlow {
           if (path === '/observability/usage/api-keys') return reply({});
           if (path === '/config/oauth/excluded-models') return reply({});
           if (path === '/config/oauth/model-alias') return reply({});
+          // The shared model-access store reads these for the accounts it lists (the Models
+          // screen and the OAuth pages): each hub's catalog, each credential's own file (for its
+          // own exclusion list) and the models the hub registered for it. Nothing is excluded.
+          if (path.startsWith('/routing/model-definitions/')) return reply({ models: [] });
+          if (path === '/credentials/download') return reply({});
+          if (path === '/credentials/models') return reply({ models: [] });
         }
       }
       if (

@@ -9,6 +9,13 @@ export const formatPoolNumber = (value: number | null, locale: string) =>
 export const isLowQuota = (remainingPercent: number | null) =>
   remainingPercent !== null && remainingPercent < 20;
 
+/** Accounts of one provider across every source that holds a pool for it. */
+export const providerAccountCount = (
+  pools: readonly { provider: string; accountCount: number }[],
+  provider: string
+) =>
+  pools.reduce((sum, pool) => (pool.provider === provider ? sum + pool.accountCount : sum), 0);
+
 /** Axis label: the day, or on hourly axes the hour, with the day at midnight. */
 export const formatPoolTick = (value: number, locale: string, hourly: boolean) =>
   hourly && new Date(value).getHours() !== 0

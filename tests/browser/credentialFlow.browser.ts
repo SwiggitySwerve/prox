@@ -85,7 +85,8 @@ const ROUTES: Record<Screen | 'providers' | 'analytics', string> = {
   accounts: '/quota/accounts',
   pools: '/quota',
   dashboard: '/dashboard',
-  excluded: '/auth-files/oauth-excluded',
+  // Exclusion lists moved to the Models screen's Rules tab; the old path now only redirects there.
+  excluded: '/auth-files/models?tab=rules',
   providers: '/ai-providers',
   analytics: '/analytics',
 };
