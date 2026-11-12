@@ -1,7 +1,7 @@
 // Authenticated HTTP boundary and worker RPC. This module must never import a SQLite owner.
 import { authorized } from '../http/auth';
 import { createAnalyticsLanes, type QueryExecutor } from './lanes';
-import { createRateBookLoader, type RateBookState } from './rates';
+import { DEFAULT_RATE_BOOK_PATH, createRateBookLoader, type RateBookState } from './rates';
 import { AnalyticsError, parseAnalyticsQuery } from './validate';
 import type { QueryReply, QueryRequest } from './queryProtocol';
 
@@ -136,7 +136,7 @@ export function createAnalyticsHandler(options: {
   workerPath?: string;
 }) {
   const loader =
-    options.rateBook ?? createRateBookLoader(options.rateBookPath ?? '/data/usage-rates.json');
+    options.rateBook ?? createRateBookLoader(options.rateBookPath ?? DEFAULT_RATE_BOOK_PATH);
   const fast = workerExecutor(
     options.dbPath,
     () => loader.load(),

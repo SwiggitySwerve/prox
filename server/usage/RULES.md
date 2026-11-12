@@ -325,7 +325,8 @@ Object keys are `usage/daily/usage-YYYYMMDD.sqlite` in UTC and, on Sundays,
 `usage/weekly/usage-YYYYMMDD.sqlite`. Configure bucket lifecycle expiration at
 14 days for the daily prefix and 56 days for the weekly prefix (eight weekly
 copies). The client never lists, prunes or deletes objects. It backs up
-`usage.sqlite`, including `client_alias`; the rate book remains a separate git
+`usage.sqlite`, including the reserved `client_alias` table; active aliases are a separate private file,
+not a backup of that table. The rate book remains a separate git
 artifact and the raw buffer is excluded. P4/P2 must arrange rate-book distribution
 alongside the backup; there is no rate-book table in the P1 schema.
 
@@ -484,3 +485,73 @@ starts with 409; inspect its report and retry manually rather than queueing bulk
 **Backup timer gate:** keep it disabled until the tracked paced backup snapshot
 follow-up replaces the indivisible VACUUM snapshot. Upload pacing alone does not
 make the snapshot bounded. No timer enablement or live install is part of this work.
+
+
+## Exporter lifetime counters and client names
+
+`exporter.ts` owns an in-memory fold in the writer worker. `store.onCommit` supplies
+only newly committed events, after the outer transaction (including import cursor
+writes) succeeds. Duplicate executions and rolled-back transactions add nothing.
+The initial fold runs at writer startup; ordinary reads do no SQL. A change in
+context thresholds, or enrichment of missing original metadata, refolds retained
+history. Rate-only edits reprice groups; client-name edits relabel them. Nothing
+derived is persisted. Events are kept indefinitely; raw expiry cannot reduce
+lifetime counters. Any future archive must retain lifetime totals before deleting
+events; this implementation deliberately has no event-deletion/archive path.
+
+Schema 2 appends nullable **source facts** to `event_detail` with metadata-only
+ALTERs: original input/output/cached/reasoning/total counters and original latency
+and TTFT. These differ from canonical analytics columns. The exporter preserves
+the old SQL's original token series, original output for cost, normalized uncached
+input and cache for cost, all calls for latency count, and strictly positive TTFT
+for both sum and count. Supplementary rows remain counted as in the old exporter.
+Analytics keeps its own canonical token and measurement rules unchanged.
+
+The first import/reconcile after this upgrade takes the lower of
+`import:cpamp:last_id` and `exporter:cpamp:last_id` (initially zero), so the existing
+governed 1,000-row chunks can fill only missing source facts on duplicate execution
+IDs. It never rewrites events or known facts. Both cursors commit with each chunk;
+verify stays read-only. A failed transaction publishes no fold changes. Missing
+original counters produce HTTP 503 with `missing_reported_counters`, rather than
+inventing legacy metrics. Complete reconciliation before switching the exporter.
+Any Prox-only legacy rows that CPAMP cannot supply still block cutover and require
+an explicit source-data repair; no approximation or automatic deletion is allowed.
+
+`GET /v1/exporter` uses the existing loopback listener and management bearer check.
+Its version-1 JSON contains groups per provider, requested model, account, client
+and success/failed status, token/cache totals, seconds sums/counts, zero-token
+successes and nullable current-rate cost; plus newest event epoch seconds and
+priced-model count. Missing configured prices omit cost, not a fabricated zero.
+Only models with at least one configured rate count; pending-D5 placeholders do
+not. Rate-book and alias reload errors are explicit booleans; last good snapshots
+survive failed edits. Source health includes instance, subscription state, a
+subscribed boolean and event age in seconds. No event observed since this process
+started is `null`, never zero age; the shim emits NaN for that gauge. Health alone
+cannot prove traffic delivery during quiet periods or across at-most-once gaps.
+
+Exporter pricing deliberately preserves the legacy policy in `pricing.ts`:
+look up the **billing model only**, never a requested alias's price; classify each
+event with the greatest strictly exceeded context threshold across billing and
+requested models; context suppresses service pricing even if the billing model
+lacks that band (fall back to its base rate). With no context band, use the stored
+tier, then the historical requested `-fast` suffix's priority tier, then base.
+Retain `-fast` until a live series comparison supports removing it. Null cache-read
+rates default to 10% of effective input; cache-write defaults to effective input;
+explicit zero stays zero. `tokenCostUsd` shares the unchanged money arithmetic
+with analytics. Costs use current configured rates, so repricing may change a
+counter; the swap runbook must account for D5's lifetime cost step and resets.
+
+Client aliases come from `~/.config/prox-usage/client-aliases.json` (0600), or
+`PROX_USAGE_CLIENT_ALIASES_PATH`; the unit sets `/config/client-aliases.json` on its
+existing read-only config mount. The P4 artifact format is exactly
+`{"client_alias":[{"api_key_hash":"<64 lowercase SHA-256 hex>","alias":"<name>"}]}`.
+The loader checks permissions on every read, reloads on mtime change, validates
+hashes/names and keeps last good names on an invalid edit. It never writes the file
+or database. Empty/missing names use `key <first 8 hash chars>`; absent hashes use
+`unknown`, matching the old exporter. Full hashes and raw keys never leave the
+endpoint. Alias files and P4 alias artifacts are ignored by git. See
+`docs/PROX-SETUP.md` for naming a new client after CPAMP's UI is retired.
+
+`proxUsageExporter` tests enforce fold/reload behavior, original-series semantics,
+commit/rollback/deduplication, metadata enrichment, private aliases, bearer routing
+and collector health. No live parity claim is made without the step-E comparison.

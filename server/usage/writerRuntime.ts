@@ -1,4 +1,7 @@
 // The only write connections live here. Main-thread code refers to this entry by runtime path.
+import { UsageExporter } from './exporter';
+import { DEFAULT_CLIENT_ALIASES_PATH, createClientAliasLoader } from './clientAliases';
+import { createRateBookLoader, DEFAULT_RATE_BOOK_PATH } from './rates';
 import { UsageStore } from './store';
 import { normalizeUsagePayload } from './normalize';
 import { WriterQueue } from './writerQueue';
@@ -19,6 +22,9 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
   let store: UsageStore | null = null;
   let jobs: UsageBulkJobs | null = null;
   let closing = false;
+  let exporter: UsageExporter | null = null;
+  let rates: ReturnType<typeof createRateBookLoader> | null = null;
+  let aliases: ReturnType<typeof createClientAliasLoader> | null = null;
   const status: WriterStatus = {
     backlog: 0,
     inserted: 0,
@@ -63,6 +69,33 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
       );
       return;
     }
+    if (kind === 'exporter') {
+      void enqueueJob('exporter', () => {
+        if (!exporter || !rates || !aliases || closing) throw new Error('Exporter unavailable');
+        const rateState = rates.load();
+        const aliasState = aliases.load();
+        exporter.refresh(rateState.book);
+        self.postMessage({
+          id,
+          ok: true,
+          body: {
+            ...status,
+            exporter: {
+              ...exporter.snapshot(aliasState.aliases),
+              rate_book_error: !!rateState.error,
+              client_alias_error: aliasState.error,
+            },
+          },
+        });
+      }).catch(() =>
+        self.postMessage({
+          id,
+          ok: false,
+          body: { error: 'Usage exporter unavailable', fatal: false },
+        })
+      );
+      return;
+    }
     if (kind === 'live') status.backlog += body.length;
     void enqueueJob(kind, () => {
       if (kind === 'init') {
@@ -80,6 +113,21 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
           }
         }
         status.gaps = store.gapCount();
+        rates = createRateBookLoader(body.exporter?.rateBookPath ?? DEFAULT_RATE_BOOK_PATH);
+        aliases = createClientAliasLoader(
+          body.exporter?.clientAliasesPath ?? DEFAULT_CLIENT_ALIASES_PATH
+        );
+        exporter = new UsageExporter((visit) => store!.scanExporterEvents(visit));
+        exporter.refresh(rates.load().book);
+        store.onCommit = (events, repaired) => {
+          try {
+            if (repaired) exporter!.invalidate();
+            else for (const event of events) exporter!.add(event);
+          } catch {
+            // A projection failure never turns a committed event into a failed live batch.
+            exporter!.invalidate();
+          }
+        };
         jobs = new UsageBulkJobs(store, enqueueJob, body.jobs, governorOptions);
       } else {
         if (!store) throw new Error('Writer not initialized');

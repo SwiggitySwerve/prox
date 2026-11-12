@@ -431,6 +431,18 @@ export function normalizeUsagePayload(
     raw,
     event: {
       executionId,
+      reportedInputTokens:
+        count(isObject(record.tokens) ? record.tokens.input_tokens : undefined) ?? 0,
+      reportedCachedTokens:
+        count(isObject(record.tokens) ? record.tokens.cached_tokens : undefined) ?? 0,
+      reportedOutputTokens:
+        count(isObject(record.tokens) ? record.tokens.output_tokens : undefined) ?? 0,
+      reportedReasoningTokens:
+        count(isObject(record.tokens) ? record.tokens.reasoning_tokens : undefined) ?? 0,
+      reportedTotalTokens:
+        count(isObject(record.tokens) ? record.tokens.total_tokens : undefined) ?? 0,
+      reportedTtftMs: count(record.ttft_ms) ?? null,
+      reportedLatencyMs: Number.isSafeInteger(record.latency_ms) ? Number(record.latency_ms) : null,
       tsMs,
       instance: orNull(text(record.instance_id)),
       provider,

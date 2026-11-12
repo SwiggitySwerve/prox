@@ -120,6 +120,13 @@ describe('usage store schema', () => {
       'first_content_ms INTEGER',
       'recorded_ms INTEGER',
       'ingested_at_ms INTEGER NOT NULL',
+      'reported_input INTEGER',
+      'reported_cached INTEGER',
+      'reported_output INTEGER',
+      'reported_reasoning INTEGER',
+      'reported_total INTEGER',
+      'reported_latency INTEGER',
+      'reported_ttft INTEGER',
     ]);
     expect(columns('ingest_gaps')).toEqual([
       'id INTEGER PK1',
@@ -176,7 +183,7 @@ describe('usage store schema', () => {
     expect(unique('dim')).toEqual(['kind,value']);
     expect(unique('session')).toEqual(['uuid']);
     expect(db.query('SELECT value FROM meta WHERE key = ?').get('schema_version')).toEqual({
-      value: '1',
+      value: String(USAGE_MIGRATIONS.length),
     });
   });
 
@@ -211,9 +218,11 @@ describe('usage store schema', () => {
 
   test('a database from another schema version is refused, not reinterpreted', () => {
     const first = open();
-    first.store.setMeta('schema_version', '2');
+    first.store.setMeta('schema_version', String(USAGE_MIGRATIONS.length + 1));
     first.close();
-    expect(() => open({ root: first.root })).toThrow(/schema version 2/);
+    expect(() => open({ root: first.root })).toThrow(
+      new RegExp(`schema version ${USAGE_MIGRATIONS.length + 1}`)
+    );
   });
 });
 
@@ -602,14 +611,14 @@ describe('usage store migrations', () => {
     const db = database();
     migrateUsageDatabase(db);
     expect(version(db)).toBe(String(USAGE_MIGRATIONS.length));
-    expect(USAGE_MIGRATIONS).toHaveLength(1);
+    expect(USAGE_MIGRATIONS).toHaveLength(2);
     const before = tables(db);
     expect(before).toContain('events');
     // Migration 1 is plain CREATE TABLE: a second run of it would fail, so it did not run.
     migrateUsageDatabase(db);
     migrateUsageDatabase(db);
     expect(tables(db)).toEqual(before);
-    expect(version(db)).toBe('1');
+    expect(version(db)).toBe(String(USAGE_MIGRATIONS.length));
   });
 
   test('only the migrations a database has not seen are applied, in order', () => {
@@ -617,13 +626,13 @@ describe('usage store migrations', () => {
     migrateUsageDatabase(db);
     db.exec(`INSERT INTO dim (kind, value) VALUES ('model', 'kept')`);
     migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND, THIRD]);
-    expect(version(db)).toBe('3');
+    expect(version(db)).toBe(String(USAGE_MIGRATIONS.length + 2));
     expect(tables(db)).toEqual(expect.arrayContaining(['second', 'third']));
     expect(count(db, 'dim')).toBe(1);
     // Again with the same list: the second migration's insert must not repeat.
     migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND, THIRD]);
     expect(count(db, 'second')).toBe(1);
-    expect(version(db)).toBe('3');
+    expect(version(db)).toBe(String(USAGE_MIGRATIONS.length + 2));
   });
 
   test('a failing migration rolls back whole and leaves the version where it was', () => {
@@ -632,7 +641,7 @@ describe('usage store migrations', () => {
     const broken = 'CREATE TABLE half (id INTEGER PRIMARY KEY); INSERT INTO missing VALUES (1);';
     expect(() => migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND, broken])).toThrow();
     // The one before it committed; the broken one left nothing behind.
-    expect(version(db)).toBe('2');
+    expect(version(db)).toBe(String(USAGE_MIGRATIONS.length + 1));
     expect(tables(db)).toContain('second');
     expect(tables(db)).not.toContain('half');
   });
@@ -641,9 +650,11 @@ describe('usage store migrations', () => {
     const db = database();
     migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND]);
     const before = tables(db);
-    expect(() => migrateUsageDatabase(db)).toThrow(/schema version 2/);
+    expect(() => migrateUsageDatabase(db)).toThrow(
+      new RegExp(`schema version ${USAGE_MIGRATIONS.length + 1}`)
+    );
     expect(tables(db)).toEqual(before);
-    expect(version(db)).toBe('2');
+    expect(version(db)).toBe(String(USAGE_MIGRATIONS.length + 1));
   });
 
   test('the writer migrates at start and reopening is a no-op', () => {
@@ -651,7 +662,7 @@ describe('usage store migrations', () => {
     first.store.insert([item(usagePayload())], INGEST.subscribed);
     first.close();
     const second = open({ root: first.root });
-    expect(second.store.getMeta('schema_version')).toBe('1');
+    expect(second.store.getMeta('schema_version')).toBe(String(USAGE_MIGRATIONS.length));
     expect(count(second.reader(), 'events')).toBe(1);
   });
 });
