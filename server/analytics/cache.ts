@@ -43,7 +43,8 @@ interface Entry {
   inflight?: Promise<Outcome>;
   // The inflight recompute was started by a Refresh, so another Refresh may share it.
   inflightFresh?: boolean;
-  // Sequence number of the recompute whose result is in body; an older one never replaces it.
+  // Sequence number of the newest recompute whose result was taken (or kept out as a blip);
+  // an older one never replaces it.
   applied: number;
   // Recomputes still running, superseded ones included: any of them may yet fill the entry.
   pending: number;
@@ -119,11 +120,11 @@ export function createSnapshotCache(
     const work = compute(query).then((outcome) => {
       entry.pending -= 1;
       if (outcome.ok && mine > entry.applied) {
+        entry.applied = mine;
         entry.degraded = outcome.degraded === true;
         // A catalog blip never replaces a fully ready snapshot that is still servable: the
         // previous body stays, and the warmer retries on its backoff instead of its full period.
         if (!(entry.degraded && entry.ready && clock() - entry.at < MAX_STALE)) {
-          entry.applied = mine;
           entry.body = outcome.body;
           entry.ready = !entry.degraded;
           entry.query = query;

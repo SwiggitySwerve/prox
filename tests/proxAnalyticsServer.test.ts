@@ -473,6 +473,38 @@ describe('Prox analytics bridge', () => {
         f.clean();
       }
     });
+    test('an older healthy recompute finishing after a blip does not cancel its early retry', async () => {
+      const f = fixture();
+      try {
+        const view = () => live(f, 2 * DAY);
+        const viewCalls = () =>
+          f.calls.filter(
+            ({ url, body }) =>
+              url.startsWith('http://cpa.test') &&
+              Number(body?.to_ms) - Number(body?.from_ms) === 2 * DAY
+          ).length;
+        await f.handler(request(view()));
+        f.advance(6 * 60_000);
+        // A background recompute with every source ready, held at CPA.
+        const releaseOld = f.holdCpa();
+        await f.handler(request(view()));
+        await settle();
+        f.failBeta();
+        const releaseNew = f.holdCpa();
+        const refreshed = f.handler(request(view(), undefined, { 'Cache-Control': 'no-cache' }));
+        await settle();
+        releaseNew();
+        await refreshed;
+        releaseOld();
+        await settle();
+        expect(viewCalls()).toBe(3);
+        f.advance(16 * 60_000);
+        await f.handler.warm();
+        expect(viewCalls()).toBe(4);
+      } finally {
+        f.clean();
+      }
+    });
   });
   describe('catalog reuse', () => {
     const DAY = 86_400_000;
