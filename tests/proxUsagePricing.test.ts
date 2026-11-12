@@ -3,6 +3,8 @@ import {
   buildRateInventory,
   combineEstimates,
   contextBand,
+  createAggregateCostEstimator,
+  estimateAggregateCost,
   estimateCost,
   resolveModelPrice,
   type PricingGroup,
@@ -327,4 +329,36 @@ test('rate inventory preserves catalog order, deduplicates exact registration, t
     matched_model: null,
     source: 'unavailable',
   });
+});
+
+test('prepared aggregate schedules preserve exact estimates across bands, tiers and book snapshots', () => {
+  const value = parseRateBook({
+    version: 1,
+    models: {
+      ...book.models,
+      paid: {
+        ...rates,
+        context_tiers: [{ ...rates, input: 7.31, above_input_tokens: 1000 }],
+        service_tiers: [{ ...rates, output: 0, names: ['priority', 'fast'] }],
+      },
+    },
+  });
+  const estimate = createAggregateCostEstimator(value);
+  for (let repeat = 0; repeat < 3; repeat++)
+    for (const model of ['paid', 'free', 'empty', 'missing'])
+      for (const tier of ['standard', 'priority', 'fast', 'unknown'])
+        for (const band of model === 'paid' ? [null, 1000] : [null])
+          for (const tokens of [zero, group().tokens]) {
+            const input = group({ model, tier, tokens, calls: repeat + 1, contextThreshold: band });
+            expect(estimate(input)).toEqual(estimateAggregateCost(input, value));
+          }
+  const revised = parseRateBook({
+    ...value,
+    models: { ...value.models, paid: { ...value.models.paid, input: 11 } },
+  });
+  const input = group({ contextThreshold: null, calls: 3 });
+  expect(createAggregateCostEstimator(revised)(input)).toEqual(
+    estimateAggregateCost(input, revised)
+  );
+  expect(createAggregateCostEstimator(revised)(input).usd).not.toBe(estimate(input).usd);
 });
