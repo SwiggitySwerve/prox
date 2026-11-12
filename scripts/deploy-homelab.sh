@@ -3,6 +3,9 @@
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo"
+# node, npm and bun live in ~/.local/bin, which only login shells add to PATH;
+# `systemd-run --user` starts with a bare PATH and fails with `node: command not found`.
+export PATH="$HOME/.local/bin:$PATH"
 if [[ ! -s "$HOME/.config/prox/cpa-admin-key" ]]; then
   echo 'Missing private CPA admin credential: see Analytics in docs/PROX-SETUP.md.' >&2
   exit 1
