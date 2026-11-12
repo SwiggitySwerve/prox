@@ -27,6 +27,7 @@ describe('redirectTarget', () => {
       '/\\evil.example',
       '/login',
       '/login/',
+      '/login//',
       '/LOGIN',
     ]) {
       expect(redirectTarget({ from: { pathname, search: '?a=1' } })).toBe('/');

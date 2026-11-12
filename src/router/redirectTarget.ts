@@ -11,8 +11,8 @@ export function redirectTarget(state: unknown): string {
     !pathname.startsWith('/') ||
     pathname.startsWith('//') ||
     pathname.includes('\\') ||
-    // The login route also matches /login/ and /LOGIN; never send anyone back to it.
-    /^\/login\/?$/i.test(pathname)
+    // The login route also matches /login/, /login// and /LOGIN; never send anyone back to it.
+    /^\/login\/*$/i.test(pathname)
   ) {
     return '/';
   }
