@@ -49,6 +49,10 @@ const EVENT_DIMENSIONS: Record<string, DimKind> = {
 };
 
 export type ImportValues = Record<string, string | number | null>;
+export interface EventCursor {
+  tsMs: number;
+  seq: number;
+}
 export interface ImportDifference {
   executionId: string;
   field: string;
@@ -356,6 +360,39 @@ export class UsageStore {
       }
       return { stored, differences };
     });
+  }
+
+  /** Freeze the end of an independent, bounded scan of the target event cohort. */
+  verificationBoundary(fromMs: number, toMs: number): EventCursor | null {
+    return this.db
+      .query<EventCursor, [number, number]>(
+        `
+      SELECT ts_ms AS tsMs, seq FROM events WHERE ts_ms >= ? AND ts_ms < ?
+      ORDER BY ts_ms DESC, seq DESC LIMIT 1
+    `
+      )
+      .get(fromMs, toMs);
+  }
+
+  /** Scan the primary key in bounded pages, including live rows so sparse imports cannot
+   * turn one chunk into a scan of an unbounded live table. The caller filters ingest. */
+  readVerificationChunk(
+    after: EventCursor,
+    through: EventCursor,
+    fromMs: number,
+    toMs: number
+  ): ImportValues[] {
+    return this.db
+      .query<ImportValues, [number, number, number, number, number, number]>(
+        `
+      SELECT e.*, d.execution_id FROM events e
+      LEFT JOIN event_detail d ON d.seq = e.seq AND d.ts_ms = e.ts_ms
+      WHERE (e.ts_ms, e.seq) > (?, ?) AND (e.ts_ms, e.seq) <= (?, ?)
+        AND e.ts_ms >= ? AND e.ts_ms < ?
+      ORDER BY e.ts_ms, e.seq LIMIT 1000
+    `
+      )
+      .all(after.tsMs, after.seq, through.tsMs, through.seq, fromMs, toMs);
   }
 
   /** Rows, deduplicated conflicts and the source cursor are one crash-safe commit. */

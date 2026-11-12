@@ -44,6 +44,10 @@ export class IoGovernor {
   private chunkStartedAtMs: number | null = null;
   private pausedAtMs: number | null = null;
   private pauseMs = 0;
+  private severe = false;
+  private quietSince: number | null = null;
+  private pauseReported = false;
+  private pacingDeadlineMs = 0;
   private bytes: IoBytes = { read: 0, written: 0 };
   private longPauses = 0;
 
@@ -59,24 +63,25 @@ export class IoGovernor {
 
   /** No chunk starts at 5% or above. At 15%, require 30 continuous seconds below 5%. */
   async waitForQuietIo(signal?: AbortSignal): Promise<void> {
-    let severe = false;
-    let quietSince: number | null = null;
-    let reported = false;
     try {
+      await this.settleByteDebt(signal);
       for (;;) {
         signal?.throwIfAborted();
         const pressure = fullIoPressure(await this.readPsi());
         const now = this.clock.now();
-        if (pressure >= 15) severe = true;
-        if (pressure < 5) quietSince ??= now;
-        else quietSince = null;
-        if (pressure < 5 && (!severe || now - quietSince! >= 30_000)) {
+        if (pressure >= 15) this.severe = true;
+        if (pressure < 5) this.quietSince ??= now;
+        else this.quietSince = null;
+        if (pressure < 5 && (!this.severe || now - this.quietSince! >= 30_000)) {
+          this.severe = false;
+          this.quietSince = null;
+          this.pauseReported = false;
           this.chunkStartedAtMs = now;
           return;
         }
         this.pausedAtMs ??= now;
-        if (!reported && now - this.pausedAtMs > 6 * 60 * 60 * 1000) {
-          reported = true;
+        if (!this.pauseReported && now - this.pausedAtMs > 6 * 60 * 60 * 1000) {
+          this.pauseReported = true;
           this.longPauses += 1;
           const seconds = (now - this.pausedAtMs) / 1000;
           if (this.options.reportLongPause) this.options.reportLongPause(seconds);
@@ -100,12 +105,20 @@ export class IoGovernor {
     const started = this.chunkStartedAtMs ?? this.clock.now();
     this.bytes.read += bytes.read;
     this.bytes.written += bytes.written;
-    const deadline = started + Math.ceil(((bytes.read + bytes.written) * 1000) / this.rate);
-    while (this.clock.now() < deadline) {
-      signal?.throwIfAborted();
-      await this.clock.sleep(Math.min(1000, deadline - this.clock.now()));
-    }
+    this.pacingDeadlineMs =
+      Math.max(this.pacingDeadlineMs, started) +
+      Math.ceil(((bytes.read + bytes.written) * 1000) / this.rate);
+    // The charge is durable on this governor before the first cancellable sleep.
     this.chunkStartedAtMs = null;
+    await this.settleByteDebt(signal);
+  }
+
+  private async settleByteDebt(signal?: AbortSignal): Promise<void> {
+    while (this.clock.now() < this.pacingDeadlineMs) {
+      signal?.throwIfAborted();
+      await this.clock.sleep(Math.min(1000, this.pacingDeadlineMs - this.clock.now()));
+    }
+    this.pacingDeadlineMs = 0;
   }
 
   get counters() {

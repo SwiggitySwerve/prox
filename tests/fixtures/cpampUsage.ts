@@ -98,3 +98,77 @@ export function createCpamp(path: string, count: number) {
   })();
   return { db, add };
 }
+
+const ROLLUP_REVISION = 'synthetic-provider-2';
+export const ROLLUP_HOUR = Date.UTC(2026, 10, 1, 1);
+/** Synthetic provider-rollup schema from CPAMP's repository/sqlite/migrate.go. */
+export function createCpampRollups(
+  db: Database,
+  overrides: Record<string, string | number | null> = {}
+) {
+  db.exec(`CREATE TABLE usage_pricing_rollup_state (
+    rollup_name TEXT PRIMARY KEY, schema_version INTEGER NOT NULL,
+    structure_revision TEXT NOT NULL DEFAULT '', status TEXT NOT NULL,
+    backfill_last_event_id INTEGER NOT NULL DEFAULT 0, coverage_event_id INTEGER NOT NULL DEFAULT 0,
+    target_event_id INTEGER NOT NULL DEFAULT 0, processed_events INTEGER NOT NULL DEFAULT 0,
+    min_bucket_ms INTEGER, max_bucket_ms INTEGER, last_run_started_at_ms INTEGER,
+    updated_at_ms INTEGER NOT NULL DEFAULT 0, finished_at_ms INTEGER, last_error TEXT
+  );
+  CREATE TABLE usage_pricing_hourly_provider_rollups_v1 (
+    structure_revision TEXT NOT NULL, bucket_ms INTEGER NOT NULL, model TEXT NOT NULL,
+    billing_model TEXT NOT NULL, pricing_model TEXT NOT NULL, service_tier TEXT NOT NULL,
+    context_threshold_tokens INTEGER NOT NULL, failed INTEGER NOT NULL,
+    provider TEXT NOT NULL, auth_provider_snapshot TEXT NOT NULL,
+    calls INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0, reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+    cached_tokens INTEGER NOT NULL DEFAULT 0, cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_creation_tokens INTEGER NOT NULL DEFAULT 0, long_input_tokens INTEGER NOT NULL DEFAULT 0,
+    long_output_tokens INTEGER NOT NULL DEFAULT 0, long_cached_tokens INTEGER NOT NULL DEFAULT 0,
+    long_cache_read_tokens INTEGER NOT NULL DEFAULT 0, long_cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0, latency_sum_ms INTEGER NOT NULL DEFAULT 0,
+    latency_samples INTEGER NOT NULL DEFAULT 0, zero_token_calls INTEGER NOT NULL DEFAULT 0,
+    positive_latency_sum_ms INTEGER NOT NULL DEFAULT 0, positive_latency_samples INTEGER NOT NULL DEFAULT 0,
+    updated_at_ms INTEGER NOT NULL,
+    PRIMARY KEY (structure_revision, bucket_ms, model, billing_model, pricing_model,
+      service_tier, context_threshold_tokens, failed, provider, auth_provider_snapshot)
+  )`);
+  function insert(table: string, row: Record<string, string | number | null>) {
+    const keys = Object.keys(row);
+    db.query(
+      `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`
+    ).run(...Object.values(row));
+  }
+  insert('usage_pricing_rollup_state', {
+    rollup_name: 'pricing_v1',
+    schema_version: 1,
+    structure_revision: ROLLUP_REVISION,
+    status: 'ready',
+    coverage_event_id: 1,
+    min_bucket_ms: ROLLUP_HOUR,
+    max_bucket_ms: ROLLUP_HOUR,
+    ...overrides,
+  });
+  return (row: Record<string, string | number | null> = {}) =>
+    insert('usage_pricing_hourly_provider_rollups_v1', {
+      structure_revision: ROLLUP_REVISION,
+      bucket_ms: ROLLUP_HOUR,
+      model: 'client-claude',
+      billing_model: 'claude-test-4',
+      pricing_model: 'claude-test-4',
+      service_tier: 'standard',
+      context_threshold_tokens: 0,
+      failed: 1,
+      provider: 'claude',
+      auth_provider_snapshot: 'claude',
+      calls: 1,
+      input_tokens: 950,
+      output_tokens: 200,
+      reasoning_tokens: 60,
+      cached_tokens: 0,
+      cache_read_tokens: 800,
+      cache_creation_tokens: 50,
+      total_tokens: 1150,
+      updated_at_ms: ROLLUP_HOUR + 3_600_000,
+      ...row,
+    });
+}

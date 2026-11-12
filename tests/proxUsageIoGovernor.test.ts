@@ -58,6 +58,64 @@ describe('usage bulk IO governor', () => {
     await expect(slow.governor.reportBytes({ read: -1, written: 0 })).rejects.toThrow();
   });
 
+  test('cancelling a severe wait preserves its recovery latch and quiet interval on reuse', async () => {
+    let time = 0;
+    let pressure = 15;
+    let cancelAt = 1000;
+    let controller = new AbortController();
+    const governor = new IoGovernor({
+      readPsi: () => `full avg10=${pressure.toFixed(2)} avg60=0`,
+      clock: {
+        now: () => time,
+        sleep: async (ms) => {
+          time += ms;
+          if (time >= cancelAt) controller.abort();
+        },
+      },
+    });
+    await expect(governor.waitForQuietIo(controller.signal)).rejects.toThrow();
+    pressure = 0;
+    controller = new AbortController();
+    cancelAt = 11_000;
+    await expect(governor.waitForQuietIo(controller.signal)).rejects.toThrow();
+    expect(time).toBe(11_000); // cancellation during the quiet recovery period
+    cancelAt = Infinity;
+    await governor.waitForQuietIo();
+    expect(time).toBe(31_000); // retain the quiet interval begun at t=1s
+    expect(governor.counters.pauseSeconds).toBe(31);
+    await governor.reportBytes({ read: 0, written: 0 });
+    await governor.waitForQuietIo();
+    expect(time).toBe(31_000);
+  });
+
+  test('cancelling byte pacing preserves the outstanding debt before the next admission', async () => {
+    let time = 0;
+    const controller = new AbortController();
+    const governor = new IoGovernor({
+      bytesPerSecond: 100,
+      readPsi: () => 'full avg10=0.00 avg60=0',
+      clock: {
+        now: () => time,
+        sleep: async (ms) => {
+          time += ms;
+          if (time === 1000) controller.abort();
+        },
+      },
+    });
+    await governor.waitForQuietIo();
+    await expect(
+      governor.reportBytes({ read: 150, written: 150 }, controller.signal)
+    ).rejects.toThrow();
+    expect(time).toBe(1000);
+    await expect(governor.waitForQuietIo(AbortSignal.abort())).rejects.toThrow();
+    expect(time).toBe(1000);
+    await governor.waitForQuietIo();
+    expect(time).toBe(3000);
+    expect(governor.counters).toMatchObject({ bytesRead: 150, bytesWritten: 150 });
+    await governor.reportBytes({ read: 50, written: 50 });
+    expect(time).toBe(4000);
+  });
+
   test('reports a pause longer than 6h once and never forces the job through', async () => {
     let time = 0;
     const reports: number[] = [];
