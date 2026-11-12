@@ -190,3 +190,85 @@ Collector, writer and service regressions use the ephemeral in-process proxy in
   writer-worker import. Neither the Prox database nor configuration is updated.
   D5's two missing models are added with null rates and source `pending D5`;
   approved prices are required before deploying that book.
+
+## Analytics queries
+
+- `validate.ts` owns the strict `AnalyticsQuery` plus catalog boundary (one JSON
+  value, no unknown fields, CPAMP byte/range/cursor bounds); only UTC is accepted.
+  `handler.ts` authenticates both POST paths with the shared management bearer
+  check, bounds streamed JSON to 1 MiB, and never imports a SQLite runtime module.
+- `main.ts` mounts `/v1/analytics` and the temporary
+  `/v0/management/monitoring/prox-analytics` alias alongside health/status. Rates
+  come from `PROX_USAGE_RATES_PATH` (default `/data/usage-rates.json`). A missing
+  initial book produces unpriced estimates and a coverage limitation; a failed
+  reload keeps the last good book. The mount and approved rate file are deployment
+  responsibilities; queries never update the book.
+- `lanes.ts` has independent FIFO fast/search lanes, one active query and eight
+  waiting in each. Overflow is 503. A 30-second deadline includes body reading,
+  admission and execution; expiry is 504, client cancellation 499. Cancellation
+  terminates the active worker, releasing its SQLite snapshot, before replacing
+  it. Idle workers are reused; close/error listeners stay attached for the worker's
+  lifetime, so an idle exit invalidates the cache. Shutdown rejects admission and
+  terminates both.
+- `query.worker.ts` opens its read-only connection through `store.ts`, performs
+  the entire response in one deferred read transaction, serializes the response
+  there and closes the connection. It uses the standard `{id, kind, body}` /
+  `{id, ok, body}` RPC and also accepts child-process IPC. Its bundle is a separate
+  `build:usage` entry beside `main.js` and `writer.worker.js`.
+- `analytics.ts` groups by UTC bucket, provider, all three pricing candidates,
+  tier, per-event context band, usage flags, record kind and outcome. The current
+  book snapshot generates nested SQL CASE expressions over dictionary ids:
+  billing, canonical, then requested candidate; thresholds descending, strictly
+  exceeded; a configured base-only candidate stops fallback. No stored price
+  table or index exists. SQL sums are priced with explicit bands and the P4
+  pricing owner. All response sections use the same book/revision and snapshot.
+- `analyticsPricing.ts` folds the unchanged SQL rows into CPAMP's pricing keys:
+  `(model, billing model, resolved pricing model, context band, tier)`, adding bucket
+  for timeline or provider for provider-specific stats. This folds across the
+  SQL-only metadata/outcome keys for pricing; retained-event metrics still use all
+  SQL rows. Summary stats sort by calls descending then `pricingRowLess` (model,
+  billing model, pricing model, tier, band); model views inherit that order.
+  Timeline sorts by bucket then `pricingRowLess`. Providers reuse global stats
+  when each model has one provider; otherwise they follow the provider query's
+  calls-descending order, with ties in its SQL key order (band before tier).
+- `pricing.ts` exposes separate aggregate/request estimate boundaries over the
+  shared money calculation. CPAMP aggregate tokens have no event metadata:
+  presence is always unknown, component-reporting flags do not add request-only
+  reasons, and only aggregate costs carry call counts. `parity.ts` adds the legacy
+  reason after the aggregate's pricing reasons. Request costs keep event presence
+  and component limitations, but no legacy-kind reason or call counts.
+- Known supplementary rows are excluded from counts, pricing, latency, selectors
+  and request detail, as CPAMP does. Selectors preserve the range/search while
+  ignoring the provider, model and outcome filters. The page cursor changes only
+  detail, never whole-scope totals.
+- `latency.ts` selects exact positive-sample nearest ranks in typed arrays for
+  the range, bucket, model and provider. Zero TTFT remains visible in detail but
+  does not enter percentile samples. Average latency uses positive measurements.
+- `search.ts` filters the time-clustered events after matching dictionary values;
+  identifier detail is looked up only for events in that range. Long identifiers
+  additionally try indexed exact execution/request/session matches. Substring
+  fallback remains, including CPAMP's SQL LIKE wildcards, ASCII SQL lower(), and
+  Unicode-lowercased query. It adds no search index or persisted projection.
+- The inspector is an explicit allowlist. Token zero is visible only when its
+  presence/component flags report it; positive counters stay visible. User agents
+  pass `credentialText.ts`, a port of CPAMP's credential-text scrubber; path queries
+  are removed again at serialization. Error summaries contain only the safe code
+  or `Execution failed`. No key/hash or fail body is returned.
+- `parity.ts` contains exactly the two P10 compatibility oddities: the legacy
+  record-kind reason on every nonempty aggregate estimate and source attribution
+  based on the current page. Coverage otherwise uses range-wide retention/gaps,
+  import provenance, rate-book state and unknown providers, without claiming the
+  event stream is an ingress ledger.
+- Provider/trace provenance is limited by P1: `provider` and `trace_id` are the
+  stored payload fields. CPAMP detail uses credential-provider snapshot and
+  response-header trace id. Neither is inferred from another field. P6 must check
+  these against imported/live rows; the response schema remains version 1.
+
+Regression tests cover snapshot isolation, SQL pricing bands, null measurements,
+search, coverage, worker IPC, bearer routing, bounded lanes, cancellation and a
+main-thread graph free of SQLite. `scripts/usage-query-benchmark.ts` creates and
+removes its 960,000-row synthetic store entirely in `/dev/shm`, using the P1 store
+API, and records 50 warm worker responses per view while inserting synthetic
+traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
+The live performance/parity gate is a separate deployment responsibility; a
+30-day p95 above 1 s requires P5b before P6, per the plan.

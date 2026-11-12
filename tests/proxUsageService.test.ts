@@ -66,6 +66,12 @@ test('the main-thread runtime module graph never imports bun:sqlite or a worker 
   };
   visit(join(root, 'server/usage/main.ts'));
   expect(visited.size).toBeGreaterThan(10);
+  expect([...visited].some((file) => file.endsWith('/usage/handler.ts'))).toBe(true);
+  expect([...visited].some((file) => file.endsWith('/usage/lanes.ts'))).toBe(true);
+  const scripts = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts;
+  expect(scripts['build:usage']).toContain('./server/usage/query.worker.ts');
+  expect(scripts['build:usage']).toContain('./server/usage/writer.worker.ts');
+  expect(scripts['build:usage']).toContain('--entry-naming [name].js');
 });
 
 test('deploy uses the history image, hashes both bundles and keeps the API on loopback', () => {
