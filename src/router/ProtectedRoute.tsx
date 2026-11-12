@@ -6,26 +6,27 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 export function ProtectedRoute({ children }: { children: ReactElement }) {
   const location = useLocation();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const managementKey = useAuthStore((state) => state.managementKey);
-  const apiBase = useAuthStore((state) => state.apiBase);
-  const checkAuth = useAuthStore((state) => state.checkAuth);
-  const [checking, setChecking] = useState(false);
+  const restoreSession = useAuthStore((state) => state.restoreSession);
+  // Only a cold load with a saved sign-in restores here. restoreSession applies the full rules
+  // (remember-password, a stored key); after a logout or 401 isLoggedIn is gone, so the user
+  // goes straight to /login. Restoring in place keeps the requested page instead of bouncing
+  // through /login and back.
+  const [restoring, setRestoring] = useState(
+    () => !isAuthenticated && localStorage.getItem('isLoggedIn') === 'true'
+  );
 
   useEffect(() => {
-    const tryRestore = async () => {
-      if (!isAuthenticated && managementKey && apiBase) {
-        setChecking(true);
-        try {
-          await checkAuth();
-        } finally {
-          setChecking(false);
-        }
-      }
+    if (!restoring) return;
+    let active = true;
+    void restoreSession().finally(() => {
+      if (active) setRestoring(false);
+    });
+    return () => {
+      active = false;
     };
-    tryRestore();
-  }, [apiBase, isAuthenticated, managementKey, checkAuth]);
+  }, [restoring, restoreSession]);
 
-  if (checking) {
+  if (restoring) {
     return (
       <div className="main-content">
         <LoadingSpinner />
