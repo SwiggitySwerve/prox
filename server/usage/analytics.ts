@@ -100,9 +100,9 @@ export function queryAnalytics(
         bucketSize,
         (options.now ?? Date.now)(),
         check,
-        options.onPhase
+        options.onPhase,
+        options.afterAggregate
       );
-      options.afterAggregate?.();
       check();
       const ranks = latency.result();
       check();
@@ -124,7 +124,7 @@ export function queryAnalytics(
         observed.set(`${provider}\0${model}`, { provider, id: model });
       }
 
-      const costs = analyticsCosts(rows, names, book);
+      const costs = analyticsCosts(rows, names, book, options.onPhase);
       summary.value.cost = costs.summary;
       for (const [id, metrics] of models) metrics.value.cost = costs.models.get(id)!;
       for (const [id, metrics] of providers) metrics.value.cost = costs.providers.get(id)!;

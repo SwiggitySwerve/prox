@@ -10,6 +10,7 @@ import {
   sumColumns,
   type AggregateRow,
 } from './aggregate';
+import { RECORD_KIND } from './types';
 import { readCoverage, type CoverageRow } from './coverage';
 import { LatencyGroups } from './latency';
 import type { RateBook } from './rates';
@@ -25,9 +26,12 @@ export function canReadRollup(q: UsageAnalyticsQuery): boolean {
     q.outcome === 'all'
   );
 }
-interface RollupRow extends AggregateRow {
-  samples: Uint8Array;
-  latency_bytes: number;
+interface StoredSamples {
+  sample_bucket: number;
+  model_id: number;
+  provider_id: number;
+  latencies: Uint8Array;
+  ttfts: Uint8Array;
 }
 /** Bun's blob offsets need not be int32 aligned. Copy only when alignment requires it. */
 function samples(blob: Uint8Array): Int32Array {
@@ -43,11 +47,13 @@ export function readAnalyticsGroups(
   bucketSize: number,
   nowMs: number,
   check: () => void,
-  onPhase?: (phase: string) => void
+  onPhase?: (phase: string) => void,
+  afterAggregate?: () => void
 ) {
   const latency = new LatencyGroups();
   const rows: AggregateRow[] = [];
   const coverageRows: CoverageRow[] = [];
+  let readStoredSamples: (() => void) | undefined;
   let spans = [{ from: q.from_ms, to: q.to_ms }];
   if (canReadRollup(q)) {
     const first = Math.ceil(q.from_ms / HOUR_MS) * HOUR_MS;
@@ -73,52 +79,75 @@ export function readAnalyticsGroups(
         from = hour + HOUR_MS;
       }
       if (from < q.to_ms) spans.push({ from, to: q.to_ms });
+      const hours = [...clean];
+      const hourSlots = hours.map(() => '?').join(',');
+      const source = `FROM usage_hour_rollup r WHERE r.bucket IN (${hourSlots})
+        AND r.record_kind != ${RECORD_KIND.supplementary}`;
       coverageRows.push(
         ...db
-          .query<CoverageRow, [number, number, string]>(
+          .query<CoverageRow, number[]>(
             `
-        SELECT c.provider_id, max(c.imported) AS imported FROM usage_hour_coverage c
-        JOIN usage_hour_state h ON h.hour_ms = c.hour_ms
-        WHERE c.hour_ms >= ? AND c.hour_ms < ? AND h.dirty = 0 AND h.supported = 1 AND h.layout = ?
-        GROUP BY c.provider_id
+        SELECT provider_id, max(imported) AS imported FROM usage_hour_coverage
+        WHERE hour_ms IN (${hourSlots}) GROUP BY provider_id
       `
           )
-          .all(first, end, layout)
+          .all(...hours)
       );
       let scanned = 0;
       const rollupRows = db
-        .query<RollupRow, [number, number, string]>(
+        .query<AggregateRow, number[]>(
           `
-        SELECT r.bucket, ${[...groupDimensions, ...sumColumns].map((key) => `r.${key}`).join(', ')},
-          length(r.latencies) AS latency_bytes, CAST(r.latencies || r.ttfts AS BLOB) AS samples
-        FROM usage_hour_rollup r JOIN usage_hour_state h ON h.hour_ms = r.bucket
-        WHERE r.bucket >= ? AND r.bucket < ? AND h.dirty = 0 AND h.supported = 1
-          AND h.layout = ? AND r.record_kind != 2
+        SELECT r.bucket, ${[...groupDimensions, ...sumColumns].map((key) => `r.${key}`).join(', ')}
+        ${source}
       `
         )
-        .all(first, end, layout);
+        .all(...hours);
       onPhase?.('rollup-select');
       for (const row of rollupRows) {
         row.bucket = Math.floor(row.bucket / bucketSize) * bucketSize;
         row.band = row.band === -1 ? null : row.band;
-        const combined = samples(row.samples);
-        latency.addSamples(
-          row.bucket,
-          row.model_id,
-          row.provider_id,
-          combined.subarray(0, row.latency_bytes / 4),
-          combined.subarray(row.latency_bytes / 4)
-        );
         rows.push(row);
         if ((++scanned & 4095) === 0) check();
       }
+      // Concatenate stored int32 bytes inside SQLite, then cast back to BLOB before Bun
+      // sees the value. No JS text conversion occurs; NUL and invalid UTF-8 bytes survive.
+      // Percentiles need bucket/model/provider only, so merge across the pricing dimensions.
+      readStoredSamples = () => {
+        for (const row of db
+          .query<StoredSamples, number[]>(
+            `
+        SELECT (r.bucket / ${bucketSize}) * ${bucketSize} AS sample_bucket,
+          r.model_id, r.provider_id,
+          CAST(group_concat(r.latencies, '') AS BLOB) AS latencies,
+          CAST(group_concat(r.ttfts, '') AS BLOB) AS ttfts
+        ${source}
+        GROUP BY sample_bucket, r.model_id, r.provider_id
+      `
+          )
+          .all(...hours)) {
+          latency.addSamples(
+            row.sample_bucket,
+            row.model_id,
+            row.provider_id,
+            samples(row.latencies),
+            samples(row.ttfts)
+          );
+          if ((++scanned & 4095) === 0) check();
+        }
+      };
     }
   }
-  onPhase?.('rollup-read');
-  for (const span of spans) {
-    // Keep all existing filter guards, changing only the range in the first two bind slots.
-    const raw = { sql: filter.sql, args: [span.from, span.to, ...filter.args.slice(2)] };
+  // Keep all existing filter guards, changing only the range in the first two bind slots.
+  const rawFilters = spans.map((span) => ({
+    sql: filter.sql,
+    args: [span.from, span.to, ...filter.args.slice(2)],
+  }));
+  for (const raw of rawFilters)
     for (const row of readAggregates(db, raw, dims, book, bucketSize)) rows.push(row);
+  afterAggregate?.();
+  readStoredSamples?.();
+  onPhase?.('rollup-read');
+  for (const raw of rawFilters) {
     const select = db.query<
       {
         bucket: number;
@@ -137,7 +166,7 @@ export function readAnalyticsGroups(
       latency.add(row.bucket, row.model_id, row.provider_id, row.latency_ms, row.ttft_ms);
       if ((++scanned & 4095) === 0) check();
     }
-    coverageRows.push(...readCoverage(db, span.from, span.to));
+    coverageRows.push(...readCoverage(db, Number(raw.args[0]), Number(raw.args[1])));
     check();
   }
   onPhase?.('raw-read');
