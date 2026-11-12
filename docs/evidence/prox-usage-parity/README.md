@@ -7,8 +7,9 @@ database was changed, and neither systemd template was installed or enabled.
 The harness is `scripts/usage-parity.ts`. Run it from the repository root with
 Bun 1.4.3. It writes a JSON report and a short Markdown report to this directory;
 `--output` selects another prefix. Exit 0 means the selected comparisons have no
-unexplained differences. Failure exits 1; interruption exits 130 with partial
-evidence. A sampled run cannot establish the two clean nights/full matrices
+unexplained differences. Unexplained differences or failures exit 1; UTC deadline/forbidden-window
+stops exit 2 with `status=incomplete`, `complete=false` and a termination reason;
+interruption exits 130 with partial evidence. A sampled run cannot establish the two clean nights/full matrices
 required for cutover.
 
 ## Matrix source and accounting
@@ -66,10 +67,25 @@ reconcile, checkpoint, backup or update operation in this harness.
 
 The event projection compares timestamp, provider, model/requested/billing
 models, tier, failure/status, latency, TTFT, seven token counters, flags, record
-kind, account, account label and client-key hash. CPAMP metadata/account mapping
-uses the existing import owner: account snapshot falls back to label, then auth
-index; only a validated SHA-256 hash is used. All subscribed Prox-only events
-fail. Extra imported/replayed events are counted outside that reverse cohort.
+kind, account, account label and client-key hash. The CPAMP reference is independent
+of Prox's normalizer/import mapper. Persisted columns supply every value that
+CPAMP stores, including `service_tier`; the raw payload cannot replace them.
+Metadata-only fields follow CPAMP's Go parser. All subscribed Prox-only events fail.
+
+| Compared field | CPAMP reference |
+| --- | --- |
+| Timestamp, provider, failed, status | Persisted `timestamp_ms`, `provider`, `failed`, `fail_status_code` unchanged |
+| Requested/canonical model | Persisted `requested_model` with `model` fallback; CPAMP's `AnalyticsModelForRequest` suffix contract for canonical identity |
+| Billing model | Persisted `resolved_model`, else the effective persisted requested model |
+| Tier | Persisted `service_tier` (`NULL` is CPAMP's empty tier); raw requested/effective/response tiers are never consulted |
+| Seven token counters | Persisted normalized input/cache columns plus output/reasoning/total; never raw payload counters |
+| Latency and TTFT | Persisted measurements unchanged, including zero/negative values |
+| Account | CPAMP exporter SQL semantics: `coalesce(nullif(account_snapshot,''),auth_label_snapshot,auth_index)`; empty label remains empty |
+| Account label, client-key hash | Persisted `auth_label_snapshot`, `api_key_hash` unchanged; no trimming or recasing |
+| Metadata-only identifiers, flags and record kind | Allowlisted envelope metadata decoded independently under CPAMP's Go contract, including its whitespace rules |
+
+This oracle intentionally does not reuse the Prox algorithm it audits. Column
+projection and metadata-key schema facts are shared; expected accounting is not. Extra imported/replayed events are counted outside that reverse cohort.
 No credential-label timing exception is assumed.
 
 Explicit counted rules:
@@ -82,6 +98,13 @@ Explicit counted rules:
   snapshot, as documented by P5 PR #71. Aggregate/filter differences still fail.
 - `detail-trace`: only `requests.items[].trace_id`, payload versus response-header
   provenance from the same P5 documentation. Other detail fields remain exact.
+- `coverage-limitations`: every CPAMP sentence except the exact successive-reads
+  sentence must remain. Extras must be one of the exact §2.7 condition sentences
+  (restart/in-flight, imported history, rate-book load failure, unknown provider)
+  or the anchored known-gap/pruned-history form. Gap intervals must overlap the
+  response range; gap/prune claims require incomplete raw coverage. Missing
+  fixed sentences, arbitrary extras and duplicates remain unexplained. Sentence
+  order may differ under this counted rule; both complete arrays are retained.
 - `d5-pricing`: only cost/rate differences reproduced by two local read-only
   `queryAnalytics` replays over Prox: the approved deployed rate book, then that
   same book with only `claude-fable-5-2` and `gpt-6.1-terra` removed. Both observed
@@ -91,14 +114,15 @@ Explicit counted rules:
 Response normalization removes only `generated_at_ms`, `coverage.price_revision`,
 request item `id`, and `requests.next_before_id`; permits item reordering only
 inside equal-timestamp groups; and allows 1e-9 relative error only at `cost.usd`
-(no absolute epsilon at zero). Every integer, p95, average, reason and coverage
-field stays exact. Known differences remain in the report with both values.
+(no absolute epsilon at zero). Every integer, p95, average and pricing reason
+stays exact; other coverage fields stay exact outside the explicit limitations
+rule. Known differences remain in the report with both values.
 
 ## Running it
 
 ```sh
 # Nightly window, event comparison plus the source quick matrix.
-ionice -c3 nice -n10 bun scripts/usage-parity.ts --previous-utc-day
+ionice -c3 nice -n10 bun scripts/usage-parity.ts --previous-utc-day --deadline 12:00Z
 
 # Operator-selected smoke: at most 20 response pairs, no event scan.
 # Replace timestamps with a settled window; after 21:20 UTC on the dual-run day.
@@ -109,7 +133,7 @@ ionice -c3 nice -n10 bun scripts/usage-parity.ts \
 # Full source coverage: include the earliest ALIGNED 31-day start.
 # Supply settled FROM/TO values and run only when the coordinator schedules it.
 ionice -c3 nice -n10 bun scripts/usage-parity.ts \
-  --from "$PARITY_FROM" --to "$PARITY_TO" --matrix full
+  --from "$PARITY_FROM" --to "$PARITY_TO" --matrix full --deadline "$PARITY_DEADLINE"
 ```
 
 Each query waits for `/proc/pressure/io` **full avg10 < 5** and for a default
@@ -120,6 +144,16 @@ the synthetic fixtures use zero and fake PSI. Cancellation interrupts pressure,
 pacing and fetch waits. HTTP queries have a 30-second deadline and do not follow
 redirects. Endpoints must be loopback HTTP. Key files are read inside the process
 and never enter reports, errors or command arguments.
+
+UTC admission is forbidden during **01:00–04:00** and **12:20–12:50**. A run
+stops at the next forbidden boundary, even after a large wall-clock jump. An
+optional `--deadline` can stop it earlier; `12:00Z` means today's noon UTC,
+including for a delayed start after noon. Deadlines abort in-flight fetches and
+PSI/pacing waits. Already executing synchronous SQLite work reaches its next
+check before the run closes; no subsequent harness query is admitted. Reports
+retain partial counts and `complete=false`; exit 2 distinguishes this from a
+completed comparison with unexplained differences (exit 1). `complete=true`
+only describes the selected run, not full cutover coverage.
 
 Default DBs are `~/.local/share/cpa-manager-plus/usage.sqlite` and
 `~/.local/share/prox-usage/usage.sqlite`; bearer files are
@@ -133,7 +167,10 @@ guessed gap. All paths/endpoints have documented `--help` overrides.
 `deploy/prox-usage-parity.service` and `.timer` are uninstalled templates. The
 service assumes `%h/src/prox` and Bun on its configured PATH; the coordinator
 must review those paths before installing. It invokes `ionice -c3 nice -n10`,
-quick plus events for the previous UTC day at **04:30 UTC**. `Persistent=false`
+quick plus events for the previous UTC day at **04:30 UTC**, passing
+`--deadline 12:00Z`. `Type=exec` makes `RuntimeMaxSec=7h30min` effective as a
+systemd backstop; the harness's absolute cutoff also handles delayed starts.
+`Persistent=false`
 avoids a catch-up run at login during the forbidden period. There is no install,
 enable or start action in this PR. This read-only timer does not perform the
 separate reconcile/import jobs needed by plan step C.
@@ -153,8 +190,10 @@ not an independent validation of CPAMP arithmetic.
 | Committed synthetic artifact | Compared / equal pairs | Known rules | Unexplained | Expected result |
 | --- | --- | --- | ---: | --- |
 | `synthetic-equal.{json,md}` | 2 / 2 | None | 0 | Pass |
-| `synthetic-known.{json,md}` | 2 / 0 | 2 pairs each for D5, provider and trace; 86 D5 fields, 6 provider fields, 6 trace fields | 0 | Pass with counted exceptions |
+| `synthetic-known.{json,md}` | 2 / 0 | 2 pairs each for D5, provider, trace and coverage; 86 D5 fields, 6 provider fields, 6 trace fields, 2 coverage fields | 0 | Pass with counted exceptions |
 | `synthetic-unexplained.{json,md}` | 1 / 0 | None | 1 pair / 4 fields, including one-sided page 2 | Fail, intentionally injected |
+| `synthetic-incomplete.{json,md}` | 0 / 0 | Expired UTC deadline, no queries | 0 | Incomplete, exit code 2 |
+| `synthetic-persisted-tier.{json,md}` | Event fixture; 1 matched | Same gap/drain exceptions as the event fixture | 1 persisted-tier difference (`priority` / `standard`) | Fail, intentionally injected |
 | `synthetic-events.{json,md}` | 3 source rows / 3 target rows; 2 matched | 1 ingest-gap event and 1 documented drain event | 0 | Pass with counted exceptions |
 
 The helpers use an injected clock and fake PSI. Reproduce the artifacts with:
@@ -163,7 +202,7 @@ The helpers use an injected clock and fake PSI. Reproduce the artifacts with:
 ionice -c3 nice -n10 bun tests/helpers/usageParityEvidence.ts
 ```
 
-Final checks used Bun **1.4.3** (`c6da4a4d3`). The existing locked dependencies
+Initial implementation checks used Bun **1.4.3** (`c6da4a4d3`). The existing locked dependencies
 were reused via a symlink to `/dev/shm/prox-rollup-deps-yskids/node_modules`, after
 confirming the lockfiles matched; no install or deletion was performed.
 
@@ -205,3 +244,39 @@ confirming the lockfiles matched; no install or deletion was performed.
 - `git diff --check` passed. No UI route changed, so browser checks do not apply.
 No browser route changed. Live smoke, full matrix, two-night evidence and unit
 installation remain for the coordinator.
+
+
+## Review corrections (S1, S2 and coverage)
+
+S1 now compares persisted CPAMP values directly through an independent reference.
+Regressions reproduce the previously hidden tier mismatch and cover trimmed,
+recased, clamped and substituted values in the other persisted fields. Metadata
+parsing is independent too; a CPAMP/JavaScript whitespace difference cannot be
+hidden by calling Prox's normalizer on both sides.
+
+S2 adds the absolute UTC deadline, forbidden-window admission and explicit
+incomplete result. Fake-clock tests cover delayed starts, long PSI waits, pacing,
+both forbidden boundaries and wall-clock jumps. A real CLI subprocess verifies
+exit 2 and a written incomplete report before any DB/key/query access. The unit
+remains uninstalled and disabled.
+
+The coverage compatibility rule is counted separately and checks required
+sentences and every extra condition. Its tests reject missing fixed sentences,
+unknown or duplicated extras, malformed/out-of-range gap claims and incompatible
+raw-completeness claims. No live comparison was run for these corrections.
+
+Review validation used Bun 1.4.3, with every heavy command prefixed by
+`ionice -c3 nice -n10`:
+
+- Harness: **43 passed, 0 failed**, 6,162 assertions across the four parity suites.
+- Standalone script/test TypeScript and changed-file ESLint: passed, no warnings.
+- One new `bun run verify` for this review request: **3,135 passed, 0 failed**
+  across 271 files. Lint: 0 errors and the same six existing React Refresh warnings.
+  Application/server TypeScript, Vite single-file output, history server and all
+  usage-worker builds passed.
+- Regenerated synthetic JSON/Markdown through the actual harness functions.
+  The persisted-tier fixture fails with `cpamp=priority`, `prox=standard`; the
+  cutoff fixture reports `status=incomplete`, `complete=false`, no queries and
+  deadline termination; known coverage changes are counted separately.
+- `git diff --check` passed. No live comparisons, DB writes, unit installs,
+  timer activation or deployment were performed.

@@ -388,15 +388,21 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
 It opens CPAMP and Prox with SQLite URI `mode=ro`, read-only flags and
 `query_only=1`; it never imports/reconciles, writes events or joins either server's
 runtime graph. CPAMP reads force `idx_usage_events_timestamp`, use five-minute
-windows and 1,000-row keyset pages. `importCpamp.ts` exports its allowlisted
-`CPAMP_EVENT_COLUMNS`, `mapCpampRow` and `cpampPreconditions` for this reader;
-there is one CPAMP accounting/metadata mapping for import and parity.
+windows and 1,000-row keyset pages. The importer shares only its allowlisted SQL
+projection, metadata-key schema and diagnostic-counter factory with this reader.
+`scripts/usage-parity/cpampReference.ts` is an independent CPAMP-side oracle:
+no Prox normalizer or importer mapping supplies an expected value. Persisted
+columns are authoritative, including `service_tier`; raw tiers cannot override
+it. Model identities follow CPAMP's persisted-column aggregation expressions;
+metadata-only flags/kind/identifiers follow CPAMP's Go envelope contract. This
+independent audit intentionally does not reuse the algorithm under test.
 
 The harness compares the seven token fields and the event identity, timing,
 models, provider, tier, failure, status, flags and record kind, plus exporter
 account, account-label and client-key-hash dimensions. The import owner's account
-fallback (snapshot, then label, then credential index) still applies. No label
-snapshot timing exception is authorized by this harness. A missing Prox event is
+SQL fallback (`nullif(snapshot,'')`, then nullable label, then credential index)
+is applied to persisted fields, preserving empty labels, whitespace and key-hash
+case. No label snapshot timing exception is authorized by this harness. A missing Prox event is
 explained only by a matching instance/time in `ingest_gaps`; a Prox-only drained
 event needs an explicit, documented CPAMP outage interval. Subscribed extras fail.
 
@@ -409,7 +415,21 @@ equal-timestamp runs. Provider and trace provenance differences apply only to
 request-detail fields and are counted. A D5 price exception needs two read-only
 replays through `queryAnalytics`: the approved deployed book must reproduce the
 Prox value, and removing only the two D5 models must reproduce CPAMP's value.
-Other differences, including coverage and one-sided paging, fail the run.
+The `coverage-limitations` rule requires every CPAMP sentence except the exact
+successive-reads sentence. Extra Prox sentences must be the exact §2.7 conditions
+or validated gap/prune forms (overlapping range and incomplete raw coverage).
+Missing required sentences, unknown extras and duplicate sentences fail. Both
+lists remain in evidence and each changed field/pair is counted. Other coverage
+fields and one-sided paging remain exact.
+
+The harness refuses query admission during 01:00–04:00 and 12:20–12:50 UTC.
+`--deadline` accepts an absolute UTC timestamp or today's `HH:MMZ`; a delayed start
+never rolls the cutoff into tomorrow. The earliest deadline/forbidden boundary
+aborts fetches and PSI/pacing waits, and is rechecked at synchronous boundaries.
+An incomplete run writes `complete=false`, its termination reason and partial
+counts, then exits 2 (unexplained differences exit 1; SIGINT exits 130). The user
+unit passes `--deadline 12:00Z` and uses `Type=exec` plus `RuntimeMaxSec=7h30min`
+as a backstop. None of these templates is installed or enabled by this work.
 
 The matrix is ported from CPAMP commit `52b12b45e010a766bd69ff55a55e566263d8bede`.
 Its current source has 672 quick / 5,904 full base queries, with coupled view

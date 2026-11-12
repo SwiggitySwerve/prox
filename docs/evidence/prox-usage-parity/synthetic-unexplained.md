@@ -1,5 +1,7 @@
 # Usage parity: failed
 
+Complete: true. UTC deadline: none.
+
 UTC window: 2026-10-13T22:17:23.456Z to 2026-11-13T22:17:23.456Z.
 
 Matrix quick: 672 generated cases; 1 selected; 1/2 maximum pairs completed (2 HTTP responses; 0 second pages absent on both; 1 paging mismatches).
@@ -30,6 +32,7 @@ Compared pairs: 1; equal: 0; unexplained: 1.
 - Known d5-pricing: 0 pairs
 - Known detail-trace: 0 pairs
 - Known detail-provider: 0 pairs
+- Known coverage-limitations: 0 pairs
 
 Pair rule counts can overlap. The following counts are individual differing fields/events:
 
@@ -37,6 +40,7 @@ Pair rule counts can overlap. The following counts are individual differing fiel
 - d5-pricing: 0
 - detail-provider: 0
 - detail-trace: 0
+- coverage-limitations: 0
 - drained-during-cpamp-outage: 0
 - ingest-gap: 0
 

@@ -1,12 +1,20 @@
-// The frozen response normalization and the three explicit, counted exception rules.
+// The frozen response normalization and explicit, counted exception rules.
+import { coverageDifference } from './coverage';
 import type { AnalyticsResponse } from '../../src/domain/analytics/types';
 
 export const D5_MODELS = ['claude-fable-5-2', 'gpt-6.1-terra'] as const;
+export const KNOWN_RESPONSE_RULES = [
+  'd5-pricing',
+  'detail-trace',
+  'detail-provider',
+  'coverage-limitations',
+] as const;
 export type DifferenceClass =
   | 'unexplained'
   | 'd5-pricing'
   | 'detail-provider'
   | 'detail-trace'
+  | 'coverage-limitations'
   | 'drained-during-cpamp-outage'
   | 'ingest-gap';
 export interface Difference {
@@ -115,7 +123,12 @@ export function compareResponses(
         permitted.set(difference.path, difference);
     }
   }
-  return diffValues(a, b).map((difference) => {
+  const coverage = coverageDifference(cpamp, prox);
+  const differences = diffValues(a, b).filter(
+    (d) => !/^\$\.coverage\.limitations(?:\[|\.|$)/.test(d.path)
+  );
+  if (coverage) differences.push(coverage);
+  return differences.map((difference) => {
     if (/^\$\.requests\.items\[\d+\]\.provider$/.test(difference.path))
       return { ...difference, class: 'detail-provider' };
     if (/^\$\.requests\.items\[\d+\]\.trace_id$/.test(difference.path))

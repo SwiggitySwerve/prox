@@ -2,13 +2,8 @@
 import { constants, Database } from 'bun:sqlite';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import {
-  CPAMP_EVENT_COLUMNS,
-  cpampPreconditions,
-  mapCpampRow,
-  type CpampSourceRow,
-} from '../../server/usage/importCpamp';
-import type { NormalizedEvent } from '../../server/usage/types';
+import { cpampPreconditions, type CpampSourceRow } from '../../server/usage/importCpamp';
+import { cpampReference, CPAMP_PARITY_COLUMNS, type EventValues } from './cpampReference';
 import { DUAL_RUN_START } from './matrix';
 import { diffValues, type Difference } from './compare';
 import type { QueryGate } from './io';
@@ -52,63 +47,9 @@ export function openParityReader(path: string): Database {
     throw error;
   }
 }
-interface EventValues {
-  execution_id: string;
-  instance: string | null;
-  ts_ms: number;
-  provider: string;
-  account: string | null;
-  account_label: string | null;
-  api_key_hash: string | null;
-  model: string;
-  requested_model: string;
-  billing_model: string;
-  tier: string;
-  failed: number;
-  status_code: number | null;
-  latency_ms: number | null;
-  ttft_ms: number | null;
-  input_total: number;
-  input_uncached: number;
-  cache_read: number;
-  cache_write: number;
-  output_total: number;
-  reasoning: number;
-  total: number;
-  usage_flags: number;
-  record_kind: number;
-}
 interface TargetRow extends EventValues {
   seq: number;
   ingest: number;
-}
-function sourceValues(event: NormalizedEvent, row: CpampSourceRow): EventValues {
-  return {
-    execution_id: event.executionId,
-    instance: event.instance,
-    ts_ms: event.tsMs,
-    provider: event.provider,
-    account: event.account,
-    account_label: event.accountLabel,
-    api_key_hash: event.apiKeyHash,
-    model: event.model,
-    requested_model: event.requestedModel,
-    billing_model: event.billingModel,
-    tier: event.tier,
-    failed: Number(event.failed),
-    status_code: event.statusCode,
-    latency_ms: row.latency_ms as number | null,
-    ttft_ms: row.ttft_ms as number | null,
-    input_total: event.tokens.inputTotal,
-    input_uncached: event.tokens.inputUncached,
-    cache_read: event.tokens.cacheRead,
-    cache_write: event.tokens.cacheWrite,
-    output_total: event.tokens.outputTotal,
-    reasoning: event.tokens.reasoning,
-    total: event.tokens.total,
-    usage_flags: event.usageFlags,
-    record_kind: event.recordKind,
-  };
 }
 const TARGET_COLUMNS = `e.seq, e.ingest, d.execution_id, e.ts_ms,
   (SELECT value FROM dim WHERE id=e.instance_id) AS instance,
@@ -181,7 +122,7 @@ export async function compareEvents(
   const readSource = await gate.run(
     () =>
       source.query<CpampSourceRow, [number, number, number, number, number]>(`
-    SELECT ${CPAMP_EVENT_COLUMNS} FROM usage_events INDEXED BY idx_usage_events_timestamp
+    SELECT ${CPAMP_PARITY_COLUMNS} FROM usage_events INDEXED BY idx_usage_events_timestamp
     WHERE timestamp_ms >= ? AND timestamp_ms < ?
     AND (timestamp_ms > ? OR (timestamp_ms = ? AND id > ?))
     ORDER BY timestamp_ms, id LIMIT 1000`),
@@ -207,7 +148,7 @@ export async function compareEvents(
       const rows = await gate.run(() => readSource.all(start, end, timestamp, timestamp, id), true);
       for (const row of rows) {
         result.cpamp_rows++;
-        const event = mapCpampRow(row, result.preconditions, seen);
+        const event = cpampReference(row, result.preconditions, seen);
         if (!event)
           emit({
             class: 'unexplained',
@@ -219,7 +160,7 @@ export async function compareEvents(
             },
             prox: null,
           });
-        else expected.set(event.executionId, sourceValues(event, row));
+        else expected.set(event.execution_id, event);
       }
       if (rows.length < 1000) break;
       timestamp = Number(rows.at(-1)!.timestamp_ms);

@@ -1,3 +1,4 @@
+import { SUCCESSIVE_READS } from '../scripts/usage-parity/coverage';
 import { describe, expect, test } from 'bun:test';
 import {
   compareResponses,
@@ -57,7 +58,7 @@ describe('frozen response comparison', () => {
         b.requests.next_before_ms = 123;
       },
       (b: typeof a) => {
-        b.coverage.limitations.reverse();
+        b.coverage.limitations.shift();
       },
       (b: typeof a) => {
         b.requests.items[0].timestamp_ms++;
@@ -169,4 +170,72 @@ describe('ported matrices', () => {
     });
     expect(previousUtcDay(now).to_ms - previousUtcDay(now).from_ms).toBe(DAY);
   });
+});
+
+test('coverage rule preserves CPAMP sentences and accepts only the §2.7 conditions', () => {
+  const a = response(),
+    b = structuredClone(a);
+  a.coverage.limitations = a.coverage.limitations.filter((s) => !s.startsWith('records in flight'));
+  a.coverage.limitations.push(SUCCESSIVE_READS);
+  expect(compareResponses(a, b)).toMatchObject([
+    { class: 'coverage-limitations', path: '$.coverage.limitations' },
+  ]);
+  for (const sentence of [
+    'History in this range was imported from CPAMP.',
+    'The rate book failed to load; the last good book is used when available.',
+    'Records from an unknown provider are stored as reported; normalization is limited.',
+  ]) {
+    const c = structuredClone(b);
+    c.coverage.limitations.push(sentence);
+    expect(compareResponses(a, c).every((d) => d.class === 'coverage-limitations')).toBe(true);
+  }
+  b.coverage.limitations.reverse();
+  expect(compareResponses(a, b).every((d) => d.class === 'coverage-limitations')).toBe(true);
+  for (const change of [
+    (c: typeof b) => {
+      c.coverage.limitations.splice(c.coverage.limitations.indexOf(a.coverage.limitations[0]), 1);
+    },
+    (c: typeof b) => {
+      c.coverage.limitations.push('Unrecognized coverage claim.');
+    },
+    (c: typeof b) => {
+      c.coverage.limitations.push('History in this range was imported from CPAMP. EXTRA');
+    },
+    (c: typeof b) => {
+      c.coverage.limitations.push(c.coverage.limitations[0]);
+    },
+  ]) {
+    const c = structuredClone(b);
+    change(c);
+    expect(compareResponses(a, c).some((d) => d.class === 'unexplained')).toBe(true);
+  }
+});
+test('coverage gap/prune sentences require exact shapes and compatible range/completeness', () => {
+  const a = response(),
+    b = structuredClone(a);
+  a.coverage.raw_complete = b.coverage.raw_complete = false;
+  for (const sentence of [
+    `Known collection gap for claude-primary: [${b.from_ms}, ${b.from_ms + 1}).`,
+    `History before retention_floor_ms ${b.from_ms + 1} has been pruned.`,
+  ]) {
+    const c = structuredClone(b);
+    c.coverage.limitations.push(sentence);
+    expect(compareResponses(a, c).every((d) => d.class === 'coverage-limitations')).toBe(true);
+  }
+  for (const sentence of [
+    `Known collection gap for claude-primary: [${b.to_ms}, ${b.to_ms + 1}).`,
+    `Known collection gap for claude-primary: [${b.from_ms + 1}, ${b.from_ms}).`,
+    `History before retention_floor_ms ${b.from_ms - 1} has been pruned.`,
+    `Known collection gap for x: [${b.from_ms}, ${b.from_ms + 1}). unexpected`,
+  ]) {
+    const c = structuredClone(b);
+    c.coverage.limitations.push(sentence);
+    expect(compareResponses(a, c).some((d) => d.class === 'unexplained')).toBe(true);
+  }
+  const c = structuredClone(b);
+  c.coverage.raw_complete = true;
+  c.coverage.limitations.push(`Known collection gap for x: [${b.from_ms}, ${b.from_ms + 1}).`);
+  expect(compareResponses(a, c).find((d) => d.path === '$.coverage.limitations')?.class).toBe(
+    'unexplained'
+  );
 });

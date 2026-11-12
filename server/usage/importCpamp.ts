@@ -55,7 +55,7 @@ export const cpampPreconditions = (): Preconditions => ({
 
 // Only missing metadata is decoded from raw_json. CPAMP's normalized columns stay authoritative.
 // Do not select raw_json itself: it contains headers, client keys and failure bodies.
-const METADATA_KEYS = [
+export const CPAMP_METADATA_KEYS = [
   'execution_id',
   'instance_id',
   'record_kind',
@@ -74,7 +74,7 @@ const METADATA_KEYS = [
 // A single multi-path extraction avoids fetching overflow pages once per metadata field.
 const metadataSql = `json_extract(
   CASE WHEN json_valid(raw_json) THEN raw_json ELSE '{}' END,
-  ${METADATA_KEYS.map((key) => `'$.${key}'`).join(', ')}
+  ${CPAMP_METADATA_KEYS.map((key) => `'$.${key}'`).join(', ')}
 )`;
 export const CPAMP_EVENT_COLUMNS = `
   id, timestamp_ms, provider, model, requested_model, resolved_model, response_model,
@@ -112,7 +112,9 @@ export function mapCpampRow(
 ): NormalizedEvent | null {
   if (!row.valid_json) checks.invalidJson += 1;
   const extracted = JSON.parse(row.metadata) as unknown[];
-  const metadata = Object.fromEntries(METADATA_KEYS.map((key, index) => [key, extracted[index]]));
+  const metadata = Object.fromEntries(
+    CPAMP_METADATA_KEYS.map((key, index) => [key, extracted[index]])
+  );
   const executionId = typeof metadata.execution_id === 'string' ? metadata.execution_id.trim() : '';
   const duplicate = !!executionId && seen.has(executionId);
   if (!executionId) checks.missingExecutionId += 1;

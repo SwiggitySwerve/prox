@@ -107,7 +107,8 @@
     "known_by_rule": {
       "d5-pricing": 0,
       "detail-trace": 0,
-      "detail-provider": 0
+      "detail-provider": 0,
+      "coverage-limitations": 0
     }
   },
   "responses": [],
@@ -194,11 +195,13 @@
     }
   ],
   "status": "passed",
+  "complete": true,
   "counts": {
     "unexplained": 0,
     "d5-pricing": 0,
     "detail-provider": 0,
     "detail-trace": 0,
+    "coverage-limitations": 0,
     "drained-during-cpamp-outage": 1,
     "ingest-gap": 1
   },

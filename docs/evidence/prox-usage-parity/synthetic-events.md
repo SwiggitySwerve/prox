@@ -1,5 +1,7 @@
 # Usage parity: passed
 
+Complete: true. UTC deadline: none.
+
 UTC window: 2026-11-12T21:21:05.000Z to 2026-11-12T21:26:05.000Z.
 
 Matrix quick: 0 generated cases; 0 selected; 0/0 maximum pairs completed (0 HTTP responses; 0 second pages absent on both; 0 paging mismatches).
@@ -30,6 +32,7 @@ Compared pairs: 0; equal: 0; unexplained: 0.
 - Known d5-pricing: 0 pairs
 - Known detail-trace: 0 pairs
 - Known detail-provider: 0 pairs
+- Known coverage-limitations: 0 pairs
 
 Pair rule counts can overlap. The following counts are individual differing fields/events:
 
@@ -39,6 +42,7 @@ Events: 2 matched; 3 CPAMP / 3 Prox; 1 recorded gap intervals; complete=true.
 - d5-pricing: 0
 - detail-provider: 0
 - detail-trace: 0
+- coverage-limitations: 0
 - drained-during-cpamp-outage: 1
 - ingest-gap: 1
 

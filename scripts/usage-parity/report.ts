@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { UsageAnalyticsQuery } from '../../server/usage/validate';
 import type { EventReport, Interval } from './events';
-import type { Difference } from './compare';
+import { KNOWN_RESPONSE_RULES, type Difference } from './compare';
 import {
   MATRIX_RECONCILIATION,
   GENERATOR_AXES,
@@ -28,6 +28,7 @@ export interface ParityOptions {
   limit?: number;
   sample?: number;
   gapMs: number;
+  deadlineMs?: number;
   outages: Interval[];
 }
 export interface ResponseResult {
@@ -68,13 +69,16 @@ export interface ParityReport {
     compared: number;
     equal: number;
     unexplained: number;
-    known_by_rule: { 'd5-pricing': number; 'detail-trace': number; 'detail-provider': number };
+    known_by_rule: Record<(typeof KNOWN_RESPONSE_RULES)[number], number>;
   };
   events?: EventReport;
   responses: ResponseResult[];
   event_differences: Difference[];
   counts: Record<Difference['class'], number>;
-  status: 'running' | 'passed' | 'failed' | 'aborted';
+  complete: boolean;
+  deadline_ms?: number;
+  termination?: { kind: 'deadline' | 'forbidden-hours'; at_ms: number };
+  status: 'running' | 'passed' | 'failed' | 'aborted' | 'incomplete';
   error?: string;
   io?: {
     queries: number;
@@ -90,6 +94,8 @@ export function writeReport(report: ParityReport, prefix: string) {
   writeFileSync(`${prefix}.json`, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   const lines = [
     `# Usage parity: ${report.status}`,
+    '',
+    `Complete: ${report.complete}. UTC deadline: ${report.deadline_ms === undefined ? 'none' : new Date(report.deadline_ms).toISOString()}.`,
     '',
     `UTC window: ${new Date(report.window.from_ms).toISOString()} to ${new Date(report.window.to_ms).toISOString()}.`,
     '',
@@ -167,16 +173,21 @@ export function createReport(options: ParityOptions, nowMs: number): ParityRepor
       compared: 0,
       equal: 0,
       unexplained: 0,
-      known_by_rule: { 'd5-pricing': 0, 'detail-trace': 0, 'detail-provider': 0 },
+      known_by_rule: Object.fromEntries(
+        KNOWN_RESPONSE_RULES.map((rule) => [rule, 0])
+      ) as ParityReport['response_counts']['known_by_rule'],
     },
     responses: [],
     event_differences: [],
     status: 'running',
+    complete: false,
+    deadline_ms: options.deadlineMs,
     counts: {
       unexplained: 0,
       'd5-pricing': 0,
       'detail-provider': 0,
       'detail-trace': 0,
+      'coverage-limitations': 0,
       'drained-during-cpamp-outage': 0,
       'ingest-gap': 0,
     },

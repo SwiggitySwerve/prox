@@ -5,9 +5,11 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=oneshot
+# RuntimeMaxSec is effective for exec services, not oneshot services.
+Type=exec
 WorkingDirectory=%h/src/prox
 Environment=PATH=%h/.local/bin:%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/usr/bin/ionice -c3 /usr/bin/nice -n10 bun scripts/usage-parity.ts --previous-utc-day --matrix quick --level both
+ExecStart=/usr/bin/ionice -c3 /usr/bin/nice -n10 bun scripts/usage-parity.ts --previous-utc-day --matrix quick --level both --deadline 12:00Z
+RuntimeMaxSec=7h30min
 KillSignal=SIGINT
 TimeoutStopSec=40

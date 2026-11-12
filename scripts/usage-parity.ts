@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { previousUtcDay } from './usage-parity/matrix';
+import { parseDeadline } from './usage-parity/window';
 import { validateIntervals } from './usage-parity/events';
-import { runParity, type ParityOptions } from './usage-parity/run';
+import { runParity, parityExitCode, type ParityOptions } from './usage-parity/run';
 
 export const HELP = `Usage: ionice -c3 nice -n10 bun scripts/usage-parity.ts [options]
   --from <UTC ISO timestamp> --to <UTC ISO timestamp>   fixed window, ended >=10 min ago
@@ -13,6 +14,7 @@ export const HELP = `Usage: ionice -c3 nice -n10 bun scripts/usage-parity.ts [op
   --matrix quick|full                                default quick; full is operator-only
   --level both|events|responses                       default both
   --limit <pairs> --sample <base cases>                deterministic smoke controls
+  --deadline <HH:MMZ or UTC ISO timestamp>             absolute stop; HH:MMZ is TODAY UTC
   --min-gap-ms <milliseconds>                         default 2000, between every query
   --cpamp-db <path> --prox-db <path>                   read-only; never reconcile/import
   --cpamp-url <loopback URL> --prox-url <loopback URL>
@@ -24,6 +26,7 @@ export const HELP = `Usage: ionice -c3 nice -n10 bun scripts/usage-parity.ts [op
 Matrix ranges are clipped to --from/--to. Include the earliest aligned 31-day start to preserve every original range length.
 A pair means one response from each server. Second pages use each server's own cursor.
 --limit caps PAIRS including second pages, not individual HTTP requests.
+Queries are forbidden at 01:00–04:00 and 12:20–12:50 UTC. Deadline/forbidden stop exits 2 with incomplete evidence.
 SIGINT/SIGTERM writes partial evidence and exits nonzero. Nothing installs/enables the timer.
 `;
 export function parseArgs(args: string[], now = Date.now()): ParityOptions {
@@ -37,6 +40,7 @@ export function parseArgs(args: string[], now = Date.now()): ParityOptions {
     'limit',
     'sample',
     'min-gap-ms',
+    'deadline',
     'cpamp-db',
     'prox-db',
     'cpamp-url',
@@ -116,6 +120,7 @@ export function parseArgs(args: string[], now = Date.now()): ParityOptions {
     ),
     limit: integer('limit'),
     sample: integer('sample'),
+    deadlineMs: values.has('deadline') ? parseDeadline(values.get('deadline')!, now) : undefined,
     gapMs: integer('min-gap-ms', 2000, 0)!,
     outages: values.has('cpamp-outages')
       ? validateIntervals(JSON.parse(readFileSync(values.get('cpamp-outages')!, 'utf8')))
@@ -137,7 +142,7 @@ if (import.meta.main) {
         `Parity ${report.status}: ${report.matrix.pairs_completed} pairs; ` +
           `${report.counts.unexplained} unexplained differences. Evidence: ${options.output}.{json,md}`
       );
-      process.exitCode = report.status === 'passed' ? 0 : report.status === 'aborted' ? 130 : 1;
+      process.exitCode = parityExitCode(report);
     } catch {
       console.error(
         'Parity failed before completion. Check CLI options and evidence destination; use --help.'

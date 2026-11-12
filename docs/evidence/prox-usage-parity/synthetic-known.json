@@ -107,7 +107,8 @@
     "known_by_rule": {
       "d5-pricing": 2,
       "detail-trace": 2,
-      "detail-provider": 2
+      "detail-provider": 2,
+      "coverage-limitations": 2
     }
   },
   "responses": [
@@ -471,6 +472,28 @@
           "path": "$.rates[3].cache_read_per_million",
           "cpamp": null,
           "prox": 0.5
+        },
+        {
+          "class": "coverage-limitations",
+          "path": "$.coverage.limitations",
+          "cpamp": [
+            "Retained usage events are not a complete ingress or client-outcome ledger.",
+            "Costs are estimated API-equivalent subtotals at current configured rates; unknown measurement presence and unsupported components remain partial.",
+            "Legacy numeric zero is not proof of reported zero. Aggregate usage presence is unknown; missing measurements remain included in retained-event counts.",
+            "Known supplementary records are excluded from counts, cost and detail because overlap is unresolved. Legacy record kinds remain unknown; counts are retained primary events, not verified inbound requests.",
+            "Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.",
+            "Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.",
+            "Views use successive reads; concurrent ingestion can change counts between views or pages."
+          ],
+          "prox": [
+            "Retained usage events are not a complete ingress or client-outcome ledger.",
+            "Costs are estimated API-equivalent subtotals at current configured rates; unknown measurement presence and unsupported components remain partial.",
+            "Legacy numeric zero is not proof of reported zero. Aggregate usage presence is unknown; missing measurements remain included in retained-event counts.",
+            "Known supplementary records are excluded from counts, cost and detail because overlap is unresolved. Legacy record kinds remain unknown; counts are retained primary events, not verified inbound requests.",
+            "Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.",
+            "Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.",
+            "records in flight during a collector or proxy restart may be absent"
+          ]
         }
       ]
     },
@@ -838,29 +861,53 @@
           "path": "$.rates[3].cache_read_per_million",
           "cpamp": null,
           "prox": 0.5
+        },
+        {
+          "class": "coverage-limitations",
+          "path": "$.coverage.limitations",
+          "cpamp": [
+            "Retained usage events are not a complete ingress or client-outcome ledger.",
+            "Costs are estimated API-equivalent subtotals at current configured rates; unknown measurement presence and unsupported components remain partial.",
+            "Legacy numeric zero is not proof of reported zero. Aggregate usage presence is unknown; missing measurements remain included in retained-event counts.",
+            "Known supplementary records are excluded from counts, cost and detail because overlap is unresolved. Legacy record kinds remain unknown; counts are retained primary events, not verified inbound requests.",
+            "Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.",
+            "Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.",
+            "Views use successive reads; concurrent ingestion can change counts between views or pages."
+          ],
+          "prox": [
+            "Retained usage events are not a complete ingress or client-outcome ledger.",
+            "Costs are estimated API-equivalent subtotals at current configured rates; unknown measurement presence and unsupported components remain partial.",
+            "Legacy numeric zero is not proof of reported zero. Aggregate usage presence is unknown; missing measurements remain included in retained-event counts.",
+            "Known supplementary records are excluded from counts, cost and detail because overlap is unresolved. Legacy record kinds remain unknown; counts are retained primary events, not verified inbound requests.",
+            "Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.",
+            "Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.",
+            "records in flight during a collector or proxy restart may be absent"
+          ]
         }
       ]
     }
   ],
   "event_differences": [],
   "status": "passed",
+  "complete": true,
   "counts": {
     "unexplained": 0,
     "d5-pricing": 86,
     "detail-provider": 6,
     "detail-trace": 6,
+    "coverage-limitations": 2,
     "drained-during-cpamp-outage": 0,
     "ingest-gap": 0
   },
   "targets": {
-    "cpamp": "http://127.0.0.1:37753/v0/management/monitoring/prox-analytics",
-    "prox": "http://127.0.0.1:37783/v1/analytics"
+    "cpamp": "http://127.0.0.1:44621/v0/management/monitoring/prox-analytics",
+    "prox": "http://127.0.0.1:43659/v1/analytics"
   },
   "finished_at_ms": 1794611843456,
   "io": {
     "queries": 9,
     "minimum_gap_ms": 0,
-    "bytesRead": 25045,
+    "bytesRead": 25008,
     "bytesWritten": 0,
     "pauseSeconds": 0,
     "longPauses": 0

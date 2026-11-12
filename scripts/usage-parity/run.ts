@@ -6,9 +6,16 @@ import { queryAnalytics } from '../../server/usage/analytics';
 import { parseRateBook, priceRevision, type RateBookState } from '../../server/usage/rates';
 import { validateAnalyticsQuery, type UsageAnalyticsQuery } from '../../server/usage/validate';
 import { compareEvents, createEventReport, openParityReader } from './events';
-import { compareResponses, D5_MODELS, needsD5Witness, type Difference } from './compare';
+import {
+  compareResponses,
+  D5_MODELS,
+  needsD5Witness,
+  KNOWN_RESPONSE_RULES,
+  type Difference,
+} from './compare';
 import { matrix, selectCases, type MatrixCase } from './matrix';
 import { QueryGate } from './io';
+import { ExecutionWindow, IncompleteRun } from './window';
 import {
   createReport,
   writeReport,
@@ -97,16 +104,23 @@ function loadWitnessBooks(path: string): { priced: RateBookState; unpriced: Rate
 export async function runParity(
   options: ParityOptions,
   signal: AbortSignal,
-  dependencies: { gate?: QueryGate; nowMs?: number } = {}
+  dependencies: { gate?: QueryGate; nowMs?: number; wallNow?: () => number } = {}
 ): Promise<ParityReport> {
   const now = dependencies.nowMs ?? Date.now();
   const report = createReport(options, now);
   const gate = dependencies.gate ?? new QueryGate(signal, options.gapMs);
+  const window = new ExecutionWindow(
+    signal,
+    options.deadlineMs,
+    dependencies.wallNow ?? (() => dependencies.nowMs ?? Date.now())
+  );
+  gate.setWindow(window);
   let source: Database | undefined, target: Database | undefined;
   const record = (difference: Difference) => {
     report.counts[difference.class]++;
   };
   try {
+    window.check();
     if (
       !Number.isSafeInteger(options.fromMs) ||
       !Number.isSafeInteger(options.toMs) ||
@@ -205,7 +219,7 @@ export async function runParity(
               const deadline = performance.now() + 30_000;
               const response = queryAnalytics(db, pq, state, {
                 checkDeadline: () => {
-                  signal.throwIfAborted();
+                  window.check();
                   if (performance.now() >= deadline) throw new Error('D5 replay deadline exceeded');
                 },
               });
@@ -220,7 +234,7 @@ export async function runParity(
         return { cpamp, prox };
       };
       for (const item of selected) {
-        signal.throwIfAborted();
+        window.check();
         if (report.matrix.pairs_completed >= maxPairs) break;
         const first = await pair(item, 1, item.query, item.query);
         const cq = nextQuery(item.query, first.cpamp),
@@ -240,6 +254,8 @@ export async function runParity(
         } else report.matrix.second_pages_absent_on_both++;
       }
     }
+    window.check();
+    report.complete = true;
     report.status = [
       ...report.event_differences,
       ...report.responses.flatMap((r) => r.differences),
@@ -247,11 +263,16 @@ export async function runParity(
       ? 'failed'
       : 'passed';
   } catch (error) {
-    report.status = signal.aborted ? 'aborted' : 'failed';
+    const stopped = window.signal.reason;
+    if (stopped instanceof IncompleteRun) {
+      report.status = 'incomplete';
+      report.termination = { kind: stopped.kind, at_ms: stopped.atMs };
+      report.error = stopped.message;
+    } else report.status = signal.aborted ? 'aborted' : 'failed';
     // Fetch/JSON/SQLite errors can contain arbitrary body text or private paths. Keep a fixed
     // allowlist of our own diagnostics; never dump an Error, Request, options or response body.
     const message = error instanceof Error ? error.message : '';
-    report.error =
+    report.error ??=
       /^(Analytics HTTP \d{3}|Invalid analytics (response shape|page cursor)|Window must be fixed and end at least 10 minutes ago|Invalid limit\/sample|Analytics endpoint must be loopback HTTP|Empty analytics credential|D5 replay deadline exceeded)$/.test(
         message
       )
@@ -260,6 +281,7 @@ export async function runParity(
           ? 'Interrupted; partial evidence only'
           : 'Parity operation failed; inspect paths, schemas, credentials and service availability';
   } finally {
+    window.close();
     source?.close();
     target?.close();
     [...report.event_differences, ...report.responses.flatMap((r) => r.differences)].forEach(
@@ -270,13 +292,23 @@ export async function runParity(
     report.response_counts.unexplained = report.responses.filter((r) =>
       r.differences.some((d) => d.class === 'unexplained')
     ).length;
-    for (const rule of ['d5-pricing', 'detail-trace', 'detail-provider'] as const)
+    for (const rule of KNOWN_RESPONSE_RULES)
       report.response_counts.known_by_rule[rule] = report.responses.filter((r) =>
         r.differences.some((d) => d.class === rule)
       ).length;
-    report.finished_at_ms = dependencies.nowMs ?? Date.now();
+    report.finished_at_ms = dependencies.wallNow?.() ?? dependencies.nowMs ?? Date.now();
     report.io = { queries: gate.queries, minimum_gap_ms: options.gapMs, ...gate.governor.counters };
     writeReport(report, options.output);
   }
   return report;
+}
+
+export function parityExitCode(report: ParityReport): number {
+  return report.status === 'passed'
+    ? 0
+    : report.status === 'incomplete'
+      ? 2
+      : report.status === 'aborted'
+        ? 130
+        : 1;
 }

@@ -1,6 +1,7 @@
+import { SUCCESSIVE_READS } from '../scripts/usage-parity/coverage';
 import { expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { runParity } from '../scripts/usage-parity/run';
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { parityExitCode, runParity } from '../scripts/usage-parity/run';
 import { parseArgs } from '../scripts/usage-parity';
 import { quietGate } from './helpers/usageParity';
 import { parityServers } from './helpers/usageParityServers';
@@ -159,7 +160,12 @@ test('CLI uses fixed UTC windows, validates controls, and preserves nightly sett
   const service = readFileSync('deploy/prox-usage-parity.service', 'utf8');
   const timer = readFileSync('deploy/prox-usage-parity.timer', 'utf8');
   expect(service).toContain('/usr/bin/ionice -c3 /usr/bin/nice -n10');
-  expect(service).toContain('--previous-utc-day --matrix quick --level both');
+  expect(service).toContain('--previous-utc-day --matrix quick --level both --deadline 12:00Z');
+  expect(service).toContain('Type=exec');
+  expect(service).toContain('RuntimeMaxSec=7h30min');
+  expect(parseArgs(['--previous-utc-day', '--deadline', '12:00Z'], now).deadlineMs).toBe(
+    Date.UTC(2026, 10, 13, 12)
+  );
   expect(timer).toContain('OnCalendar=*-*-* 04:30:00 UTC');
   expect(timer).toContain('Persistent=false');
 });
@@ -194,6 +200,88 @@ test('runner proves D5 costs/rates against both read-only rate-book replays', as
     expect(report.response_counts.known_by_rule['d5-pricing']).toBe(2);
     expect(report.counts['d5-pricing']).toBeGreaterThan(20);
     expect(report.counts.unexplained).toBe(0);
+  } finally {
+    f.close();
+  }
+});
+
+test('UTC cutoff during a request aborts with incomplete partial evidence and a distinct exit code', async () => {
+  let at = 0;
+  const f = parityServers({
+    mutate: () => {
+      at += 2000;
+    },
+  });
+  at = f.nowMs;
+  try {
+    const signal = new AbortController().signal;
+    const report = await runParity({ ...f.options, deadlineMs: at + 1000 }, signal, {
+      gate: quietGate(signal),
+      nowMs: f.nowMs,
+      wallNow: () => at,
+    });
+    expect(report.status).toBe('incomplete');
+    expect(report.complete).toBe(false);
+    expect(report.termination?.kind).toBe('deadline');
+    expect(parityExitCode(report)).toBe(2);
+    expect(f.seen).toHaveLength(1);
+    const saved = JSON.parse(readFileSync(`${f.options.output}.json`, 'utf8'));
+    expect(saved.complete).toBe(false);
+    expect(saved.status).toBe('incomplete');
+  } finally {
+    f.close();
+  }
+});
+test('expired-deadline CLI exits 2 with an incomplete report before any DB/key/query access', async () => {
+  const root = mkdtempSync('/dev/shm/prox-parity-cutoff-cli-');
+  try {
+    const now = Date.now();
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        'scripts/usage-parity.ts',
+        '--previous-utc-day',
+        '--deadline',
+        new Date(now - 1000).toISOString(),
+        '--output',
+        `${root}/report`,
+      ],
+      { stdout: 'pipe', stderr: 'pipe' }
+    );
+    expect(await child.exited).toBe(2);
+    const report = JSON.parse(readFileSync(`${root}/report.json`, 'utf8'));
+    expect(report.status).toBe('incomplete');
+    expect(report.complete).toBe(false);
+    expect(report.termination.kind).toBe('deadline');
+    expect(report.io.queries).toBe(0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('coverage differences are counted by rule with both sentence lists retained', async () => {
+  const f = parityServers({
+    mutate: (r, backend) => {
+      if (backend === 'cpamp') {
+        r.coverage.limitations = r.coverage.limitations.filter(
+          (s) => !s.startsWith('records in flight')
+        );
+        r.coverage.limitations.push(SUCCESSIVE_READS);
+      }
+    },
+  });
+  try {
+    const signal = new AbortController().signal;
+    const report = await runParity(f.options, signal, { gate: quietGate(signal), nowMs: f.nowMs });
+    expect(report.status).toBe('passed');
+    expect(report.complete).toBe(true);
+    expect(report.response_counts.equal).toBe(0);
+    expect(report.response_counts.known_by_rule['coverage-limitations']).toBe(2);
+    expect(report.counts['coverage-limitations']).toBe(2);
+    expect(report.responses[0].differences[0].cpamp).toContain(SUCCESSIVE_READS);
+    expect(report.responses[0].differences[0].prox).toContain(
+      'records in flight during a collector or proxy restart may be absent'
+    );
   } finally {
     f.close();
   }

@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "started_at_ms": 1794604865000,
+  "window": {
+    "from_ms": 1794518465000,
+    "to_ms": 1794518765000
+  },
+  "mode": "quick",
+  "level": "events",
+  "matrix": {
+    "source_cases": 0,
+    "clipped_cases": 0,
+    "outside_window_cases": 0,
+    "generated_cases": 0,
+    "selected_cases": 0,
+    "planned_max_pairs": 0,
+    "pairs_completed": 0,
+    "http_responses": 0,
+    "second_pages_absent_on_both": 0,
+    "second_pages_limited": 0,
+    "paging_mismatches": 0,
+    "d5_replays": 0,
+    "limited": false
+  },
+  "matrix_reconciliation": [
+    {
+      "mode": "quick",
+      "plan_count": 720,
+      "generated_base_queries": 672,
+      "arithmetic": "60 filter combinations × 4 rotating spans + 24 searches × 3 providers × 2 models × 3 outcomes = 240 + 432 = 672",
+      "maximum_pairs": 1344,
+      "maximum_http_responses": 2688,
+      "reason": "Plan count is not reproduced by the checked-in generators. 0 source cases dropped; time-zone slots mapped to UTC. Two pages × 672 = up to 1,344 pairs; two servers × 1,344 = 2,688 responses."
+    },
+    {
+      "mode": "full",
+      "plan_count": 22464,
+      "generated_base_queries": 5904,
+      "arithmetic": "60 filter combinations × 12 spans + 24 searches × 3 providers × 2 models × 3 outcomes × 12 spans = 720 + 5,184 = 5,904",
+      "maximum_pairs": 11808,
+      "maximum_http_responses": 23616,
+      "reason": "Plan count is not reproduced by the checked-in generators. 0 source cases dropped; time-zone slots mapped to UTC. Two pages × 5,904 = up to 11,808 pairs; two servers × 11,808 = 23,616 responses."
+    }
+  ],
+  "generator_axes": [
+    {
+      "axis": "Ranges",
+      "cpamp_rollup": "6 lengths × aligned/unaligned = 12; quick rotates 4",
+      "cpamp_search": "same 12; quick rotates 1",
+      "harness": "identical selections; caller window clipping reported separately"
+    },
+    {
+      "axis": "Buckets/granularities",
+      "cpamp_rollup": "hour/day in 8 rotating view slots (4/4)",
+      "cpamp_search": "hour/day in 5 rotating view slots (3/2)",
+      "harness": "same rotation; not an extra Cartesian factor"
+    },
+    {
+      "axis": "Outcomes",
+      "cpamp_rollup": "3",
+      "cpamp_search": "3",
+      "harness": "3 in both families"
+    },
+    {
+      "axis": "Providers",
+      "cpamp_rollup": "5: empty, claude, CODEX, gemini, nobody",
+      "cpamp_search": "3: empty, claude, CODEX",
+      "harness": "same 5 / 3"
+    },
+    {
+      "axis": "Models",
+      "cpamp_rollup": "2: empty, shared-model",
+      "cpamp_search": "same 2",
+      "harness": "same 2"
+    },
+    {
+      "axis": "Search terms",
+      "cpamp_rollup": "2: empty, needle",
+      "cpamp_search": "24",
+      "harness": "same 2 / 24 slots; 3 search-fixture-only terms replaced with shared-column session, trace and tier terms"
+    },
+    {
+      "axis": "Time zones",
+      "cpamp_rollup": "5 distinct zones in 8 coupled view slots",
+      "cpamp_search": "5 distinct zones in 5 coupled view slots",
+      "harness": "1 (UTC); all 8 / 5 slots preserved, 0 query cases removed"
+    },
+    {
+      "axis": "Pages",
+      "cpamp_rollup": "1",
+      "cpamp_search": "1",
+      "harness": "1 plus page 2 when both have it; one-sided page 2 fails parity"
+    }
+  ],
+  "generator_source": {
+    "repository": "CPA-Manager-Plus",
+    "commit": "52b12b45e010a766bd69ff55a55e566263d8bede",
+    "files": {
+      "apps/manager-server/internal/service/monitoring/prox_provider_rollup_test.go": "2afc0df2b51c53f78baa4df9c2f201f92aaf0808",
+      "apps/manager-server/internal/service/monitoring/prox_search_test.go": "0b739689d4f647356ea79aabaf0de4418127a1c4"
+    }
+  },
+  "response_counts": {
+    "compared": 0,
+    "equal": 0,
+    "unexplained": 0,
+    "known_by_rule": {
+      "d5-pricing": 0,
+      "detail-trace": 0,
+      "detail-provider": 0,
+      "coverage-limitations": 0
+    }
+  },
+  "responses": [],
+  "event_differences": [
+    {
+      "class": "unexplained",
+      "path": "events.00000000-0000-4000-8000-000000000001.tier",
+      "cpamp": "priority",
+      "prox": "standard"
+    },
+    {
+      "class": "ingest-gap",
+      "path": "events.00000000-0000-4000-8000-000000000003",
+      "cpamp": {
+        "execution_id": "00000000-0000-4000-8000-000000000003",
+        "instance": "claude-primary",
+        "ts_ms": 1794518465003,
+        "provider": "claude",
+        "account": "snapshot@example.test",
+        "account_label": "Synthetic account",
+        "api_key_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "model": "client-claude",
+        "requested_model": "client-claude",
+        "billing_model": "claude-test-4",
+        "tier": "standard",
+        "failed": 1,
+        "status_code": 502,
+        "latency_ms": 1503,
+        "ttft_ms": 0,
+        "input_total": 950,
+        "input_uncached": 100,
+        "cache_read": 800,
+        "cache_write": 50,
+        "output_total": 200,
+        "reasoning": 60,
+        "total": 1150,
+        "usage_flags": 503,
+        "record_kind": 1
+      },
+      "prox": {
+        "absent": true,
+        "interval": {
+          "instance": "claude-primary",
+          "from_ms": 1794518465000,
+          "to_ms": 1794518465100,
+          "reason": "subscription-dropped"
+        }
+      }
+    },
+    {
+      "class": "drained-during-cpamp-outage",
+      "path": "events.synthetic-drained-during-cpamp-outage",
+      "cpamp": {
+        "absent": true,
+        "interval": {
+          "from_ms": 1794518465000,
+          "to_ms": 1794518465100,
+          "instance": "claude-primary",
+          "reason": "synthetic CPAMP outage fixture"
+        }
+      },
+      "prox": {
+        "seq": 3,
+        "ingest": 1,
+        "execution_id": "synthetic-drained-during-cpamp-outage",
+        "ts_ms": 1794518465001,
+        "instance": "claude-primary",
+        "provider": "claude",
+        "account": "snapshot@example.test",
+        "account_label": "Synthetic account",
+        "api_key_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "model": "client-claude",
+        "requested_model": "client-claude",
+        "billing_model": "claude-test-4",
+        "tier": "standard",
+        "failed": 1,
+        "status_code": 502,
+        "latency_ms": 1501,
+        "ttft_ms": 420,
+        "input_total": 950,
+        "input_uncached": 100,
+        "cache_read": 800,
+        "cache_write": 50,
+        "output_total": 200,
+        "reasoning": 60,
+        "total": 1150,
+        "usage_flags": 503,
+        "record_kind": 1
+      }
+    }
+  ],
+  "status": "failed",
+  "complete": true,
+  "counts": {
+    "unexplained": 1,
+    "d5-pricing": 0,
+    "detail-provider": 0,
+    "detail-trace": 0,
+    "coverage-limitations": 0,
+    "drained-during-cpamp-outage": 1,
+    "ingest-gap": 1
+  },
+  "targets": {
+    "cpamp": "http://127.0.0.1:18317/v0/management/monitoring/prox-analytics",
+    "prox": "http://127.0.0.1:18320/v1/analytics"
+  },
+  "events": {
+    "from_ms": 1794518465000,
+    "to_ms": 1794518765000,
+    "cpamp_rows": 3,
+    "prox_rows": 3,
+    "matched": 1,
+    "excluded_imported_or_replayed": 0,
+    "gaps": [
+      {
+        "instance": "claude-primary",
+        "from_ms": 1794518465000,
+        "to_ms": 1794518465100,
+        "reason": "subscription-dropped"
+      }
+    ],
+    "preconditions": {
+      "missingExecutionId": 0,
+      "duplicateExecutionId": 0,
+      "invalidTimestamp": 0,
+      "invalidTokens": 0,
+      "incompleteBreakdown": 0,
+      "invalidBreakdownIdentity": 0,
+      "nonPositiveLatency": 0,
+      "invalidJson": 0
+    },
+    "windows_completed": 1,
+    "complete": true
+  },
+  "finished_at_ms": 1794604865000,
+  "io": {
+    "queries": 7,
+    "minimum_gap_ms": 2000,
+    "bytesRead": 45612,
+    "bytesWritten": 0,
+    "pauseSeconds": 0,
+    "longPauses": 0
+  }
+}

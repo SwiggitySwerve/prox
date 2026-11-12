@@ -107,7 +107,8 @@
     "known_by_rule": {
       "d5-pricing": 0,
       "detail-trace": 0,
-      "detail-provider": 0
+      "detail-provider": 0,
+      "coverage-limitations": 0
     }
   },
   "responses": [
@@ -187,17 +188,19 @@
   ],
   "event_differences": [],
   "status": "failed",
+  "complete": true,
   "counts": {
     "unexplained": 4,
     "d5-pricing": 0,
     "detail-provider": 0,
     "detail-trace": 0,
+    "coverage-limitations": 0,
     "drained-during-cpamp-outage": 0,
     "ingest-gap": 0
   },
   "targets": {
-    "cpamp": "http://127.0.0.1:43895/v0/management/monitoring/prox-analytics",
-    "prox": "http://127.0.0.1:42857/v1/analytics"
+    "cpamp": "http://127.0.0.1:40363/v0/management/monitoring/prox-analytics",
+    "prox": "http://127.0.0.1:42627/v1/analytics"
   },
   "finished_at_ms": 1794611843456,
   "io": {

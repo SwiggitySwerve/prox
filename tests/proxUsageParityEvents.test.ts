@@ -177,3 +177,101 @@ describe('read-only event parity', () => {
     ).toThrow();
   });
 });
+
+test('CPAMP persisted tier wins over raw tier even when Prox agrees with the raw payload', async () => {
+  const f = fixture();
+  expect(f.events[0].tier).toBe('standard');
+  f.cpamp.db.exec("UPDATE usage_events SET service_tier='priority'");
+  f.insert(f.events[0]);
+  const report = await f.run();
+  expect(report.matched).toBe(0);
+  expect(f.differences).toContainEqual({
+    class: 'unexplained',
+    path: `events.${f.events[0].executionId}.tier`,
+    cpamp: 'priority',
+    prox: 'standard',
+  });
+});
+test('persisted values are not trimmed, recased, clamped or replaced by the Prox mapper', async () => {
+  const cases: [string, string | number, Partial<NormalizedEvent>, string, unknown][] = [
+    ['provider', '', { provider: 'unknown' }, 'provider', ''],
+    ['account_snapshot', ' snapshot@example.test ', {}, 'account', ' snapshot@example.test '],
+    ['auth_label_snapshot', ' Synthetic account ', {}, 'account_label', ' Synthetic account '],
+    ['api_key_hash', 'A'.repeat(64), {}, 'api_key_hash', 'A'.repeat(64)],
+    ['requested_model', ' client-claude ', {}, 'requested_model', ' client-claude '],
+    ['resolved_model', ' claude-test-4 ', {}, 'billing_model', ' claude-test-4 '],
+    ['failed', 2, { failed: false }, 'failed', 2],
+    ['fail_status_code', 0, { statusCode: null }, 'status_code', 0],
+    ['latency_ms', 0, { latencyMs: null }, 'latency_ms', 0],
+    ['ttft_ms', -1, { ttftMs: null }, 'ttft_ms', -1],
+  ];
+  for (const [column, persisted, overrides, field, expected] of cases) {
+    const f = fixture();
+    f.cpamp.db.query(`UPDATE usage_events SET ${column}=?`).run(persisted);
+    f.insert({ ...f.events[0], ...overrides });
+    const report = await f.run();
+    expect(report.matched).toBe(0);
+    expect(f.differences.find((d) => d.path.endsWith(`.${field}`))).toMatchObject({
+      class: 'unexplained',
+      cpamp: expected,
+    });
+  }
+});
+test('all seven persisted counters and timestamp stay independent of the raw envelope', async () => {
+  for (const [column, field] of [
+    ['normalized_total_input_tokens', 'input_total'],
+    ['normalized_uncached_input_tokens', 'input_uncached'],
+    ['normalized_cache_read_tokens', 'cache_read'],
+    ['normalized_cache_creation_tokens', 'cache_write'],
+    ['output_tokens', 'output_total'],
+    ['reasoning_tokens', 'reasoning'],
+    ['total_tokens', 'total'],
+    ['timestamp_ms', 'ts_ms'],
+  ]) {
+    const f = fixture();
+    f.insert(f.events[0]);
+    f.cpamp.db.exec(`UPDATE usage_events SET ${column}=${column}+1`);
+    expect((await f.run()).matched).toBe(0);
+    expect(f.differences.find((d) => d.path.endsWith(`.${field}`))?.class).toBe('unexplained');
+  }
+});
+test('metadata-only fields follow CPAMP parsing, not the Prox normalizer', async () => {
+  const f = fixture();
+  f.insert(f.events[0]);
+  f.cpamp.db.exec(
+    `UPDATE usage_events SET raw_json=json_set(raw_json,'$.record_kind',' execution ')`
+  );
+  expect((await f.run()).matched).toBe(0);
+  expect(f.differences).toContainEqual({
+    class: 'unexplained',
+    path: `events.${f.events[0].executionId}.record_kind`,
+    cpamp: 0,
+    prox: 1,
+  });
+});
+
+test('CPAMP account fallback preserves an empty persisted label instead of substituting auth_index', async () => {
+  const f = fixture();
+  f.cpamp.db.exec("UPDATE usage_events SET account_snapshot=NULL, auth_label_snapshot=''");
+  f.insert({ ...f.events[0], account: '3', accountLabel: null });
+  expect((await f.run()).matched).toBe(0);
+  expect(f.differences.find((d) => d.path.endsWith('.account'))).toMatchObject({
+    cpamp: '',
+    prox: '3',
+    class: 'unexplained',
+  });
+});
+
+test('independent CPAMP flag decoding keeps Go whitespace semantics rather than JS trim', async () => {
+  const f = fixture();
+  f.insert(f.events[0]);
+  f.cpamp.db.exec(
+    "UPDATE usage_events SET raw_json=json_set(raw_json,'$.token_breakdown.quality',char(65279)||'complete')"
+  );
+  expect((await f.run()).matched).toBe(0);
+  expect(f.differences.find((d) => d.path.endsWith('.usage_flags'))).toMatchObject({
+    class: 'unexplained',
+    cpamp: f.events[0].usageFlags & ~128,
+    prox: f.events[0].usageFlags,
+  });
+});
