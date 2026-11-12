@@ -235,6 +235,9 @@ try {
       if (run % 10 === 0) console.log(JSON.stringify({ stage: 'run', days, granularity, run, ms }));
     }
     durations.sort((a, b) => a - b);
+    const budget_ms = days === 1 ? 150 : 1000;
+    const passed = durations[47] < budget_ms;
+    if (!passed) process.exitCode = 1;
     console.log(
       JSON.stringify({
         stage: 'result',
@@ -243,6 +246,8 @@ try {
         granularity,
         rows,
         warmRuns: 50,
+        budget_ms,
+        passed,
         p50_ms: durations[24],
         p95_ms: durations[47],
         max_ms: durations[49],
