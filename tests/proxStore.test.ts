@@ -49,6 +49,12 @@ afterEach(() => {
 });
 
 describe('QuotaStore', () => {
+  test('commits without an fsync each: WAL with synchronous NORMAL, so a busy disk cannot stall the server', () => {
+    // The same Bun thread serves cached analytics; FULL would fsync on every inventory poll.
+    const { store } = open();
+    const db = (store as unknown as { db: Database }).db;
+    expect(db.query('PRAGMA synchronous').get()).toEqual({ synchronous: 1 });
+  });
   test('persists normalized metadata and samples with WAL and private permissions', () => {
     const { store, path, directory } = open();
     expect(store.firstSampleAtMs()).toBeNull();

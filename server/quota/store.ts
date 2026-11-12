@@ -39,6 +39,9 @@ export class QuotaStore {
     this.db = new Database(databasePath, { create: true, strict: true });
     this.db.exec(`
       PRAGMA journal_mode = WAL;
+      -- WAL stays consistent with NORMAL; a power loss can drop the last commits, which the
+      -- next collection re-reads. FULL fsyncs every commit on the thread serving analytics.
+      PRAGMA synchronous = NORMAL;
       PRAGMA foreign_keys = ON;
       PRAGMA busy_timeout = 5000;
       CREATE TABLE IF NOT EXISTS quota_accounts (
