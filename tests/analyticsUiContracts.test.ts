@@ -28,6 +28,7 @@ import {
   bucketQuery,
   nextPageQuery,
   rangeQuery,
+  shownWindow,
   withoutCursor,
 } from '../src/features/analytics/queryState';
 import { analyticsUiRequest, analyticsUiResponse } from './fixtures/analyticsUi';
@@ -155,6 +156,16 @@ describe('Analytics query and transport contracts', () => {
     expect(reload).toContain('withoutCursor(query)');
     expect(reload).toContain('to_ms: interval.to_ms');
     expect(reload).toContain('setPages([');
+  });
+  test('the headline shows the window the served snapshot covers, not the browser clock', () => {
+    const query = rangeQuery('24h', 10 * 86_400_000);
+    expect(shownWindow(query)).toEqual({ from_ms: query.from_ms, to_ms: query.to_ms });
+    const snapshot = { from_ms: query.from_ms - 60_000, to_ms: query.to_ms - 60_000 };
+    expect(shownWindow(query, snapshot)).toEqual(snapshot);
+    const source = read('src/features/analytics/AnalyticsPage.tsx');
+    const headline = source.slice(source.indexOf('className={styles.scope}'));
+    expect(source).toContain('shownWindow(query, data)');
+    expect(headline.slice(0, headline.indexOf('</p>'))).not.toContain('query.from_ms');
   });
   test('the top-right refresh button runs the same reload as the page button', () => {
     const source = read('src/features/analytics/AnalyticsPage.tsx');

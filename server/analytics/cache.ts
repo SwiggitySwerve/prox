@@ -1,5 +1,7 @@
 export type Query = Record<string, unknown>;
-export type Outcome = { ok: true; body: unknown } | { ok: false; status: 400 | 503 };
+// A degraded body is good data computed while some source's catalog was unavailable.
+export type Outcome =
+  { ok: true; body: unknown; degraded?: boolean } | { ok: false; status: 400 | 503 };
 
 const MINUTE = 60_000;
 const DAY = 86_400_000;
@@ -7,26 +9,33 @@ const DAY = 86_400_000;
 const LIVE_SLACK = 2 * MINUTE;
 const MIN_REFRESH = 30_000;
 const MAX_REFRESH = 5 * MINUTE;
-// Past this age a snapshot of a view nobody keeps warm is too old to serve while refreshing.
-const MAX_STALE = 15 * MINUTE;
 const FIXED_TTL = MINUTE;
 const SEED_TTL = 10 * MINUTE;
-// The warmer keeps a live view fresh this long after anyone last asked for it, and keeps
-// the default views on their active cadence for as long after any view was last asked for.
+// The warmer keeps every view on its active cadence this long after any view was last asked for.
 const HOT_FOR = 15 * MINUTE;
+// A live view asked for this recently is kept warm like a default view (on the idle cadence
+// once nobody is using the page), so a remembered filter or provider opens warm too.
+const KEEP_FOR = 24 * 60 * MINUTE;
 // While nobody has asked for anything, the default views refresh only this often (about 1%
 // of CPA's time, against about 25% when active), so a first visit finds a recent snapshot.
 const IDLE_REFRESH = 30 * MINUTE;
-// A healthy default view is never much older than IDLE_REFRESH. Older means its refreshes are
+// A healthy kept view is never much older than IDLE_REFRESH. Older means its refreshes are
 // failing, and the dashboard (which never shows snapshot age) would draw old data as current.
-const MAX_PINNED_STALE = 3 * IDLE_REFRESH;
+const MAX_STALE = 3 * IDLE_REFRESH;
+// Responses run up to about 400 KB, so this bounds the cache near 25 MB.
 const MAX_ENTRIES = 64;
+// CPA admits two general queries at once; the warmer never takes more than that.
+const WARM_CONCURRENCY = 2;
 
 interface Entry {
   query: Query;
   live: boolean;
   pinned: boolean;
   body?: unknown;
+  // body came from a recompute whose catalog had every source ready.
+  ready: boolean;
+  // The latest recompute had a source's catalog unavailable, whether or not body took it.
+  degraded: boolean;
   at: number;
   took: number;
   tried: number;
@@ -34,7 +43,8 @@ interface Entry {
   inflight?: Promise<Outcome>;
   // The inflight recompute was started by a Refresh, so another Refresh may share it.
   inflightFresh?: boolean;
-  // Sequence number of the recompute whose result is in body; an older one never replaces it.
+  // Sequence number of the newest recompute whose result was taken (or kept out as a blip);
+  // an older one never replaces it.
   applied: number;
   // Recomputes still running, superseded ones included: any of them may yet fill the entry.
   pending: number;
@@ -85,6 +95,8 @@ export function createSnapshotCache(
   let warming = false;
   let lastUsed = -Infinity;
 
+  const kept = (entry: Entry, now: number) =>
+    entry.pinned || (entry.live && now - entry.touched <= KEEP_FOR);
   const refreshAfter = (entry: Entry) =>
     entry.live
       ? Math.min(MAX_REFRESH, Math.max(MIN_REFRESH, entry.took * 10))
@@ -109,10 +121,16 @@ export function createSnapshotCache(
       entry.pending -= 1;
       if (outcome.ok && mine > entry.applied) {
         entry.applied = mine;
-        entry.body = outcome.body;
-        entry.query = query;
-        entry.at = clock();
-        entry.took = entry.at - started;
+        entry.degraded = outcome.degraded === true;
+        // A catalog blip never replaces a fully ready snapshot that is still servable: the
+        // previous body stays, and the warmer retries on its backoff instead of its full period.
+        if (!(entry.degraded && entry.ready && clock() - entry.at < MAX_STALE)) {
+          entry.body = outcome.body;
+          entry.ready = !entry.degraded;
+          entry.query = query;
+          entry.at = clock();
+          entry.took = entry.at - started;
+        }
       } else if (
         entry.body === undefined &&
         !entry.pinned &&
@@ -140,6 +158,8 @@ export function createSnapshotCache(
         query,
         live,
         pinned: false,
+        ready: false,
+        degraded: false,
         at: 0,
         took: 0,
         tried: -Infinity,
@@ -160,21 +180,25 @@ export function createSnapshotCache(
       const now = clock();
       const { key, live } = shape(query, now);
       const entry = entryFor(key, query, live, now);
+      const warm = kept(entry, now);
       entry.touched = now;
       lastUsed = now;
       if (!fresh && entry.body !== undefined) {
         const age = now - entry.at;
         if (age < refreshAfter(entry)) return { ok: true, body: entry.body };
-        // A default view is answered from its last snapshot up to the idle cap: its own
+        // A kept view is answered from its last snapshot up to the idle cap: its own
         // generated_at_ms tells the page how old that is, and the refresh never blocks the visit.
-        if (age < (entry.pinned ? MAX_PINNED_STALE : live ? MAX_STALE : 0)) {
+        if (warm && age < MAX_STALE) {
           void refresh(key, entry, query);
           return { ok: true, body: entry.body };
         }
       }
       return refresh(key, entry, query, fresh);
     },
-    /** Refresh the default views, and any live view someone opened recently, one at a time. */
+    /**
+     * Refresh the default views (in the order given, most used first), then every live view
+     * asked for in the last day, most recent first, at most WARM_CONCURRENCY at a time.
+     */
     async warm(): Promise<void> {
       if (warming) return;
       warming = true;
@@ -182,20 +206,37 @@ export function createSnapshotCache(
         for (const entry of entries.values()) entry.pinned = false;
         const start = clock();
         const idle = start - lastUsed > HOT_FOR;
+        const queue: [string, Entry][] = [];
         for (const query of seeds(start)) {
           const { key, live } = shape(query, start);
-          entryFor(key, query, live, start).pinned = true;
+          const entry = entryFor(key, query, live, start);
+          entry.pinned = true;
+          queue.push([key, entry]);
         }
-        for (const [key, entry] of [...entries]) {
+        queue.push(
+          ...[...entries]
+            .filter(([, entry]) => !entry.pinned)
+            .sort(([, a], [, b]) => b.touched - a.touched)
+        );
+        const next = async (): Promise<void> => {
+          const item = queue.shift();
+          if (!item) return;
+          const [key, entry] = item;
           const now = clock();
-          const wanted = entry.pinned || (entry.live && now - entry.touched <= HOT_FOR);
-          const every = idle ? Math.max(IDLE_REFRESH, refreshAfter(entry)) : refreshAfter(entry);
-          const fresh = entry.body !== undefined && now - entry.at < every;
+          const every =
+            idle || (!entry.pinned && now - entry.touched > HOT_FOR)
+              ? Math.max(IDLE_REFRESH, refreshAfter(entry))
+              : refreshAfter(entry);
+          // After a degraded recompute nothing is fresh, so it is retried on the backoff below.
+          const fresh = entry.ready && !entry.degraded && now - entry.at < every;
           // A failing view is retried on its own cadence (30 s to 5 min), not on every tick.
           const backingOff = now - entry.tried < Math.min(every, MAX_REFRESH);
-          if (!wanted || fresh || backingOff) continue;
-          await refresh(key, entry, entry.live ? rebase(entry.query, now) : entry.query);
-        }
+          // A view evicted while it waited in the queue is not worth a CPA query.
+          if (entries.get(key) === entry && kept(entry, now) && !fresh && !backingOff)
+            await refresh(key, entry, entry.live ? rebase(entry.query, now) : entry.query);
+          return next();
+        };
+        await Promise.all(Array.from({ length: WARM_CONCURRENCY }, next));
       } finally {
         warming = false;
       }
