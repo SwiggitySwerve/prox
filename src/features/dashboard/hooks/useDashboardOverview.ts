@@ -253,12 +253,13 @@ export function useDashboardOverview() {
     connected && analyticsKey ? PROVIDER_RECENT_REQUESTS_STALE_TIME_MS : null
   );
 
-  // From the header: its round already reads config and every hub's credential list once.
+  // From the header: its round already reads every hub's credential list once. Config stays
+  // per source: this source's config store is not the shell's.
   const refresh = useCallback(
     async (round?: HeaderRefreshRound) => {
       if (!connected) return;
       await Promise.allSettled([
-        round ? undefined : fetchConfig(true),
+        fetchConfig(true),
         round ? round.inventory : loadAuthFiles(),
         loadModels(),
         refreshRecentRequests(),

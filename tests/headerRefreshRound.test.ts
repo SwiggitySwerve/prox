@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import {
   runHeaderRefresh,
   type HeaderRefreshDeps,
@@ -119,5 +120,21 @@ describe('header refresh', () => {
     expect(calls).not.toContain('config');
     expect(calls).not.toContain('clear-config');
     expect(summary).toEqual({ failed: [], deniedHubs: ['alpha'] });
+  });
+});
+
+describe('Dashboard during a header refresh', () => {
+  // The hook renders under a browser only; its wiring is read from source.
+  const source = readFileSync('src/features/dashboard/hooks/useDashboardOverview.ts', 'utf8');
+  const refresh = source.split('const refresh = useCallback(')[1]?.split('\n  );')[0] ?? '';
+
+  test('re-reads its own source config store: the shell refreshes a different one', () => {
+    expect(source).toContain('const useConfigStore = scope.configStore;');
+    expect(refresh).toMatch(/\n\s+fetchConfig\(true\),/);
+    expect(refresh).not.toContain('round ? undefined : fetchConfig');
+  });
+
+  test('takes the credential lists from the round instead of reading every hub again', () => {
+    expect(refresh).toContain('round ? round.inventory : loadAuthFiles()');
   });
 });
