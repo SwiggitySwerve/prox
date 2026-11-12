@@ -28,6 +28,11 @@ interface QuotaStoreState {
   metaQuota: Record<string, MetaQuotaState>;
   pluginQuota: Record<string, PluginQuotaState>;
   xaiQuota: Record<string, XaiQuotaState>;
+  /**
+   * When each credential's quota last landed from a read (loading → success), by cache key.
+   * A failed read or a cleared credential drops its entry. quotaFreshness.ts reads it.
+   */
+  fetchedAt: Record<string, number>;
   setAntigravityQuota: (updater: QuotaUpdater<Record<string, AntigravityQuotaState>>) => void;
   setClaudeQuota: (updater: QuotaUpdater<Record<string, ClaudeQuotaState>>) => void;
   setCodexQuota: (updater: QuotaUpdater<Record<string, CodexQuotaState>>) => void;
@@ -46,7 +51,30 @@ const resolveUpdater = <T>(updater: QuotaUpdater<T>, prev: T): T => {
   return updater;
 };
 
-export const createQuotaStore = () =>
+type QuotaEntry = { status?: string };
+
+/** Stamps keys whose read just landed and forgets keys whose read failed. */
+function stampReads(
+  fetchedAt: Record<string, number>,
+  prev: Record<string, QuotaEntry>,
+  next: Record<string, QuotaEntry>,
+  now: () => number
+): Record<string, number> {
+  let stamped = fetchedAt;
+  for (const [key, quota] of Object.entries(next)) {
+    if (quota === prev[key]) continue;
+    if (quota.status === 'success' && prev[key]?.status === 'loading') {
+      if (stamped === fetchedAt) stamped = { ...fetchedAt };
+      stamped[key] = now();
+    } else if (quota.status === 'error' && key in stamped) {
+      if (stamped === fetchedAt) stamped = { ...fetchedAt };
+      delete stamped[key];
+    }
+  }
+  return stamped;
+}
+
+export const createQuotaStore = (now: () => number = Date.now) =>
   create<QuotaStoreState>((set) => ({
     cacheGeneration: 0,
     fileGenerations: {},
@@ -58,10 +86,15 @@ export const createQuotaStore = () =>
     metaQuota: {},
     pluginQuota: {},
     xaiQuota: {},
+    fetchedAt: {},
     setAntigravityQuota: (updater) =>
-      set((state) => ({
-        antigravityQuota: resolveUpdater(updater, state.antigravityQuota),
-      })),
+      set((state) => {
+        const next = resolveUpdater(updater, state.antigravityQuota);
+        return {
+          antigravityQuota: next,
+          fetchedAt: stampReads(state.fetchedAt, state.antigravityQuota, next, now),
+        };
+      }),
     setClaudeQuota: (updater) =>
       set((state) => {
         const next = resolveUpdater(updater, state.claudeQuota);
@@ -91,30 +124,59 @@ export const createQuotaStore = () =>
             };
           }
         }
-        return { claudeQuota: retained };
+        return {
+          claudeQuota: retained,
+          fetchedAt: stampReads(state.fetchedAt, state.claudeQuota, retained, now),
+        };
       }),
     setCodexQuota: (updater) =>
-      set((state) => ({
-        codexQuota: resolveUpdater(updater, state.codexQuota),
-      })),
+      set((state) => {
+        const next = resolveUpdater(updater, state.codexQuota);
+        return {
+          codexQuota: next,
+          fetchedAt: stampReads(state.fetchedAt, state.codexQuota, next, now),
+        };
+      }),
     setDevinQuota: (updater) =>
-      set((state) => ({
-        devinQuota: resolveUpdater(updater, state.devinQuota),
-      })),
+      set((state) => {
+        const next = resolveUpdater(updater, state.devinQuota);
+        return {
+          devinQuota: next,
+          fetchedAt: stampReads(state.fetchedAt, state.devinQuota, next, now),
+        };
+      }),
     setKimiQuota: (updater) =>
-      set((state) => ({
-        kimiQuota: resolveUpdater(updater, state.kimiQuota),
-      })),
+      set((state) => {
+        const next = resolveUpdater(updater, state.kimiQuota);
+        return {
+          kimiQuota: next,
+          fetchedAt: stampReads(state.fetchedAt, state.kimiQuota, next, now),
+        };
+      }),
     setMetaQuota: (updater) =>
-      set((state) => ({ metaQuota: resolveUpdater(updater, state.metaQuota) })),
+      set((state) => {
+        const next = resolveUpdater(updater, state.metaQuota);
+        return {
+          metaQuota: next,
+          fetchedAt: stampReads(state.fetchedAt, state.metaQuota, next, now),
+        };
+      }),
     setPluginQuota: (updater) =>
-      set((state) => ({
-        pluginQuota: resolveUpdater(updater, state.pluginQuota),
-      })),
+      set((state) => {
+        const next = resolveUpdater(updater, state.pluginQuota);
+        return {
+          pluginQuota: next,
+          fetchedAt: stampReads(state.fetchedAt, state.pluginQuota, next, now),
+        };
+      }),
     setXaiQuota: (updater) =>
-      set((state) => ({
-        xaiQuota: resolveUpdater(updater, state.xaiQuota),
-      })),
+      set((state) => {
+        const next = resolveUpdater(updater, state.xaiQuota);
+        return {
+          xaiQuota: next,
+          fetchedAt: stampReads(state.fetchedAt, state.xaiQuota, next, now),
+        };
+      }),
     clearQuotaCache: (names) =>
       set((state) => {
         if (names) {
@@ -143,6 +205,7 @@ export const createQuotaStore = () =>
             metaQuota: omitNames(state.metaQuota),
             pluginQuota: omitNames(state.pluginQuota),
             xaiQuota: omitNames(state.xaiQuota),
+            fetchedAt: omitNames(state.fetchedAt),
           };
         }
         return {
@@ -156,6 +219,7 @@ export const createQuotaStore = () =>
           metaQuota: {},
           pluginQuota: {},
           xaiQuota: {},
+          fetchedAt: {},
         };
       }),
   }));

@@ -231,8 +231,17 @@
 .actionRow {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* "updated 25s ago", left of the refresh pill */
+.freshness {
+  margin-right: auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 安静描边药丸（与凭证卡图标动作同族：hover 才显色块） */

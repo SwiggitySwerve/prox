@@ -1,5 +1,6 @@
 import { containsControlCharacters } from '@/utils/helpers';
 import type { AxiosRequestConfig } from 'axios';
+import type { AuthGate } from './authGate';
 
 export type TransportEvent =
   | { type: 'server-version-update'; detail: { version: string | null; buildDate: string | null } }
@@ -11,6 +12,8 @@ export interface TransportPolicy {
   readonly signal: AbortSignal;
   assertCurrent(): void;
   onEvent(event: TransportEvent): void;
+  /** The hub's management-key gate (authGate.ts); requests wait on it and report back to it. */
+  readonly authGate?: AuthGate;
 }
 
 /** Axios normally permits absolute URL/auth overrides. Owned transports do not. */

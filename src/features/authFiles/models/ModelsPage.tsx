@@ -15,7 +15,7 @@ import {
 } from '@/features/authFiles/components/AuthFilesSourceNav';
 import toolbarStyles from '@/features/authFiles/components/AuthFilesToolbar.module.scss';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useHeaderRefresh, type HeaderRefreshRound } from '@/hooks/useHeaderRefresh';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useThemeStore } from '@/stores';
 import {
@@ -88,7 +88,9 @@ export function ModelsPage() {
     [setParams]
   );
 
-  // The top bar's refresh reloads every section.
+  // The top bar's refresh. Its round already re-lists every hub once and re-reads every loaded
+  // model list (useModelAccessStore.refreshLoaded); the sections read those slices, and accounts
+  // the new list adds load through the sections' own effects. Without a round, reload each section.
   const refreshers = useRef(new Map<string, () => Promise<void>>());
   const registerRefresh = useCallback((key: string, run: () => Promise<void>) => {
     refreshers.current.set(key, run);
@@ -96,7 +98,11 @@ export function ModelsPage() {
       if (refreshers.current.get(key) === run) refreshers.current.delete(key);
     };
   }, []);
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (round?: HeaderRefreshRound) => {
+    if (round) {
+      await round.inventory;
+      return;
+    }
     if (refreshers.current.size === 0) {
       await useCredentialInventoryStore.getState().refresh();
       return;

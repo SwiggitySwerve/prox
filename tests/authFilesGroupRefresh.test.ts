@@ -31,8 +31,17 @@ describe('group Refresh button', () => {
     // targets come from the returned list, never from state or a ref captured before the re-read
     expect(handler).not.toContain('quotaTargets');
     expect(handler).not.toContain('quotaInputsRef');
-    expect(source).toContain('quotaRefreshTargets(pageItems, activeQuotaFilter)');
-    expect(source).toContain('quotaTargetsForList(list, inputs.filters, inputs.page');
+    // every card the filters show, on every page (not only the page on screen)
+    expect(source).toContain('quotaRefreshTargets(sorted, activeQuotaFilter)');
+    expect(source).toContain('quotaTargetsShown(list, inputs.filters, inputs.activeQuotaFilter)');
+    // each hub proves the key with one request before the rest (authGate.ts)
+    expect(handler).toContain('providerSources.armAuthProbes()');
+  });
+
+  test('the header refresh lists from the round’s one read, then refreshes this group’s quota', () => {
+    const header = source.split('const handleHeaderRefresh = ')[1]?.split('\n  );')[0] ?? '';
+    expect(header).toContain('loadFiles({ background: true, inventory: round.inventory })');
+    expect(header).toContain('await requestQuota(list ?? undefined)');
   });
 
   test('the group Refresh and the page-wide Refresh quota share one runner that never drops a call', () => {

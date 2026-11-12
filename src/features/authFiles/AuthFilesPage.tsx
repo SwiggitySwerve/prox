@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useHeaderRefresh, type HeaderRefreshRound } from '@/hooks/useHeaderRefresh';
+import { providerSources } from '@/stores/useProviderSources';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconRefreshCw, IconUpload } from '@/components/ui/icons';
@@ -61,15 +62,20 @@ export function AuthFilesPage() {
   const { status, sources } = useProviderSources();
   const { t } = useTranslation();
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
-  const refreshers = useRef(new Map<string, () => Promise<void>>());
-  const registerRefresh = useCallback((key: string, refresh: () => Promise<void>) => {
+  const refreshers = useRef(new Map<string, (round?: HeaderRefreshRound) => Promise<void>>());
+  const registerRefresh = useCallback<RegisterRefresh>((key, refresh) => {
     refreshers.current.set(key, refresh);
     return () => {
       refreshers.current.delete(key);
     };
   }, []);
-  const refreshAllSources = useCallback(async () => {
-    await Promise.allSettled([...refreshers.current.values()].map((refresh) => refresh()));
+  // The header refresh: every group re-lists from the round's one read and refreshes its quota.
+  const refreshAllSources = useCallback(async (round?: HeaderRefreshRound) => {
+    const results = await Promise.allSettled(
+      [...refreshers.current.values()].map((refresh) => refresh(round))
+    );
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure?.status === 'rejected') throw failure.reason;
   }, []);
   useHeaderRefresh(refreshAllSources);
 
@@ -100,6 +106,7 @@ export function AuthFilesPage() {
     const runners = [...quotaRunners.current.values()].filter((runner) => runner.count > 0);
     const total = runners.reduce((sum, runner) => sum + runner.count, 0);
     if (total === 0) return;
+    providerSources.armAuthProbes();
     dispatchQuotaRun({ type: 'start', total });
     const onSettled = (ok: boolean) => dispatchQuotaRun({ type: 'settled', ok });
     await Promise.allSettled(runners.map((runner) => runner.run(onSettled)));

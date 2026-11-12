@@ -2,6 +2,7 @@ import { notifySourceConfigChanged } from './sourceConfigChanges';
 import { containsControlCharacters } from '@/utils/helpers';
 import type { ApiClientConfig } from '@/types';
 import { validatedManagementBase } from '@/utils/connection';
+import { AuthGate } from './authGate';
 import { ApiClient } from './transport';
 import type { TransportEvent } from './transportPolicy';
 
@@ -37,6 +38,7 @@ interface Entry {
   config: SourceConnection;
   controller: AbortController;
   session: SourceSession;
+  gate: AuthGate;
 }
 
 /** Cache identity only. Resource APIs still receive the original local identifier. */
@@ -105,9 +107,11 @@ export class SourceSessions {
         )
           throw new Error('Source session changed');
       };
+      const gate = new AuthGate();
       const transport = new ApiClient(() => !controller.signal.aborted, {
         signal: controller.signal,
         assertCurrent,
+        authGate: gate,
         onEvent: (event) => {
           assertCurrent();
           if (event.type === 'source-config-changed') notifySourceConfigChanged(owner);
@@ -131,7 +135,7 @@ export class SourceSessions {
         management,
         assertCurrent,
       });
-      this.entries.set(config.instanceId, { config, controller, session });
+      this.entries.set(config.instanceId, { config, controller, session, gate });
     }
   }
 
@@ -140,6 +144,16 @@ export class SourceSessions {
     if (!session) throw new Error('Source is not authenticated');
     session.assertCurrent();
     return session;
+  }
+
+  /** A refresh begins: every hub proves the management key with one request before the rest. */
+  armAuthProbes(): void {
+    for (const entry of this.entries.values()) entry.gate.arm();
+  }
+
+  /** Hubs that answered 401 to this session's key; nothing more is sent to them. */
+  deniedSources(): string[] {
+    return [...this.entries].filter(([, entry]) => entry.gate.denied).map(([id]) => id);
   }
 
   /** Call on logout/reconnect even if credentials remain textually identical. */

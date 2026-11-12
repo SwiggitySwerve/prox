@@ -43,6 +43,8 @@ import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
 import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore } from '@/stores';
 import { startCredentialInventory } from '@/features/authFiles/credentialInventoryRuntime';
 import { useModelAccessStore } from '@/stores/useModelAccessStore';
+import { modelAccess } from '@/features/authFiles/modelAccessRuntime';
+import { runHeaderRefresh, type HeaderRefreshSummary } from './headerRefreshRound';
 import {
   collectPluginResourceEntries,
   PLUGIN_RESOURCES_REFRESH_EVENT,
@@ -686,25 +688,40 @@ export function MainLayout() {
   const handleRefreshAll = async () => {
     if (refreshingAll) return;
     setRefreshingAll(true);
-    clearCache();
-    const results = await Promise.allSettled([
-      fetchConfig(true),
-      loadPluginResources(),
-      useCredentialInventoryStore.getState().refresh(),
-      triggerHeaderRefresh(),
-    ]).finally(() => setRefreshingAll(false));
-    const rejected = results.find((result) => result.status === 'rejected');
-    if (rejected && rejected.status === 'rejected') {
-      const reason = rejected.reason;
-      const message =
-        typeof reason === 'string' ? reason : reason instanceof Error ? reason.message : '';
-      showNotification(
-        `${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`,
-        'error'
-      );
-      return;
+    let summary: HeaderRefreshSummary;
+    try {
+      summary = await runHeaderRefresh({
+        armAuthProbes: () => providerSources.armAuthProbes(),
+        deniedHubs: () => providerSources.deniedSources(),
+        selectedHub: () => providerSources.getSnapshot().resolution?.selectedInstanceId ?? null,
+        clearConfigCache: clearCache,
+        refreshConfig: () => fetchConfig(true),
+        refreshPlugins: loadPluginResources,
+        refreshInventory: () => useCredentialInventoryStore.getState().refresh(),
+        refreshModelAccess: () => modelAccess().refreshLoaded(),
+        refreshPage: triggerHeaderRefresh,
+      });
+    } finally {
+      setRefreshingAll(false);
     }
-    showNotification(t('notification.data_refreshed'), 'success');
+    const hubLabel = (id: string) =>
+      providerSources.getSnapshot().sources.find((view) => view.source.instanceId === id)?.source
+        .label ?? id;
+    const parts = summary.failed.map(({ source, hub }) =>
+      t(`notification.refresh_part_${source}`, { hub: hub ? hubLabel(hub) : '' })
+    );
+    const problems = [
+      ...(parts.length ? [t('notification.refresh_partial', { sources: parts.join(', ') })] : []),
+      ...(summary.deniedHubs.length
+        ? [
+            t('notification.refresh_hub_denied', {
+              hubs: summary.deniedHubs.map(hubLabel).join(', '),
+            }),
+          ]
+        : []),
+    ];
+    if (problems.length) showNotification(problems.join(' '), 'error');
+    else showNotification(t('notification.data_refreshed'), 'success');
   };
 
   const togglePluginResourceDrawer = useCallback((drawerID: string) => {

@@ -30,8 +30,9 @@ import { useAuthFilesOauth } from '@/features/authFiles/hooks/useAuthFilesOauth'
 import { useAuthFilesPrefixProxyEditor } from '@/features/authFiles/hooks/useAuthFilesPrefixProxyEditor';
 import { useAuthFilesStatusBarCache } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
 import { createCoalescingRunner, type QuotaRun } from '@/features/authFiles/quotaRunner';
-import { quotaRefreshTargets, quotaTargetsForList } from '@/features/authFiles/quotaSlot';
-import { QUOTA_PAGE_SIZE } from '@/features/quota/constants';
+import { quotaRefreshTargets, quotaTargetsShown } from '@/features/authFiles/quotaSlot';
+import type { HeaderRefreshRound } from '@/hooks/useHeaderRefresh';
+import { providerSources } from '@/stores/useProviderSources';
 import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
 import {
   OTHER_PROVIDER_GROUP,
@@ -64,7 +65,10 @@ export type QuotaRunner = {
 };
 export type RegisterQuotaRefresh = (key: string, runner: QuotaRunner) => () => void;
 
-export type RegisterRefresh = (key: string, refresh: () => Promise<void>) => () => void;
+export type RegisterRefresh = (
+  key: string,
+  refresh: (round?: HeaderRefreshRound) => Promise<void>
+) => () => void;
 export type RegisterUpload = (instanceId: string, upload: () => void) => () => void;
 export type ReportAnswer = (instanceId: string, state: AnswerState) => void;
 
@@ -325,15 +329,6 @@ export function AuthFilesSourceContent({
     ]);
     return list;
   }, [loadFiles, loadExcluded, loadModelAlias]);
-  const handleHeaderRefresh = useCallback(async () => {
-    await rereadList();
-  }, [rereadList]);
-
-  useEffect(
-    () => registerRefresh(sourceOwnerKey(sourceScope.session.owner), handleHeaderRefresh),
-    [registerRefresh, sourceScope.session.owner, handleHeaderRefresh]
-  );
-
   useEffect(() => {
     if (!isCurrentLayer) return;
     void loadFiles(initialLoadDoneRef.current ? { background: true } : undefined);
@@ -413,16 +408,17 @@ export function AuthFilesSourceContent({
     sourceScope.session
   );
   const quotaGated = hidden || pageEmpty || loading || disableControls || filters.compactMode;
+  // Every card the filters show, on every page: turning the page then shows fresh quota too.
   const quotaTargets = useMemo(
-    () => (quotaGated ? [] : quotaRefreshTargets(pageItems, activeQuotaFilter)),
-    [activeQuotaFilter, pageItems, quotaGated]
+    () => (quotaGated ? [] : quotaRefreshTargets(sorted, activeQuotaFilter)),
+    [activeQuotaFilter, sorted, quotaGated]
   );
   // The runner derives its targets when it runs, from the latest render's inputs (or from the
   // list a re-read just returned), so it is registered again only when the count changes
   // (each registration updates page state; re-registering per render would never settle).
-  const quotaInputsRef = useRef({ files, filters, page, activeQuotaFilter, quotaGated });
+  const quotaInputsRef = useRef({ files, filters, activeQuotaFilter, quotaGated });
   useEffect(() => {
-    quotaInputsRef.current = { files, filters, page, activeQuotaFilter, quotaGated };
+    quotaInputsRef.current = { files, filters, activeQuotaFilter, quotaGated };
   });
   // One runner per group for both entry points: a request during a run waits for it, so neither
   // the group's Refresh nor the page-wide "Refresh quota" is ever dropped by the batch loader.
@@ -433,11 +429,9 @@ export function AuthFilesSourceContent({
       const list = [...lists].reverse().find((entry) => entry) ?? inputs.files;
       const targets = inputs.quotaGated
         ? []
-        : quotaTargetsForList(list, inputs.filters, inputs.page, inputs.activeQuotaFilter);
-      for (let start = 0; start < targets.length; start += QUOTA_PAGE_SIZE) {
-        if (!sourceScope.isCurrent()) return;
-        await loadQuota(targets.slice(start, start + QUOTA_PAGE_SIZE), onSettled);
-      }
+        : quotaTargetsShown(list, inputs.filters, inputs.activeQuotaFilter);
+      // The loader reuses cards read under a minute ago and keeps a few reads open at a time.
+      if (sourceScope.isCurrent()) await loadQuota(targets, onSettled);
     },
     [loadQuota, sourceScope]
   );
@@ -465,6 +459,8 @@ export function AuthFilesSourceContent({
   const [refreshingGroup, setRefreshingGroup] = useState(false);
   const handleGroupRefresh = useCallback(async () => {
     setRefreshingGroup(true);
+    // Each hub proves the key with one request before the rest (services/api/authGate.ts).
+    providerSources.armAuthProbes();
     try {
       const list = await rereadList().catch(() => null);
       await requestQuota(list ?? undefined).catch(() => {});
@@ -472,6 +468,22 @@ export function AuthFilesSourceContent({
       setRefreshingGroup(false);
     }
   }, [requestQuota, rereadList]);
+
+  // The header's refresh: the round already reads every hub's list once and re-reads the model
+  // lists store-wide, so this group takes its files from that read, then refreshes its quota.
+  const handleHeaderRefresh = useCallback(
+    async (round?: HeaderRefreshRound) => {
+      const list = round
+        ? await loadFiles({ background: true, inventory: round.inventory })
+        : await rereadList().catch(() => null);
+      await requestQuota(list ?? undefined);
+    },
+    [loadFiles, requestQuota, rereadList]
+  );
+  useEffect(
+    () => registerRefresh(sourceOwnerKey(sourceScope.session.owner), handleHeaderRefresh),
+    [registerRefresh, sourceScope.session.owner, handleHeaderRefresh]
+  );
 
   /* ---------- one-time card entrance cascade (see AuthFileCard) ---------- */
 

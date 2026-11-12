@@ -80,6 +80,12 @@ export interface ModelAccessState {
     accounts: readonly AccountRef[],
     options?: EnsureOptions
   ): Promise<void>;
+  /**
+   * The header refresh: re-read every slice that has been loaded, for every source, a few at a
+   * time per source. A read already in flight is joined rather than sent again. Resolves to the
+   * sources (instance ids) where a re-read failed; their last good data stays.
+   */
+  refreshLoaded(): Promise<string[]>;
   /** Forget per-account slices (all of them without names); the next ensure re-reads them. */
   invalidateAccounts(owner: SourceOwner, names?: readonly string[]): void;
   reset(): void;
@@ -132,6 +138,8 @@ export function createModelAccessStore() {
   let generationSeq = 0;
   const inflight = new Map<string, Promise<void>>();
   const loadedAt = new Map<string, number>();
+  /** The owner behind each ownerKey the store has data for (refreshLoaded needs the object). */
+  const owners = new Map<string, SourceOwner>();
 
   return create<ModelAccessState>()((set, get) => {
     const sourceOf = (owner: SourceOwner): SourceModelAccess | undefined => {
@@ -184,6 +192,7 @@ export function createModelAccessStore() {
       }
       const api = active.api(owner);
       if (!api) return Promise.resolve();
+      owners.set(sourceOwnerKey(owner), owner);
       const generation = ++generationSeq;
       dispatch(owner, slot, { type: 'LOAD', generation });
       const run: Promise<void> = read(api)
@@ -309,6 +318,60 @@ export function createModelAccessStore() {
         ]);
       },
 
+      refreshLoaded: async () => {
+        const failed: string[] = [];
+        await Promise.all(
+          Object.entries(get().sources).map(async ([instanceId, source]) => {
+            const owner = owners.get(source.ownerKey);
+            if (!owner) return;
+            const reads: Array<{
+              slot: Slot;
+              read: (api: ModelAccessSourceApi) => Promise<unknown>;
+            }> = [];
+            const loaded = (state: LoadState<unknown> | undefined) =>
+              state !== undefined && state.status !== 'idle';
+            if (loaded(source.providerLists)) {
+              reads.push({
+                slot: { group: 'providerLists' },
+                read: (api) => api.getProviderLists(),
+              });
+            }
+            if (loaded(source.aliases)) {
+              reads.push({ slot: { group: 'aliases' }, read: (api) => api.getAliases() });
+            }
+            for (const key of Object.keys(source.catalogs)) {
+              if (!loaded(source.catalogs[key])) continue;
+              reads.push({ slot: { group: 'catalogs', key }, read: (api) => api.getCatalog(key) });
+            }
+            for (const key of Object.keys(source.accountLists)) {
+              if (!loaded(source.accountLists[key])) continue;
+              reads.push({
+                slot: { group: 'accountLists', key },
+                read: (api) => api.getAccountList(key),
+              });
+            }
+            for (const key of Object.keys(source.accountModels)) {
+              if (!loaded(source.accountModels[key])) continue;
+              reads.push({
+                slot: { group: 'accountModels', key },
+                read: (api) => api.getAccountModels(key),
+              });
+            }
+            await eachLimited(reads, ACCOUNT_READ_CONCURRENCY, ({ slot, read }) => {
+              const flight = inflight.get(`${source.ownerKey}|${slotId(slot)}`);
+              return flight ?? load(owner, slot, read, { force: true });
+            });
+            const after = sourceOf(owner);
+            const broken = reads.some(({ slot }) => {
+              const state = readSlot(after, slot);
+              return state.status === 'error' && !state.unsupported;
+            });
+            if (broken) failed.push(instanceId);
+          })
+        );
+        return failed;
+      },
+
       invalidateAccounts: (owner, names) => {
         forget(owner, 'accountLists', names);
         forget(owner, 'accountModels', names);
@@ -318,6 +381,7 @@ export function createModelAccessStore() {
         generationSeq += 1;
         inflight.clear();
         loadedAt.clear();
+        owners.clear();
         set({ sources: {} });
       },
     };
