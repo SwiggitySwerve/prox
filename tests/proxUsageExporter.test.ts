@@ -3,15 +3,20 @@ import { Database } from 'bun:sqlite';
 import { chmodSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageExporter } from '../server/usage/exporter';
-import { exporterRates } from '../server/usage/pricing';
 import { parseRateBook } from '../server/usage/rates';
+import { runCpampJob } from '../server/usage/importCpamp';
+import { openUsageReader } from '../server/usage/store';
+import { fakeIo } from './helpers/usageIo';
+import { createCpamp, cpampRow } from './fixtures/cpampUsage';
+import labelFixture from './fixtures/usageExporterLabels.json';
+import { queryAnalytics } from '../server/usage/analytics';
 import { createClientAliasLoader, parseClientAliases } from '../server/usage/clientAliases';
 import { createUsageStatusHandler } from '../server/usage/status';
 import { UsageWriter } from '../server/usage/writer';
-import { UsageStore, migrateUsageDatabase } from '../server/usage/store';
+import { UsageStore } from '../server/usage/store';
 import { USAGE_MIGRATIONS } from '../server/usage/schema';
-import { event, analyticsStore } from './helpers/usageAnalytics';
-import { createCpamp } from './fixtures/cpampUsage';
+import { RECORD_KIND } from '../server/usage/types';
+import { event, analyticsStore, query, rateState } from './helpers/usageAnalytics';
 
 const cleanups: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
@@ -26,28 +31,34 @@ const book = (override = {}) =>
     },
   });
 const emptyAliases = new Map<string, string>();
+const zeroTokens = {
+  inputTotal: 0,
+  inputUncached: 0,
+  outputTotal: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  reasoning: 0,
+  total: 0,
+};
 
-test('lifetime groups preserve original counters, all-call latency and positive-only TTFT', () => {
+test('fold matches independent canonical event totals and excludes supplementary records', () => {
   const rows = [
     event(1, { account: 'account', apiKeyHash: null }),
     event(2, {
       account: 'account',
       apiKeyHash: null,
-      reportedLatencyMs: null,
-      reportedTtftMs: 0,
-      reportedInputTokens: 0,
-      reportedOutputTokens: 0,
-      reportedReasoningTokens: 0,
-      reportedTotalTokens: 0,
+      tokens: zeroTokens,
+      latencyMs: null,
+      ttftMs: 0,
     }),
-    event(3, { failed: true, apiKeyHash: 'a'.repeat(64), reportedTtftMs: -1 }),
+    event(3, { failed: true, apiKeyHash: 'a'.repeat(64), ttftMs: null }),
+    event(4, { recordKind: RECORD_KIND.supplementary, tsMs: 9e12 }),
   ];
   const fold = new UsageExporter((visit) => rows.forEach(visit));
   fold.refresh(book());
   const snapshot = fold.snapshot(emptyAliases);
   expect(snapshot).toMatchObject({
     schema_version: 1,
-    missing_reported_counters: 0,
     models_priced: 1,
     newest_event_time_seconds: rows[0].tsMs / 1000,
   });
@@ -58,17 +69,17 @@ test('lifetime groups preserve original counters, all-call latency and positive-
     client: 'unknown',
     status: 'success',
     requests: 2,
-    tokens: { input: 100, output: 140, cached: 0, reasoning: 60 },
-    cache: { read: 1600, write: 100 },
+    tokens: { input: 950, output: 200, cached: 800, reasoning: 60 },
+    cache: { read: 800, write: 50 },
     latency_seconds_sum: 1.5,
-    latency_seconds_count: 2,
+    latency_seconds_count: 1,
     ttft_seconds_sum: 0.42,
     ttft_seconds_count: 1,
     zero_token_success: 1,
   });
-  // Cost uses original output plus normalized uncached input/cache, as the Python SQL did.
+  // Independent arithmetic over the fixture's canonical breakdown, not the pricing implementation.
   expect(snapshot.groups[0].cost_usd).toBeCloseTo(
-    (200 * 2 + 140 * 4 + 1600 * 0.5 + 100 * 3) / 1e6,
+    (100 * 2 + 200 * 4 + 800 * 0.5 + 50 * 3) / 1e6,
     12
   );
   expect(snapshot.groups[1]).toMatchObject({
@@ -76,13 +87,14 @@ test('lifetime groups preserve original counters, all-call latency and positive-
     status: 'failed',
     ttft_seconds_count: 0,
   });
+  expect(snapshot.groups.reduce((n, g) => n + g.requests, 0)).toBe(3);
   expect(JSON.stringify(snapshot)).not.toContain('a'.repeat(64));
   expect(fold.snapshot(new Map([['a'.repeat(64), 'Named client']])).groups[1].client).toBe(
     'Named client'
   );
 });
 
-test('price-only and alias edits need no scan; threshold edits refold per-event bands', () => {
+test('ordinary prices reprice without scans; thresholds and candidate membership refold', () => {
   const rows = [event(1), event(2)];
   let scans = 0;
   const fold = new UsageExporter((visit) => {
@@ -93,7 +105,7 @@ test('price-only and alias edits need no scan; threshold edits refold per-event 
   const initial = fold.snapshot(emptyAliases).groups[0].cost_usd!;
   fold.refresh(book({ output: 8 }));
   expect(scans).toBe(1);
-  expect(fold.snapshot(emptyAliases).groups[0].cost_usd).toBeCloseTo(initial + (280 * 4) / 1e6, 12);
+  expect(fold.snapshot(emptyAliases).groups[0].cost_usd).toBeCloseTo(initial + (400 * 4) / 1e6, 12);
   fold.refresh(book({ context_tiers: [{ ...rates, input: 20, above_input_tokens: 949 }] }));
   expect(scans).toBe(2);
   expect(fold.snapshot(emptyAliases).groups[0].cost_usd).toBeCloseTo(
@@ -102,36 +114,120 @@ test('price-only and alias edits need no scan; threshold edits refold per-event 
   );
   fold.refresh(book({ context_tiers: [{ ...rates, input: 20, above_input_tokens: 950 }] }));
   expect(scans).toBe(3);
-  expect(fold.snapshot(emptyAliases).groups[0].cost_usd).toBeCloseTo(initial, 12); // strictly above
-});
-
-test('exporter keeps -fast priority, context precedence, defaults and billing-only lookup', () => {
-  const b = book({
-    service_tiers: [{ ...rates, input: 10, names: ['priority', 'fast'] }],
-    context_tiers: [{ ...rates, input: 20, above_input_tokens: 500 }],
+  expect(fold.snapshot(emptyAliases).groups[0].cost_usd).toBeCloseTo(initial, 12);
+  const changed = parseRateBook({
+    version: 1,
+    models: {
+      ...book().models,
+      'client-claude': { ...rates, context_tiers: [{ ...rates, above_input_tokens: 1 }] },
+    },
   });
-  expect(exporterRates(b, 'claude-test-4', 'alias-fast', '', null)?.input).toBe(10);
-  expect(exporterRates(b, 'claude-test-4', 'alias-fast', 'priority', 500)?.input).toBe(20);
-  expect(exporterRates(b, 'claude-test-4', 'alias-fast', 'priority', 600)?.input).toBe(2);
-  expect(exporterRates(b, 'missing', 'claude-test-4', 'priority', null)).toBeNull();
-  expect(
-    exporterRates(book({ cache_read: null, cache_write: null }), 'claude-test-4', '', '', null)
-  ).toEqual({ ...rates, cache_read: 0.2, cache_write: 2 });
-  expect(
-    exporterRates(book({ cache_read: 0, cache_write: 0 }), 'claude-test-4', '', '', null)
-      ?.cache_read
-  ).toBe(0);
+  fold.refresh(changed);
+  expect(scans).toBe(4);
+  // A configured billing candidate stops fallback even when an alias has a lower threshold.
+  expect(fold.snapshot(emptyAliases).groups[0].cost_usd).toBeCloseTo(initial, 12);
 });
 
-test('store notifies the fold only after commits, not duplicates or rolled-back imports', () => {
+test('exporter totals equal analytics for each provider/outcome with P4 pricing and reloads', () => {
+  const f = analyticsStore();
+  cleanups.push(() => f.close());
+  const rows = [
+    event(1, { model: 'canonical', requestedModel: 'alias-fast', billingModel: 'missing' }),
+    event(2, {
+      model: 'canonical',
+      requestedModel: 'alias-fast',
+      billingModel: 'missing',
+      tier: 'priority',
+      failed: true,
+    }),
+    event(3, {
+      model: 'canonical',
+      requestedModel: 'other',
+      billingModel: 'served',
+      provider: 'codex',
+      latencyMs: null,
+    }),
+    event(4, { model: 'unknown', requestedModel: 'request-priced', billingModel: 'missing' }),
+    event(5, {
+      model: 'canonical',
+      requestedModel: 'alias-fast',
+      billingModel: 'missing',
+      tokens: zeroTokens,
+      ttftMs: 0,
+    }),
+    event(6, { billingModel: 'claude-fable-5-2' }),
+    event(7, { billingModel: 'gpt-6.1-terra', provider: 'codex', failed: true }),
+    event(8, { recordKind: RECORD_KIND.supplementary }),
+    event(9, {
+      model: 'unpriced',
+      requestedModel: 'unpriced',
+      billingModel: 'unpriced',
+      usageFlags: 0,
+      recordKind: 0,
+    }),
+  ];
+  f.insert(rows);
+  const fold = new UsageExporter((visit) => f.store.scanExporterEvents(visit));
+  const models = {
+    canonical: {
+      ...rates,
+      service_tiers: [{ ...rates, input: 10, names: ['priority'] }],
+      context_tiers: [{ ...rates, input: 8, above_input_tokens: 900 }],
+    },
+    'alias-fast': { ...rates, context_tiers: [{ ...rates, input: 30, above_input_tokens: 1 }] },
+    'request-priced': { ...rates, cache_read: null, cache_write: null },
+    'claude-fable-5-2': rates,
+    'gpt-6.1-terra': rates,
+  };
+  for (const b of [
+    parseRateBook({ version: 1, models }),
+    parseRateBook({
+      version: 1,
+      models: { ...models, served: { ...rates, input: 5 }, canonical: { ...rates, output: 9 } },
+    }),
+  ]) {
+    fold.refresh(b);
+    const snapshot = fold.snapshot(emptyAliases);
+    for (const provider of [undefined, 'claude', 'codex']) {
+      for (const outcome of ['all', 'success', 'failed'] as const) {
+        const groups = snapshot.groups.filter(
+          (g) =>
+            (!provider || g.provider === provider) &&
+            (outcome === 'all' || g.status === (outcome === 'failed' ? 'failed' : 'success'))
+        );
+        const total = (pick: (g: (typeof groups)[number]) => number) =>
+          groups.reduce((sum, g) => sum + pick(g), 0);
+        const analytics = queryAnalytics(f.db, query({ provider, outcome }), rateState(b)).summary;
+        expect(total((g) => g.requests)).toBe(analytics.calls);
+        expect(total((g) => (g.status === 'failed' ? g.requests : 0))).toBe(
+          analytics.failure_calls
+        );
+        expect(total((g) => g.tokens.input)).toBe(analytics.input_tokens);
+        expect(total((g) => g.tokens.output)).toBe(analytics.output_tokens);
+        expect(total((g) => g.tokens.reasoning)).toBe(analytics.reasoning_tokens);
+        expect(total((g) => g.cache.read)).toBe(analytics.cache_read_tokens);
+        expect(total((g) => g.cache.write)).toBe(analytics.cache_creation_tokens);
+        expect(total((g) => g.cost_usd ?? 0)).toBeCloseTo(analytics.cost.usd ?? 0, 12);
+        const latencyCount = total((g) => g.latency_seconds_count);
+        if (latencyCount)
+          expect((total((g) => g.latency_seconds_sum) * 1000) / latencyCount).toBeCloseTo(
+            analytics.average_latency_ms!,
+            10
+          );
+      }
+    }
+  }
+  // No -fast suffix inference and no generic cache-read fallback. Requested-only rates are valid.
+  const requestOnly = fold.snapshot(emptyAliases).groups.find((g) => g.model === 'request-priced')!;
+  expect(requestOnly.cost_usd).toBeCloseTo((100 * 2 + 200 * 4 + 50 * 2) / 1e6, 12);
+});
+
+test('store publishes only committed inserts, not duplicates or rolled-back imports', () => {
   const f = analyticsStore();
   cleanups.push(() => f.close());
   const fold = new UsageExporter((visit) => f.store.scanExporterEvents(visit));
   fold.refresh(book());
-  f.store.onCommit = (events, repaired) => {
-    if (repaired) fold.invalidate();
-    else events.forEach((row) => fold.add(row));
-  };
+  f.store.onCommit = (events) => events.forEach((row) => fold.add(row));
   f.insert([event(1)]);
   f.insert([event(1)]);
   expect(fold.snapshot(emptyAliases).groups[0].requests).toBe(1);
@@ -142,9 +238,17 @@ test('store notifies the fold only after commits, not duplicates or rolled-back 
   );
   expect(() => f.store.importChunk([event(2)], 1)).toThrow();
   expect(fold.snapshot(emptyAliases).groups[0].requests).toBe(1);
+  instrument.exec('DROP TRIGGER fail_cursor');
+  f.store.importChunk([event(2)], 1);
+  expect(fold.snapshot(emptyAliases).groups[0].requests).toBe(2);
   const restarted = new UsageExporter((visit) => f.store.scanExporterEvents(visit));
   restarted.refresh(book());
   expect(restarted.snapshot(emptyAliases)).toEqual(fold.snapshot(emptyAliases));
+  expect(USAGE_MIGRATIONS).toHaveLength(1);
+  expect(f.db.query('PRAGMA table_info(event_detail)').all()).not.toContainEqual(
+    expect.objectContaining({ name: 'reported_input' })
+  );
+  expect(f.store.getMeta('exporter:cpamp:last_id')).toBeNull();
 });
 
 test('private aliases reload on mtime and retain last good names on invalid or public edits', () => {
@@ -205,7 +309,9 @@ test('exporter bearer boundary reports per-source subscription and nullable even
     exporter: async () => ({
       ...fold.snapshot(emptyAliases),
       rate_book_error: false,
+      rate_book_loaded: true,
       client_alias_error: false,
+      client_aliases_loaded: true,
     }),
   });
   const request = (method = 'GET', auth = true) =>
@@ -234,76 +340,138 @@ test('exporter bearer boundary reports per-source subscription and nullable even
       },
     ],
   });
-  fold.add(event(1, { reportedInputTokens: null }));
-  expect((await handler(request())).status).toBe(503);
+  fold.add(event(1));
+  expect((await handler(request())).status).toBe(200);
 });
 
-test('worker reconciles original metadata for schema-1 rows, then exports and hot-reloads files', async () => {
+test('worker distinguishes never-loaded configuration from last-good reload failures', async () => {
   const root = mkdtempSync('/dev/shm/prox-exporter-worker-');
   cleanups.push(() => rmSync(root, { recursive: true }));
-  const source = createCpamp(join(root, 'cpamp.sqlite'), 1);
-  cleanups.push(() => source.db.close());
   const path = join(root, 'usage.sqlite');
-  // Seed through the current contract, then simulate schema-1 metadata/cursor state.
   const store = new UsageStore({ events: path, raw: null });
-  const old = event(1, {
-    executionId: JSON.parse(
-      source.db.query<{ raw_json: string }, []>('SELECT raw_json FROM usage_events').get()!.raw_json
-    ).execution_id,
-  });
+  const old = event(1);
   store.insert([{ event: old, raw: null }], 0);
-  store.setMeta('import:cpamp:last_id', '1');
   store.close();
-  const instrument = new Database(path);
-  instrument.exec(
-    'UPDATE event_detail SET reported_input=NULL, reported_cached=NULL, reported_output=NULL, reported_reasoning=NULL, reported_total=NULL, reported_latency=NULL, reported_ttft=NULL'
-  );
-  instrument.close();
   const ratePath = join(root, 'rates.json'),
     aliasPath = join(root, 'client-aliases.json');
-  writeFileSync(ratePath, JSON.stringify(book()));
-  writeFileSync(aliasPath, JSON.stringify({ client_alias: [] }), { mode: 0o600 });
-  const workerPath = join(root, 'worker.ts');
-  writeFileSync(
-    workerPath,
-    `import { startUsageWriterWorker } from ${JSON.stringify(join(import.meta.dir, '../server/usage/writerRuntime.ts'))}; startUsageWriterWorker({readPsi: () => 'full avg10=0.00 avg60=0', bytesPerSecond: 1e15});`
-  );
-  const writer = new UsageWriter(workerPath);
+  const writer = new UsageWriter();
   cleanups.push(() => writer.close());
-  await writer.init(
-    { events: path, raw: null },
-    [],
-    Date.now(),
-    { cpampPath: join(root, 'cpamp.sqlite') },
-    { rateBookPath: ratePath, clientAliasesPath: aliasPath }
-  );
-  expect((await writer.exporterSnapshot()).missing_reported_counters).toBe(1);
-  await writer.startJob('reconcile');
-  for (let i = 0; i < 200; i += 1) {
-    if ((await writer.jobReport())?.finishedAtMs) break;
-    await Bun.sleep(5);
-  }
-  expect((await writer.jobReport())?.state).toBe('succeeded');
-  const snapshot = await writer.exporterSnapshot();
-  expect(snapshot.missing_reported_counters).toBe(0);
-  expect(snapshot.groups[0]).toMatchObject({ requests: 1, tokens: { input: 100, output: 200 } });
+  await writer.init({ events: path, raw: null }, [], Date.now(), undefined, {
+    rateBookPath: ratePath,
+    clientAliasesPath: aliasPath,
+  });
+  expect(await writer.exporterSnapshot()).toMatchObject({
+    rate_book_loaded: false,
+    client_aliases_loaded: false,
+    rate_book_error: true,
+    client_alias_error: true,
+  });
+  writeFileSync(ratePath, JSON.stringify(book()));
+  expect(await writer.exporterSnapshot()).toMatchObject({
+    rate_book_loaded: true,
+    client_aliases_loaded: false,
+  });
   writeFileSync(
     aliasPath,
-    JSON.stringify({ client_alias: [{ api_key_hash: old.apiKeyHash, alias: 'New name' }] })
+    JSON.stringify({ client_alias: [{ api_key_hash: old.apiKeyHash, alias: 'New name' }] }),
+    { mode: 0o600 }
   );
+  const snapshot = await writer.exporterSnapshot();
+  expect(snapshot).toMatchObject({
+    rate_book_loaded: true,
+    client_aliases_loaded: true,
+    rate_book_error: false,
+    client_alias_error: false,
+  });
+  expect(snapshot.groups[0]).toMatchObject({
+    client: 'New name',
+    tokens: { input: 950, output: 200, cached: 800 },
+  });
+  writeFileSync(ratePath, '{');
+  writeFileSync(aliasPath, '{');
+  utimesSync(ratePath, 100, 100);
   utimesSync(aliasPath, 100, 100);
-  expect((await writer.exporterSnapshot()).groups[0].client).toBe('New name');
-  writeFileSync(ratePath, JSON.stringify(book({ output: 8 })));
-  utimesSync(ratePath, 101, 101);
-  expect((await writer.exporterSnapshot()).groups[0].cost_usd).toBeGreaterThan(
-    snapshot.groups[0].cost_usd!
+  const retained = await writer.exporterSnapshot();
+  expect(retained).toMatchObject({
+    rate_book_loaded: true,
+    client_aliases_loaded: true,
+    rate_book_error: true,
+    client_alias_error: true,
+  });
+  expect(retained.groups).toEqual(snapshot.groups);
+});
+
+test('endpoint label values equal the deployed exporter SQL choices on the shared fixture', async () => {
+  const f = analyticsStore();
+  cleanups.push(() => f.close());
+  const source = createCpamp(join(f.directory, 'cpamp.sqlite'), 0);
+  cleanups.push(() => source.db.close());
+  source.db.exec('CREATE TABLE api_key_aliases(api_key_hash TEXT, alias TEXT)');
+  for (const alias of labelFixture.client_alias)
+    source.db
+      .query('INSERT INTO api_key_aliases VALUES (?,?)')
+      .run(alias.api_key_hash, alias.alias);
+  labelFixture.events.forEach((row, index) => source.add(cpampRow(index + 1, row)));
+  const reader = openUsageReader(join(f.directory, 'cpamp.sqlite'));
+  cleanups.push(() => reader.close());
+  await runCpampJob(f.store, reader, { mode: 'import', governor: fakeIo().governor });
+  const old = source.db
+    .query(
+      `SELECT e.provider,
+    COALESCE(NULLIF(e.requested_model,''),e.model) AS model,
+    COALESCE(NULLIF(e.account_snapshot,''),e.auth_label_snapshot,e.auth_index) AS account,
+    COALESCE(NULLIF(a.alias,''),CASE WHEN e.api_key_hash IS NULL OR e.api_key_hash='' THEN 'unknown'
+      ELSE 'key ' || substr(e.api_key_hash,1,8) END) AS client
+    FROM usage_events e LEFT JOIN api_key_aliases a ON a.api_key_hash=e.api_key_hash`
+    )
+    .all();
+  const fold = new UsageExporter((visit) => f.store.scanExporterEvents(visit));
+  fold.refresh(book());
+  const keyFile = join(f.directory, 'key');
+  writeFileSync(keyFile, 'synthetic-key');
+  const handler = createUsageStatusHandler({
+    keyFile,
+    healthy: () => true,
+    sources: () => [],
+    writer: () => ({
+      backlog: 0,
+      inserted: 0,
+      duplicates: 0,
+      rejected: 0,
+      rawBufferFailures: 0,
+      gaps: 0,
+    }),
+    exporter: async () => ({
+      ...fold.snapshot(new Map(labelFixture.client_alias.map((a) => [a.api_key_hash, a.alias]))),
+      rate_book_loaded: true,
+      client_aliases_loaded: true,
+      rate_book_error: false,
+      client_alias_error: false,
+    }),
+  });
+  const response = await handler(
+    new Request('http://127.0.0.1/v1/exporter', {
+      headers: { Authorization: 'Bearer synthetic-key' },
+    })
   );
-  // A metadata-only upgrade of an actual old schema leaves existing event rows in place.
-  const legacy = new Database(join(root, 'legacy.sqlite'));
-  migrateUsageDatabase(legacy, USAGE_MIGRATIONS.slice(0, 1));
-  migrateUsageDatabase(legacy);
-  expect(legacy.query('PRAGMA table_info(event_detail)').all()).toContainEqual(
-    expect.objectContaining({ name: 'reported_input' })
+  const data = await response.json();
+  const labels = data.groups.map(
+    ({
+      provider,
+      model,
+      account,
+      client,
+    }: {
+      provider: string;
+      model: string;
+      account: string;
+      client: string;
+    }) => ({ provider, model, account, client })
   );
-  legacy.close();
+  const sort = (values: unknown[]) => values.map((value) => JSON.stringify(value)).sort();
+  expect(sort(labels)).toEqual(sort(old));
+  expect(sort(labels)).toEqual(sort(labelFixture.labels));
+  expect(labels.map((row: { client: string }) => row.client).sort()).toEqual(
+    ['Windows · SwerveStation', 'key bbbbbbbb', 'unknown'].sort()
+  );
 });

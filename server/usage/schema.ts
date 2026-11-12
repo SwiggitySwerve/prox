@@ -110,19 +110,7 @@ const MIGRATION_1_SQL = `
  * `meta.schema_version` records how many have run. Append; never edit or reorder an entry that
  * has shipped. A migration that rewrites a table must run as a governed bulk job instead.
  */
-export const USAGE_MIGRATIONS: readonly string[] = [
-  MIGRATION_1_SQL,
-  `
-  -- Nullable source facts: metadata-only ALTERs do not scan or rewrite old events.
-  ALTER TABLE event_detail ADD COLUMN reported_input INTEGER;
-  ALTER TABLE event_detail ADD COLUMN reported_cached INTEGER;
-  ALTER TABLE event_detail ADD COLUMN reported_output INTEGER;
-  ALTER TABLE event_detail ADD COLUMN reported_reasoning INTEGER;
-  ALTER TABLE event_detail ADD COLUMN reported_total INTEGER;
-  ALTER TABLE event_detail ADD COLUMN reported_latency INTEGER;
-  ALTER TABLE event_detail ADD COLUMN reported_ttft INTEGER;
-`,
-];
+export const USAGE_MIGRATIONS: readonly string[] = [MIGRATION_1_SQL];
 
 /** usage-raw.sqlite: a 30-day buffer for re-deriving events. Analytics never reads it. It has
  * no migrations: the file may be deleted while the service is stopped and is created again. */

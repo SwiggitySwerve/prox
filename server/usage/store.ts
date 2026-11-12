@@ -129,13 +129,6 @@ const DETAIL_COLUMNS = [
   'first_content_ms',
   'recorded_ms',
   'ingested_at_ms',
-  'reported_input',
-  'reported_cached',
-  'reported_output',
-  'reported_reasoning',
-  'reported_total',
-  'reported_latency',
-  'reported_ttft',
 ] as const;
 type Row<Columns extends readonly string[]> = Record<Columns[number], string | number | null>;
 
@@ -202,8 +195,8 @@ export function openUsageReader(path: string): Database {
  */
 export class UsageStore {
   rawBufferFailures = 0;
-  /** Called only after a successful outer commit, for newly inserted events or metadata repair. */
-  onCommit: ((events: readonly NormalizedEvent[], repaired: boolean) => void) | null = null;
+  /** Newly inserted events, published only after the outer transaction commits. */
+  onCommit: ((events: readonly NormalizedEvent[]) => void) | null = null;
   private readonly db: Database;
   private readonly raw: Database | null;
   private readonly dims = new Map<string, number>();
@@ -276,10 +269,7 @@ export class UsageStore {
       this.dims.clear();
       throw error;
     }
-    this.onCommit?.(
-      stored.map(({ item }) => item.event),
-      false
-    );
+    this.onCommit?.(stored.map(({ item }) => item.event));
     this.writeRaw(() => {
       if (!this.raw) return;
       const insertPayload = this.raw.query(
@@ -405,7 +395,6 @@ export class UsageStore {
       // The joined session UUID and the per-event detail UUID agree for valid stored events.
       const differences: ImportDifference[] = [];
       for (const [field, value] of Object.entries(expected)) {
-        if (field.startsWith('reported_') && stored[field] === null) continue;
         if (field === 'seq' || field === 'ingest' || field === 'ingested_at_ms') continue;
         if (stored[field] !== value) {
           differences.push({
@@ -460,7 +449,6 @@ export class UsageStore {
   ): InsertResult & { conflicts: number } {
     const firstSeq = this.nextSeq;
     let committed: Stored[] = [];
-    let repaired = false;
     try {
       const result = this.db
         .transaction(() => {
@@ -488,42 +476,16 @@ export class UsageStore {
               ).changes;
             }
           }
-          // Schema-2 enrichment: fill absent original counters only; never rewrite an event.
-          const repair = this.db.query(`UPDATE event_detail SET
-            reported_input = coalesce(reported_input, ?), reported_cached = coalesce(reported_cached, ?),
-            reported_output = coalesce(reported_output, ?),
-            reported_reasoning = coalesce(reported_reasoning, ?),
-            reported_total = coalesce(reported_total, ?),
-            reported_latency = coalesce(reported_latency, ?), reported_ttft = coalesce(reported_ttft, ?)
-            WHERE execution_id = ? AND (reported_input IS NULL OR reported_cached IS NULL
-              OR reported_output IS NULL OR reported_reasoning IS NULL OR reported_total IS NULL)`);
-          for (const event of events) {
-            repaired =
-              repair.run(
-                event.reportedInputTokens ?? null,
-                event.reportedCachedTokens ?? null,
-                event.reportedOutputTokens ?? null,
-                event.reportedReasoningTokens ?? null,
-                event.reportedTotalTokens ?? null,
-                event.reportedLatencyMs ?? null,
-                event.reportedTtftMs ?? null,
-                event.executionId
-              ).changes > 0 || repaired;
-          }
           const stored = this.insertAll.immediate(
             events.map((event) => ({ event, raw: null })),
             INGEST.imported
           );
           committed = stored;
           this.setMeta('import:cpamp:last_id', String(lastId));
-          this.setMeta('exporter:cpamp:last_id', String(lastId));
           return { inserted: stored.length, duplicates: events.length - stored.length, conflicts };
         })
         .immediate();
-      this.onCommit?.(
-        committed.map(({ item }) => item.event),
-        repaired
-      );
+      this.onCommit?.(committed.map(({ item }) => item.event));
       return result;
     } catch (error) {
       this.nextSeq = firstSeq;
@@ -532,11 +494,12 @@ export class UsageStore {
     }
   }
 
-  /** Full fold only at startup or changed thresholds/metadata; no scan on ordinary scrapes. */
+  /** Canonical events for the startup/threshold fold; ordinary scrapes use no SQL. */
   scanExporterEvents(visit: (event: ExporterEvent) => void): void {
     const rows = this.db.query<
       {
         provider: string;
+        model: string;
         requestedModel: string;
         billingModel: string;
         account: string | null;
@@ -546,13 +509,7 @@ export class UsageStore {
         tsMs: number;
         latencyMs: number | null;
         ttftMs: number | null;
-        reportedInputTokens: number | null;
-        reportedCachedTokens: number | null;
-        reportedOutputTokens: number | null;
-        reportedReasoningTokens: number | null;
-        reportedTotalTokens: number | null;
-        reportedLatencyMs: number | null;
-        reportedTtftMs: number | null;
+        recordKind: number;
         inputTotal: number;
         inputUncached: number;
         cacheRead: number;
@@ -562,23 +519,20 @@ export class UsageStore {
         total: number;
       },
       []
-    >(`SELECT p.value AS provider, m.value AS requestedModel, b.value AS billingModel,
-      a.value AS account, k.value AS apiKeyHash, t.value AS tier, e.failed, e.ts_ms AS tsMs,
-      e.latency_ms AS latencyMs, e.ttft_ms AS ttftMs,
-      d.reported_input AS reportedInputTokens, d.reported_cached AS reportedCachedTokens,
-      d.reported_output AS reportedOutputTokens,
-      d.reported_reasoning AS reportedReasoningTokens,
-      d.reported_total AS reportedTotalTokens,
-      d.reported_latency AS reportedLatencyMs, d.reported_ttft AS reportedTtftMs,
+    >(`SELECT p.value AS provider, m.value AS model, r.value AS requestedModel,
+      b.value AS billingModel, a.value AS account, k.value AS apiKeyHash, t.value AS tier,
+      e.failed, e.ts_ms AS tsMs, e.latency_ms AS latencyMs, e.ttft_ms AS ttftMs,
+      e.record_kind AS recordKind,
       e.input_total AS inputTotal, e.input_uncached AS inputUncached, e.cache_read AS cacheRead,
       e.cache_write AS cacheWrite, e.output_total AS outputTotal, e.reasoning, e.total
-      FROM events e JOIN event_detail d ON d.seq=e.seq AND d.ts_ms=e.ts_ms
-      JOIN dim p ON p.id=e.provider_id JOIN dim m ON m.id=e.requested_model_id
-      JOIN dim b ON b.id=e.billing_model_id JOIN dim t ON t.id=e.tier_id
-      LEFT JOIN dim a ON a.id=e.account_id LEFT JOIN dim k ON k.id=e.api_key_id`);
+      FROM events e JOIN dim p ON p.id=e.provider_id JOIN dim m ON m.id=e.model_id
+      JOIN dim r ON r.id=e.requested_model_id JOIN dim b ON b.id=e.billing_model_id
+      JOIN dim t ON t.id=e.tier_id LEFT JOIN dim a ON a.id=e.account_id
+      LEFT JOIN dim k ON k.id=e.api_key_id`);
     for (const row of rows.iterate()) {
       visit({
         ...row,
+        recordKind: row.recordKind as ExporterEvent['recordKind'],
         failed: row.failed === 1,
         tokens: {
           inputTotal: row.inputTotal,
@@ -705,13 +659,6 @@ export class UsageStore {
       first_content_ms: event.timing?.firstContentMs ?? null,
       recorded_ms: event.timing?.recordedMs ?? null,
       ingested_at_ms: this.now(),
-      reported_input: event.reportedInputTokens ?? null,
-      reported_cached: event.reportedCachedTokens ?? null,
-      reported_output: event.reportedOutputTokens ?? null,
-      reported_reasoning: event.reportedReasoningTokens ?? null,
-      reported_total: event.reportedTotalTokens ?? null,
-      reported_latency: event.reportedLatencyMs ?? null,
-      reported_ttft: event.reportedTtftMs ?? null,
     };
   }
 }

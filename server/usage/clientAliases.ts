@@ -40,8 +40,9 @@ export function parseClientAliases(input: unknown): ReadonlyMap<string, string> 
 export function createClientAliasLoader(path: string) {
   let aliases: ReadonlyMap<string, string> = new Map();
   let modified: number | null = null;
+  let loaded = false;
   return {
-    load(): { aliases: ReadonlyMap<string, string>; error: boolean } {
+    load(): { aliases: ReadonlyMap<string, string>; error: boolean; loaded: boolean } {
       let descriptor: number | undefined;
       try {
         const stat = statSync(path);
@@ -55,12 +56,13 @@ export function createClientAliasLoader(path: string) {
           }
           aliases = parseClientAliases(JSON.parse(readFileSync(descriptor, 'utf8')));
           modified = opened.mtimeMs;
+          loaded = true;
         }
-        return { aliases, error: false };
+        return { aliases, error: false, loaded };
       } catch {
         // Retain the last good names on an interrupted edit; expose failure without file contents.
         modified = null;
-        return { aliases, error: true };
+        return { aliases, error: true, loaded };
       } finally {
         if (descriptor !== undefined) closeSync(descriptor);
       }

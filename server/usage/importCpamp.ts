@@ -85,7 +85,6 @@ const SELECT_CHUNK = `SELECT
   normalized_uncached_input_tokens AS input_uncached,
   normalized_cache_read_tokens AS cache_read,
   normalized_cache_creation_tokens AS cache_write,
-  input_tokens AS reported_input, cached_tokens AS reported_cached,
   output_tokens AS output_total, reasoning_tokens AS reasoning, total_tokens AS total,
   json_valid(raw_json) AS valid_json, ${metadataSql} AS metadata
   FROM usage_events WHERE id > ? AND id <= ? ORDER BY id LIMIT ?`;
@@ -117,11 +116,9 @@ function mapRow(row: SourceRow, checks: Preconditions, seen: Set<string>): Norma
   }
   const validTimestamp =
     Number.isSafeInteger(row.timestamp_ms) && Math.abs(Number(row.timestamp_ms)) <= 8.64e15;
-  const validTokens =
-    tokenColumns.every((key) => Number.isSafeInteger(row[key]) && Number(row[key]) >= 0) &&
-    ['reported_input', 'reported_cached'].every(
-      (key) => row[key] === null || (Number.isSafeInteger(row[key]) && Number(row[key]) >= 0)
-    );
+  const validTokens = tokenColumns.every(
+    (key) => Number.isSafeInteger(row[key]) && Number(row[key]) >= 0
+  );
   if (!validTimestamp) checks.invalidTimestamp += 1;
   if (!validTokens) checks.invalidTokens += 1;
   if (typeof row.latency_ms !== 'number' || row.latency_ms <= 0) checks.nonPositiveLatency += 1;
@@ -148,13 +145,6 @@ function mapRow(row: SourceRow, checks: Preconditions, seen: Set<string>): Norma
     return null;
   }
   const event = result.event;
-  event.reportedInputTokens = Number(row.reported_input ?? 0);
-  event.reportedCachedTokens = Number(row.reported_cached ?? 0);
-  event.reportedOutputTokens = Number(row.output_total ?? 0);
-  event.reportedReasoningTokens = Number(row.reasoning ?? 0);
-  event.reportedTotalTokens = Number(row.total ?? 0);
-  event.reportedTtftMs = typeof row.ttft_ms === 'number' ? row.ttft_ms : null;
-  event.reportedLatencyMs = typeof row.latency_ms === 'number' ? row.latency_ms : null;
   event.provider = nonempty(row.provider) ?? 'unknown';
   event.billingModel = nonempty(row.resolved_model) ?? event.model;
   event.responseModel = nonempty(row.response_model);
@@ -259,21 +249,13 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
     }
     // mmap reads are invisible to syscall byte counters.
     source.exec('PRAGMA mmap_size=0');
-    const savedId = Number(store.getMeta('import:cpamp:last_id') ?? 0);
-    const exporterId = Number(store.getMeta('exporter:cpamp:last_id') ?? 0);
-    const maxId = Number(
-      source.query<{ id: number }, []>('SELECT coalesce(max(id), 0) AS id FROM usage_events').get()!
-        .id
-    );
-    if (
-      options.mode !== 'verify' &&
-      [savedId, exporterId].some((id) => !Number.isSafeInteger(id) || id < 0 || id > maxId)
-    ) {
-      throw new Error('Invalid CPAMP import cursor; source may differ from the saved import');
-    }
     return {
-      maxId,
-      lastId: Math.min(savedId, exporterId),
+      maxId: Number(
+        source
+          .query<{ id: number }, []>('SELECT coalesce(max(id), 0) AS id FROM usage_events')
+          .get()!.id
+      ),
+      lastId: Number(store.getMeta('import:cpamp:last_id') ?? 0),
       select: source.query<SourceRow, [number, number, number]>(SELECT_CHUNK),
     };
   });

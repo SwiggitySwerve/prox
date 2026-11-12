@@ -47,7 +47,12 @@ export interface ExporterConfig {
   clientAliasesPath?: string;
 }
 export interface WriterStatus {
-  exporter?: ExporterSnapshot & { rate_book_error: boolean; client_alias_error: boolean };
+  exporter?: ExporterSnapshot & {
+    rate_book_error: boolean;
+    client_alias_error: boolean;
+    rate_book_loaded: boolean;
+    client_aliases_loaded: boolean;
+  };
   backlog: number;
   inserted: number;
   duplicates: number;

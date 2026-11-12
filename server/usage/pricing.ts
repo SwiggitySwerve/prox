@@ -4,13 +4,7 @@ import type {
   AnalyticsModelRate,
   RegisteredAnalyticsModel,
 } from '../../src/domain/analytics/types';
-import {
-  RATE_FIELDS,
-  applyRateOverride,
-  type ModelRate,
-  type RateBook,
-  type RateValues,
-} from './rates';
+import { applyRateOverride, type ModelRate, type RateBook, type RateValues } from './rates';
 import { RECORD_KIND, USAGE_FLAG, type EventTokens, type RecordKindCode } from './types';
 
 export interface PricingGroup {
@@ -62,16 +56,6 @@ const COMPONENT_FLAGS =
   USAGE_FLAG.outputTokens |
   USAGE_FLAG.cacheReadTokens |
   USAGE_FLAG.cacheCreationTokens;
-
-/** Shared money arithmetic. Preserve each term's rounding and cache-write inheritance. */
-export function tokenCostUsd(tokens: EventTokens, rates: RateValues): number {
-  return (
-    (tokens.inputUncached * (rates.input ?? 0)) / 1_000_000 +
-    (tokens.cacheRead * (rates.cache_read ?? 0)) / 1_000_000 +
-    (tokens.cacheWrite * (rates.cache_write ?? rates.input ?? 0)) / 1_000_000 +
-    (tokens.outputTotal * (rates.output ?? 0)) / 1_000_000
-  );
-}
 
 export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost {
   const calls = group.calls ?? 1;
@@ -138,7 +122,11 @@ export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost
         if (name && name !== 'default' && name !== 'standard' && !serviceRate(price, tier)) {
           result.reasons.push('service-tier-rate-not-explicit');
         }
-        result.usd = tokenCostUsd(tokens, effective);
+        result.usd =
+          (tokens.inputUncached * (effective.input ?? 0)) / 1_000_000 +
+          (tokens.cacheRead * (effective.cache_read ?? 0)) / 1_000_000 +
+          (tokens.cacheWrite * (effective.cache_write ?? effective.input ?? 0)) / 1_000_000 +
+          (tokens.outputTotal * (effective.output ?? 0)) / 1_000_000;
         result.status = result.reasons.length
           ? 'partial'
           : result.usd === 0 && effective.input === 0 && effective.output === 0
@@ -284,32 +272,4 @@ export function buildRateInventory(
   for (const key of [...remaining.keys()].sort())
     result.push(analyticsRate(remaining.get(key)!, false, book));
   return result;
-}
-
-/** Legacy exporter policy: bill only the serving model, never an alias's catalog rate.
- * Context wins over service tiers; a missing billing context row falls back to BASE.
- * Keep the historical -fast priority rule for counter continuity until a live comparison. */
-export function exporterRates(
-  book: RateBook,
-  billingModel: string,
-  requestedModel: string,
-  tier: string,
-  band: number | null
-): RateValues | null {
-  const price = resolveModelPrice([billingModel], book)?.price;
-  if (!price || RATE_FIELDS.every((field) => price[field] === null)) return null;
-  let override =
-    band === null
-      ? serviceRate(price, tier)
-      : price.context_tiers.find((row) => row.above_input_tokens === band);
-  if (!override && band === null && requestedModel.endsWith('-fast')) {
-    override = serviceRate(price, 'priority');
-  }
-  const effective = override ? applyRateOverride(price, override) : price;
-  return {
-    input: effective.input ?? 0,
-    output: effective.output ?? 0,
-    cache_read: effective.cache_read ?? (effective.input ?? 0) * 0.1,
-    cache_write: effective.cache_write ?? effective.input ?? 0,
-  };
 }

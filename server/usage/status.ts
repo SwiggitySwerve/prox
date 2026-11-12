@@ -78,15 +78,6 @@ export function createUsageStatusHandler(options: {
         return json({ error: 'Exporter unavailable' }, 503);
       try {
         const snapshot = await options.exporter();
-        if (snapshot.missing_reported_counters) {
-          return json(
-            {
-              error: 'Original token counters need reconciliation before exporter cutover',
-              missing_reported_counters: snapshot.missing_reported_counters,
-            },
-            503
-          );
-        }
         const now = (options.now ?? Date.now)();
         return json({
           ...snapshot,

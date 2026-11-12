@@ -489,69 +489,74 @@ make the snapshot bounded. No timer enablement or live install is part of this w
 
 ## Exporter lifetime counters and client names
 
-`exporter.ts` owns an in-memory fold in the writer worker. `store.onCommit` supplies
-only newly committed events, after the outer transaction (including import cursor
-writes) succeeds. Duplicate executions and rolled-back transactions add nothing.
-The initial fold runs at writer startup; ordinary reads do no SQL. A change in
-context thresholds, or enrichment of missing original metadata, refolds retained
-history. Rate-only edits reprice groups; client-name edits relabel them. Nothing
-derived is persisted. Events are kept indefinitely; raw expiry cannot reduce
-lifetime counters. Any future archive must retain lifetime totals before deleting
-events; this implementation deliberately has no event-deletion/archive path.
+`exporter.ts` owns a writer-worker in-memory fold over the existing canonical event
+columns. Startup folds retained events once; `store.onCommit` adds only newly
+committed events after the outer transaction succeeds. Duplicate executions and
+rolled-back transactions add nothing. No derived state is persisted. The schema
+remains migration 1: no original-counter metadata, backfill or secondary import
+cursor is required. Raw-buffer expiry never deletes events or lowers counters.
+Any future event archive must preserve lifetime totals before deleting events.
 
-Schema 2 appends nullable **source facts** to `event_detail` with metadata-only
-ALTERs: original input/output/cached/reasoning/total counters and original latency
-and TTFT. These differ from canonical analytics columns. The exporter preserves
-the old SQL's original token series, original output for cost, normalized uncached
-input and cache for cost, all calls for latency count, and strictly positive TTFT
-for both sum and count. Supplementary rows remain counted as in the old exporter.
-Analytics keeps its own canonical token and measurement rules unchanged.
+Metrics use the same canonical input/output/cache/reasoning counters as analytics.
+Known supplementary rows are excluded, as in analytics. Non-null latency samples
+supply the latency sum/count; only positive TTFT supplies its sum/count. Successful
+zero-total events supply the accounting-gap count. Pricing calls P4's
+`estimateAggregateCost` with per-event context bands and the same ordered
+billing/canonical/requested model fallback as analytics. No exporter-only `-fast`,
+billing-only, generic cache-price or Python summation rules remain. Partial and
+unknown prices keep P4's semantics. Priced-model count uses the shared rate
+inventory's priced classification.
 
-The first import/reconcile after this upgrade takes the lower of
-`import:cpamp:last_id` and `exporter:cpamp:last_id` (initially zero), so the existing
-governed 1,000-row chunks can fill only missing source facts on duplicate execution
-IDs. It never rewrites events or known facts. Both cursors commit with each chunk;
-verify stays read-only. A failed transaction publishes no fold changes. Missing
-original counters produce HTTP 503 with `missing_reported_counters`, rather than
-inventing legacy metrics. Complete reconciliation before switching the exporter.
-Any Prox-only legacy rows that CPAMP cannot supply still block cutover and require
-an explicit source-data repair; no approximation or automatic deletion is allowed.
+The public model label still uses the requested model, matching the deployed
+exporter, while pricing uses the canonical model internally. Account/provider
+values retain their stored snapshots. Client aliases preserve exact names and the
+old `key <first 8 hash chars>` / `unknown` fallbacks. The shared fixture
+`tests/fixtures/usageExporterLabels.json` compares actual old SQL label values with
+the authenticated endpoint response, including a model suffix and Unicode names.
+
+Rate-only edits reprice groups without reading events; changed thresholds or
+pricing-candidate membership trigger a new fold, because a newly configured
+base-only candidate can stop fallback to a different candidate's context tiers.
+Client-name edits relabel groups without a scan. A failed projection invalidates
+the fold for a later rebuild; it never turns a committed event into failed ingest.
 
 `GET /v1/exporter` uses the existing loopback listener and management bearer check.
 Its version-1 JSON contains groups per provider, requested model, account, client
 and success/failed status, token/cache totals, seconds sums/counts, zero-token
 successes and nullable current-rate cost; plus newest event epoch seconds and
-priced-model count. Missing configured prices omit cost, not a fabricated zero.
-Only models with at least one configured rate count; pending-D5 placeholders do
-not. Rate-book and alias reload errors are explicit booleans; last good snapshots
-survive failed edits. Source health includes instance, subscription state, a
-subscribed boolean and event age in seconds. No event observed since this process
-started is `null`, never zero age; the shim emits NaN for that gauge. Health alone
-cannot prove traffic delivery during quiet periods or across at-most-once gaps.
+priced-model count. It remains additive during the dual run. Source health reports
+instance, state, subscribed and last-event age in seconds; no event since process
+start is `null`, never a healthy zero age.
 
-Exporter pricing deliberately preserves the legacy policy in `pricing.ts`:
-look up the **billing model only**, never a requested alias's price; classify each
-event with the greatest strictly exceeded context threshold across billing and
-requested models; context suppresses service pricing even if the billing model
-lacks that band (fall back to its base rate). With no context band, use the stored
-tier, then the historical requested `-fast` suffix's priority tier, then base.
-Retain `-fast` until a live series comparison supports removing it. Null cache-read
-rates default to 10% of effective input; cache-write defaults to effective input;
-explicit zero stays zero. `tokenCostUsd` shares the unchanged money arithmetic
-with analytics. Costs use current configured rates, so repricing may change a
-counter; the swap runbook must account for D5's lifetime cost step and resets.
+`rate_book_loaded` and `client_aliases_loaded` distinguish a first-load failure
+from a failed edit with a last-good snapshot. `rate_book_error` and
+`client_alias_error` report the latest reload result. The HTTP response can carry
+source health when configuration has never loaded. The cutover shim must skip its
+usage counters until both loaded flags are true. A reload error with loaded=true
+may keep serving the last-good values. An explicit empty alias map counts as
+loaded; unknown clients then deliberately use the documented fallbacks.
 
-Client aliases come from `~/.config/prox-usage/client-aliases.json` (0600), or
+Aliases come from `~/.config/prox-usage/client-aliases.json` (0600), or
 `PROX_USAGE_CLIENT_ALIASES_PATH`; the unit sets `/config/client-aliases.json` on its
-existing read-only config mount. The P4 artifact format is exactly
+existing read-only config mount. The P4 format is
 `{"client_alias":[{"api_key_hash":"<64 lowercase SHA-256 hex>","alias":"<name>"}]}`.
-The loader checks permissions on every read, reloads on mtime change, validates
-hashes/names and keeps last good names on an invalid edit. It never writes the file
-or database. Empty/missing names use `key <first 8 hash chars>`; absent hashes use
-`unknown`, matching the old exporter. Full hashes and raw keys never leave the
-endpoint. Alias files and P4 alias artifacts are ignored by git. See
-`docs/PROX-SETUP.md` for naming a new client after CPAMP's UI is retired.
+The loader checks permissions, reloads on mtime changes, validates hashes/names,
+and retains last-good names on invalid edits. It never writes the file or database.
+Full hashes and raw keys never leave the endpoint. Alias files and P4 alias
+artifacts are ignored by git. See `docs/PROX-SETUP.md` for naming a new client.
 
-`proxUsageExporter` tests enforce fold/reload behavior, original-series semantics,
-commit/rollback/deduplication, metadata enrichment, private aliases, bearer routing
-and collector health. No live parity claim is made without the step-E comparison.
+The exporter rollout has two steps. First add source health beside the unchanged
+CPAMP counters. At Step E, after Step B's history import completes, switch counters
+to this endpoint and add `source="prox-usage"` to every usage counter/gauge. Old
+series end; new series start at canonical lifetime totals. Prometheus rate/increase
+does not count a new series' first sample, avoiding a legacy-value reset spike.
+Lifetime-total dashboards jump once. Canonical output and P4 pricing change values,
+including D5's Fable/Terra cost and removal of old pricing quirks. Apply the Sonnet
+5.5 cache-read correction at the identity change. Any later price decrease can
+lower the cost counter and requires a fresh source identity (e.g. `prox-usage-2`).
+A rollback resumes old counters and can count traffic already counted in the new
+series. None of these rollout actions is performed by this implementation.
+
+Tests compare independent fixture totals and the analytics engine over identical
+scopes, enforce commit/rollback/deduplication and schema 1, exercise reload readiness
+and private aliases, and verify bearer routing, exact label values and source health.

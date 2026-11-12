@@ -83,7 +83,9 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
             exporter: {
               ...exporter.snapshot(aliasState.aliases),
               rate_book_error: !!rateState.error,
+              rate_book_loaded: rateState.book !== null,
               client_alias_error: aliasState.error,
+              client_aliases_loaded: aliasState.loaded,
             },
           },
         });
@@ -119,10 +121,9 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
         );
         exporter = new UsageExporter((visit) => store!.scanExporterEvents(visit));
         exporter.refresh(rates.load().book);
-        store.onCommit = (events, repaired) => {
+        store.onCommit = (events) => {
           try {
-            if (repaired) exporter!.invalidate();
-            else for (const event of events) exporter!.add(event);
+            for (const event of events) exporter!.add(event);
           } catch {
             // A projection failure never turns a committed event into a failed live batch.
             exporter!.invalidate();

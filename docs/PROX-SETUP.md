@@ -263,10 +263,19 @@ restart is needed. An unknown key appears as `key <first 8 hash characters>`;
 traffic without a key is `unknown`. Invalid edits retain the last good labels and
 set `client_alias_error` in the authenticated `/v1/exporter` response.
 
-Before the monitoring swap, run the governed reconcile and require
-`GET /v1/exporter` to return 200 with `missing_reported_counters: 0`. Schema-1 rows
-need their original token/timing metadata from CPAMP. If unmatched rows remain,
-stop the cutover and repair them from source evidence; do not substitute canonical
-tokens. Compare every old/new usage series at the swap. D5 prices for
-`claude-fable-5-2` and `gpt-6.1-terra` add their lifetime API-equivalent cost;
-Prometheus interprets any decrease in an existing counter series as a reset.
+The monitoring rollout first adds Prox source-health gauges beside the unchanged
+CPAMP counters. At cutover Step E, require Step B's full history import to finish,
+then require `/v1/exporter` to report `rate_book_loaded: true` and
+`client_aliases_loaded: true`. A last-good reload error may retain valid values;
+first-load failure must suppress the shim's usage counters. Use an explicit empty
+`client_alias` array if no friendly names are wanted.
+
+The cutover adds `source="prox-usage"` to usage counters and gauges. Their values
+become the canonical tokens and current-rate costs shown in Prox analytics, with
+requested-model/account/provider/client label values preserved. New series' first
+samples are not counted by Prometheus rate/increase; lifetime-total dashboards
+jump once. Fable/Terra pricing and removal of the old generic-cache, `-fast` and
+billing-only policies affect costs. Apply the Sonnet 5.5 cache-read correction at
+this identity change; any later price decrease needs a new source identity.
+Importing history after the swap would appear as a huge increase. Rolling back
+resumes old counters and can double-count traffic already counted by the new ones.

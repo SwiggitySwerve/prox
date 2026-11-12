@@ -92,14 +92,6 @@ export interface EventSession {
 export interface NormalizedEvent {
   /** The event's identity. */
   executionId: string;
-  /** Original source counters used by the legacy exporter; distinct from canonical tokens. */
-  reportedInputTokens?: number | null;
-  reportedCachedTokens?: number | null;
-  reportedOutputTokens?: number | null;
-  reportedReasoningTokens?: number | null;
-  reportedTotalTokens?: number | null;
-  reportedLatencyMs?: number | null;
-  reportedTtftMs?: number | null;
   /** Request start as reported by the proxy, truncated to milliseconds. */
   tsMs: number;
   instance: string | null;
