@@ -59,10 +59,13 @@ const COMPONENT_FLAGS =
 
 export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost {
   const calls = group.calls ?? 1;
-  for (const [key, value] of Object.entries({ ...group.tokens, calls })) {
+  for (const key of Object.keys(group.tokens) as (keyof EventTokens)[]) {
+    const value = group.tokens[key];
     if (!Number.isSafeInteger(value) || value < 0)
       throw new Error(`${key} must be a non-negative safe integer`);
   }
+  if (!Number.isSafeInteger(calls) || calls < 0)
+    throw new Error('calls must be a non-negative safe integer');
   if (calls === 0) return { usd: null, status: 'unavailable', reasons: ['no-retained-events'] };
   const result: AnalyticsCost = {
     usd: null,
@@ -158,7 +161,9 @@ export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost
 
 /** Preserve known subtotals, unique reasons in first-seen order, and call counts. */
 export function combineEstimates(left: AnalyticsCost, right: AnalyticsCost): AnalyticsCost {
-  const reasons = [...new Set([...left.reasons, ...right.reasons])];
+  const reasons: string[] = [];
+  for (const reason of left.reasons) if (!reasons.includes(reason)) reasons.push(reason);
+  for (const reason of right.reasons) if (!reasons.includes(reason)) reasons.push(reason);
   const usd = left.usd === null && right.usd === null ? null : (left.usd ?? 0) + (right.usd ?? 0);
   const priced = (left.priced_calls ?? 0) + (right.priced_calls ?? 0);
   const unpriced = (left.unpriced_calls ?? 0) + (right.unpriced_calls ?? 0);
