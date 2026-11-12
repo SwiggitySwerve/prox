@@ -153,3 +153,20 @@ query with `debug_force_raw: true` and without it. The default response may
 still use raw spans while backfill is incomplete; do not interpret that as a
 clean-rollup measurement. Repeat the 50-warm-run real-store gate and P6 parity
 checks before merging. No real-data result is claimed here.
+
+## Fixture review follow-up
+
+Review found that the original randomized fixture's low LCG bits repeated at
+its fixed draws-per-event stride. The four-seed comparison at `04ef5d60` did not
+establish the advertised model/tier/outcome variation. The sampler now scales
+the full unsigned state instead of taking a low-bit remainder. Each seed asserts
+at least three models, billing models and tiers in the included event scope,
+both outcomes, all three stored context bands, imported history and at least
+two closed dirty hours before comparing complete responses.
+
+`ionice -c3 nice -n10 env PATH=/dev/shm/prox-bun-1.4.3/bun-linux-x64:$PATH bun test
+tests/proxUsageRollup.test.ts tests/proxUsageAnalytics.test.ts`: **23 passed,
+0 failed** (all 15 rollup and eight analytics tests), 246 assertions. This
+follow-up changes tests and evidence only. The full verification recorded above
+was not repeated. Production code, synthetic performance results and the real
+imported-data merge gate are unchanged.

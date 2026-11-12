@@ -4,6 +4,7 @@ import { queryAnalytics } from '../server/usage/analytics';
 import { bandLayout, HOUR_MS } from '../server/usage/aggregate';
 import { canReadRollup } from '../server/usage/rollupRead';
 import { parseRateBook } from '../server/usage/rates';
+import { INGEST, RECORD_KIND } from '../server/usage/types';
 import { analyticsStore, BASE, event, query, rates, rateState } from './helpers/usageAnalytics';
 
 let fixture: ReturnType<typeof analyticsStore>;
@@ -51,7 +52,8 @@ test.each([195873, 78197, 20261112, 4294967295])(
     let seed = initialSeed;
     const random = (n: number) => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      return seed % n;
+      // Low LCG bits repeat at the event's fixed draw stride and can pin dimensions.
+      return Math.floor((seed / 4294967296) * n);
     };
     const events = Array.from({ length: 4000 }, (_, i) => {
       const input = [0, 500, 1000, 1001, 2000, 2001][random(6)];
@@ -78,15 +80,51 @@ test.each([195873, 78197, 20261112, 4294967295])(
         },
       });
     });
+    const scoped = events.filter(
+      (row) => row.recordKind !== RECORD_KIND.supplementary && row.tsMs < clock
+    );
+    expect(new Set(scoped.map((row) => row.model)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(scoped.map((row) => row.billingModel)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(scoped.map((row) => row.tier)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(scoped.map((row) => row.failed))).toEqual(new Set([false, true]));
     f.insert(events.slice(0, 3000));
     f.insert(events.slice(3000), 2);
     drain(f);
     expect(
       f.db.query<{ n: number }, []>('SELECT count(*) AS n FROM usage_hour_rollup').get()!.n
     ).toBeGreaterThan(500);
+    expect(
+      f.db
+        .query<{ band: number }, []>(
+          `
+        SELECT DISTINCT band FROM usage_hour_rollup
+        WHERE record_kind != ${RECORD_KIND.supplementary} ORDER BY band
+      `
+        )
+        .all()
+        .map((row) => row.band)
+    ).toEqual([-1, 1000, 2000]);
+    expect(
+      f.db
+        .query<{ n: number }, [number, number]>(
+          `
+        SELECT count(DISTINCT ts_ms / ?) AS n FROM events WHERE ingest = ?
+      `
+        )
+        .get(HOUR_MS, INGEST.imported)!.n
+    ).toBeGreaterThan(0);
     // Touch old clean hours via both late traffic and historical imports; keep them dirty.
     f.insert([event(5001, { tsMs: start + HOUR_MS + 12 })]);
     f.insert([event(5002, { tsMs: start + 19 * HOUR_MS + 1 })], 2);
+    expect(
+      f.db
+        .query<{ n: number }, [number, number]>(
+          `
+        SELECT count(*) AS n FROM usage_hour_state WHERE dirty = 1 AND hour_ms + ? <= ?
+      `
+        )
+        .get(HOUR_MS, clock)!.n
+    ).toBeGreaterThanOrEqual(2);
     f.store.recordGap({
       instance: 'test',
       fromMs: start + 9,
