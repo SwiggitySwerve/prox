@@ -5,8 +5,9 @@ the analytics calculations. It is the `prox-usage` service: its own process and
 unit, not part of the history server.
 
 - `prox-usage` is the only consumer of the proxies' usage stream and the only
-  process that opens `usage.sqlite`. Everything else reads through its loopback
-  HTTP API. The history server, the browser and the exporter never open the file.
+  live process that opens `usage.sqlite`. Other services read through its loopback
+  HTTP API. The offline operator parity reader is the exception documented below.
+  The history server, the browser and the exporter never open the file.
 - The thread that owns sockets makes no SQLite call. There is exactly one write
   connection, in the writer worker; every write is a job in its queue. Readers
   are read-only and bounded by the request deadline.
@@ -382,6 +383,68 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   They use synthetic tmpfs databases and a loopback fake S3 endpoint only.
 
 
+## Offline parity evidence
+
+`scripts/usage-parity.ts` is the operator-only read exception during the dual run.
+It opens CPAMP and Prox with SQLite URI `mode=ro`, read-only flags and
+`query_only=1`; it never imports/reconciles, writes events or joins either server's
+runtime graph. CPAMP reads force `idx_usage_events_timestamp`, use five-minute
+windows and 1,000-row keyset pages. The importer shares only its allowlisted SQL
+projection, metadata-key schema and diagnostic-counter factory with this reader.
+`scripts/usage-parity/cpampReference.ts` is an independent CPAMP-side oracle:
+no Prox normalizer or importer mapping supplies an expected value. Persisted
+columns are authoritative, including `service_tier`; raw tiers cannot override
+it. Model identities follow CPAMP's persisted-column aggregation expressions;
+metadata-only flags/kind/identifiers follow CPAMP's Go envelope contract. This
+independent audit intentionally does not reuse the algorithm under test.
+Known decoded metadata objects accept only canonical field casing and JSON types.
+Case aliases or wrong types produce an unexplained event with reason
+`non-canonical CPAMP metadata encoding`; they are never normalized into a match.
+Nullable timing offsets and unrelated extension keys retain their existing meaning.
+
+The harness compares the seven token fields and the event identity, timing,
+models, provider, tier, failure, status, flags and record kind, plus exporter
+account, account-label and client-key-hash dimensions. The import owner's account
+SQL fallback (`nullif(snapshot,'')`, then nullable label, then credential index)
+is applied to persisted fields, preserving empty labels, whitespace and key-hash
+case. No label snapshot timing exception is authorized by this harness. A missing Prox event is
+explained only by a matching instance/time in `ingest_gaps`; a Prox-only drained
+event needs an explicit, documented CPAMP outage interval. Subscribed extras fail.
+
+All operations share the existing IO governor and one serial query gate, with a
+2-second default minimum gap after completion, cancellable PSI waits, measured
+DB-byte pacing and a nonzero exit on unexplained differences, failure or abort.
+There are no retries of expensive queries. The only response normalization is
+plan §3.3's four volatile fields, relative `cost.usd` tolerance and ordering inside
+equal-timestamp runs. Provider and trace provenance differences apply only to
+request-detail fields and are counted. A D5 price exception needs two read-only
+replays through `queryAnalytics`: the approved deployed book must reproduce the
+Prox value, and removing only the two D5 models must reproduce CPAMP's value.
+The `coverage-limitations` rule requires every CPAMP sentence except the exact
+successive-reads sentence. Extra Prox sentences must be the exact §2.7 conditions
+or validated gap/prune forms (overlapping range and incomplete raw coverage).
+Missing required sentences, unknown extras and duplicate sentences fail. Both
+lists remain in evidence and each changed field/pair is counted. Other coverage
+fields and one-sided paging remain exact.
+
+The harness refuses query admission during 01:00–04:00 and 12:20–12:50 UTC.
+`--deadline` accepts an absolute UTC timestamp or today's `HH:MMZ`; a delayed start
+never rolls the cutoff into tomorrow. The earliest deadline/forbidden boundary
+aborts fetches and PSI/pacing waits, and is rechecked at synchronous boundaries.
+An incomplete run writes `complete=false`, its termination reason and partial
+counts, then exits 2 (unexplained differences exit 1; SIGINT exits 130). The user
+unit passes `--deadline 12:00Z` and uses `Type=exec` plus `RuntimeMaxSec=7h30min`
+as a backstop. None of these templates is installed or enabled by this work.
+
+The matrix is ported from CPAMP commit `52b12b45e010a766bd69ff55a55e566263d8bede`.
+Its current source has 672 quick / 5,904 full base queries, with coupled view
+rotation rather than extra time-zone/granularity factors. All view slots are kept
+and mapped to UTC. Each backend supplies its own second-page cursor. Reports
+reconcile the stale plan counts, expose each axis and window clipping, and retain
+both values for every difference. The disabled user timer template runs quick
+plus events for the previous UTC day at 04:30 UTC; installation and the two-night
+cutover decision belong to the coordinator.
+
 ## Analytics queries
 
 - `validate.ts` owns the strict `AnalyticsQuery` plus catalog boundary (one JSON
@@ -463,7 +526,6 @@ API, and records 50 warm worker responses per view while inserting synthetic
 traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
 The live performance/parity gate is a separate deployment responsibility; a
 30-day p95 above 1 s requires P5b before P6, per the plan.
-
 
 ### Raw-buffer expiry and schedules
 

@@ -1,0 +1,915 @@
+{
+  "schema_version": 1,
+  "started_at_ms": 1794611843456,
+  "window": {
+    "from_ms": 1791929843456,
+    "to_ms": 1794608243456
+  },
+  "mode": "quick",
+  "level": "responses",
+  "matrix": {
+    "source_cases": 672,
+    "clipped_cases": 56,
+    "outside_window_cases": 0,
+    "generated_cases": 672,
+    "selected_cases": 1,
+    "planned_max_pairs": 2,
+    "pairs_completed": 2,
+    "http_responses": 4,
+    "second_pages_absent_on_both": 0,
+    "second_pages_limited": 0,
+    "paging_mismatches": 0,
+    "d5_replays": 4,
+    "limited": true
+  },
+  "matrix_reconciliation": [
+    {
+      "mode": "quick",
+      "plan_count": 720,
+      "generated_base_queries": 672,
+      "arithmetic": "60 filter combinations × 4 rotating spans + 24 searches × 3 providers × 2 models × 3 outcomes = 240 + 432 = 672",
+      "maximum_pairs": 1344,
+      "maximum_http_responses": 2688,
+      "reason": "Plan count is not reproduced by the checked-in generators. 0 source cases dropped; time-zone slots mapped to UTC. Two pages × 672 = up to 1,344 pairs; two servers × 1,344 = 2,688 responses."
+    },
+    {
+      "mode": "full",
+      "plan_count": 22464,
+      "generated_base_queries": 5904,
+      "arithmetic": "60 filter combinations × 12 spans + 24 searches × 3 providers × 2 models × 3 outcomes × 12 spans = 720 + 5,184 = 5,904",
+      "maximum_pairs": 11808,
+      "maximum_http_responses": 23616,
+      "reason": "Plan count is not reproduced by the checked-in generators. 0 source cases dropped; time-zone slots mapped to UTC. Two pages × 5,904 = up to 11,808 pairs; two servers × 11,808 = 23,616 responses."
+    }
+  ],
+  "generator_axes": [
+    {
+      "axis": "Ranges",
+      "cpamp_rollup": "6 lengths × aligned/unaligned = 12; quick rotates 4",
+      "cpamp_search": "same 12; quick rotates 1",
+      "harness": "identical selections; caller window clipping reported separately"
+    },
+    {
+      "axis": "Buckets/granularities",
+      "cpamp_rollup": "hour/day in 8 rotating view slots (4/4)",
+      "cpamp_search": "hour/day in 5 rotating view slots (3/2)",
+      "harness": "same rotation; not an extra Cartesian factor"
+    },
+    {
+      "axis": "Outcomes",
+      "cpamp_rollup": "3",
+      "cpamp_search": "3",
+      "harness": "3 in both families"
+    },
+    {
+      "axis": "Providers",
+      "cpamp_rollup": "5: empty, claude, CODEX, gemini, nobody",
+      "cpamp_search": "3: empty, claude, CODEX",
+      "harness": "same 5 / 3"
+    },
+    {
+      "axis": "Models",
+      "cpamp_rollup": "2: empty, shared-model",
+      "cpamp_search": "same 2",
+      "harness": "same 2"
+    },
+    {
+      "axis": "Search terms",
+      "cpamp_rollup": "2: empty, needle",
+      "cpamp_search": "24",
+      "harness": "same 2 / 24 slots; 3 search-fixture-only terms replaced with shared-column session, trace and tier terms"
+    },
+    {
+      "axis": "Time zones",
+      "cpamp_rollup": "5 distinct zones in 8 coupled view slots",
+      "cpamp_search": "5 distinct zones in 5 coupled view slots",
+      "harness": "1 (UTC); all 8 / 5 slots preserved, 0 query cases removed"
+    },
+    {
+      "axis": "Pages",
+      "cpamp_rollup": "1",
+      "cpamp_search": "1",
+      "harness": "1 plus page 2 when both have it; one-sided page 2 fails parity"
+    }
+  ],
+  "generator_source": {
+    "repository": "CPA-Manager-Plus",
+    "commit": "52b12b45e010a766bd69ff55a55e566263d8bede",
+    "files": {
+      "apps/manager-server/internal/service/monitoring/prox_provider_rollup_test.go": "2afc0df2b51c53f78baa4df9c2f201f92aaf0808",
+      "apps/manager-server/internal/service/monitoring/prox_search_test.go": "0b739689d4f647356ea79aabaf0de4418127a1c4"
+    }
+  },
+  "response_counts": {
+    "compared": 2,
+    "equal": 0,
+    "unexplained": 0,
+    "known_by_rule": {
+      "d5-pricing": 2,
+      "detail-trace": 2,
+      "detail-provider": 2,
+      "coverage-limitations": 2
+    }
+  },
+  "responses": [
+    {
+      "case_id": "rollup-0-1794604643456-1794608243456",
+      "family": "rollup",
+      "page": 1,
+      "cpamp_query": {
+        "from_ms": 1794604643456,
+        "to_ms": 1794608243456,
+        "time_zone": "UTC",
+        "granularity": "hour",
+        "provider": "",
+        "model": "",
+        "outcome": "all",
+        "search": "",
+        "limit": 3,
+        "catalog": [
+          {
+            "instance_id": "instance",
+            "instance_label": "Instance",
+            "provider": "claude",
+            "id": "claude-only"
+          }
+        ]
+      },
+      "prox_query": {
+        "from_ms": 1794604643456,
+        "to_ms": 1794608243456,
+        "time_zone": "UTC",
+        "granularity": "hour",
+        "provider": "",
+        "model": "",
+        "outcome": "all",
+        "search": "",
+        "limit": 3,
+        "catalog": [
+          {
+            "instance_id": "instance",
+            "instance_label": "Instance",
+            "provider": "claude",
+            "id": "claude-only"
+          }
+        ]
+      },
+      "differences": [
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.usd",
+          "cpamp": 0.0045,
+          "prox": 0.012
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.reasons[2]",
+          "cpamp": "usage-presence-unknown",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.priced_calls",
+          "cpamp": 3,
+          "prox": 8
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.unpriced_calls",
+          "cpamp": 5,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.usd",
+          "cpamp": 0.0045,
+          "prox": 0.012
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.reasons[2]",
+          "cpamp": "usage-presence-unknown",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.priced_calls",
+          "cpamp": 3,
+          "prox": 8
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.unpriced_calls",
+          "cpamp": 5,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.usd",
+          "cpamp": null,
+          "prox": 0.0045
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.status",
+          "cpamp": "unpriced",
+          "prox": "partial"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.unpriced_calls",
+          "cpamp": 3,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.priced_calls",
+          "cpamp": {
+            "absent": true
+          },
+          "prox": 3
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.usd",
+          "cpamp": null,
+          "prox": 0.003
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.status",
+          "cpamp": "unpriced",
+          "prox": "partial"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.unpriced_calls",
+          "cpamp": 2,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.priced_calls",
+          "cpamp": {
+            "absent": true
+          },
+          "prox": 2
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.usd",
+          "cpamp": 0.0045,
+          "prox": 0.012
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.reasons[2]",
+          "cpamp": "usage-presence-unknown",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.priced_calls",
+          "cpamp": 3,
+          "prox": 8
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.unpriced_calls",
+          "cpamp": 5,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "detail-provider",
+          "path": "$.requests.items[0].provider",
+          "cpamp": "synthetic-credential-snapshot-provider",
+          "prox": "claude"
+        },
+        {
+          "class": "detail-trace",
+          "path": "$.requests.items[0].trace_id",
+          "cpamp": "synthetic-header-trace",
+          "prox": "000000ab"
+        },
+        {
+          "class": "detail-provider",
+          "path": "$.requests.items[1].provider",
+          "cpamp": "synthetic-credential-snapshot-provider",
+          "prox": "claude"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[1].cost.usd",
+          "cpamp": null,
+          "prox": 0.0015
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[1].cost.status",
+          "cpamp": "unpriced",
+          "prox": "estimated"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[1].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "detail-trace",
+          "path": "$.requests.items[1].trace_id",
+          "cpamp": "synthetic-header-trace",
+          "prox": "000000ab"
+        },
+        {
+          "class": "detail-provider",
+          "path": "$.requests.items[2].provider",
+          "cpamp": "synthetic-credential-snapshot-provider",
+          "prox": "claude"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[2].cost.usd",
+          "cpamp": null,
+          "prox": 0.0015
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[2].cost.status",
+          "cpamp": "unpriced",
+          "prox": "estimated"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[2].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "detail-trace",
+          "path": "$.requests.items[2].trace_id",
+          "cpamp": "synthetic-header-trace",
+          "prox": "000000ab"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].matched_model",
+          "cpamp": null,
+          "prox": "claude-fable-5-2"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].status",
+          "cpamp": "unpriced",
+          "prox": "priced"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].source",
+          "cpamp": "unavailable",
+          "prox": "configured-or-owner-fallback"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].input_per_million",
+          "cpamp": null,
+          "prox": 2
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].output_per_million",
+          "cpamp": null,
+          "prox": 4
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].cache_read_per_million",
+          "cpamp": null,
+          "prox": 0.5
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].matched_model",
+          "cpamp": null,
+          "prox": "gpt-6.1-terra"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].status",
+          "cpamp": "unpriced",
+          "prox": "priced"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].source",
+          "cpamp": "unavailable",
+          "prox": "configured-or-owner-fallback"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].input_per_million",
+          "cpamp": null,
+          "prox": 2
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].output_per_million",
+          "cpamp": null,
+          "prox": 4
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].cache_read_per_million",
+          "cpamp": null,
+          "prox": 0.5
+        },
+        {
+          "class": "coverage-limitations",
+          "path": "$.coverage.limitations",
+          "cpamp": [
+            "Retained usage events are not a complete ingress or client-outcome ledger.",
+            "Costs are estimated API-equivalent subtotals at current configured rates; unknown measurement presence and unsupported components remain partial.",
+            "Legacy numeric zero is not proof of reported zero. Aggregate usage presence is unknown; missing measurements remain included in retained-event counts.",
+            "Known supplementary records are excluded from counts, cost and detail because overlap is unresolved. Legacy record kinds remain unknown; counts are retained primary events, not verified inbound requests.",
+            "Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.",
+            "Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.",
+            "Views use successive reads; concurrent ingestion can change counts between views or pages."
+          ],
+          "prox": [
+            "Retained usage events are not a complete ingress or client-outcome ledger.",
+            "Costs are estimated API-equivalent subtotals at current configured rates; unknown measurement presence and unsupported components remain partial.",
+            "Legacy numeric zero is not proof of reported zero. Aggregate usage presence is unknown; missing measurements remain included in retained-event counts.",
+            "Known supplementary records are excluded from counts, cost and detail because overlap is unresolved. Legacy record kinds remain unknown; counts are retained primary events, not verified inbound requests.",
+            "Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.",
+            "Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.",
+            "records in flight during a collector or proxy restart may be absent"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "rollup-0-1794604643456-1794608243456",
+      "family": "rollup",
+      "page": 2,
+      "cpamp_query": {
+        "from_ms": 1794604643456,
+        "to_ms": 1794608243456,
+        "time_zone": "UTC",
+        "granularity": "hour",
+        "provider": "",
+        "model": "",
+        "outcome": "all",
+        "search": "",
+        "limit": 3,
+        "catalog": [
+          {
+            "instance_id": "instance",
+            "instance_label": "Instance",
+            "provider": "claude",
+            "id": "claude-only"
+          }
+        ],
+        "before_ms": 1794608242454,
+        "before_id": 1003
+      },
+      "prox_query": {
+        "from_ms": 1794604643456,
+        "to_ms": 1794608243456,
+        "time_zone": "UTC",
+        "granularity": "hour",
+        "provider": "",
+        "model": "",
+        "outcome": "all",
+        "search": "",
+        "limit": 3,
+        "catalog": [
+          {
+            "instance_id": "instance",
+            "instance_label": "Instance",
+            "provider": "claude",
+            "id": "claude-only"
+          }
+        ],
+        "before_ms": 1794608242454,
+        "before_id": 3
+      },
+      "differences": [
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.usd",
+          "cpamp": 0.0045,
+          "prox": 0.012
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.reasons[2]",
+          "cpamp": "usage-presence-unknown",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.priced_calls",
+          "cpamp": 3,
+          "prox": 8
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.summary.cost.unpriced_calls",
+          "cpamp": 5,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.usd",
+          "cpamp": 0.0045,
+          "prox": 0.012
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.reasons[2]",
+          "cpamp": "usage-presence-unknown",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.priced_calls",
+          "cpamp": 3,
+          "prox": 8
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.timeline[0].cost.unpriced_calls",
+          "cpamp": 5,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.usd",
+          "cpamp": null,
+          "prox": 0.0045
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.status",
+          "cpamp": "unpriced",
+          "prox": "partial"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.unpriced_calls",
+          "cpamp": 3,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[0].cost.priced_calls",
+          "cpamp": {
+            "absent": true
+          },
+          "prox": 3
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.usd",
+          "cpamp": null,
+          "prox": 0.003
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.status",
+          "cpamp": "unpriced",
+          "prox": "partial"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.unpriced_calls",
+          "cpamp": 2,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.models[2].cost.priced_calls",
+          "cpamp": {
+            "absent": true
+          },
+          "prox": 2
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.usd",
+          "cpamp": 0.0045,
+          "prox": 0.012
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": "usage-presence-unknown"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.reasons[2]",
+          "cpamp": "usage-presence-unknown",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.priced_calls",
+          "cpamp": 3,
+          "prox": 8
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.providers[0].cost.unpriced_calls",
+          "cpamp": 5,
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "detail-provider",
+          "path": "$.requests.items[0].provider",
+          "cpamp": "synthetic-credential-snapshot-provider",
+          "prox": "claude"
+        },
+        {
+          "class": "detail-trace",
+          "path": "$.requests.items[0].trace_id",
+          "cpamp": "synthetic-header-trace",
+          "prox": "000000ab"
+        },
+        {
+          "class": "detail-provider",
+          "path": "$.requests.items[1].provider",
+          "cpamp": "synthetic-credential-snapshot-provider",
+          "prox": "claude"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[1].cost.usd",
+          "cpamp": null,
+          "prox": 0.0015
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[1].cost.status",
+          "cpamp": "unpriced",
+          "prox": "estimated"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[1].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "detail-trace",
+          "path": "$.requests.items[1].trace_id",
+          "cpamp": "synthetic-header-trace",
+          "prox": "000000ab"
+        },
+        {
+          "class": "detail-provider",
+          "path": "$.requests.items[2].provider",
+          "cpamp": "synthetic-credential-snapshot-provider",
+          "prox": "claude"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[2].cost.usd",
+          "cpamp": null,
+          "prox": 0.0015
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[2].cost.status",
+          "cpamp": "unpriced",
+          "prox": "estimated"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.requests.items[2].cost.reasons[0]",
+          "cpamp": "model-rate-unavailable",
+          "prox": {
+            "absent": true
+          }
+        },
+        {
+          "class": "detail-trace",
+          "path": "$.requests.items[2].trace_id",
+          "cpamp": "synthetic-header-trace",
+          "prox": "000000ab"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].matched_model",
+          "cpamp": null,
+          "prox": "claude-fable-5-2"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].status",
+          "cpamp": "unpriced",
+          "prox": "priced"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].source",
+          "cpamp": "unavailable",
+          "prox": "configured-or-owner-fallback"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].input_per_million",
+          "cpamp": null,
+          "prox": 2
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].output_per_million",
+          "cpamp": null,
+          "prox": 4
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[1].cache_read_per_million",
+          "cpamp": null,
+          "prox": 0.5
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].matched_model",
+          "cpamp": null,
+          "prox": "gpt-6.1-terra"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].status",
+          "cpamp": "unpriced",
+          "prox": "priced"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].source",
+          "cpamp": "unavailable",
+          "prox": "configured-or-owner-fallback"
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].input_per_million",
+          "cpamp": null,
+          "prox": 2
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].output_per_million",
+          "cpamp": null,
+          "prox": 4
+        },
+        {
+          "class": "d5-pricing",
+          "path": "$.rates[3].cache_read_per_million",
+          "cpamp": null,
+          "prox": 0.5
+        },
+        {
+          "class": "coverage-limitations",
+          "path": "$.coverage.limitations",
+          "cpamp": [
+            "Retained usage events are not a complete ingress or client-outcome ledger.",
+            "Costs are estimated API-equivalent subtotals at current configured rates; unknown measurement presence and unsupported components remain partial.",
+            "Legacy numeric zero is not proof of reported zero. Aggregate usage presence is unknown; missing measurements remain included in retained-event counts.",
+            "Known supplementary records are excluded from counts, cost and detail because overlap is unresolved. Legacy record kinds remain unknown; counts are retained primary events, not verified inbound requests.",
+            "Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.",
+            "Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.",
+            "Views use successive reads; concurrent ingestion can change counts between views or pages."
+          ],
+          "prox": [
+            "Retained usage events are not a complete ingress or client-outcome ledger.",
+            "Costs are estimated API-equivalent subtotals at current configured rates; unknown measurement presence and unsupported components remain partial.",
+            "Legacy numeric zero is not proof of reported zero. Aggregate usage presence is unknown; missing measurements remain included in retained-event counts.",
+            "Known supplementary records are excluded from counts, cost and detail because overlap is unresolved. Legacy record kinds remain unknown; counts are retained primary events, not verified inbound requests.",
+            "Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.",
+            "Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.",
+            "records in flight during a collector or proxy restart may be absent"
+          ]
+        }
+      ]
+    }
+  ],
+  "event_differences": [],
+  "status": "passed",
+  "complete": true,
+  "counts": {
+    "unexplained": 0,
+    "d5-pricing": 86,
+    "detail-provider": 6,
+    "detail-trace": 6,
+    "coverage-limitations": 2,
+    "drained-during-cpamp-outage": 0,
+    "ingest-gap": 0
+  },
+  "targets": {
+    "cpamp": "http://127.0.0.1:44621/v0/management/monitoring/prox-analytics",
+    "prox": "http://127.0.0.1:43659/v1/analytics"
+  },
+  "finished_at_ms": 1794611843456,
+  "io": {
+    "queries": 9,
+    "minimum_gap_ms": 0,
+    "bytesRead": 25008,
+    "bytesWritten": 0,
+    "pauseSeconds": 0,
+    "longPauses": 0
+  }
+}

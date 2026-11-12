@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "started_at_ms": 1794611843456,
+  "window": {
+    "from_ms": 1791929843456,
+    "to_ms": 1794608243456
+  },
+  "mode": "quick",
+  "level": "responses",
+  "matrix": {
+    "source_cases": 672,
+    "clipped_cases": 56,
+    "outside_window_cases": 0,
+    "generated_cases": 672,
+    "selected_cases": 1,
+    "planned_max_pairs": 2,
+    "pairs_completed": 2,
+    "http_responses": 4,
+    "second_pages_absent_on_both": 0,
+    "second_pages_limited": 0,
+    "paging_mismatches": 0,
+    "d5_replays": 0,
+    "limited": true
+  },
+  "matrix_reconciliation": [
+    {
+      "mode": "quick",
+      "plan_count": 720,
+      "generated_base_queries": 672,
+      "arithmetic": "60 filter combinations × 4 rotating spans + 24 searches × 3 providers × 2 models × 3 outcomes = 240 + 432 = 672",
+      "maximum_pairs": 1344,
+      "maximum_http_responses": 2688,
+      "reason": "Plan count is not reproduced by the checked-in generators. 0 source cases dropped; time-zone slots mapped to UTC. Two pages × 672 = up to 1,344 pairs; two servers × 1,344 = 2,688 responses."
+    },
+    {
+      "mode": "full",
+      "plan_count": 22464,
+      "generated_base_queries": 5904,
+      "arithmetic": "60 filter combinations × 12 spans + 24 searches × 3 providers × 2 models × 3 outcomes × 12 spans = 720 + 5,184 = 5,904",
+      "maximum_pairs": 11808,
+      "maximum_http_responses": 23616,
+      "reason": "Plan count is not reproduced by the checked-in generators. 0 source cases dropped; time-zone slots mapped to UTC. Two pages × 5,904 = up to 11,808 pairs; two servers × 11,808 = 23,616 responses."
+    }
+  ],
+  "generator_axes": [
+    {
+      "axis": "Ranges",
+      "cpamp_rollup": "6 lengths × aligned/unaligned = 12; quick rotates 4",
+      "cpamp_search": "same 12; quick rotates 1",
+      "harness": "identical selections; caller window clipping reported separately"
+    },
+    {
+      "axis": "Buckets/granularities",
+      "cpamp_rollup": "hour/day in 8 rotating view slots (4/4)",
+      "cpamp_search": "hour/day in 5 rotating view slots (3/2)",
+      "harness": "same rotation; not an extra Cartesian factor"
+    },
+    {
+      "axis": "Outcomes",
+      "cpamp_rollup": "3",
+      "cpamp_search": "3",
+      "harness": "3 in both families"
+    },
+    {
+      "axis": "Providers",
+      "cpamp_rollup": "5: empty, claude, CODEX, gemini, nobody",
+      "cpamp_search": "3: empty, claude, CODEX",
+      "harness": "same 5 / 3"
+    },
+    {
+      "axis": "Models",
+      "cpamp_rollup": "2: empty, shared-model",
+      "cpamp_search": "same 2",
+      "harness": "same 2"
+    },
+    {
+      "axis": "Search terms",
+      "cpamp_rollup": "2: empty, needle",
+      "cpamp_search": "24",
+      "harness": "same 2 / 24 slots; 3 search-fixture-only terms replaced with shared-column session, trace and tier terms"
+    },
+    {
+      "axis": "Time zones",
+      "cpamp_rollup": "5 distinct zones in 8 coupled view slots",
+      "cpamp_search": "5 distinct zones in 5 coupled view slots",
+      "harness": "1 (UTC); all 8 / 5 slots preserved, 0 query cases removed"
+    },
+    {
+      "axis": "Pages",
+      "cpamp_rollup": "1",
+      "cpamp_search": "1",
+      "harness": "1 plus page 2 when both have it; one-sided page 2 fails parity"
+    }
+  ],
+  "generator_source": {
+    "repository": "CPA-Manager-Plus",
+    "commit": "52b12b45e010a766bd69ff55a55e566263d8bede",
+    "files": {
+      "apps/manager-server/internal/service/monitoring/prox_provider_rollup_test.go": "2afc0df2b51c53f78baa4df9c2f201f92aaf0808",
+      "apps/manager-server/internal/service/monitoring/prox_search_test.go": "0b739689d4f647356ea79aabaf0de4418127a1c4"
+    }
+  },
+  "response_counts": {
+    "compared": 2,
+    "equal": 2,
+    "unexplained": 0,
+    "known_by_rule": {
+      "d5-pricing": 0,
+      "detail-trace": 0,
+      "detail-provider": 0,
+      "coverage-limitations": 0
+    }
+  },
+  "responses": [
+    {
+      "case_id": "rollup-0-1794604643456-1794608243456",
+      "family": "rollup",
+      "page": 1,
+      "cpamp_query": {
+        "from_ms": 1794604643456,
+        "to_ms": 1794608243456,
+        "time_zone": "UTC",
+        "granularity": "hour",
+        "provider": "",
+        "model": "",
+        "outcome": "all",
+        "search": "",
+        "limit": 3,
+        "catalog": [
+          {
+            "instance_id": "instance",
+            "instance_label": "Instance",
+            "provider": "claude",
+            "id": "claude-only"
+          }
+        ]
+      },
+      "prox_query": {
+        "from_ms": 1794604643456,
+        "to_ms": 1794608243456,
+        "time_zone": "UTC",
+        "granularity": "hour",
+        "provider": "",
+        "model": "",
+        "outcome": "all",
+        "search": "",
+        "limit": 3,
+        "catalog": [
+          {
+            "instance_id": "instance",
+            "instance_label": "Instance",
+            "provider": "claude",
+            "id": "claude-only"
+          }
+        ]
+      },
+      "differences": []
+    },
+    {
+      "case_id": "rollup-0-1794604643456-1794608243456",
+      "family": "rollup",
+      "page": 2,
+      "cpamp_query": {
+        "from_ms": 1794604643456,
+        "to_ms": 1794608243456,
+        "time_zone": "UTC",
+        "granularity": "hour",
+        "provider": "",
+        "model": "",
+        "outcome": "all",
+        "search": "",
+        "limit": 3,
+        "catalog": [
+          {
+            "instance_id": "instance",
+            "instance_label": "Instance",
+            "provider": "claude",
+            "id": "claude-only"
+          }
+        ],
+        "before_ms": 1794608242454,
+        "before_id": 1003
+      },
+      "prox_query": {
+        "from_ms": 1794604643456,
+        "to_ms": 1794608243456,
+        "time_zone": "UTC",
+        "granularity": "hour",
+        "provider": "",
+        "model": "",
+        "outcome": "all",
+        "search": "",
+        "limit": 3,
+        "catalog": [
+          {
+            "instance_id": "instance",
+            "instance_label": "Instance",
+            "provider": "claude",
+            "id": "claude-only"
+          }
+        ],
+        "before_ms": 1794608242454,
+        "before_id": 3
+      },
+      "differences": []
+    }
+  ],
+  "event_differences": [],
+  "status": "passed",
+  "complete": true,
+  "counts": {
+    "unexplained": 0,
+    "d5-pricing": 0,
+    "detail-provider": 0,
+    "detail-trace": 0,
+    "coverage-limitations": 0,
+    "drained-during-cpamp-outage": 0,
+    "ingest-gap": 0
+  },
+  "targets": {
+    "cpamp": "http://127.0.0.1:45225/v0/management/monitoring/prox-analytics",
+    "prox": "http://127.0.0.1:42647/v1/analytics"
+  },
+  "finished_at_ms": 1794611843456,
+  "io": {
+    "queries": 4,
+    "minimum_gap_ms": 0,
+    "bytesRead": 0,
+    "bytesWritten": 0,
+    "pauseSeconds": 0,
+    "longPauses": 0
+  }
+}
