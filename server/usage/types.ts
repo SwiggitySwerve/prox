@@ -58,8 +58,9 @@ export type TimingMethod = (typeof TIMING_METHODS)[number] | 'unknown';
 /**
  * Token columns of one event. With `USAGE_FLAG.breakdownComplete` set:
  * inputTotal = inputUncached + cacheRead + cacheWrite, outputTotal includes reasoning, and
- * total = inputTotal + outputTotal. With it clear the fields hold the proxy's raw counters
- * (inputTotal and inputUncached both hold the reported input) and those identities do not hold.
+ * total = inputTotal + outputTotal. With it clear live events hold the proxy's raw counters
+ * (inputTotal and inputUncached both hold reported input); imported events preserve CPAMP's
+ * persisted accounting. Those identities are not guaranteed and pricing remains partial.
  */
 export interface EventTokens {
   inputTotal: number;
