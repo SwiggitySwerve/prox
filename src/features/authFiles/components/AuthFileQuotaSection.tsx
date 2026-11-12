@@ -14,6 +14,9 @@ import { resetAccountName } from '@/features/quota/logic';
 import type { QuotaCardState } from '@/features/quota/providers';
 import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourceContext';
 import { hasClaudeUsageData } from '@/features/quota/providers/claude/data';
+import { QuotaFreshness } from '@/features/quota/components/QuotaFreshness';
+import { isQuotaFresh } from '@/features/quota/quotaFreshness';
+import { providerSources } from '@/stores/useProviderSources';
 import {
   selectQuotaSlotState,
   type QuotaSlotState,
@@ -62,12 +65,13 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   });
   const retainedClaudeUsage =
     quotaType === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
+  const fetchedAt = useQuotaStore((state) => state.fetchedAt[cacheKey]);
 
   const updateQuotaState = useQuotaStore(
     (state) => state[adapter.storeSetter] as unknown as QuotaMapUpdater
   );
 
-  const refreshQuotaForFile = useCallback(async () => {
+  const readQuotaForFile = useCallback(async () => {
     if (disableControls || !sourceScope.isCurrent()) return;
     if (isRuntimeOnlyAuthFile(file)) return;
     if (file.disabled) return;
@@ -117,6 +121,23 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     t,
     updateQuotaState,
   ]);
+
+  // A reading under a minute old is kept (quotaFreshness.ts); force: after a reset claim, which
+  // changed the quota the last reading shows.
+  const refreshQuotaForFile = useCallback(
+    (options?: { force?: boolean }) => {
+      const readAt = sourceScope.quotaStore.getState().fetchedAt[cacheKey];
+      if (!options?.force && isQuotaFresh(readAt, Date.now())) {
+        showNotification(t('auth_files.quota_reused', { name: file.name }), 'info');
+        return;
+      }
+      // A card's read can be several requests (Claude: usage and profile); the hub proves the
+      // key with the first (services/api/authGate.ts).
+      providerSources.armAuthProbes();
+      void readQuotaForFile();
+    },
+    [cacheKey, file.name, readQuotaForFile, showNotification, sourceScope, t]
+  );
 
   const resetQuotaForFile = useCallback(() => {
     if (disableControls || !sourceScope.isCurrent()) return;
@@ -196,6 +217,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   const refresh = () => {
     if (!claudeReset.busy) void refreshQuotaForFile();
   };
+  const reading = slot.kind === 'loading' || (slot.kind === 'loaded' && slot.refreshing);
   // Account details belong to read quota; Claude's reset grants are read even after a failure.
   const showDetails = slot.kind === 'loaded' || (slot.kind === 'failed' && quotaType === 'claude');
 
@@ -205,11 +227,11 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       stateText={
         slot.kind === 'idle'
           ? t('auth_files.quota_not_loaded')
-          : slot.kind === 'loading' || (slot.kind === 'loaded' && slot.refreshing)
+          : reading
             ? t('common.loading')
             : slot.kind === 'failed' || (slot.kind === 'loaded' && slot.stale)
               ? t('auth_files.quota_failed')
-              : ''
+              : slot.kind === 'loaded' && <QuotaFreshness fetchedAt={fetchedAt} />
       }
       stateTitle={slot.kind === 'failed' || slot.kind === 'loaded' ? failureText : undefined}
       danger={slot.kind === 'failed' || (slot.kind === 'loaded' && slot.stale)}
@@ -313,7 +335,7 @@ function QuotaSlotFrame({
   children,
 }: {
   state: QuotaSlotState['kind'];
-  stateText: string;
+  stateText: ReactNode;
   stateTitle?: string;
   danger?: boolean;
   /** Account details follow; without them the state's message takes the rest of the frame. */

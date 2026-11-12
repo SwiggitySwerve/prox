@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { HeaderRefreshRound } from '@/hooks/useHeaderRefresh';
 import { createAnalyticsApi } from '@/services/api/analytics';
 import { apiClient } from '@/services/api/client';
 import {
@@ -252,16 +253,21 @@ export function useDashboardOverview() {
     connected && analyticsKey ? PROVIDER_RECENT_REQUESTS_STALE_TIME_MS : null
   );
 
-  const refresh = useCallback(async () => {
-    if (!connected) return;
-    await Promise.allSettled([
-      fetchConfig(true),
-      loadAuthFiles(),
-      loadModels(),
-      refreshRecentRequests(),
-      loadAnalytics(),
-    ]);
-  }, [connected, fetchConfig, loadAuthFiles, loadModels, refreshRecentRequests, loadAnalytics]);
+  // From the header: its round already reads every hub's credential list once. Config stays
+  // per source: this source's config store is not the shell's.
+  const refresh = useCallback(
+    async (round?: HeaderRefreshRound) => {
+      if (!connected) return;
+      await Promise.allSettled([
+        fetchConfig(true),
+        round ? round.inventory : loadAuthFiles(),
+        loadModels(),
+        refreshRecentRequests(),
+        loadAnalytics(),
+      ]);
+    },
+    [connected, fetchConfig, loadAuthFiles, loadModels, refreshRecentRequests, loadAnalytics]
+  );
 
   const providerKeyCounts = useMemo(() => (config ? getProviderKeyCounts(config) : null), [config]);
 

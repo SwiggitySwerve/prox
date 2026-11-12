@@ -3,7 +3,7 @@
  */
 
 import { useSyncExternalStore } from 'react';
-import { MINUTE_CLOCK } from '@/utils/time/sharedClock';
+import { MINUTE_CLOCK, SECOND_CLOCK } from '@/utils/time/sharedClock';
 
 const noopSubscribe = () => () => {};
 
@@ -28,6 +28,15 @@ export function useNow(enabled = true): number {
   return useSyncExternalStore(
     enabled ? MINUTE_CLOCK.subscribe : noopSubscribe,
     enabled ? MINUTE_CLOCK.getSnapshot : frozenSnapshot,
+    frozenSnapshot
+  );
+}
+
+/** Like useNow, refreshed every second; keep its consumer small (one label), not a whole card. */
+export function useSecondNow(enabled = true): number {
+  return useSyncExternalStore(
+    enabled ? SECOND_CLOCK.subscribe : noopSubscribe,
+    enabled ? SECOND_CLOCK.getSnapshot : frozenSnapshot,
     frozenSnapshot
   );
 }

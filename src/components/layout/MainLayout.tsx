@@ -43,6 +43,8 @@ import { ManagementRuntime } from '@/features/quotaPool/ManagementRuntime';
 import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore } from '@/stores';
 import { startCredentialInventory } from '@/features/authFiles/credentialInventoryRuntime';
 import { useModelAccessStore } from '@/stores/useModelAccessStore';
+import { modelAccess } from '@/features/authFiles/modelAccessRuntime';
+import { runHeaderRefresh, type HeaderRefreshSummary } from './headerRefreshRound';
 import {
   collectPluginResourceEntries,
   PLUGIN_RESOURCES_REFRESH_EVENT,
@@ -407,17 +409,18 @@ export function MainLayout() {
     });
   }, [fetchConfig]);
 
-  const loadPluginResources = useCallback(async () => {
+  /** Resolves to the hubs whose plugin list could not be read (for the header's notice). */
+  const loadPluginResources = useCallback(async (): Promise<string[]> => {
     const captured = registry.resolution;
     if (registry.status !== 'ready') {
       setPluginResources([]);
-      return;
+      return [];
     }
     const outcomes = await loadPluginSourceInventories(
       registry.sources,
       () => providerSources.getSnapshot().sources
     );
-    if (providerSources.getSnapshot().resolution !== captured) return;
+    if (providerSources.getSnapshot().resolution !== captured) return [];
     setPluginResources(
       outcomes.flatMap((outcome) =>
         outcome.status === 'complete'
@@ -432,6 +435,9 @@ export function MainLayout() {
             }))
           : []
       )
+    );
+    return outcomes.flatMap((outcome) =>
+      outcome.status === 'unavailable' ? [outcome.view.source.instanceId] : []
     );
   }, [registry]);
 
@@ -686,25 +692,40 @@ export function MainLayout() {
   const handleRefreshAll = async () => {
     if (refreshingAll) return;
     setRefreshingAll(true);
-    clearCache();
-    const results = await Promise.allSettled([
-      fetchConfig(true),
-      loadPluginResources(),
-      useCredentialInventoryStore.getState().refresh(),
-      triggerHeaderRefresh(),
-    ]).finally(() => setRefreshingAll(false));
-    const rejected = results.find((result) => result.status === 'rejected');
-    if (rejected && rejected.status === 'rejected') {
-      const reason = rejected.reason;
-      const message =
-        typeof reason === 'string' ? reason : reason instanceof Error ? reason.message : '';
-      showNotification(
-        `${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`,
-        'error'
-      );
-      return;
+    let summary: HeaderRefreshSummary;
+    try {
+      summary = await runHeaderRefresh({
+        armAuthProbes: () => providerSources.armAuthProbes(),
+        deniedHubs: () => providerSources.deniedSources(),
+        selectedHub: () => providerSources.getSnapshot().resolution?.selectedInstanceId ?? null,
+        clearConfigCache: clearCache,
+        refreshConfig: () => fetchConfig(true),
+        refreshPlugins: loadPluginResources,
+        refreshInventory: () => useCredentialInventoryStore.getState().refresh(),
+        refreshModelAccess: () => modelAccess().refreshLoaded(),
+        refreshPage: triggerHeaderRefresh,
+      });
+    } finally {
+      setRefreshingAll(false);
     }
-    showNotification(t('notification.data_refreshed'), 'success');
+    const hubLabel = (id: string) =>
+      providerSources.getSnapshot().sources.find((view) => view.source.instanceId === id)?.source
+        .label ?? id;
+    const parts = summary.failed.map(({ source, hub, count }) =>
+      t(`notification.refresh_part_${source}`, { hub: hub ? hubLabel(hub) : '', count }).trim()
+    );
+    const problems = [
+      ...(parts.length ? [t('notification.refresh_partial', { sources: parts.join(', ') })] : []),
+      ...(summary.deniedHubs.length
+        ? [
+            t('notification.refresh_hub_denied', {
+              hubs: summary.deniedHubs.map(hubLabel).join(', '),
+            }),
+          ]
+        : []),
+    ];
+    if (problems.length) showNotification(problems.join(' '), 'error');
+    else showNotification(t('notification.data_refreshed'), 'success');
   };
 
   const togglePluginResourceDrawer = useCallback((drawerID: string) => {

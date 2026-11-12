@@ -87,3 +87,6 @@ export function createSharedClock(options: SharedClockOptions = {}): TestableSha
 
 /** The app-wide minute clock. Import this rather than making another one. */
 export const MINUTE_CLOCK: SharedClock = createSharedClock();
+
+/** A one-second clock, for "updated 25s ago" labels; subscribe only where seconds are shown. */
+export const SECOND_CLOCK: SharedClock = createSharedClock({ intervalMs: 1000 });

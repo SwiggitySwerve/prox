@@ -19,6 +19,8 @@ import { resetAccountName } from '../logic';
 import { getStatusFromError } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
+import { isQuotaFresh } from '../quotaFreshness';
+import { providerSources } from '@/stores/useProviderSources';
 import { getQuotaMap, getQuotaSetter, type QuotaAdapter, type QuotaCardState } from '../providers';
 
 const getQuotaState = (
@@ -38,11 +40,18 @@ export function useQuotaActions(
   const [resettingQuotaName, setResettingQuotaName] = useState<string | null>(null);
 
   const refreshQuota = useCallback(
-    async (file: AuthFileItem, adapter: QuotaAdapter) => {
+    /** force: after a reset claim, whose result the last reading cannot show. */
+    async (file: AuthFileItem, adapter: QuotaAdapter, options?: { force?: boolean }) => {
       if (disableControls || file.disabled || !isQuotaSourceCurrent(session)) return;
       const cacheKey = getQuotaCacheKey(file);
       if (resettingQuotaName === cacheKey) return;
       if (getQuotaState(adapter, file, store)?.status === 'loading') return;
+      if (!options?.force && isQuotaFresh(store.getState().fetchedAt[cacheKey], Date.now())) {
+        showNotification(t('auth_files.quota_reused', { name: file.name }), 'info');
+        return;
+      }
+      // Several requests per card (Claude: usage and profile): the hub proves the key first.
+      providerSources.armAuthProbes();
       const cacheGeneration = captureQuotaCacheGeneration(file.name, store);
       const setQuota = getQuotaSetter(adapter, store);
 

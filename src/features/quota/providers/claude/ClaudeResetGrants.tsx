@@ -38,7 +38,8 @@ export function useClaudeResetGrants(
   enabled: boolean,
   disabled: boolean,
   refreshToken: unknown,
-  onRefresh: () => void,
+  /** Re-reads the card's quota; force skips the 60 s reuse, since a claim changed it. */
+  onRefresh: (options?: { force?: boolean }) => void,
   scope: ResetGrantScope
 ) {
   const { t, i18n } = useTranslation();
@@ -140,7 +141,7 @@ export function useClaudeResetGrants(
         // Release the local lock regardless, but never refresh a replacement account.
         setBusy(false);
         setReload((value) => value + 1);
-        if (current()) onRefresh();
+        if (current()) onRefresh({ force: true });
       }
     };
     const name = resetAccountName(file);

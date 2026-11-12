@@ -6,7 +6,8 @@ import { useSourceLease } from '@/hooks/useSourceLease';
  * - Registry enumeration loads inventory only; quota actions remain explicit;
  * - cacheGeneration 会话隔离 + request-id 去重（见 useQuotaBatchLoader）；
  * - 文件列表变化后按 provider 剪枝额度缓存（已删文件不残留）；
- * - useHeaderRefresh 单槽位：本页唯一注册者，全局刷新 = 重取文件列表。
+ * - Header refresh: each source section registers itself; a click re-reads the list from the
+ *   round's one inventory read, then the quota of every card the tab and search show.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,7 +17,9 @@ import { useProviderSources } from '@/stores/useProviderSources';
 import {
   selectSourceFiles,
   useCredentialInventoryStore,
+  type RefreshOutcome,
 } from '@/stores/useCredentialInventoryStore';
+import { providerSources } from '@/stores/useProviderSources';
 import { createQuotaStore } from '@/stores/useQuotaStore';
 import { isQuotaSourceCurrent } from './sourceCurrent';
 import { Button } from '@/components/ui/Button';
@@ -24,7 +27,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSearch, IconX } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useHeaderRefresh, type HeaderRefreshRound } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useThemeStore } from '@/stores';
@@ -44,7 +47,6 @@ import {
 } from './constants';
 import {
   buildTabCounts,
-  canRefreshQuotaAfterList,
   classifyQuotaFiles,
   filterEntriesByTab,
   filterEntriesBySearch,
@@ -72,9 +74,6 @@ const displayNameFor = (name: string) => name;
 export function QuotaPage() {
   const { t } = useTranslation();
   const registry = useProviderSources();
-  const [refreshToken, setRefreshToken] = useState(0);
-  const refreshInventory = useCallback(() => setRefreshToken((value) => value + 1), []);
-  useHeaderRefresh(refreshInventory);
   return (
     <div>
       {registry.status === 'loading' && <Skeleton height={168} />}
@@ -83,7 +82,7 @@ export function QuotaPage() {
         <section key={view.session ? sourceOwnerKey(view.session.owner) : view.source.instanceId}>
           <h2>{view.source.label}</h2>
           {view.session && view.status === 'ready' ? (
-            <SourceQuotaPage session={view.session} refreshToken={refreshToken} />
+            <SourceQuotaPage session={view.session} />
           ) : (
             <div role="status">{t('login.error_unauthorized')}</div>
           )}
@@ -93,13 +92,7 @@ export function QuotaPage() {
   );
 }
 
-function SourceQuotaPage({
-  session: owner,
-  refreshToken,
-}: {
-  session: SourceSession;
-  refreshToken: number;
-}) {
+function SourceQuotaPage({ session: owner }: { session: SourceSession }) {
   const { session } = useSourceLease(owner);
   const [useSourceQuotaStore] = useState(createQuotaStore);
   const adapters = useMemo(
@@ -130,42 +123,49 @@ function SourceQuotaPage({
   const sessionGeneration = useSourceQuotaStore((state) => state.cacheGeneration);
   const [filesGeneration, setFilesGeneration] = useState<number | null>(null);
   const listRequestRef = useRef(0);
-  const loadFiles = useCallback(async () => {
-    const requestId = ++listRequestRef.current;
-    if (connectionStatus !== 'connected') {
-      setFiles([]);
-      setFilesGeneration(null);
-      setLoading(false);
-      return;
-    }
-    const isCurrent = () =>
-      isQuotaSourceCurrent(session) &&
-      requestId === listRequestRef.current &&
-      sessionGeneration === useSourceQuotaStore.getState().cacheGeneration;
-    setLoading(true);
-    setError('');
-    try {
-      const outcome = await useCredentialInventoryStore.getState().refresh();
-      if (!isCurrent()) return;
-      const failure = outcome[session.owner.instanceId];
-      if (failure !== null) throw failure ?? new Error(t('notification.refresh_failed'));
-      setFiles(selectSourceFiles(useCredentialInventoryStore.getState(), session.owner) ?? []);
-      setFilesGeneration(sessionGeneration);
-    } catch (err: unknown) {
-      if (!isCurrent()) return;
-      const message = err instanceof Error ? err.message : t('notification.refresh_failed');
-      setError(message);
-    } finally {
-      if (isCurrent()) setLoading(false);
-    }
-  }, [connectionStatus, sessionGeneration, t, session, useSourceQuotaStore]);
+  /** Resolves to the list it read, or null when it failed or was superseded. */
+  const loadFiles = useCallback(
+    async (inventory?: Promise<RefreshOutcome>) => {
+      const requestId = ++listRequestRef.current;
+      if (connectionStatus !== 'connected') {
+        setFiles([]);
+        setFilesGeneration(null);
+        setLoading(false);
+        return null;
+      }
+      const isCurrent = () =>
+        isQuotaSourceCurrent(session) &&
+        requestId === listRequestRef.current &&
+        sessionGeneration === useSourceQuotaStore.getState().cacheGeneration;
+      setLoading(true);
+      setError('');
+      try {
+        const outcome = await (inventory ?? useCredentialInventoryStore.getState().refresh());
+        if (!isCurrent()) return null;
+        const failure = outcome[session.owner.instanceId];
+        if (failure !== null) throw failure ?? new Error(t('notification.refresh_failed'));
+        const list = selectSourceFiles(useCredentialInventoryStore.getState(), session.owner) ?? [];
+        setFiles(list);
+        setFilesGeneration(sessionGeneration);
+        return list;
+      } catch (err: unknown) {
+        if (!isCurrent()) return null;
+        const message = err instanceof Error ? err.message : t('notification.refresh_failed');
+        setError(message);
+        return null;
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [connectionStatus, sessionGeneration, t, session, useSourceQuotaStore]
+  );
 
   useEffect(() => {
     void loadFiles();
     return () => {
       listRequestRef.current += 1;
     };
-  }, [loadFiles, refreshToken]);
+  }, [loadFiles]);
 
   // Commits from the credential inventory (an add or remove anywhere, the poll, another tab) reach
   // this page without a fetch of its own; a quiet page has no edit of its own to protect.
@@ -187,6 +187,7 @@ function SourceQuotaPage({
   const metaQuota = useSourceQuotaStore((state) => state.metaQuota);
   const pluginQuota = useSourceQuotaStore((state) => state.pluginQuota);
   const xaiQuota = useSourceQuotaStore((state) => state.xaiQuota);
+  const fetchedAt = useSourceQuotaStore((state) => state.fetchedAt);
 
   const quotaByType = useMemo<Record<QuotaProviderType, Record<string, QuotaCardState>>>(
     () =>
@@ -310,41 +311,34 @@ function SourceQuotaPage({
     session
   );
 
-  const pendingRefreshRef = useRef<number | null>(null);
-  const prevLoadingRef = useRef(loading);
-
-  // 刷新全部：先重取文件列表，待其落定（loading 下降沿）再批量拉当前页额度
-  const handleRefreshAll = useCallback(() => {
-    if (disableControls) return;
-    pendingRefreshRef.current = sessionGeneration;
-    void loadFiles();
-  }, [disableControls, loadFiles, sessionGeneration]);
-
+  // Refresh all (this section's button, or the header with its round's inventory read): re-read
+  // the list, then the quota of every card the tab and search show, on every page. Cards read
+  // under a minute ago are reused (quotaFreshness.ts).
+  const viewRef = useRef({ tab, search, disableControls });
   useEffect(() => {
-    const wasLoading = prevLoadingRef.current;
-    prevLoadingRef.current = loading;
-
-    const requestedSession = pendingRefreshRef.current;
-    if (requestedSession === null) return;
-    if (requestedSession !== sessionGeneration) {
-      pendingRefreshRef.current = null;
-      return;
-    }
-    if (loading || !wasLoading) return;
-
-    pendingRefreshRef.current = null;
-    if (
-      canRefreshQuotaAfterList(
-        requestedSession,
-        sessionGeneration,
-        filesGeneration,
-        Boolean(error),
-        disableControls
-      )
-    ) {
-      void loadQuota(pageItems);
-    }
-  }, [disableControls, error, filesGeneration, loading, loadQuota, pageItems, sessionGeneration]);
+    viewRef.current = { tab, search, disableControls };
+  });
+  const refreshEverything = useCallback(
+    async (round?: HeaderRefreshRound) => {
+      if (viewRef.current.disableControls) return;
+      // The header armed every hub already; the section's own button arms them here.
+      if (!round) providerSources.armAuthProbes();
+      const list = await loadFiles(round?.inventory);
+      if (!list || viewRef.current.disableControls) return;
+      const { tab: shownTab, search: shownSearch } = viewRef.current;
+      let failed = 0;
+      await loadQuota(
+        filterEntriesBySearch(filterEntriesByTab(classifyQuotaFiles(list), shownTab), shownSearch),
+        (ok) => {
+          if (!ok) failed += 1;
+        }
+      );
+      if (failed > 0) round?.quotaFailed(session.owner.instanceId, failed);
+    },
+    [loadFiles, loadQuota, session]
+  );
+  const handleRefreshAll = useCallback(() => void refreshEverything(), [refreshEverything]);
+  useHeaderRefresh(refreshEverything);
 
   const canUseActions = !disableControls && !loading && filesGeneration === sessionGeneration;
 
@@ -483,7 +477,10 @@ function SourceQuotaPage({
                 canRefresh={canUseActions && !entry.file.disabled}
                 resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
                 entranceDelayMs={cardEntranceDelay(index)}
-                onRefresh={() => void refreshQuota(entry.file, adapters[entry.type])}
+                fetchedAt={fetchedAt[getQuotaCacheKey(entry.file)]}
+                onRefresh={(options) =>
+                  void refreshQuota(entry.file, adapters[entry.type], options)
+                }
                 onReset={() => resetQuota(entry.file, adapters[entry.type])}
               />
             ))}

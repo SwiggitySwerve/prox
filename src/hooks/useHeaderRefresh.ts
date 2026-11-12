@@ -1,6 +1,14 @@
 import { useEffect, useSyncExternalStore } from 'react';
+import type { RefreshOutcome } from '@/stores/useCredentialInventoryStore';
 
-export type HeaderRefreshHandler = () => void | Promise<void>;
+/** What one click of the header refresh shares with the open page (headerRefreshRound.ts). */
+export interface HeaderRefreshRound {
+  /** This click's one read of every hub's credential list; a page uses it instead of listing. */
+  readonly inventory: Promise<RefreshOutcome>;
+  /** A page reports cards whose quota read failed, for the round's one summary notice. */
+  quotaFailed(hub: string, count: number): void;
+}
+export type HeaderRefreshHandler = (round?: HeaderRefreshRound) => void | Promise<void>;
 const handlers = new Map<symbol, HeaderRefreshHandler>();
 
 /** Each mounted source registers independently; cleanup removes only its own subscription. */
@@ -11,9 +19,9 @@ export function registerHeaderRefresh(handler: HeaderRefreshHandler): () => void
     handlers.delete(id);
   };
 }
-export const triggerHeaderRefresh = async () => {
+export const triggerHeaderRefresh = async (round?: HeaderRefreshRound) => {
   const results = await Promise.allSettled(
-    [...handlers.values()].map((handler) => Promise.resolve().then(handler))
+    [...handlers.values()].map((handler) => Promise.resolve().then(() => handler(round)))
   );
   const failure = results.find((result) => result.status === 'rejected');
   if (failure?.status === 'rejected') throw failure.reason;

@@ -15,6 +15,7 @@ import {
 } from '@/utils/constants';
 import { computeApiUrl } from '@/utils/connection';
 import { parseApiErrorResponse } from './apiError';
+import { AUTH_SKIPPED_CODE } from './authGate';
 import { guardSourceRequest, type TransportEvent, type TransportPolicy } from './transportPolicy';
 
 export class ApiClient {
@@ -23,6 +24,8 @@ export class ApiClient {
   private managementKey: string = '';
   private connectionRevision = 0;
   private readonly requestRevisions = new WeakMap<object, number>();
+  /** Requests sent as their hub's auth probe; their answer opens or closes the gate. */
+  private readonly authProbes = new WeakSet<object>();
 
   constructor(
     private readonly emitEvents: () => boolean = () => true,
@@ -144,8 +147,10 @@ export class ApiClient {
   private setupInterceptors(): void {
     // Request interceptor
     this.instance.interceptors.request.use(
-      (config) => {
+      async (config) => {
         if (this.policy) guardSourceRequest(config, this.policy);
+        const gate = this.policy?.authGate;
+        if (gate && (await gate.enter())) this.authProbes.add(config);
         this.requestRevisions.set(config, this.connectionRevision);
         // Set baseURL
         config.baseURL = this.apiBase;
@@ -163,6 +168,7 @@ export class ApiClient {
     // Response interceptor
     this.instance.interceptors.response.use(
       (response) => {
+        if (this.authProbes.has(response.config)) this.policy?.authGate?.verified();
         this.policy?.assertCurrent();
         const headers = response.headers as Record<string, string | undefined>;
         const cpaVersion = this.readHeader(headers, CPA_VERSION_HEADER_KEYS);
@@ -201,7 +207,17 @@ export class ApiClient {
    * Error handling
    */
   private handleError(error: unknown): ApiError {
+    const gate = this.policy?.authGate;
+    if (gate && axios.isAxiosError(error)) {
+      if (error.response?.status === 401) gate.deny();
+      else if (error.config && this.authProbes.has(error.config)) {
+        if (error.response) gate.verified();
+        else gate.unanswered();
+      }
+    }
     this.policy?.assertCurrent();
+    // The gate refused to send it: already an ApiError, and the hub has heard nothing.
+    if ((error as ApiError | null)?.code === AUTH_SKIPPED_CODE) return error as ApiError;
     if (axios.isAxiosError(error)) {
       const responseData: unknown = error.response?.data;
       const parsedError = parseApiErrorResponse(responseData, error.message);

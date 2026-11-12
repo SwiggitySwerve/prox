@@ -20,6 +20,7 @@ import { type QuotaCardState, type QuotaAdapter } from '../providers';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { AccountDetails } from './AccountDetails';
+import { QuotaFreshness } from './QuotaFreshness';
 import { hasClaudeUsageData } from '../providers/claude/data';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
@@ -36,8 +37,11 @@ export type QuotaCardProps = {
   resetting: boolean;
   /** Initial cascade delay; null disables entrance motion for later mounts. */
   entranceDelayMs?: number | null;
-  onRefresh: () => void;
+  /** force: after a reset claim (the claim changed the quota the card last read). */
+  onRefresh: (options?: { force?: boolean }) => void;
   onReset: () => void;
+  /** When the shown quota was read, for the "updated 25s ago" label. */
+  fetchedAt?: number;
 };
 
 export function QuotaCard(props: QuotaCardProps) {
@@ -50,6 +54,7 @@ export function QuotaCard(props: QuotaCardProps) {
     entranceDelayMs,
     onRefresh,
     onReset,
+    fetchedAt,
   } = props;
   const { t } = useTranslation();
   const adapter = props.adapter;
@@ -120,7 +125,7 @@ export function QuotaCard(props: QuotaCardProps) {
           <button
             type="button"
             className={styles.idleBody}
-            onClick={onRefresh}
+            onClick={() => onRefresh()}
             disabled={!canRefresh}
           >
             <IconRefreshCw size={15} aria-hidden="true" className={styles.idleGlyph} />
@@ -181,10 +186,13 @@ export function QuotaCard(props: QuotaCardProps) {
 
       {status !== 'idle' && (
         <footer className={styles.actionRow}>
+          {status === 'success' && (
+            <QuotaFreshness fetchedAt={fetchedAt} className={styles.freshness} />
+          )}
           <button
             type="button"
             className={styles.actionPill}
-            onClick={onRefresh}
+            onClick={() => onRefresh()}
             disabled={isQuotaRefreshDisabled(canRefresh, loading, resetting || claudeReset.busy)}
             title={t('auth_files.quota_refresh_hint')}
           >

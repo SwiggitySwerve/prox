@@ -10,6 +10,7 @@ import { providerSources } from '@/stores/useProviderSources';
 import {
   selectSourceFiles,
   useCredentialInventoryStore,
+  type RefreshOutcome,
 } from '@/stores/useCredentialInventoryStore';
 
 import type { AuthFileItem } from '@/types';
@@ -24,6 +25,8 @@ import {
 export type LoadFilesOptions = {
   /** 后台刷新：不置 loading（网格保持内容），改用 refreshing 标志。 */
   background?: boolean;
+  /** The header refresh's one inventory read, used instead of reading every hub again. */
+  inventory?: Promise<RefreshOutcome>;
 };
 
 export type UseAuthFilesDataOptions = {
@@ -229,8 +232,8 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
       }
 
       try {
-        const inventory = useCredentialInventoryStore.getState();
-        const outcome = await inventory.refresh();
+        const outcome = await (options?.inventory ??
+          useCredentialInventoryStore.getState().refresh());
         sourceScope.assertCurrent();
         if (!isCurrentRequest()) return null; // 已被更新的请求/连接/变更取代
         const failure = outcome[owner.instanceId];

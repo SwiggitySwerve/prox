@@ -11,7 +11,7 @@ import { isDisabledAuthFile } from '@/utils/quota/validators';
 
 export { claudeQuotaRowSlots, type ClaudeQuotaRowSlot } from '@/domain/quotaWindows/claude';
 
-export type QuotaUnavailableReason ='runtime' | 'disabled' | 'unsupported';
+export type QuotaUnavailableReason = 'runtime' | 'disabled' | 'unsupported';
 
 /** Why a card has no quota to read, or null when it has. */
 export function quotaUnavailableReason(
@@ -48,6 +48,21 @@ export function quotaTargetsForList(
   quotaFilter: AuthFileQuotaFilter
 ): QuotaFileEntry[] {
   return quotaRefreshTargets(pageOfAuthFiles(files, filters, page).pageItems, quotaFilter);
+}
+
+/**
+ * The quota targets of everything a group shows for this credential list and filters, on every
+ * page: a refresh reads the cards on later pages too, so turning the page shows fresh quota.
+ */
+export function quotaTargetsShown(
+  files: AuthFileItem[],
+  filters: Pick<
+    AuthFilesFilters,
+    'provider' | 'statusFilterMode' | 'search' | 'sortMode' | 'pageSize'
+  >,
+  quotaFilter: AuthFileQuotaFilter
+): QuotaFileEntry[] {
+  return quotaRefreshTargets(pageOfAuthFiles(files, filters, 1).sorted, quotaFilter);
 }
 
 export type QuotaSlotState =

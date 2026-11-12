@@ -60,6 +60,14 @@ export class SourceRegistry {
     this.connections = [];
     this.publish(disconnected);
   }
+  /** A refresh begins: each hub proves the management key with one request before the rest. */
+  armAuthProbes(): void {
+    this.sessions.armAuthProbes();
+  }
+  /** Hubs that refused this session's management key; Prox no longer calls them. */
+  deniedSources(): string[] {
+    return this.sessions.deniedSources();
+  }
   async connect(apiBase: string, managementKey: string, appOrigin: string): Promise<void> {
     this.reset();
     const controller = new AbortController();

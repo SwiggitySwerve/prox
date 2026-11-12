@@ -395,12 +395,14 @@ describe('source-bound auth files', () => {
       expect(await read()).toEqual({});
       for (failure of [
         { status: 404, apiCode: '' },
-        { status: 401, apiCode: '' },
         { status: 500, apiCode: '' },
       ]) {
         await expect(read()).rejects.toMatchObject({ status: failure.status });
       }
     }
+    // Last: after a 401 the hub's gate sends nothing more for this session (authGate.ts).
+    failure = { status: 401, apiCode: '' };
+    await expect(source.api.getOauthModelAlias()).rejects.toMatchObject({ status: 401 });
     const config = createConfigValueApi(
       source.session.management,
       () => () => source.session.assertCurrent()
