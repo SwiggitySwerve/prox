@@ -6,11 +6,12 @@ import type {
   AnalyticsCost,
 } from '../../src/domain/analytics/types';
 import { LatencyGroups } from './latency';
+import { contextBandSql, tokenColumns, type AggregateRow } from './aggregate';
 import { aggregateEstimate, sourceAttribution } from './parity';
 import { buildRateInventory, combineEstimates, estimateCost } from './pricing';
-import { eventTokens, queryFilter, requestPage, type Dimension, type TokenRow } from './search';
-import { INGEST, KNOWN_PROVIDERS, type RecordKindCode } from './types';
-import type { RateBook, RateBookState } from './rates';
+import { eventTokens, queryFilter, requestPage, type Dimension } from './search';
+import { INGEST, KNOWN_PROVIDERS } from './types';
+import type { RateBookState } from './rates';
 import type { UsageAnalyticsQuery } from './validate';
 
 export const COVERAGE_LIMITATIONS = [
@@ -21,57 +22,6 @@ export const COVERAGE_LIMITATIONS = [
   'Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.',
   'Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.',
 ];
-interface AggregateRow extends TokenRow {
-  bucket: number;
-  provider_id: number;
-  model_id: number;
-  billing_model_id: number;
-  requested_model_id: number;
-  tier_id: number;
-  band: number | null;
-  usage_flags: number;
-  record_kind: RecordKindCode;
-  calls: number;
-  failures: number;
-  latency_sum: number;
-  latency_count: number;
-}
-/** Values are dictionary ids and validated integer thresholds, never interpolated text.
- * Each candidate CASE returns -1 for a configured base-only model: it must stop fallback.
- * Thresholds are tested descending so each event gets the largest STRICTLY exceeded band.
- */
-function contextBandSql(dims: readonly Dimension[], book: RateBook): string {
-  const rated = dims.filter(
-    (d) => d.kind === 'model' && Object.prototype.hasOwnProperty.call(book.models, d.value)
-  );
-  if (!rated.length) return 'NULL';
-  const candidate = (column: string) =>
-    `CASE e.${column} ${rated
-      .map((d) => {
-        const tiers = book.models[d.value].context_tiers;
-        const band = tiers.length
-          ? `CASE ${[...tiers]
-              .reverse()
-              .map(
-                (tier) =>
-                  `WHEN e.input_total > ${tier.above_input_tokens} THEN ${tier.above_input_tokens}`
-              )
-              .join(' ')} ELSE -1 END`
-          : '-1';
-        return `WHEN ${d.id} THEN ${band}`;
-      })
-      .join(' ')} END`;
-  return `nullif(coalesce(${['billing_model_id', 'model_id', 'requested_model_id'].map(candidate).join(', ')}), -1)`;
-}
-const tokenColumns = [
-  'input_total',
-  'input_uncached',
-  'cache_read',
-  'cache_write',
-  'output_total',
-  'reasoning',
-  'total',
-] as const;
 function emptyMetrics(): AnalyticsMetrics {
   return {
     calls: 0,
