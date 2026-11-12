@@ -4,6 +4,7 @@ import { Database, type Statement } from 'bun:sqlite';
 import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { INGEST } from './types';
+import type { ExporterEvent } from './exporter';
 import { gzipSync } from 'node:zlib';
 import {
   META_TABLE_SQL,
@@ -194,6 +195,8 @@ export function openUsageReader(path: string): Database {
  */
 export class UsageStore {
   rawBufferFailures = 0;
+  /** Newly inserted events, published only after the outer transaction commits. */
+  onCommit: ((events: readonly NormalizedEvent[]) => void) | null = null;
   private readonly db: Database;
   private readonly raw: Database | null;
   private readonly dims = new Map<string, number>();
@@ -266,6 +269,7 @@ export class UsageStore {
       this.dims.clear();
       throw error;
     }
+    this.onCommit?.(stored.map(({ item }) => item.event));
     this.writeRaw(() => {
       if (!this.raw) return;
       const insertPayload = this.raw.query(
@@ -444,8 +448,9 @@ export class UsageStore {
     lastId: number
   ): InsertResult & { conflicts: number } {
     const firstSeq = this.nextSeq;
+    let committed: Stored[] = [];
     try {
-      return this.db
+      const result = this.db
         .transaction(() => {
           const inspections = this.inspectImportEvents(events);
           const conflict = this.db.query(`
@@ -475,14 +480,70 @@ export class UsageStore {
             events.map((event) => ({ event, raw: null })),
             INGEST.imported
           );
+          committed = stored;
           this.setMeta('import:cpamp:last_id', String(lastId));
           return { inserted: stored.length, duplicates: events.length - stored.length, conflicts };
         })
         .immediate();
+      this.onCommit?.(committed.map(({ item }) => item.event));
+      return result;
     } catch (error) {
       this.nextSeq = firstSeq;
       this.dims.clear();
       throw error;
+    }
+  }
+
+  /** Canonical events for the startup/threshold fold; ordinary scrapes use no SQL. */
+  scanExporterEvents(visit: (event: ExporterEvent) => void): void {
+    const rows = this.db.query<
+      {
+        provider: string;
+        model: string;
+        requestedModel: string;
+        billingModel: string;
+        account: string | null;
+        apiKeyHash: string | null;
+        tier: string;
+        failed: number;
+        tsMs: number;
+        latencyMs: number | null;
+        ttftMs: number | null;
+        recordKind: number;
+        inputTotal: number;
+        inputUncached: number;
+        cacheRead: number;
+        cacheWrite: number;
+        outputTotal: number;
+        reasoning: number;
+        total: number;
+      },
+      []
+    >(`SELECT p.value AS provider, m.value AS model, r.value AS requestedModel,
+      b.value AS billingModel, a.value AS account, k.value AS apiKeyHash, t.value AS tier,
+      e.failed, e.ts_ms AS tsMs, e.latency_ms AS latencyMs, e.ttft_ms AS ttftMs,
+      e.record_kind AS recordKind,
+      e.input_total AS inputTotal, e.input_uncached AS inputUncached, e.cache_read AS cacheRead,
+      e.cache_write AS cacheWrite, e.output_total AS outputTotal, e.reasoning, e.total
+      FROM events e JOIN dim p ON p.id=e.provider_id JOIN dim m ON m.id=e.model_id
+      JOIN dim r ON r.id=e.requested_model_id JOIN dim b ON b.id=e.billing_model_id
+      JOIN dim t ON t.id=e.tier_id LEFT JOIN dim a ON a.id=e.account_id
+      LEFT JOIN dim k ON k.id=e.api_key_id`);
+    for (const row of rows.iterate()) {
+      visit({
+        ...row,
+        recordKind: row.recordKind as ExporterEvent['recordKind'],
+        failed: row.failed === 1,
+        tokens: {
+          inputTotal: row.inputTotal,
+          inputUncached: row.inputUncached,
+          cacheRead: row.cacheRead,
+          cacheWrite: row.cacheWrite,
+          outputTotal: row.outputTotal,
+          reasoning: row.reasoning,
+          total: row.total,
+        },
+      });
     }
   }
 

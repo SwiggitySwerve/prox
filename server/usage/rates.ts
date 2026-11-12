@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 
+export const DEFAULT_RATE_BOOK_PATH = '/data/usage-rates.json';
 export const RATE_FIELDS = ['input', 'output', 'cache_read', 'cache_write'] as const;
 export type RateValues = Readonly<Record<(typeof RATE_FIELDS)[number], number | null>>;
 export interface ContextRate extends RateValues {

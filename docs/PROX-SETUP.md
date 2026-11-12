@@ -242,3 +242,40 @@ measurements remain explicitly unavailable. Retained events do not establish
 coverage of every inbound request: old missing-usage records, pre-admission failures
 and queue/process losses cannot be reconstructed. Timing methods are displayed;
 full-duration output rate must not be presented as pure generation speed.
+
+
+## Name an API key for usage metrics
+
+Client names now belong to prox-usage's private local file; CPAMP's UI is not
+needed. Edit `~/.config/prox-usage/client-aliases.json` with mode `0600`:
+
+```json
+{"client_alias":[{"api_key_hash":"<64 lowercase SHA-256 hex characters>","alias":"Work laptop"}]}
+```
+
+The P4 export produces this format as `<book.json>.client-aliases.json`; copy it
+to that private path once. Preserve existing rows when adding a key. Hash the
+exact API key bytes with SHA-256 (without a trailing newline), using a local tool
+that reads secret input from stdin; never put the key in a shell command or git.
+Save the updated file with `0600` permissions. The existing read-only `/config`
+mount exposes it to prox-usage, which reloads it on its next exporter read. No
+restart is needed. An unknown key appears as `key <first 8 hash characters>`;
+traffic without a key is `unknown`. Invalid edits retain the last good labels and
+set `client_alias_error` in the authenticated `/v1/exporter` response.
+
+The monitoring rollout first adds Prox source-health gauges beside the unchanged
+CPAMP counters. At cutover Step E, require Step B's full history import to finish,
+then require `/v1/exporter` to report `rate_book_loaded: true` and
+`client_aliases_loaded: true`. A last-good reload error may retain valid values;
+first-load failure must suppress the shim's usage counters. Use an explicit empty
+`client_alias` array if no friendly names are wanted.
+
+The cutover adds `source="prox-usage"` to usage counters and gauges. Their values
+become the canonical tokens and current-rate costs shown in Prox analytics, with
+requested-model/account/provider/client label values preserved. New series' first
+samples are not counted by Prometheus rate/increase; lifetime-total dashboards
+jump once. Fable/Terra pricing and removal of the old generic-cache, `-fast` and
+billing-only policies affect costs. Apply the Sonnet 5.5 cache-read correction at
+this identity change; any later price decrease needs a new source identity.
+Importing history after the swap would appear as a huge increase. Rolling back
+resumes old counters and can double-count traffic already counted by the new ones.

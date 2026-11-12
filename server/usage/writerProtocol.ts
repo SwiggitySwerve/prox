@@ -1,6 +1,7 @@
 // Structured-clone contracts shared by sockets and the writer; no database imports.
 import type { AccountLabel, IngestSource } from './types';
 import type { CpampProgress, CpampReport } from './importCpamp';
+import type { ExporterSnapshot } from './exporter';
 import type { BackupReport } from './backup';
 
 export const BULK_JOB_KINDS = ['import', 'reconcile', 'verify', 'backup', 'prune'] as const;
@@ -41,7 +42,17 @@ export interface IngestGap {
   toMs: number;
   reason: 'stale-heartbeat' | 'subscription-dropped' | 'writer-overflow';
 }
+export interface ExporterConfig {
+  rateBookPath?: string;
+  clientAliasesPath?: string;
+}
 export interface WriterStatus {
+  exporter?: ExporterSnapshot & {
+    rate_book_error: boolean;
+    client_alias_error: boolean;
+    rate_book_loaded: boolean;
+    client_aliases_loaded: boolean;
+  };
   backlog: number;
   inserted: number;
   duplicates: number;
@@ -66,6 +77,7 @@ export type WriterRequest =
         sources: string[];
         nowMs: number;
         jobs?: BulkJobConfig;
+        exporter?: ExporterConfig;
       };
     }
   | { id: number; kind: 'live'; body: UsagePayload[] }
@@ -73,7 +85,7 @@ export type WriterRequest =
   | { id: number; kind: 'heartbeat'; body: { instance: string; atMs: number } }
   | { id: number; kind: BulkJobKind; body: null }
   | { id: number; kind: 'cancel'; body: { jobId: number } }
-  | { id: number; kind: 'job-status'; body: null }
+  | { id: number; kind: 'job-status' | 'exporter'; body: null }
   | { id: number; kind: 'flush' | 'close'; body: null };
 export type WriterReply =
   | { id: number; ok: true; body: WriterStatus }

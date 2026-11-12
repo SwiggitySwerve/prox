@@ -1,6 +1,7 @@
 // Main-thread batching and worker RPC. No SQLite or worker module imports are allowed here.
 import type {
   BulkJobConfig,
+  ExporterConfig,
   BulkJobKind,
   BulkJobReport,
   CollectorWriter,
@@ -60,7 +61,8 @@ export class UsageWriter implements CollectorWriter {
         return;
       }
       this.queued -= pending.count;
-      this.snapshot = data.body;
+      this.snapshot = { ...data.body };
+      delete this.snapshot.exporter;
       pending.resolve(data.body);
     };
     this.worker.onerror = () => this.workerDied();
@@ -78,9 +80,10 @@ export class UsageWriter implements CollectorWriter {
     paths: { events: string; raw: string | null },
     sources: string[],
     nowMs = Date.now(),
-    jobs?: BulkJobConfig
+    jobs?: BulkJobConfig,
+    exporter?: ExporterConfig
   ): Promise<void> {
-    await this.send({ kind: 'init', body: { ...paths, sources, nowMs, jobs } });
+    await this.send({ kind: 'init', body: { ...paths, sources, nowMs, jobs, exporter } });
   }
 
   enqueue(payload: UsagePayload): void {
@@ -100,6 +103,10 @@ export class UsageWriter implements CollectorWriter {
     // Dispatch first: a durable heartbeat must never advance past uncommitted accepted events.
     this.dispatch();
     await this.send({ kind: 'heartbeat', body: { instance, atMs } });
+  }
+
+  async exporterSnapshot(): Promise<NonNullable<WriterStatus['exporter']>> {
+    return (await this.send({ kind: 'exporter', body: null }, 0, false)).exporter!;
   }
 
   async startJob(kind: BulkJobKind): Promise<BulkJobReport> {
