@@ -17,6 +17,7 @@ export function useAnalytics(query: AnalyticsQuery, refresh: number) {
   const connection = useAuthStore((s) => s.connectionStatus);
   const revision = apiClient.getConnectionRevision();
   // Only a load that follows a Refresh click recomputes; filter and range changes use the warm snapshot.
+  // The click is consumed when a load settles, not when it is sent, so StrictMode's re-run still recomputes.
   const appliedRefresh = useRef(refresh);
   const [result, setResult] = useState<{
     query: AnalyticsQuery;
@@ -45,6 +46,7 @@ export function useAnalytics(query: AnalyticsQuery, refresh: number) {
       })
       .catch((error: unknown) => {
         if (!current()) return;
+        appliedRefresh.current = refresh;
         const status =
           error && typeof error === 'object' && 'status' in error ? error.status : undefined;
         setResult({
