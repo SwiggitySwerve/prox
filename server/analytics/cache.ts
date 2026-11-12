@@ -109,7 +109,13 @@ export function createSnapshotCache(
         entry.query = query;
         entry.at = clock();
         entry.took = entry.at - started;
-      } else if (entry.body === undefined && !entry.pinned && entries.get(key) === entry) {
+      } else if (
+        entry.body === undefined &&
+        !entry.pinned &&
+        // A superseded recompute must not drop the entry a newer one will store into.
+        entry.inflight === work &&
+        entries.get(key) === entry
+      ) {
         entries.delete(key);
       }
       return outcome;
