@@ -514,6 +514,32 @@ old `key <first 8 hash chars>` / `unknown` fallbacks. The shared fixture
 `tests/fixtures/usageExporterLabels.json` compares actual old SQL label values with
 the authenticated endpoint response, including a model suffix and Unicode names.
 
+Historical account-label limits are explicit. CPAMP's exporter used
+`COALESCE(NULLIF(account_snapshot,''), auth_label_snapshot, auth_index)` without
+trimming: a whitespace-bearing account snapshot stays whitespace-bearing, and an
+empty non-null auth label stays empty (rendered as `unknown`). The importer trims
+both snapshots and treats an empty auth label as absent, falling back to the auth
+index. Those two historical cases cannot be reconstructed from the retained dims;
+analytics normalization and storage remain unchanged.
+
+The coordinator checked Prometheus's distinct account sets for both request and
+token counters across all history: exactly `321267c5b92801be`, `d5a08f237a58a2e5`,
+`research@astrabit.io`, `wrollings@astrabit.io`, `wrollings@gmail.com`, and
+`wrollings@pm.me`. No value has surrounding whitespace or is empty/`unknown`.
+This is coordinator-provided evidence, not a live query run by this implementation.
+NULL-auth-label fallbacks already match. The cutover must still compare the
+**distinct account/client/provider/model label sets** from the old exporter and
+this endpoint and block on any difference; see the swap PR's label guard.
+
+For live events, CPAMP fills account/auth-label snapshots from its credential
+snapshot resolver: account first, then auth label, with provider-specific identity
+validation and name/email/file fallbacks. Prox `labels.ts` instead takes the
+management listing's safe account, explicit label or auth index and captures that
+value at ingestion. Existing safe account/explicit-label cases match; differing
+refresh snapshots or missing fields can differ. No claim of universal live-label
+identity is made. The required swap guard covers actual label sets, while P5's
+analytics dimensions and response normalization remain untouched.
+
 Rate-only edits reprice groups without reading events; changed thresholds or
 pricing-candidate membership trigger a new fold, because a newly configured
 base-only candidate can stop fallback to a different candidate's context tiers.
