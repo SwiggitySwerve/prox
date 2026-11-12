@@ -451,7 +451,8 @@ The live performance/parity gate is a separate deployment responsibility; a
   sorted positive latency and TTFT samples as signed 32-bit integer blobs.
   A timing above 2,147,483,647 ms makes the entire hour unsupported and raw, so
   conversion cannot wrap or lose precision. Zero TTFT stays out of percentiles.
-- `UsageStore.insert` marks each affected hour dirty in the event transaction,
+- The shared insertion transaction used by `UsageStore.insert` and P3's
+  `importChunk` marks each affected hour dirty in the event transaction,
   including imports, late events, and the open hour. Duplicate execution ids
   invalidate nothing. Rebuild, state publication and dirty clearing commit
   together; failure preserves the old rollup and dirty state. Consumers never
@@ -463,7 +464,10 @@ The live performance/parity gate is a separate deployment responsibility; a
   import can leave thousands of durable dirty hours without creating thousands
   of queued callbacks. Shutdown cancels maintenance instead of draining history.
   A failed background replacement logs a safe error and retries; raw reads remain
-  correct. This fixed pacing is not P3's general byte/IO governor.
+  correct. Rebuilds also use P3's shared IO-governor implementation: pressure
+  waits precede queue admission, and measured thread IO bytes are charged after
+  each hour, including a failed hour. Pressure/byte waits stay outside the queue,
+  so a paused rollup cannot hold live commits. Shutdown aborts these waits.
 - Migration 2 creates empty tables only. Pre-migration events are discovered
   using a persisted time cursor and a primary-key seek, one hour per maintenance
   job, without rewriting or grouping the events table at startup. Already-built
@@ -477,7 +481,9 @@ The live performance/parity gate is a separate deployment responsibility; a
   under the reader's current layout. All other time spans read `events` in the
   same snapshot. It merges integer sums by the full raw SQL group key in
   TypeScript before pricing, and merges exact samples into the same nearest-rank
-  owner (`latency.ts`). Pricing and ordered reasons use the same groups and
+  owner (`latency.ts`). SQLite concatenates sample bytes by bucket/model/provider
+  and casts the result back to BLOB before Bun sees it; no text is decoded and
+  NUL/invalid UTF-8 byte patterns are covered by regression tests. Pricing and ordered reasons use the same groups and
   ordering in both paths. Request detail stays raw. `coverage.ts` owns range-wide
   import/provider facts, including supplementary events; rebuilds retain those
   facts in `usage_hour_coverage` and reads merge them with the same raw time spans.

@@ -290,3 +290,40 @@ test('a late insert during a hybrid response cannot replace its pinned hour or l
   expect(during).toEqual(before);
   expect(equal(f).summary.calls).toBe(2);
 });
+
+test('SQLite sample merging preserves arbitrary int32 bytes without text decoding', () => {
+  const f = setup();
+  const values = Array.from(
+    { length: 512 },
+    (_, i) => 1 + ((Math.imul(i + 1, 2654435761) >>> 0) >>> 1)
+  );
+  f.insert(
+    values.map((latencyMs, i) =>
+      event(i, {
+        tsMs: start + i + 1,
+        latencyMs,
+        ttftMs: latencyMs,
+        tier: i % 2 ? 'priority' : 'standard',
+        failed: i % 7 === 0,
+      })
+    )
+  );
+  drain(f);
+  const response = equal(f);
+  expect(response.summary.p95_latency_ms).toBe(
+    values.sort((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1]
+  );
+  expect(response.summary.p95_ttft_ms).toBe(response.summary.p95_latency_ms);
+});
+
+test('P3 importChunk invalidates rollups in the same transaction as rows and its cursor', () => {
+  const f = setup();
+  f.insert([event(1, { tsMs: start + 1 })]);
+  drain(f);
+  f.store.importChunk([event(2, { tsMs: start + 2 })], 100);
+  expect(f.store.getMeta('import:cpamp:last_id')).toBe('100');
+  expect(f.db.query('SELECT dirty FROM usage_hour_state').get()).toEqual({ dirty: 1 });
+  expect(equal(f).summary.calls).toBe(2);
+  drain(f);
+  equal(f);
+});

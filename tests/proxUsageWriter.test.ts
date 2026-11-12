@@ -214,7 +214,37 @@ test('worker rebuilds a closed hour through paced maintenance using its configur
   const files = paths();
   const rateBookPath = join(files.dir, 'rates.json');
   await Bun.write(rateBookPath, JSON.stringify({ version: 1, models: {} }));
-  const writer = new UsageWriter();
+  // Fake host pressure at the IO boundary; the real governor is covered with fake clocks in
+  // proxUsageIoGovernor.test.ts. This worker regression must not depend on other host jobs.
+  const built = await Bun.build({
+    entrypoints: [join(import.meta.dir, '../server/usage/writer.worker.ts')],
+    outdir: files.dir,
+    target: 'bun',
+    naming: 'maintenance.worker.js',
+    plugins: [
+      {
+        name: 'quiet-host-io',
+        setup(build) {
+          build.onResolve({ filter: /^\.\/ioGovernor$/ }, () => ({
+            path: 'host-io',
+            namespace: 'synthetic-io',
+          }));
+          build.onLoad({ filter: /.*/, namespace: 'synthetic-io' }, () => ({
+            loader: 'ts',
+            contents: `
+        export class IoGovernor {
+          async waitForQuietIo(signal) { signal?.throwIfAborted(); }
+          async reportBytes(_bytes, signal) { signal?.throwIfAborted(); }
+        }
+        export const readIoBytes = () => ({ read: 0, written: 0 });
+      `,
+          }));
+        },
+      },
+    ],
+  });
+  expect(built.success).toBe(true);
+  const writer = new UsageWriter(join(files.dir, 'maintenance.worker.js'));
   cleanups.push(() => writer.close());
   await writer.init({ ...files, rateBookPath }, ['test-proxy']);
   writer.enqueue(item('hourly-maintenance'));

@@ -1,6 +1,7 @@
 // The only write connections live here. Main-thread code refers to this entry by runtime path.
 import { UsageStore } from './store';
 import { normalizeUsagePayload } from './normalize';
+import { IoGovernor, readIoBytes } from './ioGovernor';
 import { createRateBookLoader } from './rates';
 import { WriterQueue } from './writerQueue';
 import { QUEUE_RETENTION_MS, type WriterRequest, type WriterStatus } from './writerProtocol';
@@ -12,25 +13,47 @@ export const enqueueJob = queue.enqueueJob.bind(queue);
 let store: UsageStore | null = null;
 let maintenance: ReturnType<typeof setTimeout> | null = null;
 let closing = false;
+const bulkGovernor = new IoGovernor();
+const maintenanceAbort = new AbortController();
 function startRollups(path?: string) {
   const loader = createRateBookLoader(path ?? '/data/usage-rates.json');
   const schedule = () => {
     if (closing) return;
     maintenance = setTimeout(() => {
-      maintenance = null;
-      // At most one background hour is pending. Yield to the worker event loop between jobs
-      // so incoming live messages can enter the live-first queue, even after a bulk import.
-      void enqueueJob('rollup', () => {
-        if (!store || closing) return;
-        const book = loader.load().book ?? { version: 1 as const, models: {} };
-        store.rebuildNextHour(book);
-      })
-        .catch(() => {
-          // Replacement is transactional; failed hours remain raw and retry on the next tick.
-          console.error('Usage hourly rollup rebuild failed; raw events retained');
-        })
-        .finally(schedule);
+      void run();
     }, 1000);
+  };
+  const run = async () => {
+    maintenance = null;
+    try {
+      // Pressure waits and byte pacing stay outside the queue: live commits never wait on them.
+      await bulkGovernor.waitForQuietIo(maintenanceAbort.signal);
+      let bytes = { read: 0, written: 0 };
+      try {
+        await enqueueJob('rollup', () => {
+          if (!store || closing) return;
+          const before = readIoBytes();
+          try {
+            const book = loader.load().book ?? { version: 1 as const, models: {} };
+            store.rebuildNextHour(book);
+          } finally {
+            const after = readIoBytes();
+            bytes = {
+              read: Math.max(0, after.read - before.read),
+              written: Math.max(0, after.written - before.written),
+            };
+          }
+        });
+      } finally {
+        await bulkGovernor.reportBytes(bytes, maintenanceAbort.signal);
+      }
+    } catch {
+      // Replacement is transactional; failed hours remain raw and retry on the next tick.
+      if (!closing) console.error('Usage hourly rollup rebuild failed; raw events retained');
+    } finally {
+      // At most one hour is pending. Yield to the event loop so live messages enter the queue.
+      schedule();
+    }
   };
   schedule();
 }
@@ -47,6 +70,7 @@ self.onmessage = (event: MessageEvent<WriterRequest>) => {
   const { id, kind, body } = event.data;
   if (kind === 'close') {
     closing = true;
+    maintenanceAbort.abort();
     if (maintenance) clearTimeout(maintenance);
     maintenance = null;
   }
