@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { UsageWriter, writerWorkerPath } from '../server/usage/writer';
 import { UsageStore, openUsageReader } from '../server/usage/store';
 import { WriterQueue } from '../server/usage/writerQueue';
@@ -14,7 +13,7 @@ afterEach(async () => {
   for (const clean of cleanups.splice(0).reverse()) await clean();
 });
 function paths() {
-  const dir = mkdtempSync(join(tmpdir(), 'prox-usage-writer-'));
+  const dir = mkdtempSync(join('/dev/shm', 'prox-usage-writer-'));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   return { events: join(dir, 'usage.sqlite'), raw: join(dir, 'usage-raw.sqlite'), dir };
 }

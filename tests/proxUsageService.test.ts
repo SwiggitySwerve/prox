@@ -1,6 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createUsageStatusHandler } from '../server/usage/status';
 
@@ -11,7 +10,7 @@ afterEach(() => {
 });
 
 test('status is bearer protected, health is public, missing/empty keys fail closed', async () => {
-  temp = mkdtempSync(join(tmpdir(), 'prox-usage-status-'));
+  temp = mkdtempSync(join('/dev/shm', 'prox-usage-status-'));
   const keyFile = join(temp, 'key');
   const handler = createUsageStatusHandler({
     keyFile,
@@ -30,20 +29,29 @@ test('status is bearer protected, health is public, missing/empty keys fail clos
     new Request(`http://127.0.0.1${path}`, {
       headers: key ? { Authorization: `Bearer ${key}` } : {},
     });
-  expect(handler(request('/healthz')).status).toBe(200);
-  expect(handler(request('/v1/status')).status).toBe(401);
-  expect(handler(request('/v1/status', 'key')).status).toBe(503);
+  expect((await handler(request('/healthz'))).status).toBe(200);
+  expect((await handler(request('/v1/status'))).status).toBe(401);
+  expect((await handler(request('/v1/status', 'key'))).status).toBe(503);
   writeFileSync(keyFile, '  ');
-  expect(handler(request('/v1/status', 'key')).status).toBe(503);
+  expect((await handler(request('/v1/status', 'key'))).status).toBe(503);
   writeFileSync(keyFile, 'synthetic-key');
-  expect(handler(request('/v1/status', 'wrong')).status).toBe(401);
-  const response = handler(request('/v1/status', 'synthetic-key'));
+  expect((await handler(request('/v1/status', 'wrong'))).status).toBe(401);
+  const response = await handler(request('/v1/status', 'synthetic-key'));
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
     writer: { backlog: 3, gaps: 2, rawBufferFailures: 1 },
   });
-  expect(handler(request('/unknown')).status).toBe(404);
-  expect(handler(new Request('http://127.0.0.1/v1/status', { method: 'POST' })).status).toBe(405);
+  expect((await handler(request('/unknown'))).status).toBe(404);
+  expect(
+    (
+      await handler(
+        new Request('http://127.0.0.1/v1/status', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer synthetic-key' },
+        })
+      )
+    ).status
+  ).toBe(405);
 });
 
 test('the main-thread runtime module graph never imports bun:sqlite or a worker entry', () => {
@@ -66,6 +74,16 @@ test('the main-thread runtime module graph never imports bun:sqlite or a worker 
   };
   visit(join(root, 'server/usage/main.ts'));
   expect(visited.size).toBeGreaterThan(10);
+  for (const module of [
+    'store',
+    'bulkJobs',
+    'importCpamp',
+    'backup',
+    'ioGovernor',
+    'writerRuntime',
+  ]) {
+    expect(visited.has(join(root, `server/usage/${module}.ts`))).toBe(false);
+  }
 });
 
 test('deploy uses the history image, hashes both bundles and keeps the API on loopback', () => {
@@ -80,4 +98,103 @@ test('deploy uses the history image, hashes both bundles and keeps the API on lo
   expect(read('deploy/prox-usage.container')).toContain('Exec=bun /app/usage/main.js');
   expect(read('deploy/Dockerfile.history')).toContain('COPY dist/usage /app/usage');
   expect(read('server/usage/main.ts')).toContain("hostname: '127.0.0.1'");
+});
+
+test('job commands require the shared bearer, validate bounded input and expose progress in status', async () => {
+  temp = mkdtempSync('/dev/shm/prox-usage-admin-');
+  const keyFile = join(temp, 'key');
+  writeFileSync(keyFile, 'synthetic-admin');
+  const calls: unknown[] = [];
+  const report = {
+    id: 1,
+    kind: 'import' as const,
+    state: 'running' as const,
+    startedAtMs: 1,
+    finishedAtMs: null,
+    progress: { phase: 'import' as const, read: 1000, inserted: 999, lastId: 1000, chunks: 1 },
+    io: { bytesRead: 100, bytesWritten: 50, pauseSeconds: 1, longPauses: 0 },
+    lastBackupSuccessAtMs: null,
+  };
+  const handler = createUsageStatusHandler({
+    keyFile,
+    healthy: () => true,
+    sources: () => [],
+    writer: () => ({
+      backlog: 0,
+      gaps: 0,
+      inserted: 0,
+      duplicates: 0,
+      rejected: 0,
+      rawBufferFailures: 0,
+    }),
+    jobs: {
+      startJob: async (kind) => {
+        calls.push(kind);
+        return report;
+      },
+      cancelJob: async (jobId) => {
+        calls.push(jobId);
+        return { ...report, state: 'cancelling' };
+      },
+      jobReport: async () => report,
+    },
+  });
+  const request = (path: string, method = 'GET', body?: unknown, key = 'synthetic-admin') =>
+    new Request(`http://127.0.0.1${path}`, {
+      method,
+      headers: key ? { Authorization: `Bearer ${key}` } : {},
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  for (const key of ['', 'wrong']) {
+    for (const path of ['/v1/jobs', '/v1/jobs/cancel']) {
+      expect((await handler(request(path, 'POST', { kind: 'import' }, key))).status).toBe(401);
+      expect((await handler(request(path, 'GET', undefined, key))).status).toBe(401);
+    }
+  }
+  expect(calls).toEqual([]);
+  for (const kind of ['import', 'reconcile', 'verify', 'backup']) {
+    expect((await handler(request('/v1/jobs', 'POST', { kind }))).status).toBe(202);
+  }
+  expect((await handler(request('/v1/jobs/cancel', 'POST', { jobId: 1 }))).status).toBe(202);
+  expect(calls).toEqual(['import', 'reconcile', 'verify', 'backup', 1]);
+  expect(await (await handler(request('/v1/jobs'))).json()).toEqual({ job: report });
+  expect(await (await handler(request('/v1/status'))).json()).toMatchObject({
+    writer: { job: report },
+  });
+  for (const body of [
+    {},
+    { kind: 'prune' },
+    { kind: 'import', path: '/forbidden' },
+    { kind: { toString: 'import' } },
+    [],
+    null,
+    { kind: 'x'.repeat(1025) },
+  ]) {
+    expect((await handler(request('/v1/jobs', 'POST', body))).status).toBe(400);
+  }
+  for (const jobId of [0, -1, 1.5, '1', null]) {
+    expect((await handler(request('/v1/jobs/cancel', 'POST', { jobId }))).status).toBe(400);
+  }
+  expect((await handler(request('/v1/jobs', 'DELETE'))).status).toBe(405);
+  expect((await handler(request('/v1/jobs', 'POST', undefined))).status).toBe(400);
+  const malformed = new Request('http://127.0.0.1/v1/jobs', {
+    method: 'POST',
+    body: '{',
+    headers: { Authorization: 'Bearer synthetic-admin' },
+  });
+  expect((await handler(malformed)).status).toBe(400);
+  const missingKey = createUsageStatusHandler({
+    keyFile: join(temp, 'missing'),
+    sources: () => [],
+    healthy: () => true,
+    writer: () => ({
+      backlog: 0,
+      gaps: 0,
+      inserted: 0,
+      duplicates: 0,
+      rejected: 0,
+      rawBufferFailures: 0,
+    }),
+  });
+  expect((await missingKey(request('/v1/jobs', 'POST', { kind: 'import' }))).status).toBe(503);
 });

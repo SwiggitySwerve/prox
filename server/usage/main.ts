@@ -27,6 +27,7 @@ const server = Bun.serve({
     keyFile: manifest.history.managementKeyFile,
     sources: () => collectors.map((collector) => collector.status),
     writer: () => writer.status,
+    jobs: writer,
     healthy: () => healthy,
   }),
 });
