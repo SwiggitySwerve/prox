@@ -3,6 +3,7 @@
 import { Database, type Statement } from 'bun:sqlite';
 import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { INGEST } from './types';
 import { gzipSync } from 'node:zlib';
 import {
   META_TABLE_SQL,
@@ -25,13 +26,39 @@ import type {
 
 /** The one mapping from event dictionary columns to their owning dimension kind. */
 const EVENT_DIMENSIONS: Record<string, DimKind> = {
-  instance_id: 'instance', provider_id: 'provider', model_id: 'model',
-  requested_model_id: 'model', billing_model_id: 'model', response_model_id: 'model',
-  tier_id: 'tier', timing_id: 'timing', account_id: 'account', account_label_id: 'account_label',
-  api_key_id: 'api_key', user_agent_id: 'user_agent', client_ip_id: 'client_ip', path_id: 'path',
-  method_id: 'method', effort_id: 'effort', executor_id: 'executor',
-  requested_tier_id: 'tier', effective_tier_id: 'tier', auth_index_id: 'auth_index',
+  instance_id: 'instance',
+  provider_id: 'provider',
+  model_id: 'model',
+  requested_model_id: 'model',
+  billing_model_id: 'model',
+  response_model_id: 'model',
+  tier_id: 'tier',
+  timing_id: 'timing',
+  account_id: 'account',
+  account_label_id: 'account_label',
+  api_key_id: 'api_key',
+  user_agent_id: 'user_agent',
+  client_ip_id: 'client_ip',
+  path_id: 'path',
+  method_id: 'method',
+  effort_id: 'effort',
+  executor_id: 'executor',
+  requested_tier_id: 'tier',
+  effective_tier_id: 'tier',
+  auth_index_id: 'auth_index',
 };
+
+export type ImportValues = Record<string, string | number | null>;
+export interface ImportDifference {
+  executionId: string;
+  field: string;
+  live: string | null;
+  imported: string | null;
+}
+export interface ImportInspection {
+  stored: ImportValues | null;
+  differences: ImportDifference[];
+}
 
 const EVENT_COLUMNS = [
   'ts_ms',
@@ -293,6 +320,104 @@ export class UsageStore {
     }
   }
 
+  /** Compare through the store contract; callers never reach into the write connection. */
+  inspectImportEvents(events: readonly NormalizedEvent[]): ImportInspection[] {
+    const projection = Object.keys(EVENT_DIMENSIONS).map(
+      (column) => `${column}_dim.value AS ${column}`
+    );
+    const joins = Object.keys(EVENT_DIMENSIONS).map(
+      (column) => `LEFT JOIN dim ${column}_dim ON ${column}_dim.id = e.${column}`
+    );
+    const select = this.db.query<ImportValues, [string]>(`
+      SELECT e.*, d.*, ${projection.join(', ')}, s.uuid AS session_id
+      FROM event_detail d JOIN events e ON e.ts_ms = d.ts_ms AND e.seq = d.seq
+      ${joins.join(' ')} LEFT JOIN session s ON s.id = e.session_id
+      WHERE d.execution_id = ?
+    `);
+    return events.map((event) => {
+      const stored = select.get(event.executionId);
+      if (!stored) return { stored: null, differences: [] };
+      const expected = {
+        ...this.eventRow(event, 0, INGEST.imported, false),
+        ...this.detailRow(event, 0),
+      };
+      // The joined session UUID and the per-event detail UUID agree for valid stored events.
+      const differences: ImportDifference[] = [];
+      for (const [field, value] of Object.entries(expected)) {
+        if (field === 'seq' || field === 'ingest' || field === 'ingested_at_ms') continue;
+        if (stored[field] !== value) {
+          differences.push({
+            executionId: event.executionId,
+            field,
+            live: stored[field] === null ? null : String(stored[field]),
+            imported: value === null ? null : String(value),
+          });
+        }
+      }
+      return { stored, differences };
+    });
+  }
+
+  /** Rows, deduplicated conflicts and the source cursor are one crash-safe commit. */
+  importChunk(
+    events: readonly NormalizedEvent[],
+    lastId: number
+  ): InsertResult & { conflicts: number } {
+    const firstSeq = this.nextSeq;
+    try {
+      return this.db
+        .transaction(() => {
+          const inspections = this.inspectImportEvents(events);
+          const conflict = this.db.query(`
+          INSERT INTO import_conflicts (execution_id, field, live, imported, seen_at_ms)
+          SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (
+            SELECT 1 FROM import_conflicts
+            WHERE execution_id = ? AND field = ? AND live IS ? AND imported IS ?
+          )
+        `);
+          let conflicts = 0;
+          for (const inspection of inspections) {
+            for (const diff of inspection.differences) {
+              conflicts += conflict.run(
+                diff.executionId,
+                diff.field,
+                diff.live,
+                diff.imported,
+                this.now(),
+                diff.executionId,
+                diff.field,
+                diff.live,
+                diff.imported
+              ).changes;
+            }
+          }
+          const stored = this.insertAll.immediate(
+            events.map((event) => ({ event, raw: null })),
+            INGEST.imported
+          );
+          this.setMeta('import:cpamp:last_id', String(lastId));
+          return { inserted: stored.length, duplicates: events.length - stored.length, conflicts };
+        })
+        .immediate();
+    } catch (error) {
+      this.nextSeq = firstSeq;
+      this.dims.clear();
+      throw error;
+    }
+  }
+
+  /** Logical database size includes pages not yet checkpointed from WAL. */
+  databaseSizeBytes(): number {
+    const pages = this.db.query<{ page_count: number }, []>('PRAGMA page_count').get()!.page_count;
+    const size = this.db.query<{ page_size: number }, []>('PRAGMA page_size').get()!.page_size;
+    return pages * size;
+  }
+
+  /** Caller supplies a new path on tmpfs. This must run as a serialized writer job. */
+  vacuumInto(path: string): void {
+    this.db.query('VACUUM INTO ?').run(path);
+  }
+
   close(): void {
     this.raw?.close();
     this.db.close();
@@ -362,7 +487,9 @@ export class UsageStore {
       executor_id: event.executor,
       requested_tier_id: event.requestedTier,
       effective_tier_id: event.effectiveTier,
-      session_id: intern ? this.session(event.session, event.parentSession) : event.session?.uuid ?? null,
+      session_id: intern
+        ? this.session(event.session, event.parentSession)
+        : (event.session?.uuid ?? null),
       auth_index_id: event.authIndex,
       ingest,
     };

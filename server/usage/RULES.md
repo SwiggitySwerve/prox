@@ -82,7 +82,9 @@ unit, not part of the history server.
 - With bit 7 clear, the token columns hold the proxy's raw counters as reported:
   `input_total` and `input_uncached` both hold the reported input, and
   `input_total = input_uncached + cache_read + cache_write` does not hold. Such an
-  event is priced as partial.
+  event is priced as partial. Imported history is the exception to the raw-counter
+  layout: with bit 7 clear it preserves CPAMP's persisted normalized columns,
+  still priced as partial.
 
 ## The normalizer
 
@@ -178,9 +180,10 @@ Collector, writer and service regressions use the ephemeral in-process proxy in
   Pass `contextThreshold: null` for the base band or the selected threshold for
   a context band. Never classify a sum as if it were one large request. An
   aggregate with multiple calls and configured context tiers must pass its band.
-- Incomplete breakdowns (bit 7 clear) add `usage-components-unreported`; raw
-  counters remain raw. No provider cache inference, built-in prices, premiums,
-  service multipliers or legacy cache rate is used. Missing cache-write rates
+- Incomplete breakdowns (bit 7 clear) add `usage-components-unreported`; live
+  counters remain raw and imported history preserves CPAMP's persisted columns.
+  No provider cache inference, built-in prices, premiums, service multipliers or
+  legacy cache rate is used. Missing cache-write rates
   use input; other missing components are dropped with CPAMP's exact reason.
 - One-time migration: `bun scripts/usage-export-cpamp-rates.ts <book.json>
   [cpamp-usage.sqlite]`. It opens only the CPAMP source with `mode=ro`, read-only
@@ -190,3 +193,129 @@ Collector, writer and service regressions use the ephemeral in-process proxy in
   writer-worker import. Neither the Prox database nor configuration is updated.
   D5's two missing models are added with null rates and source `pending D5`;
   approved prices are required before deploying that book.
+
+## Bulk jobs (import, reconcile, verify and backup)
+
+`ioGovernor.ts` owns bulk IO admission and pacing. Share one `IoGovernor` in the
+writer worker. `waitForQuietIo(signal)` admits work only below 5% `full avg10` IO
+PSI. At or above 15%, recovery requires 30 continuous seconds below 5%. Missing
+PSI fails closed. A pause longer than six hours invokes `reportLongPause` once
+(or warns to stderr when no callback is supplied); it never overrides the wait.
+`counters` exposes pause seconds, read bytes, written bytes and long-pause count.
+
+After each chunk, call `reportBytes({read, written}, signal)`. Reads plus writes
+are capped at 4,000,000 bytes/second by default (`bytesPerSecond` overrides it).
+Work time counts against the chunk's pacing interval; unrelated idle time earns
+no credit. Chunks are allowed to burst, but the next chunk waits out their byte
+cost. Import jobs measure Linux `/proc/thread-self/io` syscall bytes, including
+page-cache reads and WAL writes; source mmap is disabled so it cannot bypass the
+counter. Chunk work is synchronous on the writer thread; no other job runs inside
+the measured interval. Tests inject PSI, the clock and byte counters.
+
+### P2 integration API
+
+- `runCpampJob(store, cpampReader, {mode, governor, signal, betweenChunks})`, from
+  `importCpamp.ts`: `mode` is `import`, `reconcile` or `verify`. The caller owns
+  both handles and must close them. `store` is the writer's `UsageStore`;
+  `cpampReader` is opened read-only through `store.ts`'s `openUsageReader` with
+  `query_only=1` and `temp_store=MEMORY`. No raw payload buffer is needed.
+- Worker integration is deliberately pending. Do **not** enqueue either whole
+  job in P2's `WriterQueue`: its contract requires one bounded chunk per job.
+  `betweenChunks` runs without a transaction, before IO admission; it alone is
+  not a queue adapter. The direct job API currently serves tests and the bounded
+  in-memory mapping check. Do not run two jobs with one governor concurrently.
+- Import and reconcile keyset by source `id`, 1,000 rows per transaction. The
+  store's `importChunk` commits inserts, deduplicated field conflicts and
+  `import:cpamp:last_id` together. Existing events always win. Reconcile continues
+  that same cursor. Re-running a completed import writes nothing.
+- Verify writes nothing. Every mutating pass ends with a separate governed full
+  verification up to the captured source maximum, including previously committed
+  chunks after a restart. It matches source execution IDs, including live overlaps;
+  target-only live events are outside this migration check. It compares all mapped
+  fields and exact per-UTC-hour rows, failures, seven token sums, latency sum, and
+  positive TTFT sum/count. Sums are BigInt internally and decimal strings in the
+  report. A missing or duplicate identity prevents an exact verdict. The report
+  counts invalid JSON, timestamps and tokens, incomplete/invalid canonical
+  breakdowns and non-positive latency. Unmappable rows are skipped and reported;
+  review the report before accepting a cursor. No invalid identity is fabricated.
+- CPAMP's persisted accounting columns are copied. Metadata from `raw_json` is an
+  explicit `json_extract` allowlist; headers, fail bodies and client keys are never
+  selected. Metadata validation, model suffix handling, timing, presence, tiers
+  and session UUID provenance reuse the live normalizer. A persisted token value
+  differing from the validated canonical breakdown clears the complete flag.
+  Sessions and credential indexes use the store's existing insert path.
+- `maxRows` is diagnostic only: it limits each pass, and the verification report
+  covers only that prefix. The final migration check must omit it. An import
+  followed by verification reads that prefix twice; respect any diagnostic read
+  limit across both passes.
+
+Run the actual import only in a quiet window: outside 01:00–04:00 UTC and the
+12:30 UTC daily fstrim. This module does not schedule jobs or enforce calendar
+windows. The first successful off-pool backup is required before the real import;
+that operational gate belongs to the coordinator, not these job functions.
+
+### Backups
+
+The backup job API is `new UsageBackup(config, {governor}).run(store, signal)`.
+Future P2 integration must queue only its snapshot operation, with upload and
+pacing outside the writer queue. `lastSuccessAtMs` starts at null and advances
+only after all required uploads succeed. It is in-memory health state for later metrics, not a durable
+backup manifest. Job modules open no databases or network listeners.
+
+`loadBackupConfig(path?)` reads a JSON object from the supplied path (or
+`PROX_USAGE_BACKUP_CONFIG`). Its fields are `endpoint`, `bucket`, `accessKeyId`,
+`secretAccessKey`, optional `region` (default `us-east-1`), `sessionToken`, and
+`tmpfsDir` (default `/dev/shm`). The corresponding `PROX_USAGE_BACKUP_ENDPOINT`,
+`_BUCKET`, `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY`, `_REGION`, `_SESSION_TOKEN` and
+`_TMPFS_DIR` environment values override the file. Keep config files private;
+secrets and signed URLs must never be logged. No real credentials ship here.
+
+The backup refuses a directory that is not tmpfs, or less than twice the database's
+WAL-inclusive logical size in free space. It VACUUMs into a private temporary
+directory, then uploads 64 KiB chunks using a PUT signed by the pinned Bun 1.4.3
+`S3Client`. Each chunk counts its tmpfs read plus network write and is paced
+before sending, with backpressure and no redirect or automatic retry. Temp files
+are deleted on success, failure and cancellation. **VACUUM is one indivisible
+SQLite operation:** its reads cannot be chunked; admission is PSI-gated and its
+measured bytes are charged afterward. It writes only to tmpfs. Revisit the
+snapshot method and tmpfs headroom before the database reaches 2 GB.
+
+Object keys are `usage/daily/usage-YYYYMMDD.sqlite` in UTC and, on Sundays,
+`usage/weekly/usage-YYYYMMDD.sqlite`. Configure bucket lifecycle expiration at
+14 days for the daily prefix and 56 days for the weekly prefix (eight weekly
+copies). The client never lists, prunes or deletes objects. It backs up
+`usage.sqlite`, including `client_alias`; the rate book remains a separate git
+artifact and the raw buffer is excluded. P4/P2 must arrange rate-book distribution
+alongside the backup; there is no rate-book table in the P1 schema.
+
+The coordinator configures the off-pool target and records the quarterly restore
+drill. This PR does not contact MinIO, run a real backup or perform a restore drill.
+
+
+### Remaining worker integration
+
+P2 landed while this change was being built. Its queue accepts one bounded
+chunk per job, its RPC currently replies only with `WriterStatus`, and any RPC
+failure stops collection. A correct adapter also needs cancellation so shutdown
+cannot wait indefinitely behind PSI or an upload. Together this exceeds the
+coordinator's roughly 150-line limit for wiring in this PR. No worker or admin
+trigger is added here. The integration PR must:
+
+1. Add a generic chunk scheduler to the job options. Keep PSI waits and byte
+   sleeps outside `WriterQueue`, and recheck admission when a queued chunk
+   starts. Queue each 1,000-row source read/transaction and verification read
+   with `enqueueJob(kind, fn)`; queue only the snapshot for backups. Retain
+   synchronous IO measurement inside each queued chunk so live writes are not
+   charged to it. Upload chunks remain outside the queue.
+2. Extend `writerProtocol.ts` with import/reconcile/verify/backup and cancellation
+   requests and typed job reports/errors. Expose them through `UsageWriter`
+   without making a rejected config/source/backup job fatal to live ingestion.
+3. Have `writer.worker.ts` own a single active bulk orchestration, shared
+   governor, read-only CPAMP handle, backup config and last-success state.
+   Close the source in `finally`; cancel and settle active orchestration before
+   closing the write connection. Live flush/shutdown must not wait six hours on
+   a bulk job's pressure wait. No job/config/source handle belongs in `main.ts`.
+4. Test real worker messages with synthetic CPAMP/fake S3, live commits during
+   PSI and pacing waits, cancellation/shutdown, nonfatal bulk-job failures and
+   the existing main-thread module-graph guard. Keep any later HTTP admin
+   trigger loopback-only and bearer-protected; validate its inputs at the edge.
