@@ -162,6 +162,9 @@ CASES = [
         ('click', 'button:has-text("Use reset"):enabled'), ('wait', '[role=dialog]'),
         ('dialog-masked', '')]),
     ('reset-dialog-quota', '/quota/accounts', 'claude-cards', [
+        ('click', 'button:has-text("Refresh all credentials")'),
+        ('wait', 'summary:has-text("Account details")'), ('sleep', '1500'),
+        ('click', 'summary:has-text("Account details")'),
         ('wait', 'button:has-text("Use reset"):enabled'), ('sleep', '1500'),
         ('click', 'button:has-text("Use reset"):enabled'), ('wait', '[role=dialog]'),
         ('dialog-masked', '')]),
