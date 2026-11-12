@@ -102,6 +102,13 @@ test('deploy uses the history image, hashes both bundles and keeps the API on lo
   expect(script.match(/restart prox-usage.service/g)).toHaveLength(1);
   expect(read('deploy/prox-usage.container')).toContain('Image=localhost/prox-history:dev');
   expect(read('deploy/prox-usage.container')).toContain('Exec=bun /app/usage/main.js');
+  // CPAMP's history is only ever mounted read-only; the rate book ships with every deploy.
+  expect(read('deploy/prox-usage.container')).toContain(
+    'Volume=%h/.local/share/cpa-manager-plus:/cpamp:ro'
+  );
+  expect(script).toContain(
+    'install -m 644 deploy/usage-rates.json "$HOME/.local/share/prox-usage/usage-rates.json"'
+  );
   expect(read('deploy/Dockerfile.history')).toContain('COPY dist/usage /app/usage');
   expect(read('server/usage/main.ts')).toContain("hostname: '127.0.0.1'");
 });
