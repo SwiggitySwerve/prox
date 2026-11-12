@@ -195,6 +195,11 @@ class FakeHubs:
         self.provider_reads = 0
         self.credential_reads = 0
         self.reads: dict[str, int] = {}
+        # Every management request, in order: {'source', 'method', 'path', 'authIndex', 'url'}.
+        self.log: list[dict] = []
+        # Hubs that answer 401 to every management request (a revoked key), and the reply delay.
+        self.denied: set[str] = set()
+        self.delay = 0.6 if scenario == 'slow' else 0.02
 
     def edit_elsewhere(self) -> None:
         """Another operator edits the claude provider list (the stale-preview scenario)."""
@@ -231,7 +236,18 @@ class FakeHubs:
             return
         source = (api.group(1) if api else None) or 'alpha'
         sub = api.group(2) if api else '/prox' + prox.groups()[-1]
-        await asyncio.sleep(0.6 if self.scenario == 'slow' else 0.02)
+        entry = {'source': source, 'method': method, 'path': sub}
+        if sub == '/requests/api-call' and request.post_data:
+            try:
+                call = json.loads(request.post_data)
+                entry.update(authIndex=call.get('authIndex'), url=call.get('url'),
+                             proxied=str(call.get('method', 'GET')).upper())
+            except ValueError:
+                pass
+        self.log.append(entry)
+        await asyncio.sleep(self.delay)
+        if source in self.denied and not sub.startswith('/prox'):
+            return await self._fail(route, 401, 'Synthetic hub: wrong management key')
         await self._api(route, source, method, sub, parse_qs(url.query), request)
 
     @staticmethod
@@ -366,8 +382,8 @@ class FakeHubs:
             if str(body.get('method', 'GET')).upper() != 'GET':
                 self.unexpected.append(f'{source} proxied {body.get("method")} {url}')
                 return await self._fail(route, 403, 'Synthetic hub proxies reads only')
-            failing = self.scenario not in ('default', 'aligned', 'claude-cards') or (
-                self.scenario == 'default' and body.get('authIndex') == 'alpha-1')
+            failing = self.scenario not in ('default', 'aligned', 'claude-cards', 'many') or (
+                self.scenario in ('default', 'many') and body.get('authIndex') == 'alpha-1')
             soon = '2030-01-01T00:00:00Z'
             variant = ALIGNED_CLAUDE.get(body.get('authIndex')) if self.scenario == 'aligned' else None
             card = CARD_CLAUDE.get(body.get('authIndex')) if self.scenario == 'claude-cards' else None

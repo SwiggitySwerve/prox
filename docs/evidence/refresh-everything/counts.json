@@ -1,0 +1,121 @@
+{
+  "checks": {
+    "1-first-click-reads-every-card": {
+      "pass": true,
+      "expected": 13,
+      "read": 13,
+      "calls": 26
+    },
+    "1b-second-page-already-read": {
+      "pass": true,
+      "states": [
+        "loaded",
+        "loaded",
+        "failed",
+        "unavailable"
+      ],
+      "requests": 0
+    },
+    "2-second-click-within-60s-reads-only-the-failed-card": {
+      "pass": true,
+      "read": [
+        "alpha:alpha-1"
+      ],
+      "cardLabel": "updated 23s ago"
+    },
+    "3-after-window-reads-every-card-again": {
+      "pass": true,
+      "read": 13,
+      "expected": 13
+    },
+    "4a-group-refresh-reads-its-cards": {
+      "pass": true,
+      "read": [
+        "alpha:alpha-0",
+        "alpha:alpha-1",
+        "alpha:alpha-10",
+        "alpha:alpha-11",
+        "alpha:alpha-3",
+        "alpha:alpha-4",
+        "alpha:alpha-5",
+        "alpha:alpha-6",
+        "alpha:alpha-7",
+        "alpha:alpha-8",
+        "alpha:alpha-9"
+      ]
+    },
+    "4b-header-refresh-syncs-everything": {
+      "pass": true,
+      "busyDuringRound": true,
+      "quotaCards": [
+        "alpha:alpha-1",
+        "beta:beta-0",
+        "beta:beta-1"
+      ],
+      "quotaCalls": 6,
+      "grantReads": 8,
+      "credentialLists": {
+        "alpha": 1,
+        "beta": 1
+      },
+      "modelReads": 4,
+      "config": 3,
+      "plugins": 0,
+      "proxiedWrites": 0,
+      "perHub": {
+        "alpha": 16,
+        "beta": 8
+      },
+      "notices": [
+        "Success: Data refreshed successfully"
+      ]
+    },
+    "5-one-request-to-a-hub-that-answers-401": {
+      "pass": true,
+      "perHub": {
+        "alpha": 29,
+        "beta": 1
+      },
+      "notices": [
+        "Error: GPT hub fixture rejected the management key, so Prox stopped calling it. Sign in again with the right key."
+      ]
+    },
+    "6a-quota-page-reads-every-card": {
+      "pass": true,
+      "read": 13,
+      "expected": 13
+    },
+    "6b-quota-page-within-60s-reads-only-the-failed-card": {
+      "pass": true,
+      "read": [
+        "alpha:alpha-1"
+      ]
+    },
+    "7-models-header-refresh": {
+      "pass": true,
+      "quotaCards": [],
+      "quotaCalls": 0,
+      "grantReads": 0,
+      "credentialLists": {
+        "alpha": 1,
+        "beta": 1
+      },
+      "modelReads": 27,
+      "config": 3,
+      "plugins": 0,
+      "proxiedWrites": 0,
+      "perHub": {
+        "alpha": 32,
+        "beta": 2
+      }
+    },
+    "no-proxied-writes-or-page-errors": {
+      "pass": true,
+      "unexpected": [],
+      "errors": []
+    }
+  },
+  "errors": [],
+  "unexpected": [],
+  "blocked": []
+}
