@@ -202,9 +202,10 @@ PSI. At or above 15%, recovery requires 30 continuous seconds below 5%. Missing
 PSI fails closed. A pause longer than six hours invokes `reportLongPause` once
 (or warns to stderr when no callback is supplied); it never overrides the wait.
 `counters` exposes pause seconds, read bytes, written bytes and long-pause count.
-The severe-pressure latch, quiet recovery interval and outstanding byte deadline
-belong to the governor instance. Cancellation preserves them: a later job must
-pay the remaining byte debt and complete pressure recovery before admission.
+The severe-pressure latch and outstanding byte deadline belong to the governor
+instance and survive cancellation. The quiet recovery interval restarts whenever
+monitoring exits: a later job must pay remaining byte debt and observe a fresh,
+continuous quiet recovery before admission.
 
 After each chunk, call `reportBytes({read, written}, signal)`. Reads plus writes
 are capped at 4,000,000 bytes/second by default (`bytesPerSecond` overrides it).
@@ -279,9 +280,11 @@ the measured interval. Tests inject PSI, the clock and byte counters.
   differing from the validated canonical breakdown clears the complete flag.
   Sessions and credential indexes use the store's existing insert path.
 - `maxRows` is diagnostic only: it limits each pass, and the verification report
-  covers only that prefix. The final migration check must omit it. An import
-  followed by verification reads that prefix twice; respect any diagnostic read
-  limit across both passes.
+  covers only that prefix. Target accounting includes only the verified execution
+  IDs, even when later imported events share their hour. Unlimited runs retain
+  the independent target cohort scan and assertions for extra imported rows.
+  The final migration check must omit it. An import followed by verification reads
+  that prefix twice; respect any diagnostic read limit across both passes.
 
 Run the actual import only in a quiet window: outside 01:00–04:00 UTC and the
 12:30 UTC daily fstrim. This module does not schedule jobs or enforce calendar
