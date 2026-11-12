@@ -89,3 +89,54 @@ describe('usage bulk IO governor', () => {
     });
   });
 });
+
+test('a queued chunk rechecks PSI and releases the queue before recovery and byte pacing', async () => {
+  const { runIoChunk } = await import('../server/usage/ioGovernor');
+  const { WriterQueue } = await import('../server/usage/writerQueue');
+  const queue = new WriterQueue();
+  let samples = 0;
+  let release!: () => void;
+  const io = fakeIo({
+    readPsi: () => `full avg10=${++samples === 2 ? 15 : 0} avg60=0`,
+  });
+  // The queue callback sees the pressure spike after the pre-queue admission.
+  let calls = 0;
+  const result = runIoChunk(
+    'import',
+    () => {
+      calls += 1;
+      return 42;
+    },
+    {
+      governor: io.governor,
+      scheduleChunk: queue.enqueueJob.bind(queue),
+      ioBytes: () => ({ read: calls * 4_000_000, written: 0 }),
+    }
+  );
+  expect(await result).toBe(42);
+  expect(calls).toBe(1);
+  expect(io.clock.now()).toBe(31_000); // severe recovery, then one second of byte pacing
+
+  const waits: (() => void)[] = [];
+  const governor = new IoGovernor({
+    readPsi: () => 'full avg10=0 avg60=0',
+    clock: { now: () => 0, sleep: () => new Promise<void>((resolve) => waits.push(resolve)) },
+  });
+  let reads = 0;
+  const controller = new AbortController();
+  const paced = runIoChunk('backup', () => 1, {
+    governor,
+    signal: controller.signal,
+    scheduleChunk: queue.enqueueJob.bind(queue),
+    ioBytes: () => ({ read: reads++ * 100, written: 0 }),
+  });
+  while (!waits.length) await Bun.sleep(1);
+  const live = queue.enqueueJob('live', () => {
+    release = waits[0];
+    return 'committed';
+  });
+  expect(await live).toBe('committed');
+  controller.abort();
+  release();
+  await expect(paced).rejects.toThrow();
+});

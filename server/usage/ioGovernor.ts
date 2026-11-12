@@ -46,6 +46,8 @@ export class IoGovernor {
   private pauseMs = 0;
   private bytes: IoBytes = { read: 0, written: 0 };
   private longPauses = 0;
+  private severe = false;
+  private quietSince: number | null = null;
 
   constructor(private readonly options: IoGovernorOptions = {}) {
     this.rate = options.bytesPerSecond ?? 4_000_000;
@@ -57,23 +59,28 @@ export class IoGovernor {
     this.readPsi = options.readPsi ?? (() => readFileSync('/proc/pressure/io', 'utf8'));
   }
 
+  /** Recheck at queue execution without sleeping or holding the queue during recovery. */
+  async admitChunk(signal?: AbortSignal): Promise<boolean> {
+    signal?.throwIfAborted();
+    const pressure = fullIoPressure(await this.readPsi());
+    signal?.throwIfAborted();
+    const now = this.clock.now();
+    if (pressure >= 15) this.severe = true;
+    if (pressure < 5) this.quietSince ??= now;
+    else this.quietSince = null;
+    if (pressure >= 5 || (this.severe && now - this.quietSince! < 30_000)) return false;
+    this.severe = false;
+    this.chunkStartedAtMs = now;
+    return true;
+  }
+
   /** No chunk starts at 5% or above. At 15%, require 30 continuous seconds below 5%. */
   async waitForQuietIo(signal?: AbortSignal): Promise<void> {
-    let severe = false;
-    let quietSince: number | null = null;
     let reported = false;
     try {
       for (;;) {
-        signal?.throwIfAborted();
-        const pressure = fullIoPressure(await this.readPsi());
+        if (await this.admitChunk(signal)) return;
         const now = this.clock.now();
-        if (pressure >= 15) severe = true;
-        if (pressure < 5) quietSince ??= now;
-        else quietSince = null;
-        if (pressure < 5 && (!severe || now - quietSince! >= 30_000)) {
-          this.chunkStartedAtMs = now;
-          return;
-        }
         this.pausedAtMs ??= now;
         if (!reported && now - this.pausedAtMs > 6 * 60 * 60 * 1000) {
           reported = true;
@@ -116,5 +123,49 @@ export class IoGovernor {
         (this.pauseMs + (this.pausedAtMs === null ? 0 : this.clock.now() - this.pausedAtMs)) / 1000,
       longPauses: this.longPauses,
     };
+  }
+}
+
+export type ChunkScheduler = <T>(kind: string, work: () => T | Promise<T>) => Promise<T>;
+
+/** Only synchronous IO is measured in the queue. Admission waits and pacing run outside it. */
+export async function runIoChunk<T>(
+  kind: string,
+  work: () => T,
+  options: {
+    governor: IoGovernor;
+    signal?: AbortSignal;
+    scheduleChunk?: ChunkScheduler;
+    ioBytes?: () => IoBytes;
+  }
+): Promise<T> {
+  const { governor, signal, scheduleChunk } = options;
+  const ioBytes = options.ioBytes ?? readIoBytes;
+  for (;;) {
+    await governor.waitForQuietIo(signal);
+    let bytes: IoBytes | undefined;
+    const execute = () => {
+      signal?.throwIfAborted();
+      const before = ioBytes();
+      try {
+        return { admitted: true as const, value: work() };
+      } finally {
+        const after = ioBytes();
+        bytes = {
+          read: Math.max(0, after.read - before.read),
+          written: Math.max(0, after.written - before.written),
+        };
+      }
+    };
+    try {
+      const result = scheduleChunk
+        ? await scheduleChunk(kind, async () =>
+            (await governor.admitChunk(signal)) ? execute() : { admitted: false as const }
+          )
+        : execute();
+      if (result.admitted) return result.value;
+    } finally {
+      if (bytes) await governor.reportBytes(bytes, signal);
+    }
   }
 }
