@@ -26,22 +26,34 @@ export interface PricingOrderKey {
 // Go strings and SQLite BINARY both compare UTF-8 bytes, rather than JavaScript UTF-16 units.
 const compareText = (left: string, right: string) =>
   left === right ? 0 : Buffer.compare(Buffer.from(left), Buffer.from(right));
-function pricingModelCompare(left: PricingOrderKey, right: PricingOrderKey): number {
+function pricingModelCompare(
+  left: PricingOrderKey,
+  right: PricingOrderKey,
+  compare = compareText
+): number {
   return (
-    compareText(left.model, right.model) ||
-    compareText(left.billingModel, right.billingModel) ||
-    compareText(left.pricingModel, right.pricingModel)
+    compare(left.model, right.model) ||
+    compare(left.billingModel, right.billingModel) ||
+    compare(left.pricingModel, right.pricingModel)
   );
 }
 /** Exact port of monitoring/prox.go pricingRowLess, expressed as a stable-sort comparator. */
-export function pricingRowCompare(left: PricingOrderKey, right: PricingOrderKey): number {
+function comparePricingRows(
+  left: PricingOrderKey,
+  right: PricingOrderKey,
+  compare = compareText
+): number {
   return (
-    pricingModelCompare(left, right) ||
-    compareText(left.tier, right.tier) ||
+    pricingModelCompare(left, right, compare) ||
+    compare(left.tier, right.tier) ||
     (left.band ?? -1) - (right.band ?? -1)
   );
 }
+export function pricingRowCompare(left: PricingOrderKey, right: PricingOrderKey): number {
+  return comparePricingRows(left, right, compareText);
+}
 interface PricingRow extends PricingOrderKey {
+  key: string;
   requestedModel: string;
   modelId: number;
   providerId: number;
@@ -52,14 +64,7 @@ interface PricingRow extends PricingOrderKey {
 function fold(map: Map<string, PricingRow>, row: PricingRow, scope: number | null) {
   // CPAMP model stats omit bucket/provider, timeline adds bucket, provider stats add provider.
   // Event flags, kind and outcome remain in SQL; these pricing projections carry only sums.
-  const key = JSON.stringify([
-    scope,
-    row.model,
-    row.billingModel,
-    row.pricingModel,
-    row.band,
-    row.tier,
-  ]);
+  const key = `${scope ?? ''}:${row.key}`;
   const existing = map.get(key);
   if (!existing) {
     map.set(key, { ...row, tokens: { ...row.tokens } });
@@ -84,21 +89,55 @@ export function analyticsCosts(
   const timeline = new Map<string, PricingRow>();
   const providerStats = new Map<string, PricingRow>();
   const modelProviders = new Map<number, Set<number>>();
+  // Both caches belong to this book snapshot and response. Repeated hourly rows need neither
+  // repeated candidate resolution/key serialization nor fresh UTF-8 buffers during sorting.
+  const utf8 = new Map<string, Buffer>();
+  const bytes = (value: string) => {
+    let result = utf8.get(value);
+    if (!result) {
+      result = Buffer.from(value);
+      utf8.set(value, result);
+    }
+    return result;
+  };
+  const compare = (left: string, right: string) =>
+    left === right ? 0 : Buffer.compare(bytes(left), bytes(right));
+  const metadata = new Map<
+    string,
+    Omit<PricingRow, 'providerId' | 'bucket' | 'calls' | 'tokens'>
+  >();
   for (const row of rows) {
-    const model = names.get(row.model_id)!;
-    const billingModel = names.get(row.billing_model_id)!;
-    const requestedModel = names.get(row.requested_model_id)!;
-    const pricing: PricingRow = {
-      model,
-      billingModel,
-      requestedModel,
-      pricingModel:
+    const metadataKey = [
+      row.model_id,
+      row.billing_model_id,
+      row.requested_model_id,
+      row.tier_id,
+      row.band,
+    ].join(',');
+    let details = metadata.get(metadataKey);
+    if (!details) {
+      const model = names.get(row.model_id)!;
+      const billingModel = names.get(row.billing_model_id)!;
+      const requestedModel = names.get(row.requested_model_id)!;
+      const pricingModel =
         resolveModelPrice([billingModel, model, requestedModel], book)?.matchedModel ??
+        billingModel;
+      const tier = names.get(row.tier_id)!;
+      details = {
+        model,
         billingModel,
-      tier: names.get(row.tier_id)!,
-      band: row.band,
+        requestedModel,
+        pricingModel,
+        tier,
+        band: row.band,
+        modelId: row.model_id,
+        key: JSON.stringify([model, billingModel, pricingModel, row.band, tier]),
+      };
+      metadata.set(metadataKey, details);
+    }
+    const pricing: PricingRow = {
+      ...details,
       calls: row.calls,
-      modelId: row.model_id,
       providerId: row.provider_id,
       bucket: row.bucket,
       tokens: eventTokens(row),
@@ -123,7 +162,7 @@ export function analyticsCosts(
       )
     );
   const sortedStats = [...stats.values()].sort(
-    (left, right) => right.calls - left.calls || pricingRowCompare(left, right)
+    (left, right) => right.calls - left.calls || comparePricingRows(left, right, compare)
   );
   let summary: AnalyticsCost = {
     usd: null,
@@ -144,7 +183,7 @@ export function analyticsCosts(
     if (regroupProviders) add(providers, row.providerId, cost);
   }
   for (const row of [...timeline.values()].sort(
-    (left, right) => left.bucket - right.bucket || pricingRowCompare(left, right)
+    (left, right) => left.bucket - right.bucket || comparePricingRows(left, right, compare)
   ))
     add(buckets, row.bucket, estimate(row));
   if (!regroupProviders) {
@@ -153,10 +192,10 @@ export function analyticsCosts(
     const sortedProviders = [...providerStats.values()].sort(
       (left, right) =>
         right.calls - left.calls ||
-        pricingModelCompare(left, right) ||
+        pricingModelCompare(left, right, compare) ||
         (left.band ?? -1) - (right.band ?? -1) ||
-        compareText(left.tier, right.tier) ||
-        compareText(names.get(left.providerId)!, names.get(right.providerId)!)
+        compare(left.tier, right.tier) ||
+        compare(names.get(left.providerId)!, names.get(right.providerId)!)
     );
     for (const row of sortedProviders) add(providers, row.providerId, estimate(row));
   }
