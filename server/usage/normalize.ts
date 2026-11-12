@@ -60,7 +60,7 @@ const REASONING_SUFFIXES = new Set([
 const MAX_INT64 = BigInt('9223372036854775807');
 
 /** Drop a trailing reasoning suffix such as "(high)" or "(8192)"; any other suffix stays. */
-function analyticsModel(model: string): string {
+export function analyticsModel(model: string): string {
   const open = model.lastIndexOf('(');
   if (open <= 0 || !model.endsWith(')')) return model;
   const suffix = model.slice(open + 1, -1);
