@@ -25,4 +25,3 @@ export function authorized(request: Request, keyFile: string): boolean {
   const digest = (value: string) => createHash('sha256').update(value).digest();
   return timingSafeEqual(digest(key), digest(header.slice(7)));
 }
-
