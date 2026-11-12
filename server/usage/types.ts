@@ -1,0 +1,163 @@
+// Shared shapes of the usage service. No SQLite here: the thread that owns sockets may import this.
+
+/** Dictionary kinds of the `dim` table. One id per (kind, value). */
+export const DIM_KINDS = [
+  'model',
+  'provider',
+  'tier',
+  'instance',
+  'account',
+  'account_label',
+  'api_key',
+  'user_agent',
+  'client_ip',
+  'path',
+  'method',
+  'effort',
+  'executor',
+  'timing',
+] as const;
+export type DimKind = (typeof DIM_KINDS)[number];
+
+/** Providers whose records the normalizer was checked against. Others are stored as reported. */
+export const KNOWN_PROVIDERS: readonly string[] = ['claude', 'codex'];
+
+/** `events.usage_flags`. A set component bit means the proxy observed that counter. */
+export const USAGE_FLAG = {
+  presenceReported: 1 << 0,
+  inputTokens: 1 << 1,
+  outputTokens: 1 << 2,
+  reasoningTokens: 1 << 3,
+  cacheReadTokens: 1 << 4,
+  cacheCreationTokens: 1 << 5,
+  totalTokens: 1 << 6,
+  /** The token columns come from a complete canonical breakdown. Clear: raw counters, partial. */
+  breakdownComplete: 1 << 7,
+  /** The payload carried a `usage_fields` object, so "all false" differs from "absent". */
+  fieldsPresent: 1 << 8,
+} as const;
+
+/** `events.record_kind`. */
+export const RECORD_KIND = { unknown: 0, execution: 1, supplementary: 2 } as const;
+export type RecordKindCode = (typeof RECORD_KIND)[keyof typeof RECORD_KIND];
+
+/** `events.ingest`: how the record reached the store. */
+export const INGEST = { subscribed: 0, drained: 1, imported: 2, replayed: 3 } as const;
+export type IngestSource = (typeof INGEST)[keyof typeof INGEST];
+
+/** `ttft_method` as the proxy reports it; anything else is `unknown`. */
+export const TIMING_METHODS = [
+  'substantive-content',
+  'first-byte',
+  'fallback-packet',
+  'unavailable',
+] as const;
+export type TimingMethod = (typeof TIMING_METHODS)[number] | 'unknown';
+
+/**
+ * Token columns of one event. With `USAGE_FLAG.breakdownComplete` set:
+ * inputTotal = inputUncached + cacheRead + cacheWrite, outputTotal includes reasoning, and
+ * total = inputTotal + outputTotal. With it clear the fields hold the proxy's raw counters
+ * (inputTotal and inputUncached both hold the reported input) and those identities do not hold.
+ */
+export interface EventTokens {
+  inputTotal: number;
+  inputUncached: number;
+  cacheRead: number;
+  cacheWrite: number;
+  outputTotal: number;
+  reasoning: number;
+  total: number;
+}
+
+/** Offsets from the proxy's execution start. Present only when the payload's timing validated. */
+export interface EventTiming {
+  upstreamStartMs: number | null;
+  firstResponseMs: number | null;
+  firstContentMs: number | null;
+  recordedMs: number | null;
+}
+
+/** One usage record after normalization: strings are still strings, the store interns them. */
+export interface NormalizedEvent {
+  /** The event's identity. */
+  executionId: string;
+  /** Request start as reported by the proxy, truncated to milliseconds. */
+  tsMs: number;
+  instance: string | null;
+  provider: string;
+  /** Requested model with a reasoning suffix such as "(high)" removed. */
+  model: string;
+  requestedModel: string;
+  /** Resolved upstream model, else `model`. */
+  billingModel: string;
+  responseModel: string | null;
+  /** Tier used for pricing. Empty when the proxy reported none. */
+  tier: string;
+  requestedTier: string | null;
+  effectiveTier: string | null;
+  failed: boolean;
+  statusCode: number | null;
+  /** Positive measurements only. */
+  latencyMs: number | null;
+  /** Null when unreported for the timing method. */
+  ttftMs: number | null;
+  timingMethod: TimingMethod;
+  tokens: EventTokens;
+  usageFlags: number;
+  recordKind: RecordKindCode;
+  stream: boolean | null;
+  /** Grouping identity of the credential: its label when known, else the proxy's auth index. */
+  account: string | null;
+  accountLabel: string | null;
+  /** SHA-256 hex of the trimmed client key. The key itself never leaves the normalizer. */
+  apiKeyHash: string | null;
+  userAgent: string | null;
+  clientIp: string | null;
+  /** Without its query string. */
+  path: string | null;
+  method: string | null;
+  effort: string | null;
+  executor: string | null;
+  requestId: string | null;
+  parentExecutionId: string | null;
+  sessionId: string | null;
+  parentSessionId: string | null;
+  traceId: string | null;
+  timing: EventTiming | null;
+}
+
+/** The label of a credential in force at ingestion, from the proxy's credential listing. */
+export interface AccountLabel {
+  account: string;
+  label: string;
+}
+export type AccountLabelLookup = (authIndex: string) => AccountLabel | undefined;
+
+/** The payload with secrets removed and unknown keys dropped, ready for the raw buffer. */
+export interface SanitizedPayload {
+  json: string;
+  /** Keys outside the allowlist, at any depth, that were dropped. */
+  droppedKeys: number;
+}
+
+export type RejectReason =
+  'not-json' | 'not-an-object' | 'missing-execution-id' | 'invalid-timestamp';
+
+export type NormalizeResult =
+  | { kind: 'event'; event: NormalizedEvent; raw: SanitizedPayload }
+  | { kind: 'control'; control: 'refresh' | 'support-refresh' }
+  /** `raw` is null when the text was not a JSON object and so could not be allowlisted. */
+  | { kind: 'rejected'; reason: RejectReason; raw: SanitizedPayload | null };
+
+/** What the writer inserts: a normalized event and, for live records, its sanitized payload. */
+export interface IngestItem {
+  event: NormalizedEvent;
+  raw: SanitizedPayload | null;
+}
+
+export interface InsertResult {
+  inserted: number;
+  /** Events whose `execution_id` was already stored; nothing was written for them. */
+  duplicates: number;
+}
