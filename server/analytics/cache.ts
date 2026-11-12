@@ -127,6 +127,9 @@ export function createSnapshotCache(
       const entry = entryFor(key, query, live, now);
       entry.touched = now;
       lastUsed = now;
+      // A Refresh never joins a recompute that started before it: that one may hold a catalog
+      // or data the Refresh was meant to replace. Let it finish, then start a new one.
+      if (fresh && entry.inflight) await entry.inflight;
       if (!fresh && entry.body !== undefined) {
         const age = now - entry.at;
         if (age < refreshAfter(entry)) return { ok: true, body: entry.body };

@@ -37,6 +37,8 @@ function fixture() {
   let betaFailed = false;
   let cpaStatus = 200;
   let now = 1_000_000_000_000;
+  let modelId = 'same-model';
+  let cpaGate: Promise<void> | undefined;
   const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     const key = new Headers(init?.headers).get('Authorization') ?? '';
@@ -47,7 +49,8 @@ function fixture() {
     if (url.endsWith('/config/access/api-keys'))
       return Response.json([url.includes('alpha') ? 'alpha-client' : 'beta-client']);
     if (url.endsWith('/v1/models'))
-      return Response.json({ data: [{ id: 'same-model', owned_by: 'publisher' }] });
+      return Response.json({ data: [{ id: modelId, owned_by: 'publisher' }] });
+    await cpaGate;
     if (cpaStatus !== 200)
       return new Response('private cpa credential leak sentinel', { status: cpaStatus });
     return Response.json({
@@ -83,6 +86,18 @@ function fixture() {
     },
     failCpa: (status: number) => {
       cpaStatus = status;
+    },
+    register: (id: string) => {
+      modelId = id;
+    },
+    /** Hold CPA answers until the returned release is called. */
+    holdCpa: () => {
+      let release!: () => void;
+      cpaGate = new Promise((resolve) => (release = resolve));
+      return () => {
+        cpaGate = undefined;
+        release();
+      };
     },
     clean: () => rmSync(directory, { recursive: true, force: true }),
   };
@@ -402,6 +417,29 @@ describe('Prox analytics bridge', () => {
         expect(f.catalogCalls()).toBe(4);
         await f.handler(request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' }));
         expect(f.catalogCalls()).toBe(8);
+      } finally {
+        f.clean();
+      }
+    });
+    test('a Refresh during a background recompute still uses the newly registered catalog', async () => {
+      const f = fixture();
+      try {
+        await f.handler(request(view(f, 7 * DAY)));
+        // The snapshot goes stale while the catalog is still cached; the next visit starts a
+        // background recompute with that cached catalog, held at CPA.
+        f.advance(2 * 60_000);
+        const release = f.holdCpa();
+        await f.handler(request(view(f, 7 * DAY)));
+        await Bun.sleep(10);
+        f.register('new-model');
+        const refreshed = f.handler(
+          request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' })
+        );
+        await Bun.sleep(10);
+        release();
+        expect((await refreshed).status).toBe(200);
+        const last = f.calls.filter((call) => call.url.startsWith('http://cpa.test')).at(-1);
+        expect(JSON.stringify(last?.body?.catalog)).toContain('new-model');
       } finally {
         f.clean();
       }
