@@ -380,31 +380,6 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   fatal event failures; bearer protection; and the SQLite-free main runtime graph.
   They use synthetic tmpfs databases and a loopback fake S3 endpoint only.
 
-P2 landed while this change was being built. Its queue accepts one bounded
-chunk per job, its RPC currently replies only with `WriterStatus`, and any RPC
-failure stops collection. A correct adapter also needs cancellation so shutdown
-cannot wait indefinitely behind PSI or an upload. Together this exceeds the
-coordinator's roughly 150-line limit for wiring in this PR. No worker or admin
-trigger is added here. The integration PR must:
-
-1. Add a generic chunk scheduler to the job options. Keep PSI waits and byte
-   sleeps outside `WriterQueue`, and recheck admission when a queued chunk
-   starts. Queue each 1,000-row source read/transaction and verification read
-   with `enqueueJob(kind, fn)`; queue only the snapshot for backups. Retain
-   synchronous IO measurement inside each queued chunk so live writes are not
-   charged to it. Upload chunks remain outside the queue.
-2. Extend `writerProtocol.ts` with import/reconcile/verify/backup and cancellation
-   requests and typed job reports/errors. Expose them through `UsageWriter`
-   without making a rejected config/source/backup job fatal to live ingestion.
-3. Have `writer.worker.ts` own a single active bulk orchestration, shared
-   governor, read-only CPAMP handle, backup config and last-success state.
-   Close the source in `finally`; cancel and settle active orchestration before
-   closing the write connection. Live flush/shutdown must not wait six hours on
-   a bulk job's pressure wait. No job/config/source handle belongs in `main.ts`.
-4. Test real worker messages with synthetic CPAMP/fake S3, live commits during
-   PSI and pacing waits, cancellation/shutdown, nonfatal bulk-job failures and
-   the existing main-thread module-graph guard. Keep any later HTTP admin
-   trigger loopback-only and bearer-protected; validate its inputs at the edge.
 
 ## Analytics queries
 
