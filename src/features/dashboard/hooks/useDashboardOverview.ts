@@ -248,6 +248,8 @@ export function useDashboardOverview() {
   // freeze until a manual refresh, because the provider set rarely changes.
   useInterval(
     () => {
+      // A hidden tab would keep the server's analytics warmer on its busy cadence all day.
+      if (document.visibilityState === 'hidden') return;
       void loadAnalytics();
     },
     connected && analyticsKey ? PROVIDER_RECENT_REQUESTS_STALE_TIME_MS : null
@@ -348,7 +350,7 @@ export function useDashboardOverview() {
   const fromAnalytics = useMemo(
     () =>
       analytics?.key === analyticsKey &&
-      analyticsUsable(analyticsKey.split(','), analytics.responses)
+      analyticsUsable(analyticsKey.split(','), analytics.responses, analytics.window)
         ? trafficFromAnalytics(analytics.window, analytics.responses)
         : null,
     [analytics, analyticsKey]

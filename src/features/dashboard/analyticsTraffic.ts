@@ -15,14 +15,24 @@ export function analyticsWindow(nowMs: number) {
   return { from_ms, to_ms };
 }
 
-/** An absent hour is only a quiet one when the retained ledger is complete, and every provider answered. */
+// The server may answer from a snapshot; an older one would draw its newest hours as zero.
+const MAX_SNAPSHOT_LAG_MS = 10 * 60_000;
+
+/** An absent hour is only a quiet one when the retained ledger is complete, recent, and every provider answered. */
 export function analyticsUsable(
   providerIds: readonly string[],
-  responses: ReadonlyMap<string, AnalyticsResponse>
+  responses: ReadonlyMap<string, AnalyticsResponse>,
+  window: { to_ms: number }
 ): boolean {
   return (
     providerIds.length > 0 &&
-    providerIds.every((id) => responses.get(id)?.coverage.raw_complete === true)
+    providerIds.every((id) => {
+      const response = responses.get(id);
+      return (
+        response?.coverage.raw_complete === true &&
+        window.to_ms - response.to_ms <= MAX_SNAPSHOT_LAG_MS
+      );
+    })
   );
 }
 

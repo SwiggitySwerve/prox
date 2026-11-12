@@ -296,8 +296,8 @@ describe('Prox analytics bridge', () => {
         f.advance(15 * 60_000);
         await f.handler.warm();
         expect(f.cpaCalls()).toBe(seeded * 2);
-        // Hours later, long past any stale limit: the old snapshot is served at once.
-        f.advance(3 * 60 * 60_000);
+        // Well past the live stale limit, but within the idle cap: served at once.
+        f.advance(40 * 60_000);
         const before = f.cpaCalls();
         const first = await f.handler(
           request(live(f, 30 * DAY, { granularity: 'day', limit: 25 }))
@@ -309,6 +309,50 @@ describe('Prox analytics bridge', () => {
         f.advance(60_000);
         await f.handler.warm();
         expect(f.cpaCalls()).toBe(before + 1 + seeded);
+      } finally {
+        f.clean();
+      }
+    });
+    test('never serves a default view past the idle cap: it recomputes, and a failure surfaces', async () => {
+      const f = fixture();
+      try {
+        await f.handler.warm();
+        // Refreshes have been failing for hours; the dashboard must fall back, not draw a cliff.
+        f.failCpa(500);
+        f.advance(3 * 60 * 60_000);
+        const response = await f.handler(
+          request(live(f, 30 * DAY, { granularity: 'day', limit: 25 }))
+        );
+        expect(response.status).toBe(503);
+      } finally {
+        f.clean();
+      }
+    });
+    test('backs off retrying a failing view instead of trying every tick', async () => {
+      const f = fixture();
+      try {
+        f.failCpa(500);
+        await f.handler.warm();
+        const tried = f.cpaCalls();
+        expect(tried).toBeGreaterThan(0);
+        f.advance(15_000);
+        await f.handler.warm();
+        expect(f.cpaCalls()).toBe(tried);
+      } finally {
+        f.clean();
+      }
+    });
+    test("does not answer just after midnight's yesterday with the last snapshot of today", async () => {
+      const f = fixture();
+      try {
+        const midnight = Math.ceil(f.now() / DAY) * DAY;
+        f.advance(midnight - 4 * 60_000 - f.now());
+        await f.handler(request({ ...query, from_ms: midnight - DAY, to_ms: f.now() }));
+        f.advance(4 * 60_000 + 30_000);
+        const yesterday = await f.handler(
+          request({ ...query, from_ms: midnight - DAY, to_ms: midnight })
+        );
+        expect(await generation(yesterday)).toBe(2);
       } finally {
         f.clean();
       }
@@ -346,6 +390,17 @@ describe('Prox analytics bridge', () => {
         expect(f.catalogCalls()).toBe(4);
         f.advance(6 * 60_000);
         await f.handler(request(view(f, DAY)));
+        expect(f.catalogCalls()).toBe(8);
+      } finally {
+        f.clean();
+      }
+    });
+    test('a Refresh reads the catalog again, so a new registration shows at once', async () => {
+      const f = fixture();
+      try {
+        await f.handler(request(view(f, 7 * DAY)));
+        expect(f.catalogCalls()).toBe(4);
+        await f.handler(request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' }));
         expect(f.catalogCalls()).toBe(8);
       } finally {
         f.clean();

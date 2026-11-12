@@ -17,6 +17,9 @@ const HOT_FOR = 15 * MINUTE;
 // While nobody has asked for anything, the default views refresh only this often (about 1%
 // of CPA's time, against about 25% when active), so a first visit finds a recent snapshot.
 const IDLE_REFRESH = 30 * MINUTE;
+// A healthy default view is never much older than IDLE_REFRESH. Older means its refreshes are
+// failing, and the dashboard (which never shows snapshot age) would draw old data as current.
+const MAX_PINNED_STALE = 3 * IDLE_REFRESH;
 const MAX_ENTRIES = 64;
 
 interface Entry {
@@ -26,6 +29,7 @@ interface Entry {
   body?: unknown;
   at: number;
   took: number;
+  tried: number;
   touched: number;
   inflight?: Promise<Outcome>;
 }
@@ -42,6 +46,7 @@ function shape(query: Query, now: number): { key: string; live: boolean } {
     typeof to === 'number' &&
     rest.before_ms === undefined &&
     rest.before_id === undefined &&
+    to % DAY !== 0 &&
     Math.abs(now - to) <= LIVE_SLACK;
   const window = !live
     ? { from_ms: from, to_ms: to }
@@ -84,13 +89,14 @@ export function createSnapshotCache(
   function refresh(key: string, entry: Entry, query: Query): Promise<Outcome> {
     if (entry.inflight) return entry.inflight;
     const started = clock();
+    entry.tried = started;
     const work = compute(query).then((outcome) => {
       if (outcome.ok) {
         entry.body = outcome.body;
         entry.query = query;
         entry.at = clock();
         entry.took = entry.at - started;
-      } else if (entry.body === undefined && entries.get(key) === entry) {
+      } else if (entry.body === undefined && !entry.pinned && entries.get(key) === entry) {
         entries.delete(key);
       }
       return outcome;
@@ -105,7 +111,7 @@ export function createSnapshotCache(
   function entryFor(key: string, query: Query, live: boolean, now: number): Entry {
     let entry = entries.get(key);
     if (entry) entries.delete(key);
-    else entry = { query, live, pinned: false, at: 0, took: 0, touched: now };
+    else entry = { query, live, pinned: false, at: 0, took: 0, tried: -Infinity, touched: now };
     entries.set(key, entry);
     for (const [other, candidate] of entries) {
       if (entries.size <= MAX_ENTRIES) break;
@@ -124,9 +130,9 @@ export function createSnapshotCache(
       if (!fresh && entry.body !== undefined) {
         const age = now - entry.at;
         if (age < refreshAfter(entry)) return { ok: true, body: entry.body };
-        // A default view is always answered from its last snapshot: its own generated_at_ms
-        // tells the page how old that is, and the refresh behind it never blocks the visit.
-        if (entry.pinned || (live && age < MAX_STALE)) {
+        // A default view is answered from its last snapshot up to the idle cap: its own
+        // generated_at_ms tells the page how old that is, and the refresh never blocks the visit.
+        if (age < (entry.pinned ? MAX_PINNED_STALE : live ? MAX_STALE : 0)) {
           void refresh(key, entry, query);
           return { ok: true, body: entry.body };
         }
@@ -149,7 +155,10 @@ export function createSnapshotCache(
           const now = clock();
           const wanted = entry.pinned || (entry.live && now - entry.touched <= HOT_FOR);
           const every = idle ? Math.max(IDLE_REFRESH, refreshAfter(entry)) : refreshAfter(entry);
-          if (!wanted || (entry.body !== undefined && now - entry.at < every)) continue;
+          const fresh = entry.body !== undefined && now - entry.at < every;
+          // A failing view is retried on its own cadence (30 s to 5 min), not on every tick.
+          const backingOff = now - entry.tried < Math.min(every, MAX_REFRESH);
+          if (!wanted || fresh || backingOff) continue;
           await refresh(key, entry, entry.live ? rebase(entry.query, now) : entry.query);
         }
       } finally {

@@ -119,6 +119,8 @@ export function createAnalyticsHandler(
     }
     // Refresh asks for a recompute; every other load takes the warm snapshot.
     const fresh = request.headers.get('cache-control')?.includes('no-cache') ?? false;
+    // A Refresh also re-reads the registered catalog, so a new registration shows at once.
+    if (fresh) catalogs = undefined;
     const outcome = await cache.get(query, fresh);
     if (outcome.ok) return json(outcome.body);
     return json(
