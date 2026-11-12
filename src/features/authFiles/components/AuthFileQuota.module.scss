@@ -103,6 +103,19 @@ $quota-details: 22px;
   color: var(--text-tertiary);
 }
 
+.quotaOff {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
 .quotaState {
   flex: 1;
   min-width: 0;

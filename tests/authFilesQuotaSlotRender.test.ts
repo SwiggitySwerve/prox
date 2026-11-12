@@ -86,10 +86,19 @@ describe('the quota slot has one frame in every state', () => {
       renderSlot(undefined),
       renderSlot({ status: 'loading', windows: [] }),
       renderSlot({ status: 'error', windows: [], error: 'x' }),
-      markup(h(AuthFileQuotaUnavailable, { reason: 'disabled' })),
+      markup(h(AuthFileQuotaUnavailable, { reason: 'unsupported' })),
     ]) {
       expect(head(html)).toContain('class="quotaEyebrow">Quota</span>');
       expect(head(html)).toContain('aria-label="Refresh quota only for this credential"');
     }
   });
+});
+
+test('no locale keeps the old "disabled credentials are not checked" reason', async () => {
+  for (const locale of ['en', 'zh-CN', 'zh-TW', 'ru', 'ko', 'vi']) {
+    const dictionary = JSON.parse(await Bun.file(`src/i18n/locales/${locale}.json`).text());
+    expect(dictionary.auth_files.quota_none_disabled).toBeUndefined();
+    expect(typeof dictionary.quota_management.account_off).toBe('string');
+    expect(typeof dictionary.quota_management.account_off_hint).toBe('string');
+  }
 });

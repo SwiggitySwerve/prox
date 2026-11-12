@@ -162,6 +162,11 @@ $lane-width: 210px;
   }
 }
 
+// A switched-off account: its windows stay visible but muted, so they don't read as capacity.
+.lane[data-off='true'] .track {
+  opacity: 0.55;
+}
+
 .laneHead {
   display: flex;
   flex-direction: column;

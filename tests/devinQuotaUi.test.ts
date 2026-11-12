@@ -50,16 +50,20 @@ const snapshot = (): DevinQuotaState => ({
 afterEach(() => useQuotaStore.getState().clearQuotaCache());
 
 describe('Devin quota UI integration', () => {
-  test('registers the provider, filters disabled credentials, and counts its tab', () => {
+  test('registers the provider, keeps disabled credentials, and counts its tab', () => {
     expect(QUOTA_PROVIDER_TYPES.has('devin')).toBe(true);
     expect(DEVIN_CONFIG.filterFn(file)).toBe(true);
-    expect(DEVIN_CONFIG.filterFn({ ...file, disabled: true })).toBe(false);
+    expect(DEVIN_CONFIG.filterFn({ ...file, disabled: true })).toBe(true);
     expect(DEVIN_CONFIG.filterFn({ ...file, disabled: 'true' } as unknown as AuthFileItem)).toBe(
-      false
+      true
     );
-    const entries = classifyQuotaFiles([file, { ...file, name: 'disabled.json', disabled: true }]);
-    expect(entries).toEqual([{ file, type: 'devin' }]);
-    expect(buildTabCounts(entries).devin).toBe(1);
+    const off = { ...file, name: 'disabled.json', disabled: true };
+    const entries = classifyQuotaFiles([file, off]);
+    expect(entries).toEqual([
+      { file, type: 'devin' },
+      { file: off, type: 'devin' },
+    ]);
+    expect(buildTabCounts(entries).devin).toBe(2);
   });
 
   test('renders both remaining meters, independent resets and plan without observation time', () => {

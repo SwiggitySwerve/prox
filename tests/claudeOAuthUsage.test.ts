@@ -427,9 +427,8 @@ describe('Claude usage snapshot rendering and retention', () => {
     );
     expect(source).toContain("spinning: quotaStatus === 'loading',");
     expect(source).toContain("if (quota?.status === 'loading' || resettingQuota) return;");
-    expect(source).toContain(
-      'const canRefreshQuota = !disableControls && !file.disabled && !resettingQuota;'
-    );
+    // A disabled credential is read too; only its resets stay blocked.
+    expect(source).toContain('const canRefreshQuota = !disableControls && !resettingQuota;');
     expect(source).toContain('<AccountDetails');
     expect(source).toContain('onClick: resetQuotaForFile');
     expect(source).not.toContain('{resetQuotaAction}');

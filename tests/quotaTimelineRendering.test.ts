@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import '../src/i18n/index';
+import i18n from '../src/i18n/index';
 import { QuotaTimeline } from '../src/features/quota/components/QuotaTimeline';
 import { formatPoolDate } from '../src/features/quotaPool/presentation';
 import type { QuotaFileEntry } from '../src/features/quota/logic';
@@ -47,6 +47,33 @@ describe('QuotaTimeline rendering', () => {
     expect(markup).toMatch(
       /<button type="button" aria-label="[^"]+" title="[^"]+">08\/02<\/button>/
     );
+  });
+
+  test('a switched-off account keeps its lane, marked as off', () => {
+    const quota = {
+      status: 'success' as const,
+      windows: [
+        {
+          label: '7-day',
+          usedPercent: 25,
+          resetAtMs: new Date(2026, 7, 1, 12).getTime(),
+          periodHours: 168,
+        },
+      ],
+    };
+    const render = (disabled: boolean) =>
+      renderToStaticMarkup(
+        createElement(QuotaTimeline, {
+          ...baseProps,
+          entries: [{ file: { ...entries[0].file, disabled }, type: 'claude' }],
+          quotaFor: () => quota,
+        })
+      );
+    const off = i18n.t('quota_management.account_off');
+    expect(render(true)).toContain('data-off="true"');
+    expect(render(true)).toContain(`>${off}</span>`);
+    expect(render(false)).not.toContain('data-off');
+    expect(render(false)).not.toContain(`>${off}</span>`);
   });
 
   test('keeps the panel and controls visible when 5-hour mode has no matching lanes', () => {

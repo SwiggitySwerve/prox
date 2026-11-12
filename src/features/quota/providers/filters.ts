@@ -7,23 +7,17 @@ import {
   isKimiFile,
   isPluginQuotaFile,
   isXaiFile,
-  isDisabledAuthFile,
   resolveAuthProvider,
 } from '@/utils/quota';
 
-export const isAntigravityQuotaFile = (file: AuthFileItem): boolean =>
-  isAntigravityFile(file) && !isDisabledAuthFile(file);
-export const isClaudeQuotaFile = (file: AuthFileItem): boolean =>
-  isClaudeFile(file) && !isDisabledAuthFile(file);
-export const isCodexQuotaFile = (file: AuthFileItem): boolean =>
-  isCodexFile(file) && !isDisabledAuthFile(file);
-export const isDevinQuotaFile = (file: AuthFileItem): boolean =>
-  isDevinFile(file) && !isDisabledAuthFile(file);
-export const isKimiQuotaFile = (file: AuthFileItem): boolean =>
-  isKimiFile(file) && !isDisabledAuthFile(file);
+// Disabled credentials are included: switching one off removes it from request routing, and
+// reading its quota sends no model traffic. Cards mark it as off instead.
+export const isAntigravityQuotaFile = (file: AuthFileItem): boolean => isAntigravityFile(file);
+export const isClaudeQuotaFile = (file: AuthFileItem): boolean => isClaudeFile(file);
+export const isCodexQuotaFile = (file: AuthFileItem): boolean => isCodexFile(file);
+export const isDevinQuotaFile = (file: AuthFileItem): boolean => isDevinFile(file);
+export const isKimiQuotaFile = (file: AuthFileItem): boolean => isKimiFile(file);
 export const isMetaQuotaFile = (file: AuthFileItem): boolean =>
-  resolveAuthProvider(file) === 'meta' && !isDisabledAuthFile(file);
-export const isEnabledPluginQuotaFile = (file: AuthFileItem): boolean =>
-  isPluginQuotaFile(file) && !isDisabledAuthFile(file);
-export const isXaiQuotaFile = (file: AuthFileItem): boolean =>
-  isXaiFile(file) && !isDisabledAuthFile(file);
+  resolveAuthProvider(file) === 'meta';
+export const isPluginQuotaTarget = (file: AuthFileItem): boolean => isPluginQuotaFile(file);
+export const isXaiQuotaFile = (file: AuthFileItem): boolean => isXaiFile(file);

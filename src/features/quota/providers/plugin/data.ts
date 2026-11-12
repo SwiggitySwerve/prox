@@ -10,7 +10,7 @@ import type {
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import { buildAntigravityQuotaGroups } from '@/utils/quota';
 import type { QuotaProviderData } from '../types';
-import { isEnabledPluginQuotaFile } from '../filters';
+import { isPluginQuotaTarget } from '../filters';
 import type { QuotaDependencies } from '../dependencies';
 
 type PluginQuotaPayload = AntigravityQuotaSummaryPayload & {
@@ -150,7 +150,7 @@ export function createPluginQuotaConfig(deps: QuotaDependencies) {
   const config: QuotaProviderData<PluginQuotaState, PluginQuotaData> = {
     type: 'plugin',
     i18nPrefix: 'plugin_quota',
-    filterFn: isEnabledPluginQuotaFile,
+    filterFn: isPluginQuotaTarget,
     fetchQuota: fetchPluginQuota,
     storeSelector: (state) => state.pluginQuota,
     storeSetter: 'setPluginQuota',

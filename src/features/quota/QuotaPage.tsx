@@ -474,7 +474,7 @@ function SourceQuotaPage({ session: owner }: { session: SourceSession }) {
                 adapter={adapters[entry.type]}
                 quota={getQuota(entry)}
                 resolvedTheme={resolvedTheme}
-                canRefresh={canUseActions && !entry.file.disabled}
+                canRefresh={canUseActions}
                 resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
                 entranceDelayMs={cardEntranceDelay(index)}
                 fetchedAt={fetchedAt[getQuotaCacheKey(entry.file)]}

@@ -26,7 +26,6 @@ const FILES: AuthFileItem[] = [
   file('codex-b.json', 'codex'),
   file('grok-a.json', 'grok'), // 别名归一到 xai
   file('gemini-a.json', 'gemini'), // 不支持额度
-  file('claude-off.json', 'claude', { disabled: true }), // 停用
 ];
 
 describe('refresh-all list handoff', () => {
@@ -41,11 +40,12 @@ describe('refresh-all list handoff', () => {
 });
 
 describe('resolveQuotaProviderType', () => {
-  test('maps provider aliases and rejects unsupported or disabled files', () => {
+  test('maps provider aliases, rejects unsupported files and keeps disabled ones', () => {
     expect(resolveQuotaProviderType(file('a', 'grok'))).toBe('xai');
     expect(resolveQuotaProviderType(file('a', 'antigravity'))).toBe('antigravity');
     expect(resolveQuotaProviderType(file('a', 'gemini'))).toBeNull();
-    expect(resolveQuotaProviderType(file('a', 'claude', { disabled: true }))).toBeNull();
+    expect(resolveQuotaProviderType(file('a', 'claude', { disabled: true }))).toBe('claude');
+    expect(resolveQuotaProviderType(file('a', 'codex', { disabled: 'true' }))).toBe('codex');
     expect(
       resolveQuotaProviderType(
         file('kiro-a.json', 'kiro', { supportsQuota: true, quotaProvider: 'kiro', authIndex: '1' })
@@ -80,11 +80,17 @@ describe('classifyQuotaFiles', () => {
     expect(entries.map((entry) => entry.file.name)).toEqual(['claude-real.json']);
   });
 
-  test('drops unsupported and disabled files', () => {
+  test('drops unsupported files', () => {
     const entries = classifyQuotaFiles(FILES);
     expect(entries.map((entry) => entry.file.name)).not.toContain('gemini-a.json');
-    expect(entries.map((entry) => entry.file.name)).not.toContain('claude-off.json');
     expect(entries).toHaveLength(5);
+  });
+
+  test('keeps disabled files: reading quota is not using the account', () => {
+    const off = file('claude-off.json', 'claude', { disabled: true });
+    const entries = classifyQuotaFiles([...FILES, off]);
+    expect(entries.map((entry) => entry.file.name)).toContain('claude-off.json');
+    expect(buildTabCounts(entries)).toMatchObject({ all: 6, claude: 2 });
   });
 
   test('orders entries by provider tab order', () => {

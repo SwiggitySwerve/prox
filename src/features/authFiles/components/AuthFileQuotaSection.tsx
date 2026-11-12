@@ -7,6 +7,7 @@ import type { AuthFileItem, ClaudeQuotaState } from '@/types';
 import { getStatusFromError, resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { isRuntimeOnlyAuthFile, type QuotaProviderType } from '@/features/authFiles/constants';
+import { isCredentialDisabled } from '@/features/authFiles/credentialFacts';
 import { Button } from '@/components/ui/Button';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { bindQuotaClasses } from '@/features/quota/types';
@@ -50,6 +51,8 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   const [resettingQuota, setResettingQuota] = useState(false);
   const adapter = sourceScope.quotaAdapters[quotaType];
   const cacheKey = getQuotaCacheKey(file);
+  // Switched off: its quota is still read, but it serves nothing and its resets stay unspent.
+  const accountOff = isCredentialDisabled(file);
 
   const quota = useQuotaStore((state) => {
     if (quotaType === 'antigravity')
@@ -74,7 +77,6 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   const readQuotaForFile = useCallback(async () => {
     if (disableControls || !sourceScope.isCurrent()) return;
     if (isRuntimeOnlyAuthFile(file)) return;
-    if (file.disabled) return;
     if (quota?.status === 'loading' || resettingQuota) return;
 
     const cacheGeneration = captureQuotaCacheGeneration(file.name, sourceScope.quotaStore);
@@ -142,7 +144,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   const resetQuotaForFile = useCallback(() => {
     if (disableControls || !sourceScope.isCurrent()) return;
     if (isRuntimeOnlyAuthFile(file)) return;
-    if (file.disabled) return;
+    if (accountOff) return;
     if (quota?.status === 'loading') return;
     if (resettingQuota) return;
 
@@ -180,6 +182,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       },
     });
   }, [
+    accountOff,
     adapter,
     cacheKey,
     disableControls,
@@ -194,14 +197,15 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   ]);
 
   const quotaStatus = quota?.status ?? 'idle';
-  const canRefreshQuota = !disableControls && !file.disabled && !resettingQuota;
+  const canRefreshQuota = !disableControls && !resettingQuota;
   const claudeReset = useClaudeResetGrants(
     file,
     quotaType === 'claude' && quotaStatus !== 'idle',
     !canRefreshQuota || quotaStatus === 'loading',
     quota,
     refreshQuotaForFile,
-    adapter.resetGrants
+    adapter.resetGrants,
+    accountOff
   );
   // A plain boolean: handing the store-derived value on directly costs the compiler's memoization.
   const hasQuotaData = quotaStatus === 'success' || retainedClaudeUsage === true;
@@ -235,6 +239,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       }
       stateTitle={slot.kind === 'failed' || slot.kind === 'loaded' ? failureText : undefined}
       danger={slot.kind === 'failed' || (slot.kind === 'loaded' && slot.stale)}
+      accountOff={accountOff}
       withDetails={showDetails}
       refresh={{
         disabled: refreshDisabled,
@@ -274,12 +279,14 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
           defaultOpen
           rows
           compact
+          accountOff={accountOff}
           claudeReset={quotaType === 'claude' ? claudeReset : undefined}
           reset={
             quotaType === 'codex' && adapter.resetQuota
               ? {
                   disabled:
                     !canRefreshQuota ||
+                    accountOff ||
                     quotaStatus === 'loading' ||
                     !quota ||
                     !adapter.canResetQuota?.(quota),
@@ -330,6 +337,7 @@ function QuotaSlotFrame({
   stateText,
   stateTitle,
   danger = false,
+  accountOff = false,
   withDetails = false,
   refresh,
   children,
@@ -338,6 +346,8 @@ function QuotaSlotFrame({
   stateText: ReactNode;
   stateTitle?: string;
   danger?: boolean;
+  /** The credential is switched off: the header says so beside the quota it still reads. */
+  accountOff?: boolean;
   /** Account details follow; without them the state's message takes the rest of the frame. */
   withDetails?: boolean;
   refresh: { disabled: boolean; spinning: boolean; title: string; onClick: () => void };
@@ -354,6 +364,11 @@ function QuotaSlotFrame({
     >
       <div className={styles.quotaHead}>
         <span className={styles.quotaEyebrow}>{t('auth_files.quota_slot_label')}</span>
+        {accountOff && (
+          <span className={styles.quotaOff} title={t('quota_management.account_off_hint')}>
+            {t('quota_management.account_off')}
+          </span>
+        )}
         <span
           className={`${styles.quotaState} ${danger ? styles.quotaStateDanger : ''}`}
           title={stateTitle}

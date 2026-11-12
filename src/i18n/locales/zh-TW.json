@@ -509,7 +509,6 @@
     "quota_updated_hours": "{{count}} 小時前更新",
     "quota_none": "此憑證沒有額度",
     "quota_none_runtime": "由中樞保存在記憶體中，沒有可讀取額度的檔案",
-    "quota_none_disabled": "已停用的憑證不檢查額度；啟用後即可讀取",
     "quota_none_unsupported": "此提供者不回報額度",
     "meta_no_file": "無檔案 · 保存在記憶體中",
     "action_unavailable_runtime": "無法使用：此憑證保存在記憶體中，而不是檔案",
@@ -1887,6 +1886,8 @@
     }
   },
   "quota_management": {
+    "account_off": "帳號已關閉",
+    "account_off_hint": "已關閉：啟用前不處理任何請求，額度僅供參考。",
     "search_label": "搜尋帳號",
     "search_placeholder": "依檔案名稱或電子郵件搜尋",
     "search_empty_title": "沒有符合的帳號",
@@ -3158,6 +3159,7 @@
     }
   },
   "account_details": {
+    "reset_account_off": "帳號已關閉，啟用後才能使用重設。",
     "title": "帳戶詳情",
     "balances": "餘額",
     "spending": "支出",

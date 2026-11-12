@@ -511,7 +511,6 @@
     "quota_updated_hours": "updated {{count}}h ago",
     "quota_none": "No quota for this credential",
     "quota_none_runtime": "Held in memory by the hub; there is no file to read quota for",
-    "quota_none_disabled": "Disabled credentials are not checked; enable it to read quota",
     "quota_none_unsupported": "This provider does not report quota",
     "meta_no_file": "No file · held in memory",
     "action_unavailable_runtime": "Not available: this credential is held in memory, not in a file",
@@ -1861,6 +1860,8 @@
     }
   },
   "quota_management": {
+    "account_off": "Account off",
+    "account_off_hint": "Switched off: it serves no requests until enabled. Quota is shown for reference.",
     "search_label": "Search accounts",
     "search_placeholder": "Search by filename or email",
     "search_empty_title": "No matching accounts",
@@ -3132,6 +3133,7 @@
     }
   },
   "account_details": {
+    "reset_account_off": "The account is off; enable it to use a reset.",
     "title": "Account details",
     "balances": "Balances",
     "spending": "Spending",

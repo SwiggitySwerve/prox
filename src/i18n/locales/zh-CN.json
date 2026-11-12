@@ -509,7 +509,6 @@
     "quota_updated_hours": "{{count}} 小时前更新",
     "quota_none": "此凭证没有额度",
     "quota_none_runtime": "由中枢保存在内存中，没有可读取额度的文件",
-    "quota_none_disabled": "已停用的凭证不检查额度；启用后即可读取",
     "quota_none_unsupported": "此提供商不报告额度",
     "meta_no_file": "无文件 · 保存在内存中",
     "action_unavailable_runtime": "不可用：此凭证保存在内存中，而不是文件",
@@ -1859,6 +1858,8 @@
     }
   },
   "quota_management": {
+    "account_off": "账号已关闭",
+    "account_off_hint": "已关闭：启用前不处理任何请求，额度仅供参考。",
     "search_label": "搜索账号",
     "search_placeholder": "按文件名或邮箱搜索",
     "search_empty_title": "没有匹配的账号",
@@ -3130,6 +3131,7 @@
     }
   },
   "account_details": {
+    "reset_account_off": "账号已关闭，启用后才能使用重置。",
     "title": "账户详情",
     "balances": "余额",
     "spending": "支出",
