@@ -511,7 +511,6 @@
     "quota_updated_hours": "cập nhật {{count}} giờ trước",
     "quota_none": "Không có hạn mức cho thông tin xác thực này",
     "quota_none_runtime": "Hub giữ trong bộ nhớ; không có tệp để đọc hạn mức",
-    "quota_none_disabled": "Thông tin xác thực đã tắt không được kiểm tra; hãy bật để đọc hạn mức",
     "quota_none_unsupported": "Nhà cung cấp này không báo hạn mức",
     "meta_no_file": "Không có tệp · giữ trong bộ nhớ",
     "action_unavailable_runtime": "Không khả dụng: thông tin xác thực này được giữ trong bộ nhớ, không phải tệp",
@@ -871,6 +870,7 @@
     "monthly_limit": "Giới hạn tháng"
   },
   "xai_quota": {
+    "paid_account_off": "Tài khoản trả phí được kiểm tra bằng một yêu cầu chat thử, tức là lưu lượng mô hình. Hãy bật tài khoản để kiểm tra.",
     "title": "Quota Grok",
     "empty_title": "Không có File xác thực xAI/Grok",
     "empty_desc": "Đăng nhập bằng xAI OAuth để xem quota Grok.",
@@ -1817,6 +1817,8 @@
     "precise_save_recovery_required": "Không thể đọc lại kết quả lưu. Đã tạm dừng chỉnh sửa. Lưu lại để khôi phục mốc cơ sở của bản nháp, hoặc tải lại cấu hình."
   },
   "quota_management": {
+    "account_off": "Tài khoản đang tắt",
+    "account_off_hint": "Đang tắt: không phục vụ yêu cầu nào cho đến khi được bật. Hạn mức chỉ để tham khảo.",
     "title": "Quản lý Quota",
     "description": "Theo dõi trạng thái quota OAuth của credential Antigravity, Codex, Claude, Kimi và xAI.",
     "refresh_all_credentials": "Làm mới mọi credential",
@@ -3138,6 +3140,7 @@
     }
   },
   "account_details": {
+    "reset_account_off": "Tài khoản đang tắt; hãy bật để dùng lượt đặt lại.",
     "title": "Chi tiết tài khoản",
     "balances": "Số dư",
     "spending": "Chi tiêu",

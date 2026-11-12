@@ -42,11 +42,17 @@ describe('quota targets derived from a re-read credential list', () => {
     expect(names([claude('a.json'), claude('b.json'), claude('c.json')], 9)).toEqual(['c.json']);
   });
 
-  test('filters and sort apply: disabled and filtered-out cards are not targets', () => {
+  test('filters and sort apply: disabled cards are targets, filtered-out cards are not', () => {
     const list = [claude('a.json', { disabled: true }), claude('b.json'), claude('c.json')];
-    expect(names(list, 1)).toEqual(['b.json']); // the disabled card takes a slot but has no quota
+    expect(names(list, 1)).toEqual(['a.json', 'b.json']); // a switched-off card still reads quota
     expect(names(list, 1, { ...filters, search: 'c.json' })).toEqual(['c.json']);
     expect(names(list, 1, { ...filters, sortMode: 'az', pageSize: 3 })).toEqual([
+      'a.json',
+      'b.json',
+      'c.json',
+    ]);
+    // The Enabled filter hides the switched-off card, so it is not a target either.
+    expect(names(list, 1, { ...filters, statusFilterMode: 'enabled' })).toEqual([
       'b.json',
       'c.json',
     ]);

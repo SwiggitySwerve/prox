@@ -12,6 +12,7 @@ import {
   useNotificationStore,
 } from '@/stores';
 import type { AuthFileItem } from '@/types';
+import { isCredentialDisabled } from '@/features/authFiles/credentialFacts';
 import { useQuotaStore, type QuotaStore } from '@/stores/useQuotaStore';
 import type { SourceSession } from '@/services/api/sourceSession';
 import { isQuotaSourceCurrent } from '../sourceCurrent';
@@ -42,7 +43,8 @@ export function useQuotaActions(
   const refreshQuota = useCallback(
     /** force: after a reset claim, whose result the last reading cannot show. */
     async (file: AuthFileItem, adapter: QuotaAdapter, options?: { force?: boolean }) => {
-      if (disableControls || file.disabled || !isQuotaSourceCurrent(session)) return;
+      // A disabled credential is read like any other: reading quota is not using the account.
+      if (disableControls || !isQuotaSourceCurrent(session)) return;
       const cacheKey = getQuotaCacheKey(file);
       if (resettingQuotaName === cacheKey) return;
       if (getQuotaState(adapter, file, store)?.status === 'loading') return;
@@ -106,7 +108,8 @@ export function useQuotaActions(
     ) => {
       const resetQuotaFn = adapter.resetQuota;
       if (!resetQuotaFn) return;
-      if (disableControls || file.disabled || !isQuotaSourceCurrent(session)) return;
+      // Spending a reset is using the account, so a disabled one keeps it.
+      if (disableControls || isCredentialDisabled(file) || !isQuotaSourceCurrent(session)) return;
       const cacheKey = getQuotaCacheKey(file);
       if (getQuotaState(adapter, file, store)?.status === 'loading') return;
       if (resettingQuotaName === cacheKey) return;

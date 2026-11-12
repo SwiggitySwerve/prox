@@ -18,7 +18,10 @@ read succeeds) | real (one operator's shape: four Claude accounts, two sharing a
 twenty Claude models of which four are on for every account through the provider list) |
 claude-cards (four Claude Max accounts shaped like a real hub: three usage bars, active billing with an
 estimated renewal, three or four reset grants with long upstream descriptions, and extra usage off
-with spend and limit unreported). The stale case calls edit_elsewhere().
+with spend and limit unreported) | disabled (the default hubs with team-b and codex-spare switched off
+too: the hub still reads a disabled credential's quota, so pro-c and codex-spare load while off and
+team-b's read fails while off; every Claude account holds reset grants). The stale case calls
+edit_elsewhere().
 """
 from __future__ import annotations
 
@@ -183,6 +186,10 @@ class FakeHubs:
             # Two hours ahead: the card hides a retry time that has already passed.
             retry = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(hours=2)
             self.hubs['alpha']['accounts'][0]['rate_limited'] = retry.isoformat().replace('+00:00', 'Z')
+        if scenario == 'disabled':
+            # api-call resolves disabled credentials too (authByIndex scans the whole list).
+            for hub, name in (('alpha', 'claude-team-b.json'), ('beta', 'codex-spare.json')):
+                next(a for a in self.hubs[hub]['accounts'] if a['name'] == name)['disabled'] = True
         if scenario == 'many':
             self.hubs['alpha']['accounts'][4:4] = [
                 {'name': f'claude-seat-{n:02d}.json', 'type': 'claude',
@@ -382,12 +389,14 @@ class FakeHubs:
             if str(body.get('method', 'GET')).upper() != 'GET':
                 self.unexpected.append(f'{source} proxied {body.get("method")} {url}')
                 return await self._fail(route, 403, 'Synthetic hub proxies reads only')
-            failing = self.scenario not in ('default', 'aligned', 'claude-cards', 'many') or (
-                self.scenario in ('default', 'many') and body.get('authIndex') == 'alpha-1')
+            failing = self.scenario not in ('default', 'aligned', 'claude-cards', 'many', 'disabled') or (
+                self.scenario in ('default', 'many', 'disabled') and body.get('authIndex') == 'alpha-1')
             soon = '2030-01-01T00:00:00Z'
             variant = ALIGNED_CLAUDE.get(body.get('authIndex')) if self.scenario == 'aligned' else None
             card = CARD_CLAUDE.get(body.get('authIndex')) if self.scenario == 'claude-cards' else None
-            if card and 'anthropic.com/api/oauth/usage' in url:
+            if self.scenario == 'disabled' and 'cedar_ember' in url:
+                payload = self._card_usage(CARD_CLAUDE['alpha-1'], soon, True)
+            elif card and 'anthropic.com/api/oauth/usage' in url:
                 payload = self._card_usage(card, soon, 'cedar_ember' in url)
             elif card and 'anthropic.com/api/oauth/profile' in url:
                 payload = self._aligned_profile({'billing': 'stripe'})

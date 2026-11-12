@@ -1,4 +1,4 @@
-import { beforeAll, expect, mock, test } from 'bun:test';
+import { beforeAll, describe, expect, mock, test } from 'bun:test';
 import { join } from 'node:path';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup as render } from 'react-dom/server';
@@ -467,4 +467,87 @@ test('only the Auth Files card asks for the compact layout; the Quota page keeps
   // Codex keeps its held count with the reset status, and its credit balance stays a fact.
   expect(section).toContain('Usable now · 1 held');
   expect(section).toContain('<dt>Credit balance</dt>');
+});
+
+describe('a disabled account still shows its quota, marked as off, with its reset not usable', () => {
+  const off = { ...file, disabled: true };
+  const offHint =
+    'Switched off: it serves no requests until enabled. Quota is shown for reference.';
+
+  test('Quota page card: quota and Refresh stay, "Account off" shows and Use reset is blocked', () => {
+    const html = markup(
+      h(QuotaCard, {
+        entry: { file: off, type: 'codex' },
+        adapter: adapters.codex,
+        quota: codex,
+        resolvedTheme: 'dark',
+        canRefresh: true,
+        resetting: false,
+        onRefresh: noop,
+        onReset: noop,
+      })
+    );
+    const [header] = html.split('</header>');
+    expect(header).toContain(`title="${offHint}"`);
+    expect(header).toContain('>Account off</span>');
+    expect(html).toContain('codexPlan');
+    expect(html).toMatch(/<h4>Manual resets<\/h4><button[^>]*disabled=""[^>]*>Use reset/);
+    expect(html).toContain('The account is off; enable it to use a reset.');
+    expect(html.split('<footer')[1]).not.toMatch(/<button[^>]*disabled=""/);
+  });
+
+  test('an enabled Quota page card carries no off marker', () => {
+    const html = markup(
+      h(QuotaCard, {
+        entry: { file, type: 'codex' },
+        adapter: adapters.codex,
+        quota: codex,
+        resolvedTheme: 'dark',
+        canRefresh: true,
+        resetting: false,
+        onRefresh: noop,
+        onReset: noop,
+      })
+    );
+    expect(html).not.toContain('Account off');
+  });
+
+  test('Auth Files slot: loaded quota, the off marker in its header, refresh enabled', () => {
+    function SeededSection() {
+      const { quotaStore } = useAuthFilesSource();
+      Object.assign(quotaStore.getInitialState(), { codexQuota: { [off.name]: codex } });
+      return h(AuthFileQuotaSection, { file: off, quotaType: 'codex', disableControls: false });
+    }
+    const html = markup(
+      h(AuthFilesSourceProvider, { source, session, children: h(SeededSection) })
+    );
+    expect(html).toContain('data-quota-state="loaded"');
+    const head = html.split('class="quotaHead"')[1].split('</div>')[0];
+    expect(head).toContain('>Account off</span>');
+    expect(head).not.toMatch(/<button[^>]*disabled=""/);
+    expect(html).toMatch(/<h4>Manual resets<\/h4><button[^>]*disabled=""[^>]*>Use reset/);
+    expect(html).toContain('The account is off; enable it to use a reset.');
+  });
+
+  test('Claude: held resets on an off account say why they cannot be used', () => {
+    const html = markup(
+      h(AccountDetails, {
+        provider: 'claude',
+        quota: claude,
+        name: 'Fixture',
+        accountOff: true,
+        claudeReset: {
+          count: 1,
+          grants: [{ id: 'g', label: 'Bonus', resetsLeft: 1, resetsTotal: 1, endsAt: null }],
+          busy: false,
+          blocked: true,
+          confirm: noop,
+          message: '',
+          buttonLabel: 'use',
+        },
+      })
+    );
+    expect(html).toContain('The account is off; enable it to use a reset.');
+    expect(html).not.toContain('Claude reports none usable right now');
+  });
 });

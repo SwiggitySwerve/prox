@@ -7,20 +7,21 @@ import { resolveAuthFileQuotaType } from '@/features/authFiles/logic';
 import { pageOfAuthFiles, type AuthFilesFilters } from '@/features/authFiles/unifiedList';
 import type { QuotaFileEntry } from '@/features/quota/logic';
 import type { AuthFileItem } from '@/types';
-import { isDisabledAuthFile } from '@/utils/quota/validators';
 
 export { claudeQuotaRowSlots, type ClaudeQuotaRowSlot } from '@/domain/quotaWindows/claude';
 
-export type QuotaUnavailableReason = 'runtime' | 'disabled' | 'unsupported';
+export type QuotaUnavailableReason = 'runtime' | 'unsupported';
 
-/** Why a card has no quota to read, or null when it has. */
+/**
+ * Why a card has no quota to read, or null when it has. A disabled credential still has quota:
+ * switching it off only takes it out of request routing, and the hub reads its quota on demand.
+ */
 export function quotaUnavailableReason(
   file: AuthFileItem,
   filter: AuthFileQuotaFilter
 ): QuotaUnavailableReason | null {
   if (isRuntimeOnlyAuthFile(file)) return 'runtime';
   if (resolveAuthFileQuotaType(file, filter) === null) return 'unsupported';
-  if (isDisabledAuthFile(file)) return 'disabled';
   return null;
 }
 

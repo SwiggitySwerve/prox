@@ -29,6 +29,7 @@ import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
 import { isXaiQuotaFile } from '../filters';
 import type { QuotaDependencies } from '../dependencies';
+import { isCredentialDisabled } from '@/features/authFiles/credentialFacts';
 
 const XAI_PAID_HEALTH_REQUEST_TIMEOUT_MS = 15000;
 const XAI_SUBSCRIPTION_REQUEST_TIMEOUT_MS = 8000;
@@ -211,7 +212,11 @@ export function createXaiQuotaConfig(deps: QuotaDependencies) {
       throw new Error(t('xai_quota.missing_auth_index'));
     }
 
+    // The paid check is a one-token chat request: model traffic, which a switched-off account
+    // must not get. Its billing reads are GETs and still run.
+    const accountOff = isCredentialDisabled(file);
     if (isPaidXaiAuthFile(file)) {
+      if (accountOff) throw new Error(t('xai_quota.paid_account_off'));
       return requestXaiPaidHealth(authIndex);
     }
 
@@ -229,6 +234,7 @@ export function createXaiQuotaConfig(deps: QuotaDependencies) {
       weeklyResult.status === 'rejected' && monthlyResult.status === 'rejected'
         ? weeklyResult.reason
         : new Error(t('xai_quota.empty_data'));
+    if (accountOff) throw billingError;
 
     try {
       return await requestXaiPaidHealth(authIndex);

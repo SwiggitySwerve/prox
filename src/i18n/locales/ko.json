@@ -511,7 +511,6 @@
     "quota_updated_hours": "{{count}}시간 전 업데이트",
     "quota_none": "이 자격 증명에는 할당량이 없습니다",
     "quota_none_runtime": "허브가 메모리에 보관하며 할당량을 읽을 파일이 없습니다",
-    "quota_none_disabled": "비활성화된 자격 증명은 확인하지 않습니다. 활성화하면 할당량을 읽을 수 있습니다",
     "quota_none_unsupported": "이 공급자는 할당량을 보고하지 않습니다",
     "meta_no_file": "파일 없음 · 메모리에 보관됨",
     "action_unavailable_runtime": "사용할 수 없음: 이 자격 증명은 파일이 아닌 메모리에 보관됩니다",
@@ -915,6 +914,7 @@
     "reset_hint": "{{hint}} 후 초기화"
   },
   "xai_quota": {
+    "paid_account_off": "유료 계정은 테스트 채팅 요청으로 확인하며, 이는 모델 트래픽입니다. 확인하려면 계정을 켜세요.",
     "title": "Grok 할당량",
     "empty_title": "xAI/Grok 인증 파일 없음",
     "empty_desc": "xAI OAuth로 로그인하여 Grok 할당량을 확인하세요.",
@@ -1861,6 +1861,8 @@
     }
   },
   "quota_management": {
+    "account_off": "계정 꺼짐",
+    "account_off_hint": "꺼짐: 켜기 전까지 요청을 처리하지 않습니다. 할당량은 참고용입니다.",
     "search_label": "계정 검색",
     "search_placeholder": "파일명 또는 이메일로 검색",
     "search_empty_title": "일치하는 계정 없음",
@@ -3132,6 +3134,7 @@
     }
   },
   "account_details": {
+    "reset_account_off": "계정이 꺼져 있습니다. 초기화를 사용하려면 계정을 켜세요.",
     "title": "계정 세부 정보",
     "balances": "잔액",
     "spending": "지출",

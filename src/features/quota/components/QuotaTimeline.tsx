@@ -19,6 +19,7 @@ import { formatRelativeInstant, TYPE_COLORS } from '@/utils/quota';
 import { getQuotaCacheKey, getQuotaDisplayName } from '@/utils/quota/identity';
 import { useNow } from '@/hooks/useNow';
 import { formatPoolDate } from '@/features/quotaPool/presentation';
+import { isCredentialDisabled } from '@/features/authFiles/credentialFacts';
 import type { ResolvedTheme, ThemeColors } from '@/types';
 import {
   buildTimelineLane,
@@ -110,6 +111,17 @@ export function QuotaTimeline({
   const hasAnyLane = useMemo(
     () => laneInputs.some((input) => laneHasWindow(buildTimelineLane(input))),
     [laneInputs]
+  );
+
+  // A switched-off account keeps its lane, marked, so its windows don't read as serving capacity.
+  const offLanes = useMemo(
+    () =>
+      new Set(
+        entries
+          .filter((entry) => isCredentialDisabled(entry.file))
+          .map((entry) => getQuotaCacheKey(entry.file))
+      ),
+    [entries]
   );
 
   const lanes = useMemo(
@@ -260,6 +272,7 @@ export function QuotaTimeline({
               <Lane
                 key={lane.name}
                 lane={lane}
+                off={offLanes.has(lane.name)}
                 span={span}
                 now={now}
                 mode={mode}
@@ -311,6 +324,7 @@ export function QuotaTimeline({
 
 interface LaneProps {
   lane: TimelineLane;
+  off: boolean;
   span: { startMs: number; endMs: number; days: number };
   now: number;
   mode: TimelineMode;
@@ -319,7 +333,7 @@ interface LaneProps {
   resolvedTheme: ResolvedTheme;
 }
 
-function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneProps) {
+function Lane({ lane, off, span, now, mode, cells, nowPercent, resolvedTheme }: LaneProps) {
   const { t, i18n } = useTranslation();
 
   const windows = useMemo(
@@ -346,7 +360,11 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
           : `${Math.round(lane.periodHours / 24)}d`;
 
   return (
-    <div className={styles.lane} style={{ '--provider-accent': color.text } as CSSProperties}>
+    <div
+      className={styles.lane}
+      data-off={off || undefined}
+      style={{ '--provider-accent': color.text } as CSSProperties}
+    >
       <div className={styles.laneHead}>
         <div className={styles.laneTop}>
           <span className={styles.laneDot} />
@@ -354,6 +372,11 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
             {lane.displayName}
           </span>
           {periodLabel && <span className={styles.lanePeriod}>{periodLabel}</span>}
+          {off && (
+            <span className={styles.lanePeriod} title={t('quota_management.account_off_hint')}>
+              {t('quota_management.account_off')}
+            </span>
+          )}
         </div>
         <div className={styles.laneLimits}>
           {lane.limits.map((limit) => (

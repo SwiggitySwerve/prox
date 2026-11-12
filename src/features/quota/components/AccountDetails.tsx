@@ -32,6 +32,8 @@ type Props = {
   name: string;
   claudeReset?: ReturnType<typeof useClaudeResetGrants>;
   reset?: { disabled: boolean; onClick: () => void };
+  /** The account is switched off: its resets are shown but cannot be used. */
+  accountOff?: boolean;
   /** Starts expanded; the user can still collapse it. */
   defaultOpen?: boolean;
   /**
@@ -54,6 +56,7 @@ export function AccountDetails({
   name,
   claudeReset,
   reset,
+  accountOff = false,
   defaultOpen,
   rows,
   compact = false,
@@ -79,7 +82,7 @@ export function AccountDetails({
   const xai = provider === 'xai' && quota ? (quota as XaiQuotaState).billing : null;
   const plugin = provider === 'plugin' && quota ? (quota as PluginQuotaState) : null;
   const held = codex ? codex.rateLimitResetCreditsAvailableCount : claudeReset?.count;
-  const resetReason = claudeReset
+  const usualResetReason = claudeReset
     ? claudeReset.message
       ? t(`claude_reset.${claudeReset.message}`)
       : claudeReset.busy
@@ -94,6 +97,8 @@ export function AccountDetails({
         : (held ?? 0) > 0
           ? t('quota_pool.reset_usable')
           : t('quota_pool.reset_not_reported_reason');
+  const resetReason =
+    accountOff && (held ?? 0) > 0 ? t('account_details.reset_account_off') : usualResetReason;
   const resetAction = claudeReset
     ? {
         label: t(

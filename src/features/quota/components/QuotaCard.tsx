@@ -15,6 +15,7 @@ import {
   getTypeLabel,
   isThemeSurfaceIconProvider,
 } from '@/features/authFiles/constants';
+import { isCredentialDisabled } from '@/features/authFiles/credentialFacts';
 import { bindQuotaClasses } from '../types';
 import { type QuotaCardState, type QuotaAdapter } from '../providers';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
@@ -62,6 +63,8 @@ export function QuotaCard(props: QuotaCardProps) {
   const retainedClaudeUsage =
     entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
   const displayName = getQuotaDisplayName(file);
+  // Switched off: its quota is still read, but it serves nothing and its resets stay unspent.
+  const accountOff = isCredentialDisabled(file);
 
   // Capture the entrance delay only at mount, without a render-time ref read.
   const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
@@ -78,7 +81,8 @@ export function QuotaCard(props: QuotaCardProps) {
     !canRefresh || loading || resetting,
     quota,
     onRefresh,
-    adapter.resetGrants
+    adapter.resetGrants,
+    accountOff
   );
   const providerType =
     entry.type === 'plugin'
@@ -96,7 +100,13 @@ export function QuotaCard(props: QuotaCardProps) {
 
   return (
     <article
-      className={`${styles.card} ${mountEntranceDelayMs === null ? '' : styles.cardEnter}`}
+      className={[
+        styles.card,
+        mountEntranceDelayMs === null ? '' : styles.cardEnter,
+        accountOff ? styles.cardOff : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={entranceStyle}
     >
       <header className={styles.head}>
@@ -118,6 +128,11 @@ export function QuotaCard(props: QuotaCardProps) {
         <span className={styles.fileName} title={displayName}>
           {displayName}
         </span>
+        {accountOff && (
+          <span className={styles.offBadge} title={t('quota_management.account_off_hint')}>
+            {t('quota_management.account_off')}
+          </span>
+        )}
       </header>
 
       <div className={styles.body}>
@@ -167,12 +182,14 @@ export function QuotaCard(props: QuotaCardProps) {
           provider={entry.type}
           quota={status === 'success' || retainedClaudeUsage ? quota : undefined}
           name={displayName}
+          accountOff={accountOff}
           claudeReset={entry.type === 'claude' ? claudeReset : undefined}
           reset={
             entry.type === 'codex' && adapter.resetQuota
               ? {
                   disabled:
                     !canRefresh ||
+                    accountOff ||
                     loading ||
                     resetting ||
                     !quota ||

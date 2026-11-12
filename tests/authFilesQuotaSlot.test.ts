@@ -17,19 +17,26 @@ const gemini: AuthFileItem = { name: 'gemini.json', type: 'gemini-cli' };
 const codex: AuthFileItem = { name: 'codex.json', type: 'codex', authIndex: 'b-0' };
 
 describe('which shown credentials can have quota', () => {
-  test('disabled, runtime-only and unsupported providers are left out, each with its reason', () => {
+  test('runtime-only and unsupported providers are left out, each with its reason', () => {
     expect(quotaUnavailableReason(claude, 'all')).toBeNull();
-    expect(quotaUnavailableReason(disabled, 'all')).toBe('disabled');
     expect(quotaUnavailableReason(runtime, 'all')).toBe('runtime');
     expect(quotaUnavailableReason(gemini, 'all')).toBe('unsupported');
-    expect(quotaUnavailableReason({ ...disabled, disabled: 'true' }, 'all')).toBe('disabled');
   });
 
-  test('targets keep the shown order and carry the quota type', () => {
+  test('a disabled credential still has quota to read: off stops routing, not reading', () => {
+    expect(quotaUnavailableReason(disabled, 'all')).toBeNull();
+    expect(quotaUnavailableReason({ ...disabled, disabled: 'true' }, 'all')).toBeNull();
+    expect(quotaUnavailableReason({ ...claude, status: 'disabled' }, 'all')).toBeNull();
+    // Runtime-only keeps its own reason whether or not it is switched off.
+    expect(quotaUnavailableReason({ ...runtime, disabled: true }, 'all')).toBe('runtime');
+  });
+
+  test('targets keep the shown order, carry the quota type and include disabled cards', () => {
     const targets = quotaRefreshTargets([gemini, codex, runtime, claude, disabled], 'all');
     expect(targets.map((entry) => [entry.file.name, entry.type])).toEqual([
       ['codex.json', 'codex'],
       ['claude-a.json', 'claude'],
+      ['claude-b.json', 'claude'],
     ]);
   });
 
@@ -42,9 +49,9 @@ describe('which shown credentials can have quota', () => {
 
 describe('quota slot state', () => {
   test('a credential that cannot have quota always shows "no quota", whatever is cached', () => {
-    expect(selectQuotaSlotState({ reason: 'disabled', status: 'success', hasData: true })).toEqual({
+    expect(selectQuotaSlotState({ reason: 'runtime', status: 'success', hasData: true })).toEqual({
       kind: 'unavailable',
-      reason: 'disabled',
+      reason: 'runtime',
     });
   });
 

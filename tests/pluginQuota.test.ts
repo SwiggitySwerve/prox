@@ -125,7 +125,9 @@ describe('generic plugin quota', () => {
           expect(resolveAuthFileQuotaType(candidate, 'plugin')).toBe('plugin');
           expect(resolveAuthFileQuotaType(candidate, 'unrelated')).toBeNull();
           expect(resolveAuthFileQuotaType(candidate, null)).toBeNull();
-          expect(classifyQuotaFiles([{ ...candidate, disabled: true }])).toEqual([]);
+          expect(
+            classifyQuotaFiles([{ ...candidate, disabled: true }]).map((entry) => entry.type)
+          ).toEqual(['plugin']);
         }
         const [entry] = classifyQuotaFiles([file]);
         expect(entry.type).toBe('plugin');

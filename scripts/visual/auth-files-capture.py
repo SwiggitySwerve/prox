@@ -39,7 +39,10 @@ M = '/auth-files/models?source=alpha&provider=claude'
 # scroller are no wider than the viewport and their own box (checked at >= 600 px wide), or
 # ('in-view', selector): fail unless that element is fully inside the viewport without scrolling, or
 # ('scroll-page', px): scroll the shell's scroller down by px (the page scrolls inside an element), or
-# ('open-details', ''): open every disclosure on the page (none on wide layouts is fine).
+# ('open-details', ''): open every disclosure on the page (none on wide layouts is fine), or
+# ('click-all', selector): click every match (one per hub section), or
+# ('off-cards', 'auth-files'|'quota'): fail unless every switched-off card says "Account off", shows
+# read quota or the normal read error, and offers no usable reset (records each card's state).
 TEAM_A = 'claude-team-a.json'
 TEAM_B = 'claude-team-b.json'
 SAVED = '[data-machine="model-access-draft"][data-state="saved"]'
@@ -168,6 +171,16 @@ CASES = [
         ('wait', 'button:has-text("Use reset"):enabled'), ('sleep', '1500'),
         ('click', 'button:has-text("Use reset"):enabled'), ('wait', '[role=dialog]'),
         ('dialog-masked', '')]),
+    # Switched-off accounts read quota like the rest: pro-c and team-b on the Claude hub, codex-spare
+    # on the GPT hub. pro-c and codex-spare load while off; team-b's read fails and says so in place.
+    ('auth-files-disabled-quota', '/auth-files', 'disabled', [
+        ('click', '[data-testid="auth-files-refresh-quota"]'),
+        ('wait', '[data-quota-state="loaded"]'), ('wait', '[data-quota-state="failed"]'),
+        ('sleep', '4500'), ('off-cards', 'auth-files')]),
+    ('quota-accounts-disabled', '/quota/accounts', 'disabled', [
+        ('click-all', 'button:has-text("Refresh all credentials")'),
+        ('wait', 'summary:has-text("Account details")'), ('sleep', '3000'),
+        ('open-details', ''), ('sleep', '1500'), ('off-cards', 'quota')]),
     # team-b's write fails, the provider list lands: the bar and team-b's row say so, and team-b's
     # switch stays staged for another Save.
     ('models-partial-failure', M, 'partial', [
@@ -272,6 +285,28 @@ ALIGNMENT = '''(strict) => {
   if (strict && !rowed.length) violations.push({key: 'grid', problem: 'no grid row holds two cards'});
   return {cards: cards.length, bands: rowed.length, compared, maxDelta, violations: violations.slice(0, 16)};
 }'''
+# Every switched-off card: its off marker, what its quota slot shows and whether a reset is usable.
+# Auth Files cards carry the card's disabled class; Quota page cards the quota card's off class.
+OFF_CARDS = '''(page) => {
+  const off = page === 'auth-files' ? '__cardDisabled___' : '__cardOff___';
+  return [...document.querySelectorAll(`main article[class*="${off}"]`)].map((card) => {
+    const slot = card.querySelector('[data-quota-state]');
+    const state = slot ? slot.dataset.quotaState
+      : card.querySelector('[role=alert]') ? 'failed'
+      : card.querySelector('[class*="__quotaRow___"], [class*="__codexPlan___"]') ? 'loaded'
+      : 'other';
+    return {
+      name: (card.querySelector('[class*="__fileName___"]') ?? card.querySelector('[title]'))
+        ?.getAttribute('title') ?? '',
+      marker: card.textContent.includes('Account off'),
+      state,
+      usableReset: [...card.querySelectorAll('button')]
+        .some((b) => /Use reset|Choose a reset/.test(b.textContent) && !b.disabled),
+      resetNote: [...card.querySelectorAll('[role=status]')].map((e) => e.textContent.trim())
+        .filter((t) => /reset|account is off/i.test(t)),
+    };
+  });
+}'''
 # The height of every credential card of the first hub, in px.
 CARD_HEIGHTS = '''() => [...document.querySelectorAll('[data-source-id="alpha"] article')]
   .filter(c => c.querySelector('[class*="__head___"]'))
@@ -327,6 +362,10 @@ async def run_case(browser, base, origin, out, width, case):
             if action == 'click':
                 await page.locator(selector).first.click()
                 await page.wait_for_timeout(600)
+            elif action == 'click-all':
+                for button in await page.locator(selector).all():
+                    await button.click()
+                await page.wait_for_timeout(600)
             elif action == 'no-dialog':
                 if await page.locator(selector).first.is_visible():
                     raise AssertionError(f'unexpected dialog: {selector}')
@@ -378,6 +417,15 @@ async def run_case(browser, base, origin, out, width, case):
                 leaked = re.findall(r'[\w.+-]+@[\w-]+\.invalid|[\w-]+\.json', text)
                 if leaked or '\u2022\u2022\u2022' not in text:
                     raise AssertionError(f'dialog does not name a masked account: {leaked or text[:120]}')
+            elif action == 'off-cards':
+                cards = await page.evaluate(OFF_CARDS, selector)
+                extra['offCards'] = cards
+                problems = [c for c in cards if not c['marker'] or c['state'] not in ('loaded', 'failed')
+                            or c['usableReset']]
+                # pro-c loads and team-b fails on the Claude hub; codex-spare loads where shown.
+                if problems or not any(c['state'] == 'loaded' for c in cards) \
+                        or not any(c['state'] == 'failed' for c in cards):
+                    raise AssertionError(f'off cards: {cards}')
             elif action == 'open-details':
                 await page.evaluate("() => document.querySelectorAll('details').forEach((d) => { d.open = true; })")
                 await page.wait_for_timeout(300)

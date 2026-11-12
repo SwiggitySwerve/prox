@@ -177,4 +177,62 @@ describe('xAI paid OAuth quota fallback', () => {
       XAI_CONFIG.fetchQuota({ name: 'invalid.json', type: 'xai', auth_index: 'xai:5' }, t)
     ).rejects.toMatchObject({ status: 403 });
   });
+
+  describe('a switched-off account gets no model traffic: the paid check is a chat request', () => {
+    const capture = (billing: number) => {
+      apiCallApi.request = async (payload) => {
+        requests.push(payload);
+        if (payload.url === XAI_BILLING_WEEKLY_URL || payload.url === XAI_BILLING_MONTHLY_URL) {
+          return billing === 200
+            ? result(200, { config: { currentPeriod: { type: 'weekly' }, creditUsagePercent: 40 } })
+            : result(billing, { error: 'Access denied' });
+        }
+        if (payload.url === XAI_API_ME_URL) return result(200, { user_id: 'paid-user' });
+        return result(200, { choices: [] });
+      };
+    };
+    const noTraffic = () => {
+      expect(requests.map((request) => request.url)).not.toContain(XAI_API_CHAT_URL);
+      expect(requests.every((request) => request.method === 'GET')).toBe(true);
+    };
+
+    test('a paid account fails its read and says why, without the chat check', async () => {
+      capture(200);
+      await expect(
+        XAI_CONFIG.fetchQuota(
+          {
+            name: 'paid-off.json',
+            type: 'xai',
+            auth_index: 'xai:6',
+            using_api: true,
+            prefix: 'paid',
+            disabled: true,
+          },
+          t
+        )
+      ).rejects.toThrow('xai_quota.paid_account_off');
+      noTraffic();
+    });
+
+    test('a failed billing read keeps its own error instead of falling back to the chat check', async () => {
+      capture(403);
+      await expect(
+        XAI_CONFIG.fetchQuota(
+          { name: 'unknown-off.json', type: 'xai', auth_index: 'xai:7', disabled: true },
+          t
+        )
+      ).rejects.toMatchObject({ status: 403 });
+      noTraffic();
+    });
+
+    test('billing that reads still loads', async () => {
+      capture(200);
+      const summary = await XAI_CONFIG.fetchQuota(
+        { name: 'free-off.json', type: 'xai', auth_index: 'xai:8', status: 'disabled' },
+        t
+      );
+      expect(summary).toMatchObject({ mode: 'billing', usagePercent: 40 });
+      noTraffic();
+    });
+  });
 });

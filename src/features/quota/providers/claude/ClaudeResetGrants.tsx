@@ -40,7 +40,9 @@ export function useClaudeResetGrants(
   refreshToken: unknown,
   /** Re-reads the card's quota; force skips the 60 s reuse, since a claim changed it. */
   onRefresh: (options?: { force?: boolean }) => void,
-  scope: ResetGrantScope
+  scope: ResetGrantScope,
+  /** Grants are still read; only spending them is blocked (a disabled account). */
+  spendBlocked = false
 ) {
   const { t, i18n } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
@@ -101,7 +103,8 @@ export function useClaudeResetGrants(
   const selectedGrant = status?.grants.find((grant) => grant.id === selected);
   // What the operator can pick from; a pending claim may only be retried as it was.
   const choices = status && !pending ? resetGrantChoices(status, now) : [];
-  const blocked = disabled || !sessionActive || !authIndex || busy || expired || !selected;
+  const blocked =
+    disabled || spendBlocked || !sessionActive || !authIndex || busy || expired || !selected;
   const confirm = () => {
     if (blocked || lock.current || !selected || !authIndex) return;
     const version = generation.current;
