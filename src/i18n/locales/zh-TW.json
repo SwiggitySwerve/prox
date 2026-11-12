@@ -912,6 +912,7 @@
     "reset_hint": "{{hint}} 後重置"
   },
   "xai_quota": {
+    "paid_account_off": "付費帳號需要傳送一次測試對話請求來檢查，這屬於模型流量。啟用後再檢查。",
     "title": "Grok 配額",
     "empty_title": "暫無 xAI/Grok 驗證",
     "empty_desc": "使用 xAI OAuth 登入後即可查看 Grok 配額。",

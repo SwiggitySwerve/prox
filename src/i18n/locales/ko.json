@@ -914,6 +914,7 @@
     "reset_hint": "{{hint}} 후 초기화"
   },
   "xai_quota": {
+    "paid_account_off": "유료 계정은 테스트 채팅 요청으로 확인하며, 이는 모델 트래픽입니다. 확인하려면 계정을 켜세요.",
     "title": "Grok 할당량",
     "empty_title": "xAI/Grok 인증 파일 없음",
     "empty_desc": "xAI OAuth로 로그인하여 Grok 할당량을 확인하세요.",

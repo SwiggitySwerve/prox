@@ -912,6 +912,7 @@
     "reset_hint": "{{hint}} 后重置"
   },
   "xai_quota": {
+    "paid_account_off": "付费账号需要发送一次测试对话请求来检查，这属于模型流量。启用后再检查。",
     "title": "Grok 额度",
     "empty_title": "暂无 xAI/Grok 认证",
     "empty_desc": "使用 xAI OAuth 登录后即可查看 Grok 额度。",

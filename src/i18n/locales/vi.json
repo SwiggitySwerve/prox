@@ -870,6 +870,7 @@
     "monthly_limit": "Giới hạn tháng"
   },
   "xai_quota": {
+    "paid_account_off": "Tài khoản trả phí được kiểm tra bằng một yêu cầu chat thử, tức là lưu lượng mô hình. Hãy bật tài khoản để kiểm tra.",
     "title": "Quota Grok",
     "empty_title": "Không có File xác thực xAI/Grok",
     "empty_desc": "Đăng nhập bằng xAI OAuth để xem quota Grok.",
