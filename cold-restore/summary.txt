@@ -1,0 +1,2 @@
+before: runs=45 visible median=597 ms (p25 580, p75 623) | analytics request starts median=392 ms | domInteractive median=140 | GET /config per load=[4] | loads via #/login=45
+after: runs=45 visible median=545 ms (p25 522, p75 587) | analytics request starts median=339 ms | domInteractive median=139 | GET /config per load=[3] | loads via #/login=0

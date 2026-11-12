@@ -1,0 +1,24 @@
+// Mid-restore screenshot: /config is held 1.5 s so the in-between state is visible.
+import { chromium } from '/home/swerve/.t3/worktrees/prox-quota-hillclimb/t3-1a2f7901-a3da4fb0695ec3aa/node_modules/playwright/index.mjs';
+import { readFileSync } from 'node:fs';
+const [port, out] = process.argv.slice(2);
+const origin = `http://127.0.0.1:${port}`;
+const key = readFileSync(`${process.env.HOME}/.config/cli-proxy-rerank/management-key`, 'utf8').trim();
+const browser = await chromium.launch();
+const ctx0 = await browser.newContext({ locale: 'en-US' });
+const p0 = await ctx0.newPage();
+await p0.goto(`${origin}/#/login`);
+await p0.locator('input[type=password]').fill(key);
+const remember = p0.getByRole('checkbox', { name: 'Remember password' });
+if (!(await remember.isChecked())) await remember.check({ force: true });
+await p0.getByRole('button', { name: 'Login', exact: true }).click();
+await p0.waitForURL((u) => !u.hash.startsWith('#/login'), { timeout: 20000 });
+const state = await ctx0.storageState(); await ctx0.close();
+const ctx = await browser.newContext({ locale: 'en-US', storageState: state, viewport: { width: 1280, height: 720 } });
+const page = await ctx.newPage();
+await page.route(/\/v8\/management\/config$/, async (r) => { await new Promise((s) => setTimeout(s, 1500)); await r.continue(); });
+await page.goto(`${origin}/#/analytics?tab=overview&range=7d&bucket=hour`);
+await page.waitForTimeout(900);
+console.log('url mid-restore:', new URL(page.url()).hash);
+await page.screenshot({ path: out });
+await browser.close();
