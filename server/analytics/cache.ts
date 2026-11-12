@@ -36,6 +36,8 @@ interface Entry {
   inflightFresh?: boolean;
   // Sequence number of the recompute whose result is in body; an older one never replaces it.
   applied: number;
+  // Recomputes still running, superseded ones included: any of them may yet fill the entry.
+  pending: number;
 }
 
 /**
@@ -102,7 +104,9 @@ export function createSnapshotCache(
     const started = clock();
     const mine = ++sequence;
     entry.tried = started;
+    entry.pending += 1;
     const work = compute(query).then((outcome) => {
+      entry.pending -= 1;
       if (outcome.ok && mine > entry.applied) {
         entry.applied = mine;
         entry.body = outcome.body;
@@ -112,8 +116,8 @@ export function createSnapshotCache(
       } else if (
         entry.body === undefined &&
         !entry.pinned &&
-        // A superseded recompute must not drop the entry a newer one will store into.
-        entry.inflight === work &&
+        // Never drop an entry another running recompute (older or newer) may still fill.
+        entry.pending === 0 &&
         entries.get(key) === entry
       ) {
         entries.delete(key);
@@ -141,11 +145,12 @@ export function createSnapshotCache(
         tried: -Infinity,
         touched: now,
         applied: 0,
+        pending: 0,
       };
     entries.set(key, entry);
     for (const [other, candidate] of entries) {
       if (entries.size <= MAX_ENTRIES) break;
-      if (!candidate.pinned && !candidate.inflight && other !== key) entries.delete(other);
+      if (!candidate.pinned && candidate.pending === 0 && other !== key) entries.delete(other);
     }
     return entry;
   }

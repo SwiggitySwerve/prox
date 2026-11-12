@@ -477,6 +477,31 @@ describe('Prox analytics bridge', () => {
         f.clean();
       }
     });
+    test('a failed Refresh does not drop the first load still running behind it', async () => {
+      const f = fixture();
+      try {
+        const releaseOld = f.holdCpa();
+        const first = f.handler(request(view(f, 7 * DAY)));
+        await Bun.sleep(10);
+        const releaseNew = f.holdCpa();
+        const refreshed = f.handler(
+          request(view(f, 7 * DAY), undefined, { 'Cache-Control': 'no-cache' })
+        );
+        await Bun.sleep(10);
+        expect(f.cpaCalls()).toBe(2);
+        f.failCpa(500);
+        releaseNew();
+        expect((await refreshed).status).toBe(503);
+        f.failCpa(200);
+        releaseOld();
+        expect((await first).status).toBe(200);
+        // The first load's snapshot is kept, so the next visit is answered without CPA.
+        expect((await f.handler(request(view(f, 7 * DAY)))).status).toBe(200);
+        expect(f.cpaCalls()).toBe(2);
+      } finally {
+        f.clean();
+      }
+    });
     test('never keeps a failed source: it reads unavailable, then recovers at once', async () => {
       const f = fixture();
       try {
