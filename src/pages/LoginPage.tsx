@@ -13,13 +13,12 @@ import { isSupportedLanguage } from '@/utils/language';
 import { BrandMark } from '@/components/brand/BrandMark';
 import type { ApiError } from '@/types';
 import { LegacyBackendError } from '@/services/api/legacyBackendProbe';
+import { redirectTarget } from '@/router/redirectTarget';
 import styles from './LoginPage.module.scss';
 
 /**
  * 将 API 错误转换为本地化的用户友好消息
  */
-type RedirectState = { from?: { pathname?: string } };
-
 function getLocalizedErrorMessage(error: unknown, t: (key: string) => string): string {
   if (error instanceof LegacyBackendError) return t('login.error_legacy_backend');
   const apiError = error as Partial<ApiError>;
@@ -104,7 +103,6 @@ export function LoginPage() {
   const [rememberPassword, setRememberPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [autoLoading, setAutoLoading] = useState(true);
-  const [autoLoginSuccess, setAutoLoginSuccess] = useState(false);
   const [error, setError] = useState('');
 
   const detectedBase = useMemo(() => detectApiBaseFromLocation(), []);
@@ -131,19 +129,14 @@ export function LoginPage() {
       try {
         const autoLoggedIn = await restoreSession();
         if (autoLoggedIn) {
-          setAutoLoginSuccess(true);
-          // 延迟跳转，让用户看到成功动画
-          setTimeout(() => {
-            const redirect = (location.state as RedirectState | null)?.from?.pathname || '/';
-            navigate(redirect, { replace: true });
-          }, 1500);
+          // The splash is already showing; waiting on it would delay the page the user asked for.
+          navigate(redirectTarget(location.state), { replace: true });
         } else {
           setApiBase(storedBase || detectedBase);
           setManagementKey(storedKey || '');
           setRememberPassword(storedRememberPassword || Boolean(storedKey));
         }
       } finally {
-        // 自动登录成功时 showSplash 仍由 autoLoginSuccess 维持，可无条件结束 loading
         setAutoLoading(false);
       }
     };
@@ -168,7 +161,7 @@ export function LoginPage() {
         rememberPassword,
       });
       showNotification(t('common.connected_status'), 'success');
-      navigate('/', { replace: true });
+      navigate(redirectTarget(location.state), { replace: true });
     } catch (err: unknown) {
       const message = getLocalizedErrorMessage(err, t);
       setError(message);
@@ -179,6 +172,7 @@ export function LoginPage() {
   }, [
     apiBase,
     detectedBase,
+    location.state,
     login,
     managementKey,
     navigate,
@@ -197,13 +191,12 @@ export function LoginPage() {
     [loading, handleSubmit]
   );
 
-  if (isAuthenticated && !autoLoading && !autoLoginSuccess) {
-    const redirect = (location.state as RedirectState | null)?.from?.pathname || '/';
-    return <Navigate to={redirect} replace />;
+  if (isAuthenticated && !autoLoading) {
+    return <Navigate to={redirectTarget(location.state)} replace />;
   }
 
-  // 显示启动动画（自动登录中或自动登录成功）
-  const showSplash = autoLoading || autoLoginSuccess;
+  // 显示启动动画（自动登录中）
+  const showSplash = autoLoading;
 
   return (
     <div className={styles.container}>
