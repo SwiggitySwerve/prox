@@ -23,6 +23,16 @@ import type {
   SanitizedPayload,
 } from './types';
 
+/** The one mapping from event dictionary columns to their owning dimension kind. */
+const EVENT_DIMENSIONS: Record<string, DimKind> = {
+  instance_id: 'instance', provider_id: 'provider', model_id: 'model',
+  requested_model_id: 'model', billing_model_id: 'model', response_model_id: 'model',
+  tier_id: 'tier', timing_id: 'timing', account_id: 'account', account_label_id: 'account_label',
+  api_key_id: 'api_key', user_agent_id: 'user_agent', client_ip_id: 'client_ip', path_id: 'path',
+  method_id: 'method', effort_id: 'effort', executor_id: 'executor',
+  requested_tier_id: 'tier', effective_tier_id: 'tier', auth_index_id: 'auth_index',
+};
+
 const EVENT_COLUMNS = [
   'ts_ms',
   'seq',
@@ -299,10 +309,6 @@ export class UsageStore {
     return id;
   }
 
-  private optionalDim(kind: DimKind, value: string | null): number | null {
-    return value === null ? null : this.dim(kind, value);
-  }
-
   /** One row per session uuid. The first parent a session is reported with stays its parent. */
   private session(session: EventSession | null, parent: EventSession | null): number | null {
     if (!session) return null;
@@ -317,23 +323,24 @@ export class UsageStore {
   private eventRow(
     event: NormalizedEvent,
     seq: number,
-    ingest: IngestSource
+    ingest: IngestSource,
+    intern = true
   ): Row<typeof EVENT_COLUMNS> {
-    return {
+    const row: Row<typeof EVENT_COLUMNS> = {
       ts_ms: event.tsMs,
       seq,
-      instance_id: this.optionalDim('instance', event.instance),
-      provider_id: this.dim('provider', event.provider),
-      model_id: this.dim('model', event.model),
-      requested_model_id: this.dim('model', event.requestedModel),
-      billing_model_id: this.dim('model', event.billingModel),
-      response_model_id: this.optionalDim('model', event.responseModel),
-      tier_id: this.dim('tier', event.tier),
+      instance_id: event.instance,
+      provider_id: event.provider,
+      model_id: event.model,
+      requested_model_id: event.requestedModel,
+      billing_model_id: event.billingModel,
+      response_model_id: event.responseModel,
+      tier_id: event.tier,
       failed: event.failed ? 1 : 0,
       status_code: event.statusCode,
       latency_ms: event.latencyMs,
       ttft_ms: event.ttftMs,
-      timing_id: this.dim('timing', event.timingMethod),
+      timing_id: event.timingMethod,
       input_total: event.tokens.inputTotal,
       input_uncached: event.tokens.inputUncached,
       cache_read: event.tokens.cacheRead,
@@ -344,21 +351,29 @@ export class UsageStore {
       usage_flags: event.usageFlags,
       record_kind: event.recordKind,
       stream: event.stream === null ? null : event.stream ? 1 : 0,
-      account_id: this.optionalDim('account', event.account),
-      account_label_id: this.optionalDim('account_label', event.accountLabel),
-      api_key_id: this.optionalDim('api_key', event.apiKeyHash),
-      user_agent_id: this.optionalDim('user_agent', event.userAgent),
-      client_ip_id: this.optionalDim('client_ip', event.clientIp),
-      path_id: this.optionalDim('path', event.path),
-      method_id: this.optionalDim('method', event.method),
-      effort_id: this.optionalDim('effort', event.effort),
-      executor_id: this.optionalDim('executor', event.executor),
-      requested_tier_id: this.optionalDim('tier', event.requestedTier),
-      effective_tier_id: this.optionalDim('tier', event.effectiveTier),
-      session_id: this.session(event.session, event.parentSession),
-      auth_index_id: this.optionalDim('auth_index', event.authIndex),
+      account_id: event.account,
+      account_label_id: event.accountLabel,
+      api_key_id: event.apiKeyHash,
+      user_agent_id: event.userAgent,
+      client_ip_id: event.clientIp,
+      path_id: event.path,
+      method_id: event.method,
+      effort_id: event.effort,
+      executor_id: event.executor,
+      requested_tier_id: event.requestedTier,
+      effective_tier_id: event.effectiveTier,
+      session_id: intern ? this.session(event.session, event.parentSession) : event.session?.uuid ?? null,
+      auth_index_id: event.authIndex,
       ingest,
     };
+    if (intern) {
+      for (const [column, kind] of Object.entries(EVENT_DIMENSIONS)) {
+        const key = column as keyof typeof row;
+        const value = row[key] as string | null;
+        row[key] = value === null ? null : this.dim(kind, value);
+      }
+    }
+    return row;
   }
 
   private detailRow(event: NormalizedEvent, seq: number): Row<typeof DETAIL_COLUMNS> {
