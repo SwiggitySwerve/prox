@@ -292,3 +292,47 @@ test('boot leaves missing CPAMP sources unopened and reports an explicit start f
   await f.writer.flush();
   expect(f.writer.status.inserted).toBe(1);
 });
+
+test('cancel settles a paced upload pull before reusing the shared governor', async () => {
+  const root = mkdtempSync('/dev/shm/prox-paced-upload-');
+  cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      try {
+        await request.arrayBuffer();
+      } catch {
+        return new Response('', { status: 400 });
+      }
+      return new Response('');
+    },
+  });
+  cleanups.push(() => server.stop(true));
+  const backupConfigPath = join(root, 'config.json');
+  writeFileSync(
+    backupConfigPath,
+    JSON.stringify({
+      endpoint: server.url.origin,
+      bucket: 'synthetic',
+      accessKeyId: 'SYNTHETIC-KEY',
+      secretAccessKey: 'SYNTHETIC-SECRET',
+      tmpfsDir: root,
+    })
+  );
+  const f = await fixture(0, 0, { backupConfigPath, bytesPerSecond: 200_000 });
+  const started = await f.writer.startJob('backup');
+  // Snapshot accounting has unequal read/write bytes. The next increment adds a
+  // 64 KiB tmpfs read and network write before the paced pull sends those bytes.
+  const snapshot = await reportWhen(f.writer, (r) => r.io.bytesRead > 0);
+  await reportWhen(f.writer, (r) => r.io.bytesRead > snapshot.io.bytesRead);
+  await f.writer.cancelJob(started.id);
+  expect(await reportWhen(f.writer, finished)).toMatchObject({ state: 'cancelled' });
+  expect(readdirSync(root)).toEqual(['config.json']);
+  const settledBytes = (await f.writer.jobReport())!.io;
+  await Bun.sleep(25);
+  expect((await f.writer.jobReport())!.io).toEqual(settledBytes);
+  f.writer.enqueue(live('after-paced-upload-cancel'));
+  await f.writer.flush();
+  expect(f.writer.status.inserted).toBe(1);
+});
