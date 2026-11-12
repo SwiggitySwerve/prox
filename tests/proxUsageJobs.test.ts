@@ -437,7 +437,15 @@ test('prune bounds raw pages, yields to live batches, and preserves fresh rows a
   expect(during.state).toBe('running');
   if (during.result?.kind !== 'prune') throw new Error('Expected prune result');
   expect(during.result.report.deleted).toBeLessThanOrEqual(during.result.report.chunks * 2000);
-  f.writer.enqueue(live('prune-live'));
+  f.writer.enqueue({
+    ...live('prune-live'),
+    payload: JSON.stringify(
+      usagePayload({
+        execution_id: 'prune-live',
+        timestamp: new Date().toISOString(),
+      })
+    ),
+  });
   await f.writer.flush();
   expect(f.writer.status.inserted).toBe(1);
   expect((await f.writer.jobReport())?.state).toBe('running');

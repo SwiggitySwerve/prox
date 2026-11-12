@@ -229,6 +229,6 @@ test('usage schedules are UTC, nonpersistent and only installed by deploy', () =
   expect(script).not.toMatch(/systemctl[^\n]*(?:enable|start)[^\n]*prox-usage-/);
   const service = readFileSync(join(root, 'deploy/prox-usage-job@.service'), 'utf8');
   expect(service).toContain('Type=oneshot');
-  expect(service).toContain('--header @-');
-  expect(service).toContain('http://127.0.0.1:18320/v1/jobs');
+  expect(service).toContain('ExecStart=/bin/sh %h/.local/share/prox/prox-usage-job.sh %i');
+  expect(script).toContain('install -D -m 755 deploy/prox-usage-job.sh');
 });

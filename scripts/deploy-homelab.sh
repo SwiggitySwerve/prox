@@ -37,6 +37,7 @@ install -D -m 644 deploy/prox-auth-janitor.service "$HOME/.config/systemd/user/p
 install -D -m 644 deploy/prox-auth-janitor.path "$HOME/.config/systemd/user/prox-auth-janitor.path"
 install -D -m 644 deploy/prox-auth-janitor.timer "$HOME/.config/systemd/user/prox-auth-janitor.timer"
 # Ship job schedules disabled. The operator enables them after the migration gates.
+install -D -m 755 deploy/prox-usage-job.sh "$HOME/.local/share/prox/prox-usage-job.sh"
 install -D -m 644 deploy/prox-usage-job@.service "$HOME/.config/systemd/user/prox-usage-job@.service"
 for job in prune reconcile backup; do
   install -D -m 644 "deploy/prox-usage-$job.timer" "$HOME/.config/systemd/user/prox-usage-$job.timer"

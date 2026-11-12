@@ -50,7 +50,6 @@ const EVENT_DIMENSIONS: Record<string, DimKind> = {
 
 export type ImportValues = Record<string, string | number | null>;
 export interface RawPruneCursor {
-  payloadSeq: number;
   rejectId: number;
 }
 export interface RawPruneChunk {
@@ -293,30 +292,29 @@ export class UsageStore {
     );
   }
 
-  /** Inspect at most 1,000 keys per raw table, including fresh rows. Events are never touched.
-   * Keyset by primary key so rejects need no time index or unbounded expiry scan. */
-  pruneRawBefore(
-    beforeMs: number,
-    cursor: RawPruneCursor = { payloadSeq: 0, rejectId: 0 }
-  ): RawPruneChunk {
+  /** Select expired payload keys via the covering time index, without reading fresh BLOB pages.
+   * Rejects keyset by id so their scan stays bounded without a startup index build. */
+  pruneRawBefore(beforeMs: number, cursor: RawPruneCursor = { rejectId: 0 }): RawPruneChunk {
     if (!this.raw) return { cursor, deleted: 0, done: true };
     return this.raw.transaction(() => {
       const page = (table: string, key: string, after: number) =>
         this.raw!.query<{ id: number }, [number, number]>(
           `SELECT ${key} AS id FROM ${table} WHERE ${key} > ? ORDER BY ${key} LIMIT ?`
         ).all(after, RAW_PRUNE_PAGE_SIZE);
-      const payloads = page('payloads', 'seq', cursor.payloadSeq);
+      const payloads = this.raw!.query<{ seq: number }, [number, number]>(
+        'SELECT seq FROM payloads WHERE ts_ms < ? ORDER BY ts_ms, seq LIMIT ?'
+      ).all(beforeMs, RAW_PRUNE_PAGE_SIZE);
       const rejects = page('rejects', 'id', cursor.rejectId);
       const next = {
-        payloadSeq: payloads[payloads.length - 1]?.id ?? cursor.payloadSeq,
         rejectId: rejects[rejects.length - 1]?.id ?? cursor.rejectId,
       };
+      const payloadDeleted = payloads.length
+        ? this.raw!.query(
+            `DELETE FROM payloads WHERE seq IN (${payloads.map(() => '?').join(',')})`
+          ).run(...payloads.map((row) => row.seq)).changes
+        : 0;
       const deleted =
-        this.raw!.query('DELETE FROM payloads WHERE seq > ? AND seq <= ? AND ts_ms < ?').run(
-          cursor.payloadSeq,
-          next.payloadSeq,
-          beforeMs
-        ).changes +
+        payloadDeleted +
         this.raw!.query('DELETE FROM rejects WHERE id > ? AND id <= ? AND received_at_ms < ?').run(
           cursor.rejectId,
           next.rejectId,

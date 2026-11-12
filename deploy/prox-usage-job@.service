@@ -4,7 +4,7 @@ After=prox-usage.service
 
 [Service]
 Type=oneshot
-# Read the key inside the unit and pass the header over stdin, never in argv or logs.
-ExecStart=/bin/sh -ec 'key=$$(cat "%h/.config/cli-proxy-rerank/management-key"); test -n "$$key"; printf "Authorization: Bearer %%s\\n" "$$key" | /usr/bin/curl --fail --silent --show-error --max-time 15 --output /dev/null --header @- --header "Content-Type: application/json" --data "{\"kind\":\"%i\"}" http://127.0.0.1:18320/v1/jobs'
+# The script reads the key and pipes the header, avoiding systemd/shell quote re-parsing.
+ExecStart=/bin/sh %h/.local/share/prox/prox-usage-job.sh %i
 NoNewPrivileges=yes
 UMask=0077

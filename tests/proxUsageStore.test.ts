@@ -777,10 +777,38 @@ describe('usage store secrets and the raw buffer', () => {
       for (let id = 1; id <= 1001; id += 1) put.run(id, id === 1001 ? NOW - 1 : NOW);
     })();
     const first = store.pruneRawBefore(NOW);
-    expect(first).toEqual({ cursor: { payloadSeq: 0, rejectId: 1000 }, deleted: 0, done: false });
+    expect(first).toEqual({ cursor: { rejectId: 1000 }, deleted: 0, done: false });
     const second = store.pruneRawBefore(NOW, first.cursor);
-    expect(second).toEqual({ cursor: { payloadSeq: 0, rejectId: 1001 }, deleted: 1, done: true });
+    expect(second).toEqual({ cursor: { rejectId: 1001 }, deleted: 1, done: true });
     expect(count(db, 'rejects')).toBe(1000); // exactly at cutoff is retained
+  });
+
+  test('payload expiry is a covering index search even when every payload is fresh', () => {
+    const { store, raw } = open();
+    const db = new Database(raw as string);
+    cleanups.push(() => db.close());
+    db.transaction(() => {
+      const insert = db.query('INSERT INTO payloads VALUES (?, ?, 0, ?)');
+      for (let id = 1; id <= 2001; id += 1) insert.run(id, NOW, new Uint8Array(4096));
+    })();
+    const plan = db
+      .query<{ detail: string }, [number, number]>(
+        'EXPLAIN QUERY PLAN SELECT seq FROM payloads WHERE ts_ms < ? ORDER BY ts_ms, seq LIMIT ?'
+      )
+      .all(NOW, 1000)
+      .map((row) => row.detail)
+      .join(' ');
+    expect(plan).toContain('SEARCH payloads USING COVERING INDEX payloads_ts (ts_ms<?)');
+    expect(plan).not.toContain('SCAN');
+    expect(plan).not.toContain('TEMP B-TREE');
+    expect(store.pruneRawBefore(NOW)).toMatchObject({ deleted: 0, done: true });
+    // Late expired traffic can have a greater seq than every fresh payload.
+    db.query('INSERT INTO payloads VALUES (2002, ?, 0, ?)').run(NOW - 1, new Uint8Array());
+    expect(store.pruneRawBefore(NOW)).toMatchObject({ deleted: 1, done: true });
+    // EXPLAIN can retain this connection's read snapshot on Bun; observe a fresh reader.
+    const latest = new Database(raw as string);
+    cleanups.push(() => latest.close());
+    expect(count(latest, 'payloads')).toBe(2001);
   });
 
   test('without a raw buffer, events are still stored and nothing else is written', () => {

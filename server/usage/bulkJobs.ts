@@ -84,7 +84,7 @@ export class UsageBulkJobs {
           chunks: 0,
         };
         report.result = { kind: 'prune', report: prune };
-        let cursor: RawPruneCursor = { payloadSeq: 0, rejectId: 0 };
+        let cursor: RawPruneCursor = { rejectId: 0 };
         for (;;) {
           const chunk = await runIoChunk(
             'prune',

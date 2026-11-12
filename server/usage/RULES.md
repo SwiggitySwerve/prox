@@ -467,14 +467,14 @@ The live performance/parity gate is a separate deployment responsibility; a
 ### Raw-buffer expiry and schedules
 
 `prune` fixes its cutoff at job admission minus 30 days. `store.pruneRawBefore`
-inspects at most 1,000 primary keys per raw table per transaction, including fresh
-rows, then deletes only expired rows in that page. This also bounds scans of
-rejects without adding a startup index build. Events and event metadata are never
+selects at most 1,000 expired payload keys through the existing covering time
+index, then deletes those keys. Fresh payload BLOB pages are never scanned. Rejects
+keep a bounded 1,000-id scan, including fresh rows, without a startup index build. Events and event metadata are never
 pruned. Each page uses the shared 4 MB/s read-plus-write governor and yields to live
 batches. A failed raw transaction fails only the bulk job; collection continues.
 
 `deploy/prox-usage-job@.service` submits a bearer-protected POST; the key is read
-inside the unit and piped as a header, never placed in curl's argv or logs. Timers
+by its installed shell script and piped as a header, never placed in curl's argv or logs. Timers
 run prune at 04:20 UTC, reconcile at 04:40 UTC and backup at 05:10 UTC. They are
 nonpersistent, so a missed run cannot catch up during the 01:00–04:00 or 12:30 IO
 windows. The deployment script copies units only; fresh installs stay disabled.
