@@ -49,6 +49,12 @@ afterEach(() => {
 });
 
 describe('QuotaStore', () => {
+  test('opens the quota connection with synchronous NORMAL', () => {
+    // The same Bun thread serves cached analytics; FULL would fsync on every inventory poll.
+    const { store } = open();
+    const db = (store as unknown as { db: Database }).db;
+    expect(db.query('PRAGMA synchronous').get()).toEqual({ synchronous: 1 });
+  });
   test('persists normalized metadata and samples with WAL and private permissions', () => {
     const { store, path, directory } = open();
     expect(store.firstSampleAtMs()).toBeNull();
