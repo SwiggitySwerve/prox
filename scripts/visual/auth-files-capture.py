@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import importlib.util
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
@@ -153,6 +154,20 @@ CASES = [
         ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
         ('wait', '[data-quota-state="loaded"] details[open]'), ('sleep', '4500'),
         ('card-height', '900')]),
+    # The reset dialog, opened from a Claude card and never confirmed: it names the masked account,
+    # not the credential file or its full address, and says "manual reset" and "use".
+    ('reset-dialog-auth-files', '/auth-files', 'claude-cards', [
+        ('click', '[data-source-id="alpha"] [data-testid="auth-files-group-refresh"]'),
+        ('wait', '[data-quota-state="loaded"] details[open]'), ('sleep', '4500'),
+        ('click', 'button:has-text("Use reset"):enabled'), ('wait', '[role=dialog]'),
+        ('dialog-masked', '')]),
+    ('reset-dialog-quota', '/quota/accounts', 'claude-cards', [
+        ('click', 'button:has-text("Refresh all credentials")'),
+        ('wait', 'summary:has-text("Account details")'), ('sleep', '1500'),
+        ('click', 'summary:has-text("Account details")'),
+        ('wait', 'button:has-text("Use reset"):enabled'), ('sleep', '1500'),
+        ('click', 'button:has-text("Use reset"):enabled'), ('wait', '[role=dialog]'),
+        ('dialog-masked', '')]),
     # team-b's write fails, the provider list lands: the bar and team-b's row say so, and team-b's
     # switch stays staged for another Save.
     ('models-partial-failure', M, 'partial', [
@@ -356,6 +371,13 @@ async def run_case(browser, base, origin, out, width, case):
                     (e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) &&
                     e.scrollHeight > e.clientHeight + 4); if (s) s.scrollTop = px; }''', int(selector))
                 await page.wait_for_timeout(400)
+            elif action == 'dialog-masked':
+                # Read the open dialog only; the case never presses Use or Confirm.
+                text = await page.locator('[role=dialog]').first.inner_text()
+                extra['dialogText'] = text
+                leaked = re.findall(r'[\w.+-]+@[\w-]+\.invalid|[\w-]+\.json', text)
+                if leaked or '\u2022\u2022\u2022' not in text:
+                    raise AssertionError(f'dialog does not name a masked account: {leaked or text[:120]}')
             elif action == 'open-details':
                 await page.evaluate("() => document.querySelectorAll('details').forEach((d) => { d.open = true; })")
                 await page.wait_for_timeout(300)

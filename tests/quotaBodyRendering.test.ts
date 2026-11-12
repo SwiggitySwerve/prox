@@ -16,6 +16,7 @@ import { ClaudeQuotaBody } from '@/features/quota/providers/claude/ClaudeQuotaBo
 import { KimiQuotaBody } from '@/features/quota/providers/kimi/KimiQuotaBody';
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
 import { formatInstantShort } from '@/utils/quota';
+import { formatPoolDate } from '@/features/quotaPool/presentation';
 import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
 import type { ClaudeQuotaState, CodexQuotaState, KimiQuotaState } from '@/types';
 
@@ -129,10 +130,11 @@ describe('CodexQuotaBody', () => {
     expect(markup).toMatch(/3 hours/);
   });
 
-  test('renders reset-credit expiry in local time with a countdown', () => {
+  test('renders reset-credit expiry in the pool date format with a countdown', () => {
     const markup = renderToStaticMarkup(createElement(CodexQuotaBody, { quota, classes }));
 
-    expect(markup).toContain(formatInstantShort(now + 11 * DAY_MS));
+    // Every manual reset expiry reads in one format: the pool's, with its time zone.
+    expect(markup).toContain(formatPoolDate(now + 11 * DAY_MS, 'en'));
     expect(markup).toMatch(/11 days/);
   });
 

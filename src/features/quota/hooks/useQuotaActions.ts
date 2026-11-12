@@ -15,6 +15,7 @@ import type { AuthFileItem } from '@/types';
 import { useQuotaStore, type QuotaStore } from '@/stores/useQuotaStore';
 import type { SourceSession } from '@/services/api/sourceSession';
 import { isQuotaSourceCurrent } from '../sourceCurrent';
+import { resetAccountName } from '../logic';
 import { getStatusFromError } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
@@ -91,7 +92,6 @@ export function useQuotaActions(
         confirmText: string;
         variant: 'danger' | 'primary';
         title?: string;
-        name?: string;
         pill?: boolean;
       }
     ) => {
@@ -103,10 +103,11 @@ export function useQuotaActions(
       if (resettingQuotaName === cacheKey) return;
 
       const cacheGeneration = captureQuotaCacheGeneration(file.name, store);
+      const name = resetAccountName(file);
       showConfirmation({
-        title: prompt?.title ?? t('codex_quota.reset_confirm_title'),
-        message: prompt?.message ?? t('codex_quota.reset_confirm_message', { name: file.name }),
-        confirmText: prompt?.confirmText ?? t('codex_quota.reset_confirm_button'),
+        title: prompt?.title ?? t('quota_pool.reset_confirm_title'),
+        message: prompt?.message ?? t('codex_quota.reset_confirm_message', { name }),
+        confirmText: prompt?.confirmText ?? t('quota_pool.use_reset'),
         variant: prompt?.variant ?? 'primary',
         pill: prompt?.pill,
         onConfirm: async () => {
@@ -125,19 +126,13 @@ export function useQuotaActions(
                 ...prev,
                 [cacheKey]: adapter.buildSuccessState(data),
               }));
-              showNotification(
-                t('codex_quota.reset_success', { name: prompt?.name ?? file.name }),
-                'success'
-              );
+              showNotification(t('codex_quota.reset_success', { name }), 'success');
             });
           } catch (err: unknown) {
             if (!isQuotaSourceCurrent(session)) return;
             const message = err instanceof Error ? err.message : t('common.unknown_error');
             commitIfQuotaCacheCurrent(cacheGeneration, () => {
-              showNotification(
-                t('codex_quota.reset_failed', { name: prompt?.name ?? file.name, message }),
-                'error'
-              );
+              showNotification(t('codex_quota.reset_failed', { name, message }), 'error');
             });
           } finally {
             setResettingQuotaName((current) => (current === cacheKey ? null : current));

@@ -5,6 +5,7 @@
 
 import { isRuntimeOnlyAuthFile } from '@/features/authFiles/constants';
 import type { AuthFileItem } from '@/types';
+import { maskIdentifier } from '@/domain/quotaPool/mask';
 import {
   isAntigravityQuotaFile,
   isClaudeQuotaFile,
@@ -156,3 +157,11 @@ export function paginate<T>(items: T[], page: number, pageSize: number): QuotaPa
     totalPages,
   };
 }
+
+/**
+ * The account a reset dialog or its notice names, masked the way the pool's rows are: the server
+ * builds that identifier from the same address-or-file-name, so both read alike, and a dialog never
+ * shows the full address or the credential file name that embeds it.
+ */
+export const resetAccountName = (file: AuthFileItem) =>
+  maskIdentifier((typeof file.email === 'string' && file.email) || file.name);

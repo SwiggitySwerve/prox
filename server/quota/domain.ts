@@ -1,6 +1,6 @@
 import type { AccountBilling } from '../../src/domain/accountBilling';
 import { combinedPools } from './combined';
-import { maskIdentifier } from './mask';
+import { maskIdentifier } from '../../src/domain/quotaPool/mask';
 import { sumKnown } from './values';
 import type {
   AccountQuotaWindow,

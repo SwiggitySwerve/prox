@@ -11,13 +11,13 @@ import {
   resolvePlanTier,
   PREMIUM_CODEX_PLAN_TYPES,
   buildResetDisplay,
-  formatInstantShort,
   parseIsoToMs,
   resolveResetMs,
 } from '@/utils/quota';
 import { resolveTimeZoneLabel } from '@/utils/time/timezone';
 import { formatDateTimeValue } from '@/utils/format';
 import { useNow } from '@/hooks/useNow';
+import { formatPoolDate } from '@/features/quotaPool/presentation';
 import { QuotaMeter } from '../../components/QuotaMeter';
 import { QuotaResetLabel } from '../../components/QuotaResetLabel';
 import { collectQuotaRowInstants, pickUrgentRowId, resetCreditRowId } from '../../resetSchedule';
@@ -139,7 +139,9 @@ export function CodexQuotaBody({
             {rateLimitResetCredits.map((credit, index) => {
               const expiresAtMs = parseIsoToMs(credit.expiresAt);
               const expiresDisplay = buildResetDisplay(
-                expiresAtMs === null ? credit.expiresAt : formatInstantShort(expiresAtMs),
+                expiresAtMs === null
+                  ? credit.expiresAt
+                  : formatPoolDate(expiresAtMs, locale ?? i18n.language),
                 expiresAtMs,
                 now,
                 locale

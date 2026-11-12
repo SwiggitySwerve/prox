@@ -14,6 +14,7 @@ import { createQuotaAdapters } from '@/features/quota/providers';
 import { useClaudeResetGrants } from '@/features/quota/providers/claude/ClaudeResetGrants';
 import { createSourceResetGrants } from '@/features/quota/providers/claude/resetGrantScope';
 import { useNow } from '@/hooks/useNow';
+import { resetAccountName } from '@/features/quota/logic';
 import { formatRelativeInstant } from '@/utils/quota';
 import type { AccountResets } from '@/domain/quotaPool/types';
 import {
@@ -45,7 +46,7 @@ type FactProps = Props & {
   live?: boolean;
   disabled?: boolean;
   onClick?: () => void;
-  /** The action's label when it isn't "Use reset", e.g. Claude's "Choose reset…". */
+  /** The action's label when it isn't "Use reset", e.g. Claude's "Use reset…" for a choice. */
   actionLabel?: string;
 };
 
@@ -378,15 +379,16 @@ function CodexResetAction({
       disabled={actions.resettingQuotaName !== null || spent}
       onClick={() => {
         const soonest = soonestFact();
+        // The dialog names the masked account even while the pool shows full addresses.
+        const account = resetAccountName(file);
         actions.resetQuota(file, adapter, {
-          name,
           title: t(early ? 'quota_pool.reset_early_title' : 'quota_pool.reset_confirm_title'),
           confirmText: t('quota_pool.use_reset'),
           variant: early ? 'danger' : 'primary',
           pill: true,
           message: early ? (
             <div className={styles.resetDialog}>
-              <p>{t('quota_pool.reset_early_intro', { name })}</p>
+              <p>{t('quota_pool.reset_early_intro', { name: account })}</p>
               {soonest && <dl className={styles.resetFacts}>{soonest}</dl>}
               <section>
                 <h4>{t('quota_pool.reset_usage_left')}</h4>
@@ -409,7 +411,7 @@ function CodexResetAction({
           ) : (
             <div>
               <dl className={styles.resetFacts}>
-                <Fact label={t('codex_quota.reset_dialog_account')} state="known" value={name} />
+                <Fact label={t('codex_quota.reset_dialog_account')} state="known" value={account} />
                 <Fact
                   label={t('codex_quota.reset_dialog_used')}
                   state="known"

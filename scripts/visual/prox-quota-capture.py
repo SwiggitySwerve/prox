@@ -28,7 +28,7 @@ NAMES = ["ada.lovelace", "grace.hopper", "alan.turing", "edsger.dijkstra", "kath
 
 
 def mask(provider, i):
-    """Same shape as server/quota/mask.ts: first two characters, last one, domain initial."""
+    """Same shape as src/domain/quotaPool/mask.ts: first two characters, last one, domain initial."""
     name = NAMES[(i + (0 if provider == "claude" else 5)) % len(NAMES)] + (str(i // len(NAMES) or "") if i >= len(NAMES) else "")
     return f"{name[:3]}•••{name[-2:]}@ex•••.test"
 
@@ -2841,7 +2841,7 @@ B2_KEYS = ("resetDialogFactsFailures",)
 
 async def check_reset_dialog_facts(dialog):
     """B2-3: the reset confirmation shows Account (the masked name), Resets used ("1 of N held", or "1") and Limits
-    reset (the account's windows) as label-above-value facts in that order, with no packed sentence; then "This
+    cleared (the account's windows) as label-above-value facts in that order, with no packed sentence; then "This
     can't be undone." on its own line in the warning colour with its icon, after the facts and before the buttons."""
     reading = await dialog.evaluate(r"""d => {
       const dl = d.querySelector('dl');
@@ -2866,8 +2866,8 @@ async def check_reset_dialog_facts(dialog):
     labels = [f["label"] for f in facts]
     # "Next to expire" (the soonest held expiry) follows Resets used whenever the account's resets have a known
     # future expiry; it names a date and time in UTC.
-    if labels not in (["Account", "Resets used", "Limits reset"], ["Account", "Resets used", "Next to expire", "Limits reset"]):
-        fails.append(dict(why="the dialog facts are not Account, Resets used, [Next to expire,] Limits reset", labels=labels))
+    if labels not in (["Account", "Resets used", "Limits cleared"], ["Account", "Resets used", "Next to expire", "Limits cleared"]):
+        fails.append(dict(why="the dialog facts are not Account, Resets used, [Next to expire,] Limits cleared", labels=labels))
     expiry = next((f["value"] for f in facts if f and f["label"] == "Next to expire"), None)
     if expiry is not None and not re.search(r"\d{1,2}:\d{2}\s*[AP]M\s*UTC", expiry.replace("\u00a0", " ")):
         fails.append(dict(why="Next to expire is not a date and time", value=expiry))
@@ -2879,8 +2879,8 @@ async def check_reset_dialog_facts(dialog):
         fails.append(dict(why="Account does not show the masked name", value=by.get("Account")))
     if not re.fullmatch(r"1( of \d+ held)?", by.get("Resets used", "")):
         fails.append(dict(why='Resets used is not "1 of N held" or "1"', value=by.get("Resets used")))
-    if "5-hour limit" not in by.get("Limits reset", "") or "Weekly limit" not in by.get("Limits reset", ""):
-        fails.append(dict(why="Limits reset does not name the account's windows", value=by.get("Limits reset")))
+    if "5-hour limit" not in by.get("Limits cleared", "") or "Weekly limit" not in by.get("Limits cleared", ""):
+        fails.append(dict(why="Limits cleared does not name the account's windows", value=by.get("Limits cleared")))
     if "will use 1 manual reset" in reading["text"]:
         fails.append(dict(why="the packed confirmation sentence is still shown"))
     warn = reading["warn"]
@@ -4051,7 +4051,10 @@ async def main():
                         return
                     if "/credentials" in url:
                         credential_reads.append(url)
-                        await route.fulfill(json={"files": [dict(name=f"fixture-{provider}.json", type=provider, auth_index=f"fixture-{provider}-0", disabled=False) for provider in ("claude", "codex")]})
+                        # Shaped like a hub's files: the email is embedded in the name and sent on its own, and it is
+                        # the address the pool's first row masks, so the dialog names that same account.
+                        await route.fulfill(json={"files": [dict(name=f"{provider}-0a1b2c3d-{email}.json", email=email, type=provider, auth_index=f"fixture-{provider}-0", disabled=False)
+                                                             for provider, email in (("claude", f"{NAMES[0]}@example.test"), ("codex", f"{NAMES[5]}@example.test"))]})
                         return
                     if "/prox/inventory" in url:
                         # One fixed version, so the five-second inventory poll never refetches mid-capture.

@@ -12,6 +12,7 @@ import {
 import type { AuthFileItem } from '@/types';
 import { normalizeAuthIndex } from '@/utils/quota';
 import { formatPoolDate } from '@/features/quotaPool/presentation';
+import { resetAccountName } from '@/features/quota/logic';
 import {
   RETRY_WINDOW_MS,
   ResetGrantPreflightError,
@@ -142,18 +143,19 @@ export function useClaudeResetGrants(
         if (current()) onRefresh();
       }
     };
+    const name = resetAccountName(file);
     showConfirmation({
-      title: t(choices.length > 1 ? 'claude_reset.choose_title' : 'quota_pool.reset_confirm_title'),
+      title: t('quota_pool.reset_confirm_title'),
       message: pending ? (
         [
-          t('claude_reset.retry_confirm', { name: file.name }),
+          t('claude_reset.retry_confirm', { name }),
           selectedGrant ? retryResetText(selectedGrant, t, i18n.language) : '',
         ]
           .filter(Boolean)
           .join(' ')
       ) : (
         <ClaudeResetChooser
-          name={file.name}
+          name={name}
           choices={choices}
           onUse={async (grant) => {
             const dialog = useNotificationStore.getState();

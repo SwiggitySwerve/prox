@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import '../src/i18n/index';
 import { QuotaTimeline } from '../src/features/quota/components/QuotaTimeline';
+import { formatPoolDate } from '../src/features/quotaPool/presentation';
 import type { QuotaFileEntry } from '../src/features/quota/logic';
 import { buildKimiQuotaRows } from '../src/utils/quota';
 
@@ -148,7 +149,13 @@ describe('QuotaTimeline rendering', () => {
     );
 
     expect(markup).toContain('role="img"');
-    expect(markup).toContain('08/03 12:00');
+    // Granted and expiry dates read in the pool's format, like every other reset expiry.
+    expect(markup).toContain(
+      `Expires: ${formatPoolDate(Date.parse('2026-08-03T12:00:00Z'), 'en')}`
+    );
+    expect(markup).toContain(
+      `Granted: ${formatPoolDate(Date.parse('2026-07-20T12:00:00Z'), 'en')}`
+    );
   });
 
   test('stays hidden before any credential exposes a usable quota window', () => {
