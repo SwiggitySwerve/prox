@@ -14,7 +14,10 @@ function fakes(overrides: Partial<HeaderRefreshDeps> = {}) {
     selectedHub: () => 'alpha',
     clearConfigCache: () => void calls.push('clear-config'),
     refreshConfig: async () => void calls.push('config'),
-    refreshPlugins: async () => void calls.push('plugins'),
+    refreshPlugins: async () => {
+      calls.push('plugins');
+      return [];
+    },
     refreshInventory: async () => {
       calls.push('inventory');
       return { alpha: null, beta: null };
@@ -80,15 +83,20 @@ describe('header refresh', () => {
       },
       refreshInventory: async () => ({ alpha: null, beta: new Error('beta down') }),
       refreshModelAccess: async () => ['alpha'],
-      refreshPage: async () => {
+      refreshPlugins: async () => ['beta'],
+      refreshPage: async (round) => {
+        round.quotaFailed('alpha', 2);
+        round.quotaFailed('alpha', 1);
         throw new Error('page down');
       },
     });
     expect(await runHeaderRefresh(deps)).toEqual({
       failed: [
         { source: 'config' },
+        { source: 'plugins', hub: 'beta' },
         { source: 'credentials', hub: 'beta' },
         { source: 'models', hub: 'alpha' },
+        { source: 'quota', hub: 'alpha', count: 3 },
         { source: 'page' },
       ],
       deniedHubs: [],

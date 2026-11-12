@@ -5,6 +5,8 @@ import type { RefreshOutcome } from '@/stores/useCredentialInventoryStore';
 export interface HeaderRefreshRound {
   /** This click's one read of every hub's credential list; a page uses it instead of listing. */
   readonly inventory: Promise<RefreshOutcome>;
+  /** A page reports cards whose quota read failed, for the round's one summary notice. */
+  quotaFailed(hub: string, count: number): void;
 }
 export type HeaderRefreshHandler = (round?: HeaderRefreshRound) => void | Promise<void>;
 const handlers = new Map<symbol, HeaderRefreshHandler>();

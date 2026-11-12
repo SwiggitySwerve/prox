@@ -16,6 +16,7 @@ import { useAuthFilesSource, useAuthFilesNotifications } from '../AuthFilesSourc
 import { hasClaudeUsageData } from '@/features/quota/providers/claude/data';
 import { QuotaFreshness } from '@/features/quota/components/QuotaFreshness';
 import { isQuotaFresh } from '@/features/quota/quotaFreshness';
+import { providerSources } from '@/stores/useProviderSources';
 import {
   selectQuotaSlotState,
   type QuotaSlotState,
@@ -130,6 +131,9 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
         showNotification(t('auth_files.quota_reused', { name: file.name }), 'info');
         return;
       }
+      // A card's read can be several requests (Claude: usage and profile); the hub proves the
+      // key with the first (services/api/authGate.ts).
+      providerSources.armAuthProbes();
       void readQuotaForFile();
     },
     [cacheKey, file.name, readQuotaForFile, showNotification, sourceScope, t]

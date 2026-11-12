@@ -409,17 +409,18 @@ export function MainLayout() {
     });
   }, [fetchConfig]);
 
-  const loadPluginResources = useCallback(async () => {
+  /** Resolves to the hubs whose plugin list could not be read (for the header's notice). */
+  const loadPluginResources = useCallback(async (): Promise<string[]> => {
     const captured = registry.resolution;
     if (registry.status !== 'ready') {
       setPluginResources([]);
-      return;
+      return [];
     }
     const outcomes = await loadPluginSourceInventories(
       registry.sources,
       () => providerSources.getSnapshot().sources
     );
-    if (providerSources.getSnapshot().resolution !== captured) return;
+    if (providerSources.getSnapshot().resolution !== captured) return [];
     setPluginResources(
       outcomes.flatMap((outcome) =>
         outcome.status === 'complete'
@@ -434,6 +435,9 @@ export function MainLayout() {
             }))
           : []
       )
+    );
+    return outcomes.flatMap((outcome) =>
+      outcome.status === 'unavailable' ? [outcome.view.source.instanceId] : []
     );
   }, [registry]);
 
@@ -707,8 +711,8 @@ export function MainLayout() {
     const hubLabel = (id: string) =>
       providerSources.getSnapshot().sources.find((view) => view.source.instanceId === id)?.source
         .label ?? id;
-    const parts = summary.failed.map(({ source, hub }) =>
-      t(`notification.refresh_part_${source}`, { hub: hub ? hubLabel(hub) : '' })
+    const parts = summary.failed.map(({ source, hub, count }) =>
+      t(`notification.refresh_part_${source}`, { hub: hub ? hubLabel(hub) : '', count }).trim()
     );
     const problems = [
       ...(parts.length ? [t('notification.refresh_partial', { sources: parts.join(', ') })] : []),

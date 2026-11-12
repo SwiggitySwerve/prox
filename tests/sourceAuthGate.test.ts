@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AxiosAdapter } from 'axios';
+import { readFileSync } from 'node:fs';
 import { SourceSessions } from '../src/services/api/sourceSession';
 
 const hub = {
@@ -157,5 +158,20 @@ describe('one failed management-auth request per hub per refresh', () => {
       .catch(() => {});
     expect(await sessions.captureSource('beta').management.get('/b', { adapter: ok })).toBe('ok');
     expect(sessions.deniedSources()).toEqual(['alpha']);
+  });
+});
+
+describe('every refresh entry point arms the hubs first', () => {
+  // These hooks render under a browser only; their wiring is read from source.
+  const read = (path: string) => readFileSync(path, 'utf8');
+  test.each([
+    ['the card icon on Auth Files', 'src/features/authFiles/components/AuthFileQuotaSection.tsx'],
+    ['the card button on the Quota page', 'src/features/quota/hooks/useQuotaActions.ts'],
+    ['the group Refresh', 'src/features/authFiles/AuthFilesSourceContent.tsx'],
+    ['the page-wide Refresh quota', 'src/features/authFiles/AuthFilesPage.tsx'],
+    ['the Quota page Refresh all', 'src/features/quota/QuotaPage.tsx'],
+    ['the header', 'src/components/layout/MainLayout.tsx'],
+  ])('%s', (_, path) => {
+    expect(read(path)).toContain('providerSources.armAuthProbes()');
   });
 });

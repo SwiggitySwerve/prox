@@ -20,6 +20,7 @@ import { getStatusFromError } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
 import { isQuotaFresh } from '../quotaFreshness';
+import { providerSources } from '@/stores/useProviderSources';
 import { getQuotaMap, getQuotaSetter, type QuotaAdapter, type QuotaCardState } from '../providers';
 
 const getQuotaState = (
@@ -49,6 +50,8 @@ export function useQuotaActions(
         showNotification(t('auth_files.quota_reused', { name: file.name }), 'info');
         return;
       }
+      // Several requests per card (Claude: usage and profile): the hub proves the key first.
+      providerSources.armAuthProbes();
       const cacheGeneration = captureQuotaCacheGeneration(file.name, store);
       const setQuota = getQuotaSetter(adapter, store);
 

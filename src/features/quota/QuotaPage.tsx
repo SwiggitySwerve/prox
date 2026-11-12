@@ -27,7 +27,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSearch, IconX } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useHeaderRefresh, type HeaderRefreshRound } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useThemeStore } from '@/stores';
@@ -319,23 +319,26 @@ function SourceQuotaPage({ session: owner }: { session: SourceSession }) {
     viewRef.current = { tab, search, disableControls };
   });
   const refreshEverything = useCallback(
-    async (inventory?: Promise<RefreshOutcome>) => {
+    async (round?: HeaderRefreshRound) => {
       if (viewRef.current.disableControls) return;
       // The header armed every hub already; the section's own button arms them here.
-      if (!inventory) providerSources.armAuthProbes();
-      const list = await loadFiles(inventory);
+      if (!round) providerSources.armAuthProbes();
+      const list = await loadFiles(round?.inventory);
       if (!list || viewRef.current.disableControls) return;
       const { tab: shownTab, search: shownSearch } = viewRef.current;
+      let failed = 0;
       await loadQuota(
-        filterEntriesBySearch(filterEntriesByTab(classifyQuotaFiles(list), shownTab), shownSearch)
+        filterEntriesBySearch(filterEntriesByTab(classifyQuotaFiles(list), shownTab), shownSearch),
+        (ok) => {
+          if (!ok) failed += 1;
+        }
       );
+      if (failed > 0) round?.quotaFailed(session.owner.instanceId, failed);
     },
-    [loadFiles, loadQuota]
+    [loadFiles, loadQuota, session]
   );
   const handleRefreshAll = useCallback(() => void refreshEverything(), [refreshEverything]);
-  useHeaderRefresh(
-    useCallback((round) => refreshEverything(round?.inventory), [refreshEverything])
-  );
+  useHeaderRefresh(refreshEverything);
 
   const canUseActions = !disableControls && !loading && filesGeneration === sessionGeneration;
 

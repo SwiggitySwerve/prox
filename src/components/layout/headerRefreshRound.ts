@@ -13,7 +13,7 @@
 import type { HeaderRefreshRound } from '@/hooks/useHeaderRefresh';
 import type { RefreshOutcome } from '@/stores/useCredentialInventoryStore';
 
-export type RefreshSource = 'config' | 'plugins' | 'credentials' | 'models' | 'page';
+export type RefreshSource = 'config' | 'plugins' | 'credentials' | 'models' | 'quota' | 'page';
 
 export interface HeaderRefreshDeps {
   armAuthProbes(): void;
@@ -23,7 +23,8 @@ export interface HeaderRefreshDeps {
   selectedHub(): string | null;
   clearConfigCache(): void;
   refreshConfig(): Promise<unknown>;
-  refreshPlugins(): Promise<unknown>;
+  /** Resolves to the hubs whose plugin list could not be read. */
+  refreshPlugins(): Promise<string[]>;
   refreshInventory(): Promise<RefreshOutcome>;
   /** Resolves to the hubs where a model-access re-read failed. */
   refreshModelAccess(): Promise<string[]>;
@@ -31,14 +32,19 @@ export interface HeaderRefreshDeps {
 }
 
 export interface HeaderRefreshSummary {
-  failed: Array<{ source: RefreshSource; hub?: string }>;
+  /** count: cards whose quota read failed (source 'quota'). */
+  failed: Array<{ source: RefreshSource; hub?: string; count?: number }>;
   deniedHubs: string[];
 }
 
 export async function runHeaderRefresh(deps: HeaderRefreshDeps): Promise<HeaderRefreshSummary> {
   deps.armAuthProbes();
   const inventory = deps.refreshInventory();
-  const round: HeaderRefreshRound = { inventory };
+  const quotaFailures = new Map<string, number>();
+  const round: HeaderRefreshRound = {
+    inventory,
+    quotaFailed: (hub, count) => quotaFailures.set(hub, (quotaFailures.get(hub) ?? 0) + count),
+  };
   const [inventoryResult, models, page, config, plugins] = await Promise.allSettled([
     inventory,
     deps.refreshModelAccess(),
@@ -58,6 +64,11 @@ export async function runHeaderRefresh(deps: HeaderRefreshDeps): Promise<HeaderR
   const failed: HeaderRefreshSummary['failed'] = [];
   if (config.status === 'rejected') failed.push({ source: 'config' });
   if (plugins.status === 'rejected') failed.push({ source: 'plugins' });
+  else {
+    for (const hub of plugins.value) {
+      if (!deniedHubs.includes(hub)) failed.push({ source: 'plugins', hub });
+    }
+  }
   if (inventoryResult.status === 'rejected') failed.push({ source: 'credentials' });
   else {
     for (const [hub, error] of Object.entries(inventoryResult.value)) {
@@ -69,6 +80,9 @@ export async function runHeaderRefresh(deps: HeaderRefreshDeps): Promise<HeaderR
     for (const hub of models.value) {
       if (!deniedHubs.includes(hub)) failed.push({ source: 'models', hub });
     }
+  }
+  for (const [hub, count] of quotaFailures) {
+    if (count > 0 && !deniedHubs.includes(hub)) failed.push({ source: 'quota', hub, count });
   }
   if (page.status === 'rejected') failed.push({ source: 'page' });
   return { failed, deniedHubs };

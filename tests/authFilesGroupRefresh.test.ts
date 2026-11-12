@@ -41,7 +41,8 @@ describe('group Refresh button', () => {
   test('the header refresh lists from the round’s one read, then refreshes this group’s quota', () => {
     const header = source.split('const handleHeaderRefresh = ')[1]?.split('\n  );')[0] ?? '';
     expect(header).toContain('loadFiles({ background: true, inventory: round.inventory })');
-    expect(header).toContain('await requestQuota(list ?? undefined)');
+    expect(header).toContain('await requestQuota(list ?? undefined, (ok) =>');
+    expect(header).toContain('round?.quotaFailed(instanceId, failed)');
   });
 
   test('the group Refresh and the page-wide Refresh quota share one runner that never drops a call', () => {

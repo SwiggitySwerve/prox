@@ -476,9 +476,13 @@ export function AuthFilesSourceContent({
       const list = round
         ? await loadFiles({ background: true, inventory: round.inventory })
         : await rereadList().catch(() => null);
-      await requestQuota(list ?? undefined);
+      let failed = 0;
+      await requestQuota(list ?? undefined, (ok) => {
+        if (!ok) failed += 1;
+      });
+      if (failed > 0) round?.quotaFailed(instanceId, failed);
     },
-    [loadFiles, requestQuota, rereadList]
+    [instanceId, loadFiles, requestQuota, rereadList]
   );
   useEffect(
     () => registerRefresh(sourceOwnerKey(sourceScope.session.owner), handleHeaderRefresh),
