@@ -159,6 +159,34 @@ export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost
   return result;
 }
 
+/** CPAMP pricingTokensForStat/TimelinePoint supply sums, not event component metadata.
+ * Presence is always unknown; the aggregate caller adds its legacy-kind compatibility reason.
+ */
+export function estimateAggregateCost(group: PricingGroup, book: RateBook): AnalyticsCost {
+  return estimateCost(
+    {
+      ...group,
+      usagePresent: null,
+      usageFlags: COMPONENT_FLAGS | USAGE_FLAG.fieldsPresent | USAGE_FLAG.breakdownComplete,
+      recordKind: RECORD_KIND.execution,
+    },
+    book
+  );
+}
+
+/** proxRequest uses the event's presence, without aggregate counts or a legacy-kind reason. */
+export function estimateRequestCost(group: PricingGroup, book: RateBook): AnalyticsCost {
+  const cost = estimateCost(
+    {
+      ...group,
+      recordKind:
+        group.recordKind === RECORD_KIND.unknown ? RECORD_KIND.execution : group.recordKind,
+    },
+    book
+  );
+  return { usd: cost.usd, status: cost.status, reasons: cost.reasons };
+}
+
 /** Preserve known subtotals, unique reasons in first-seen order, and call counts. */
 export function combineEstimates(left: AnalyticsCost, right: AnalyticsCost): AnalyticsCost {
   const reasons: string[] = [];

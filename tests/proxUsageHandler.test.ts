@@ -175,3 +175,30 @@ test('streamed JSON body limit, cancellation, and active worker termination free
   expect(next.status).toBe(200);
   expect(await next.json()).toEqual({ ok: true });
 });
+test('a worker that exits after a successful reply is replaced before the next request', async () => {
+  const f = setup();
+  const workerPath = join(f.directory, 'idle-exit.worker.ts');
+  writeFileSync(
+    workerPath,
+    `const boot = crypto.randomUUID();
+    self.onmessage = ({data}) => {
+      self.postMessage({id: data.id, ok: true, body: JSON.stringify({boot})});
+      setTimeout(() => self.close(), 0);
+    };`
+  );
+  handler = createAnalyticsHandler({
+    dbPath: f.path,
+    keyFile: join(f.directory, 'key'),
+    workerPath,
+    rateBook: { load: () => rateState() },
+  });
+  const first = await handler(request());
+  expect(first.status).toBe(200);
+  const initial = await first.json();
+  // Allow the worker's close event to be delivered while the lane is idle.
+  await Bun.sleep(40);
+  const nextRequest = request();
+  const next = await handler(new Request(nextRequest, { signal: AbortSignal.timeout(1000) }));
+  expect(next.status).toBe(200);
+  expect((await next.json()).boot).not.toBe(initial.boot);
+});

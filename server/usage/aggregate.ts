@@ -1,22 +1,15 @@
 // Shared SQL aggregation contract: preserve every pricing dimension before summation.
-import type { TokenRow, Dimension } from './search';
+import type { Dimension } from './search';
+import type { AggregatePricingRow } from './analyticsPricing';
 import type { RecordKindCode } from './types';
 import type { RateBook } from './rates';
 import type { Database } from 'bun:sqlite';
 import type { QueryFilter } from './search';
 import { createHash } from 'node:crypto';
 
-export interface AggregateRow extends TokenRow {
-  bucket: number;
-  provider_id: number;
-  model_id: number;
-  billing_model_id: number;
-  requested_model_id: number;
-  tier_id: number;
-  band: number | null;
+export interface AggregateRow extends AggregatePricingRow {
   usage_flags: number;
   record_kind: RecordKindCode;
-  calls: number;
   failures: number;
   failed: number;
   latency_sum: number;

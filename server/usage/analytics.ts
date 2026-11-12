@@ -1,15 +1,12 @@
 // Read-side analytics owner. Called inside a worker, with one immutable rate-book snapshot.
 import type { Database } from 'bun:sqlite';
-import type {
-  AnalyticsMetrics,
-  AnalyticsResponse,
-  AnalyticsCost,
-} from '../../src/domain/analytics/types';
+import type { AnalyticsMetrics, AnalyticsResponse } from '../../src/domain/analytics/types';
 import { readAnalyticsGroups } from './rollupRead';
 import { HOUR_MS, DAY_MS, type AggregateRow } from './aggregate';
-import { aggregateEstimate, sourceAttribution } from './parity';
-import { buildRateInventory, combineEstimates, estimateCost } from './pricing';
-import { eventTokens, queryFilter, requestPage, type Dimension } from './search';
+import { sourceAttribution } from './parity';
+import { analyticsCosts } from './analyticsPricing';
+import { buildRateInventory } from './pricing';
+import { queryFilter, requestPage, type Dimension } from './search';
 import { KNOWN_PROVIDERS } from './types';
 import type { RateBookState } from './rates';
 import type { UsageAnalyticsQuery } from './validate';
@@ -22,6 +19,7 @@ export const COVERAGE_LIMITATIONS = [
   'Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.',
   'Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.',
 ];
+
 function emptyMetrics(): AnalyticsMetrics {
   return {
     calls: 0,
@@ -44,11 +42,8 @@ class Metrics {
   value = emptyMetrics();
   private latencySum = 0;
   private latencyCount = 0;
-  add(row: AggregateRow, cost: AnalyticsCost) {
+  add(row: AggregateRow) {
     const v = this.value;
-    v.cost = v.calls
-      ? combineEstimates(v.cost, cost)
-      : combineEstimates({ usd: null, status: 'unpriced', reasons: [] }, cost);
     v.calls += row.calls;
     v.failure_calls += row.failures;
     v.success_calls += row.calls - row.failures;
@@ -122,29 +117,20 @@ export function queryAnalytics(
       for (const row of rows) {
         const model = names.get(row.model_id)!;
         const provider = names.get(row.provider_id)!;
-        const cost = aggregateEstimate(
-          estimateCost(
-            {
-              model,
-              billingModel: names.get(row.billing_model_id),
-              requestedModel: names.get(row.requested_model_id),
-              tier: names.get(row.tier_id),
-              tokens: eventTokens(row),
-              usageFlags: row.usage_flags,
-              recordKind: row.record_kind,
-              calls: row.calls,
-              contextThreshold: row.band,
-            },
-            book
-          )
-        );
-        summary.add(row, cost);
-        group(timeline, row.bucket).add(row, cost);
-        group(models, row.model_id).add(row, cost);
-        group(providers, row.provider_id).add(row, cost);
+        summary.add(row);
+        group(timeline, row.bucket).add(row);
+        group(models, row.model_id).add(row);
+        group(providers, row.provider_id).add(row);
         observed.set(`${provider}\0${model}`, { provider, id: model });
       }
+
+      const costs = analyticsCosts(rows, names, book);
+      summary.value.cost = costs.summary;
+      for (const [id, metrics] of models) metrics.value.cost = costs.models.get(id)!;
+      for (const [id, metrics] of providers) metrics.value.cost = costs.providers.get(id)!;
+      for (const [id, metrics] of timeline) metrics.value.cost = costs.buckets.get(id)!;
       options.onPhase?.('pricing');
+
       // Selectors ignore provider/model/outcome, while retaining the range and search.
       let selectorRows: { model_id: number; provider_id: number }[];
       if (!q.model?.trim() && !q.provider?.trim() && q.outcome === 'all') selectorRows = rows;

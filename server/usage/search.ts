@@ -2,7 +2,7 @@
 import type { Database } from 'bun:sqlite';
 import type { AnalyticsRequest } from '../../src/domain/analytics/types';
 import { sanitizeCredentialText } from './credentialText';
-import { estimateCost } from './pricing';
+import { estimateRequestCost } from './pricing';
 import { analyticsModel } from './normalize';
 import type { RateBook } from './rates';
 import { RECORD_KIND, USAGE_FLAG, type EventTokens, type RecordKindCode } from './types';
@@ -160,7 +160,7 @@ export function requestPage(
     const measured = (value: number, bit: number) =>
       value > 0 || (reported && (flags & bit) === bit) ? value : null;
     const tokens = eventTokens(row);
-    const cost = estimateCost(
+    const cost = estimateRequestCost(
       {
         model: dim('model_id'),
         billingModel: dim('billing_model_id'),

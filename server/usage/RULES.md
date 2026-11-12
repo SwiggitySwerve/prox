@@ -207,7 +207,9 @@ Collector, writer and service regressions use the ephemeral in-process proxy in
   waiting in each. Overflow is 503. A 30-second deadline includes body reading,
   admission and execution; expiry is 504, client cancellation 499. Cancellation
   terminates the active worker, releasing its SQLite snapshot, before replacing
-  it. Idle workers are reused. Shutdown rejects admission and terminates both.
+  it. Idle workers are reused; close/error listeners stay attached for the worker's
+  lifetime, so an idle exit invalidates the cache. Shutdown rejects admission and
+  terminates both.
 - `query.worker.ts` opens its read-only connection through `store.ts`, performs
   the entire response in one deferred read transaction, serializes the response
   there and closes the connection. It uses the standard `{id, kind, body}` /
@@ -220,6 +222,21 @@ Collector, writer and service regressions use the ephemeral in-process proxy in
   exceeded; a configured base-only candidate stops fallback. No stored price
   table or index exists. SQL sums are priced with explicit bands and the P4
   pricing owner. All response sections use the same book/revision and snapshot.
+- `analyticsPricing.ts` folds the unchanged SQL rows into CPAMP's pricing keys:
+  `(model, billing model, resolved pricing model, context band, tier)`, adding bucket
+  for timeline or provider for provider-specific stats. This folds across the
+  SQL-only metadata/outcome keys for pricing; retained-event metrics still use all
+  SQL rows. Summary stats sort by calls descending then `pricingRowLess` (model,
+  billing model, pricing model, tier, band); model views inherit that order.
+  Timeline sorts by bucket then `pricingRowLess`. Providers reuse global stats
+  when each model has one provider; otherwise they follow the provider query's
+  calls-descending order, with ties in its SQL key order (band before tier).
+- `pricing.ts` exposes separate aggregate/request estimate boundaries over the
+  shared money calculation. CPAMP aggregate tokens have no event metadata:
+  presence is always unknown, component-reporting flags do not add request-only
+  reasons, and only aggregate costs carry call counts. `parity.ts` adds the legacy
+  reason after the aggregate's pricing reasons. Request costs keep event presence
+  and component limitations, but no legacy-kind reason or call counts.
 - Known supplementary rows are excluded from counts, pricing, latency, selectors
   and request detail, as CPAMP does. Selectors preserve the range/search while
   ignoring the provider, model and outcome filters. The page cursor changes only
