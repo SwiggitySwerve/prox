@@ -194,7 +194,7 @@ Collector, writer and service regressions use the ephemeral in-process proxy in
   D5's two missing models are added with null rates and source `pending D5`;
   approved prices are required before deploying that book.
 
-## Bulk jobs (import, reconcile, verify and backup)
+## Bulk jobs (import, reconcile, verify, backup and prune)
 
 `ioGovernor.ts` owns bulk IO admission and pacing. Share one `IoGovernor` in the
 writer worker. `waitForQuietIo(signal)` admits work only below 5% `full avg10` IO
@@ -340,7 +340,7 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   a shared governor, the read-only CPAMP handle and a retained `UsageBackup`.
   Source opening and each bounded import/verification chunk use `enqueueJob`.
   Only the backup snapshot uses that queue; upload and all waits stay outside.
-- `writerProtocol.ts` carries `import`, `reconcile`, `verify`, `backup`, `cancel`
+- `writerProtocol.ts` carries `import`, `reconcile`, `verify`, `backup`, `prune`, `cancel`
   and `job-status` requests. Replies include a typed `job` report in writer status.
   Start acknowledges admission promptly; poll for completion. A rejected command,
   bad config, source failure, bulk transaction failure or upload failure is
@@ -363,10 +363,10 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   Backup settings use `loadBackupConfig` above. `UsageWriter.init` also accepts
   these paths/budget as typed config for embedding and synthetic tests. HTTP
   never accepts file paths, budget overrides or backup credentials.
-- Nothing starts a bulk job at boot or on a timer. On the existing listener at
+- Nothing starts a bulk job at boot. Deployment copies optional timers without enabling them. On the existing listener at
   `127.0.0.1:18320`, the coordinator explicitly calls:
   - `POST /v1/jobs` with exactly `{"kind":"import"}` (or `reconcile`, `verify`,
-    `backup`): 202 with the running report, 409 if a job is already active.
+    `backup`, `prune`): 202 with the running report, 409 if a job is already active.
   - `POST /v1/jobs/cancel` with exactly `{"jobId":1}`: 202; stale IDs return 409.
     Cancellation is idempotent for the latest finished job. Poll until settled.
   - `GET /v1/jobs`: latest report or null. `GET /v1/status` includes the same
@@ -462,3 +462,25 @@ API, and records 50 warm worker responses per view while inserting synthetic
 traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
 The live performance/parity gate is a separate deployment responsibility; a
 30-day p95 above 1 s requires P5b before P6, per the plan.
+
+
+### Raw-buffer expiry and schedules
+
+`prune` fixes its cutoff at job admission minus 30 days. `store.pruneRawBefore`
+inspects at most 1,000 primary keys per raw table per transaction, including fresh
+rows, then deletes only expired rows in that page. This also bounds scans of
+rejects without adding a startup index build. Events and event metadata are never
+pruned. Each page uses the shared 4 MB/s read-plus-write governor and yields to live
+batches. A failed raw transaction fails only the bulk job; collection continues.
+
+`deploy/prox-usage-job@.service` submits a bearer-protected POST; the key is read
+inside the unit and piped as a header, never placed in curl's argv or logs. Timers
+run prune at 04:20 UTC, reconcile at 04:40 UTC and backup at 05:10 UTC. They are
+nonpersistent, so a missed run cannot catch up during the 01:00–04:00 or 12:30 IO
+windows. The deployment script copies units only; fresh installs stay disabled.
+Manual enablement is an operator migration step. A running job rejects overlapping
+starts with 409; inspect its report and retry manually rather than queueing bulk IO.
+
+**Backup timer gate:** keep it disabled until the tracked paced backup snapshot
+follow-up replaces the indivisible VACUUM snapshot. Upload pacing alone does not
+make the snapshot bounded. No timer enablement or live install is part of this work.

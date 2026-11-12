@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { normalizeUsagePayload } from '../server/usage/normalize';
@@ -18,7 +17,7 @@ afterEach(() => {
 });
 
 function open(options: { raw?: boolean; root?: string } = {}) {
-  const root = options.root ?? mkdtempSync(join(tmpdir(), 'prox-usage-store-'));
+  const root = options.root ?? mkdtempSync('/dev/shm/prox-usage-store-');
   if (!options.root) cleanups.push(() => rmSync(root, { recursive: true, force: true }));
   const events = join(root, 'usage.sqlite');
   const raw = options.raw === false ? null : join(root, 'usage-raw.sqlite');
@@ -580,7 +579,7 @@ describe('usage store sessions and credentials', () => {
 
 describe('usage store migrations', () => {
   const database = () => {
-    const root = mkdtempSync(join(tmpdir(), 'prox-usage-migrate-'));
+    const root = mkdtempSync('/dev/shm/prox-usage-migrate-');
     cleanups.push(() => rmSync(root, { recursive: true, force: true }));
     const db = new Database(join(root, 'usage.sqlite'), { create: true, strict: true });
     cleanups.push(() => db.close());
@@ -763,17 +762,32 @@ describe('usage store secrets and the raw buffer', () => {
       INGEST.subscribed
     );
     store.recordRejected('not-json', null);
-    expect(store.pruneRawBefore(Date.UTC(2026, 3, 15))).toBe(1);
+    expect(store.pruneRawBefore(Date.UTC(2026, 3, 15)).deleted).toBe(1);
     expect(payloads(raw as string).map((row) => row.seq)).toEqual([2]);
-    expect(store.pruneRawBefore(NOW + 1)).toBe(2);
+    expect(store.pruneRawBefore(NOW + 1).deleted).toBe(2);
     expect(count(reader(), 'events')).toBe(2);
+  });
+
+  test('raw prune scans bounded keyset pages even when all rejects are fresh', () => {
+    const { store, raw } = open();
+    const db = new Database(raw as string);
+    cleanups.push(() => db.close());
+    db.transaction(() => {
+      const put = db.query("INSERT INTO rejects VALUES (?, ?, 'not-json', NULL, NULL)");
+      for (let id = 1; id <= 1001; id += 1) put.run(id, id === 1001 ? NOW - 1 : NOW);
+    })();
+    const first = store.pruneRawBefore(NOW);
+    expect(first).toEqual({ cursor: { payloadSeq: 0, rejectId: 1000 }, deleted: 0, done: false });
+    const second = store.pruneRawBefore(NOW, first.cursor);
+    expect(second).toEqual({ cursor: { payloadSeq: 0, rejectId: 1001 }, deleted: 1, done: true });
+    expect(count(db, 'rejects')).toBe(1000); // exactly at cutoff is retained
   });
 
   test('without a raw buffer, events are still stored and nothing else is written', () => {
     const { store, reader, root } = open({ raw: false });
     expect(store.insert([item(usagePayload())], INGEST.imported).inserted).toBe(1);
     store.recordRejected('not-json', null);
-    expect(store.pruneRawBefore(NOW)).toBe(0);
+    expect(store.pruneRawBefore(NOW).deleted).toBe(0);
     expect(count(reader(), 'events')).toBe(1);
     expect(readdirSync(root).filter((file) => file.includes('raw'))).toEqual([]);
   });

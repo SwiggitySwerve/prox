@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Prox usage prune (manual enable only)
+
+[Timer]
+OnCalendar=*-*-* 04:20:00 UTC
+AccuracySec=1s
+Persistent=false
+Unit=prox-usage-job@prune.service
+
+[Install]
+WantedBy=timers.target

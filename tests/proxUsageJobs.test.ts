@@ -13,7 +13,7 @@ const cleanups: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
   for (const clean of cleanups.splice(0).reverse()) await clean();
 });
-async function fixture(count = 1, pressure = 0, config: BulkJobConfig = {}) {
+async function fixture(count = 1, pressure = 0, config: BulkJobConfig = {}, raw = false) {
   const root = mkdtempSync('/dev/shm/prox-jobs-test-');
   cleanups.push(() => rmSync(root, { recursive: true, force: true }));
   const cpampPath = join(root, 'cpamp.sqlite');
@@ -35,7 +35,7 @@ async function fixture(count = 1, pressure = 0, config: BulkJobConfig = {}) {
   const closeCleanup = () => writer.close();
   cleanups.push(closeCleanup);
   const events = join(root, 'usage.sqlite');
-  await writer.init({ events, raw: null }, [], Date.now(), {
+  await writer.init({ events, raw: raw ? join(root, 'raw.sqlite') : null }, [], Date.now(), {
     cpampPath,
     backupConfigPath: join(root, 'missing-config.json'),
     ...config,
@@ -412,5 +412,72 @@ test('worker reports imported-cohort counts and independent CPAMP rollup checks'
         },
       },
     },
+  });
+});
+
+test('prune bounds raw pages, yields to live batches, and preserves fresh rows and events', async () => {
+  const f = await fixture(0, 0, { bytesPerSecond: 1e15 }, true);
+  const raw = new Database(join(f.root, 'raw.sqlite'));
+  cleanups.push(() => raw.close());
+  const old = Date.now() - 31 * 24 * 60 * 60 * 1000;
+  const fresh = Date.now();
+  raw.transaction(() => {
+    const payload = raw.query('INSERT INTO payloads VALUES (?, ?, 0, ?)');
+    const reject = raw.query("INSERT INTO rejects VALUES (?, ?, 'not-json', NULL, NULL)");
+    for (let i = 1; i <= 15_001; i += 1) {
+      payload.run(i + 100_000, i % 2 ? old : fresh, new Uint8Array());
+      reject.run(i, i % 2 ? old : fresh);
+    }
+  })();
+  const started = await f.writer.startJob('prune');
+  const during = await reportWhen(
+    f.writer,
+    (r) => r.result?.kind === 'prune' && r.result.report.chunks > 0
+  );
+  expect(during.state).toBe('running');
+  if (during.result?.kind !== 'prune') throw new Error('Expected prune result');
+  expect(during.result.report.deleted).toBeLessThanOrEqual(during.result.report.chunks * 2000);
+  f.writer.enqueue(live('prune-live'));
+  await f.writer.flush();
+  expect(f.writer.status.inserted).toBe(1);
+  expect((await f.writer.jobReport())?.state).toBe('running');
+  const settled = await reportWhen(f.writer, finished);
+  expect(settled).toMatchObject({
+    id: started.id,
+    state: 'succeeded',
+    result: { kind: 'prune', report: { chunks: 16, deleted: 15_002 } },
+  });
+  for (const table of ['payloads', 'rejects']) {
+    expect(raw.query(`SELECT count(*) AS n FROM ${table}`).get()).toEqual({
+      n: table === 'payloads' ? 7501 : 7500,
+    });
+  }
+  expect(f.reader.query('SELECT count(*) AS n FROM events').get()).toEqual({ n: 1 });
+});
+
+test('raw prune transaction failure is nonfatal and can be retried', async () => {
+  const f = await fixture(0, 0, { bytesPerSecond: 1e15 }, true);
+  const raw = new Database(join(f.root, 'raw.sqlite'));
+  cleanups.push(() => raw.close());
+  raw.query('INSERT INTO payloads VALUES (100001, 1, 0, ?)').run(new Uint8Array());
+  raw.exec(
+    "CREATE TRIGGER fail_prune BEFORE DELETE ON payloads BEGIN SELECT RAISE(ABORT, 'synthetic prune failure'); END"
+  );
+  let fatal = false;
+  f.writer.onFailure = () => {
+    fatal = true;
+  };
+  await f.writer.startJob('prune');
+  expect(await reportWhen(f.writer, finished)).toMatchObject({ state: 'failed' });
+  expect(raw.query('SELECT count(*) AS n FROM payloads').get()).toEqual({ n: 1 });
+  f.writer.enqueue(live('after-prune-failure'));
+  await f.writer.flush();
+  expect(f.writer.status.inserted).toBe(1);
+  expect(fatal).toBe(false);
+  raw.exec('DROP TRIGGER fail_prune');
+  await f.writer.startJob('prune');
+  expect(await reportWhen(f.writer, finished)).toMatchObject({
+    state: 'succeeded',
+    result: { report: { deleted: 2 } }, // includes the old-timestamp live payload; its event stays
   });
 });
