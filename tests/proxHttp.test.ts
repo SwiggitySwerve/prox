@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, setSystemTime, spyOn, test } from 'bun:test';
+import * as fs from 'node:fs';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +8,7 @@ import type { QuotaStore } from '../server/quota/store';
 
 const dirs: string[] = [];
 afterEach(() => {
+  setSystemTime();
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 function fixture() {
@@ -142,10 +144,34 @@ describe('quota history HTTP boundary', () => {
   test('accepts the current key, fails closed on key loss and rotates without restarting', () => {
     const f = fixture();
     expect(f.request('/v1/pools').status).toBe(200);
+    setSystemTime(new Date(Date.now() + 5000));
     writeFileSync(f.keyFile, 'rotated-test-key');
     expect(f.request('/v1/pools').status).toBe(401);
+    setSystemTime(new Date(Date.now() + 5000));
     rmSync(f.keyFile);
     expect(f.request('/v1/pools').status).toBe(503);
+  });
+  test('reads the key file once across many requests, then rereads after the TTL', () => {
+    const f = fixture();
+    const spy = spyOn(fs, 'readFileSync');
+    try {
+      for (let i = 0; i < 50; i++) expect(f.request('/v1/pools').status).toBe(200);
+      expect(spy.mock.calls.filter(([path]) => path === f.keyFile)).toHaveLength(1);
+      setSystemTime(new Date(Date.now() + 5000));
+      expect(f.request('/v1/pools').status).toBe(200);
+      expect(spy.mock.calls.filter(([path]) => path === f.keyFile)).toHaveLength(2);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+  test('an empty or missing key file is never cached as a key', () => {
+    const f = fixture();
+    expect(f.request('/v1/pools').status).toBe(200);
+    setSystemTime(new Date(Date.now() + 5000));
+    writeFileSync(f.keyFile, '\n');
+    expect(f.request('/v1/pools').status).toBe(503);
+    writeFileSync(f.keyFile, 'synthetic-test-key');
+    expect(f.request('/v1/pools').status).toBe(200);
   });
   test('bounded filters and no-store responses prevent unbounded reads and browser caching', async () => {
     const f = fixture();
