@@ -1,0 +1,20 @@
+[Unit]
+Description=Prox usage collection
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=localhost/prox-history:dev
+ContainerName=prox-usage
+Exec=bun /app/usage/main.js
+Network=host
+Volume=%h/.local/share/prox-usage:/data:rw
+Volume=%h/.config/cli-proxy-rerank/management-key:/run/secrets/proxy-management-key:ro
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

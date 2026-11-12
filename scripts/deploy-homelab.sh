@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and install Prox UI and quota history. Never restart either inference proxy.
+# Build and install Prox UI, quota history and usage collection. Never restart either inference proxy.
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo"
@@ -10,14 +10,24 @@ if [[ ! -s "$HOME/.config/prox/cpa-admin-key" ]]; then
   echo 'Missing private CPA admin credential: see Analytics in docs/PROX-SETUP.md.' >&2
   exit 1
 fi
+if [[ ! -r "$HOME/.config/cli-proxy-rerank/management-key" ]] || \
+   [[ ! -s "$HOME/.config/cli-proxy-rerank/management-key" ]]; then
+  echo 'Missing readable, non-empty proxy management key.' >&2
+  exit 1
+fi
 package_manager=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager")
 npm exec --yes --package="$package_manager" -- bun install --frozen-lockfile
 npm exec --yes --package="$package_manager" -- bun run verify
+# Hash both entry points: a writer-only change also requires a collector restart.
+usage_hash=$(sha256sum dist/usage/*.js | sha256sum | cut -d ' ' -f 1)
+usage_hash_file="$HOME/.local/share/prox-usage/bundle.sha256"
+previous_usage_hash=$(cat "$usage_hash_file" 2>/dev/null || true)
 revision=$(git rev-parse HEAD)
 podman build -f deploy/Dockerfile --label "org.opencontainers.image.revision=$revision" -t localhost/prox:dev .
 podman run --rm --network host --entrypoint nginx localhost/prox:dev -t
 podman build -f deploy/Dockerfile.history --label "org.opencontainers.image.revision=$revision" -t localhost/prox-history:dev .
-install -d -m 700 "$HOME/.local/share/prox-history"
+install -d -m 700 "$HOME/.local/share/prox-history" "$HOME/.local/share/prox-usage"
+install -D -m 644 deploy/prox-usage.container "$HOME/.config/containers/systemd/prox-usage.container"
 install -D -m 644 deploy/prox-history.container "$HOME/.config/containers/systemd/prox-history.container"
 install -D -m 644 deploy/prox.container "$HOME/.config/containers/systemd/prox.container"
 install -D -m 755 deploy/prox-auth-janitor.sh "$HOME/.local/share/prox/prox-auth-janitor.sh"
@@ -26,6 +36,13 @@ install -D -m 644 deploy/prox-auth-janitor.path "$HOME/.config/systemd/user/prox
 install -D -m 644 deploy/prox-auth-janitor.timer "$HOME/.config/systemd/user/prox-auth-janitor.timer"
 systemctl --user daemon-reload
 systemctl --user enable --now prox-auth-janitor.path prox-auth-janitor.timer
+# UI/history deploys leave the live usage subscription alone when its code did not change.
+if [[ "$usage_hash" != "$previous_usage_hash" ]]; then
+  systemctl --user restart prox-usage.service
+  curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 \
+    --max-time 5 http://127.0.0.1:18320/healthz
+  printf '%s\n' "$usage_hash" > "$usage_hash_file"
+fi
 systemctl --user restart prox-history.service
 curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 \
   --max-time 5 http://127.0.0.1:18319/healthz

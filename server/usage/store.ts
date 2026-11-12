@@ -11,6 +11,7 @@ import {
   USAGE_MIGRATIONS,
   WRITER_PRAGMAS_SQL,
 } from './schema';
+import type { IngestGap } from './writerProtocol';
 import type {
   DimKind,
   EventSession,
@@ -136,6 +137,7 @@ export function openUsageReader(path: string): Database {
  * Inserts are idempotent on `execution_id`; a stored row is never updated.
  */
 export class UsageStore {
+  rawBufferFailures = 0;
   private readonly db: Database;
   private readonly raw: Database | null;
   private readonly dims = new Map<string, number>();
@@ -208,7 +210,8 @@ export class UsageStore {
       this.dims.clear();
       throw error;
     }
-    if (this.raw) {
+    this.writeRaw(() => {
+      if (!this.raw) return;
       const insertPayload = this.raw.query(
         'INSERT INTO payloads (seq, ts_ms, dropped_keys, payload) VALUES (?, ?, ?, ?)'
       );
@@ -218,17 +221,19 @@ export class UsageStore {
           insertPayload.run(seq, item.event.tsMs, item.raw.droppedKeys, gzipSync(item.raw.json));
         }
       })();
-    }
+    });
     return { inserted: stored.length, duplicates: items.length - stored.length };
   }
 
   /** Keep what can be kept of a payload that did not become an event. */
   recordRejected(reason: RejectReason, raw: SanitizedPayload | null): void {
-    this.raw
-      ?.query(
-        'INSERT INTO rejects (received_at_ms, reason, dropped_keys, payload) VALUES (?, ?, ?, ?)'
-      )
-      .run(this.now(), reason, raw?.droppedKeys ?? null, raw ? gzipSync(raw.json) : null);
+    this.writeRaw(() =>
+      this.raw
+        ?.query(
+          'INSERT INTO rejects (received_at_ms, reason, dropped_keys, payload) VALUES (?, ?, ?, ?)'
+        )
+        .run(this.now(), reason, raw?.droppedKeys ?? null, raw ? gzipSync(raw.json) : null)
+    );
   }
 
   /** Drop buffered payloads and rejects older than `beforeMs`. Events are not touched. */
@@ -252,6 +257,30 @@ export class UsageStore {
         'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value'
       )
       .run(key, value);
+  }
+
+  /** Gaps and heartbeats share the event store's sole writer connection. */
+  recordGap(gap: IngestGap): void {
+    this.db
+      .query(
+        'INSERT INTO ingest_gaps (instance, from_ms, to_ms, reason, missed) VALUES (?, ?, ?, ?, NULL)'
+      )
+      .run(gap.instance, gap.fromMs, gap.toMs, gap.reason);
+  }
+
+  gapCount(): number {
+    return this.db.query<{ count: number }, []>('SELECT count(*) AS count FROM ingest_gaps').get()!
+      .count;
+  }
+
+  private writeRaw(write: () => unknown): void {
+    try {
+      write();
+    } catch {
+      // The event transaction has already committed. Retrying it cannot restore the raw buffer.
+      this.rawBufferFailures += 1;
+      console.error('Usage raw-buffer write failed; committed events were retained');
+    }
   }
 
   close(): void {

@@ -115,6 +115,49 @@ Regression coverage lives in `tests/proxUsageNormalize.test.ts` and
 `tests/proxUsageStore.test.ts`, with synthetic payloads from
 `tests/fixtures/usagePayloads.ts` shaped like the proxy's own plugin tests.
 
+## Collection and writer queue
+
+- `main.ts`, `collector.ts`, `resp.ts`, `labels.ts`, `status.ts` and `writer.ts`
+  own sockets, source lifecycle, credential snapshots, HTTP and worker messaging.
+  Their runtime import graph never reaches `bun:sqlite`; the service test walks
+  that graph. The writer entry is resolved beside the running bundle at runtime.
+- A source authenticates and waits for the `SUBSCRIBE usage` acknowledgement
+  before draining the destructive HTTP queue. Both RESP and HTTP authentication
+  failures block that source's management requests for at least 60 seconds.
+- Shutdown keeps accepting messages until `UNSUBSCRIBE` acknowledges. Only then
+  does it flush accepted batches and close the writer. Missing acknowledgements
+  and event-store failures produce an unsuccessful exit, not a successful flush.
+- The main thread dispatches at 100 payloads or 50 ms. Its backlog includes
+  buffered payloads and every batch awaiting a worker acknowledgement. Above
+  50,000 it drops all subscriptions, records gaps, and waits until at most 1,000
+  remain before reconnecting. Another subscriber (including CPAMP) prevents the
+  proxy retaining this traffic: the dual-run reconcile remains necessary.
+- The worker serializes every write through `enqueueJob(kind, fn)`; `live` jobs
+  precede waiting background jobs. P3 supplies bounded import, backup and prune
+  chunks through that hook, including the roadmap's byte/IO governor. No bulk
+  jobs or automatic raw-buffer pruning run in P2.
+- Heartbeats commit every 10 seconds while subscribed, behind accepted events.
+  Startup records the interval between a stale heartbeat and the start of the
+  proxy's 3600-second retention window. A drop records the uncertain interval
+  since the last socket activity; reconnect/stop records the subsequent outage
+  as an adjacent gap. `missed` stays NULL: this protocol cannot count losses.
+- Credential refreshes keep the last good snapshot; unknown indices trigger at
+  most one refresh per 10 seconds. Each queued event carries its label snapshot
+  so later credential changes cannot relabel an accepted event.
+- An event commit and its optional raw-buffer write are separate transactions.
+  A failed raw write is logged without payload/error text and increments
+  `rawBufferFailures`. Committed events stay acknowledged; subsequent batches
+  continue. A failed event commit stops collection and exits unsuccessfully.
+- P2 serves only loopback `/healthz` and bearer-protected `/v1/status`. P5 adds
+  query workers and analytics; E3 adds a separate metrics-only bridge listener.
+  Neither analytics routing nor the history/exporter consumer changes in P2.
+- Both usage entry points ship in the existing history image. Deployment hashes
+  both bundles and restarts the separate usage unit only when that hash changes.
+  Manifest or unit changes alone require an explicit operator restart.
+
+Collector, writer and service regressions use the ephemeral in-process proxy in
+`tests/helpers/usageFakeProxy.ts`, synthetic payloads, and small temporary files.
+
 ## Rate book and pricing
 
 - `rates.ts` validates the version-1 JSON boundary and owns rate overrides,
