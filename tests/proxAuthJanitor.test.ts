@@ -204,25 +204,23 @@ describe('prox auth janitor deployment files', () => {
     const service = read('deploy/prox-auth-janitor.service');
     expect(service).toContain('Type=oneshot');
     expect(service).toContain(`ExecStart=%h/${installPath}`);
-    // A start limit would let a bulk delete fail the path unit, which then stops watching.
+    // A start limit would leave the unit failed and skip cleanups.
     expect(service).toMatch(/^StartLimitIntervalSec=0$/m);
     expect(service).not.toContain('StartLimitBurst');
     expect(deploy).toContain(`deploy/prox-auth-janitor.sh "$HOME/${installPath}"`);
     expect(deploy).toContain(`install -D -m 755 deploy/prox-auth-janitor.sh`);
   });
 
-  test('path unit watches both auth directories and triggers the service', () => {
-    const path = read('deploy/prox-auth-janitor.path');
-    expect(path).toContain('PathChanged=%h/.local/share/cli-proxy-api/auth\n');
-    expect(path).toContain('PathChanged=%h/.local/share/cli-proxy-claude/auth\n');
-    expect(path).toContain('Unit=prox-auth-janitor.service');
-    expect(path).toContain('WantedBy=default.target');
+  test('no path watcher ships: the proxy rewrites the auth directories on nearly every request', () => {
+    expect(existsSync(join(root, 'deploy/prox-auth-janitor.path'))).toBe(false);
+    expect(deploy).not.toContain('install -D -m 644 deploy/prox-auth-janitor.path');
+    expect(deploy).not.toContain('enable --now prox-auth-janitor.path');
   });
 
-  test('timer backstop targets the service', () => {
+  test('timer runs the service every 10 minutes, matching the minimum lock age', () => {
     const timer = read('deploy/prox-auth-janitor.timer');
     expect(timer).toContain('OnBootSec=2min');
-    expect(timer).toContain('OnUnitActiveSec=15min');
+    expect(timer).toContain('OnUnitActiveSec=10min');
     expect(timer).toContain('Unit=prox-auth-janitor.service');
     expect(timer).toContain('WantedBy=timers.target');
   });
@@ -233,21 +231,19 @@ describe('prox auth janitor deployment files', () => {
     expect(script).toContain('$HOME/.local/share/cli-proxy-claude/auth');
   });
 
-  test('deploy script installs all four files as user units and enables path and timer', () => {
-    for (const unit of ['service', 'path', 'timer']) {
+  test('deploy script installs the script, service and timer and enables the timer', () => {
+    for (const unit of ['service', 'timer']) {
       expect(deploy).toContain(
         `install -D -m 644 deploy/prox-auth-janitor.${unit} ` +
           `"$HOME/.config/systemd/user/prox-auth-janitor.${unit}"`
       );
     }
-    expect(deploy).toContain(
-      'systemctl --user enable --now prox-auth-janitor.path prox-auth-janitor.timer'
-    );
+    expect(deploy).toContain('systemctl --user enable --now prox-auth-janitor.timer');
     const lastInstall = deploy.lastIndexOf('install -D -m 644 deploy/prox-auth-janitor.timer');
     expect(lastInstall).toBeGreaterThan(-1);
     expect(lastInstall).toBeLessThan(deploy.indexOf('systemctl --user daemon-reload'));
     expect(deploy.indexOf('systemctl --user daemon-reload')).toBeLessThan(
-      deploy.indexOf('systemctl --user enable --now prox-auth-janitor.path')
+      deploy.indexOf('systemctl --user enable --now prox-auth-janitor.timer')
     );
     expect(deploy.match(/systemctl --user daemon-reload/g)).toHaveLength(1);
     expect(deploy).not.toMatch(/restart (prox-auth-janitor|cli-proxy)/);

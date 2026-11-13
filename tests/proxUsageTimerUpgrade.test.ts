@@ -20,14 +20,21 @@ function fixture(mode: 'enabled' | 'missing' | 'failure') {
   roots.push(root);
   const units = join(root, '.config/systemd/user');
   const wants = join(units, 'timers.target.wants');
+  const defaultWants = join(units, 'default.target.wants');
   const bin = join(root, 'bin');
   mkdirSync(wants, { recursive: true });
+  mkdirSync(defaultWants);
   mkdirSync(bin);
   for (const kind of ['prune', 'reconcile', 'backup', 'parity']) {
     const name = `prox-usage-${kind}.timer`;
     if (mode !== 'missing') writeFileSync(join(units, name), '[Timer]\n');
     symlinkSync(`../${name}`, join(wants, name));
   }
+  // The janitor's retired path watcher is wanted by default.target, not timers.target.
+  if (mode !== 'missing') writeFileSync(join(units, 'prox-auth-janitor.path'), '[Path]\n');
+  symlinkSync('../prox-auth-janitor.path', join(defaultWants, 'prox-auth-janitor.path'));
+  writeFileSync(join(units, 'prox-auth-janitor.timer'), '[Timer]\n');
+  symlinkSync('../prox-auth-janitor.timer', join(wants, 'prox-auth-janitor.timer'));
   writeFileSync(join(units, 'unrelated.timer'), '[Timer]\n');
   symlinkSync('../unrelated.timer', join(wants, 'unrelated.timer'));
   writeFileSync(
@@ -44,12 +51,12 @@ case "$UPGRADE_TEST_MODE" in
 esac
 # The real disable removes enable links; verify retirement precedes unit deletion.
 test -f "$HOME/.config/systemd/user/$4"
-rm "$HOME/.config/systemd/user/timers.target.wants/$4"
+rm -f "$HOME/.config/systemd/user/timers.target.wants/$4" "$HOME/.config/systemd/user/default.target.wants/$4"
 `,
     { mode: 0o700 }
   );
   const script = readFileSync('scripts/deploy-homelab.sh', 'utf8');
-  const start = script.indexOf('# Retire independent usage timers');
+  const start = script.indexOf('# Retire units no longer shipped');
   const end = script.indexOf('systemctl --user daemon-reload', start);
   expect(start).toBeGreaterThan(0);
   expect(end).toBeGreaterThan(start);
@@ -61,21 +68,30 @@ rm "$HOME/.config/systemd/user/timers.target.wants/$4"
       UPGRADE_TEST_MODE: mode,
     },
   });
-  return { root, units, wants, result };
+  return { root, units, wants, defaultWants, result };
 }
-test('upgrade disables enabled retired timers and removes units and enable symlinks before reload', () => {
+test('upgrade disables enabled retired units and removes units and enable symlinks before reload', () => {
   const f = fixture('enabled');
   expect(f.result.exitCode).toBe(0);
-  expect(readFileSync(join(f.root, 'calls'), 'utf8').trim().split('\n')).toEqual(
-    ['prune', 'reconcile', 'backup', 'parity'].map((kind) => `prox-usage-${kind}.timer`)
-  );
-  expect(readdirSync(f.units).sort()).toEqual(['timers.target.wants', 'unrelated.timer']);
-  expect(readdirSync(f.wants)).toEqual(['unrelated.timer']);
+  expect(readFileSync(join(f.root, 'calls'), 'utf8').trim().split('\n')).toEqual([
+    ...['prune', 'reconcile', 'backup', 'parity'].map((kind) => `prox-usage-${kind}.timer`),
+    'prox-auth-janitor.path',
+  ]);
+  // The janitor's timer (still shipped) and unrelated units are untouched.
+  expect(readdirSync(f.units).sort()).toEqual([
+    'default.target.wants',
+    'prox-auth-janitor.timer',
+    'timers.target.wants',
+    'unrelated.timer',
+  ]);
+  expect(readdirSync(f.wants).sort()).toEqual(['prox-auth-janitor.timer', 'unrelated.timer']);
+  expect(readdirSync(f.defaultWants)).toEqual([]);
 });
 test('retirement tolerates not-loaded timers and clears their dangling enable links', () => {
   const f = fixture('missing');
   expect(f.result.exitCode).toBe(0);
-  expect(readdirSync(f.wants)).toEqual(['unrelated.timer']);
+  expect(readdirSync(f.wants).sort()).toEqual(['prox-auth-janitor.timer', 'unrelated.timer']);
+  expect(readdirSync(f.defaultWants)).toEqual([]);
 });
 test('retirement stops on manager failures without deleting the still-enabled unit', () => {
   const f = fixture('failure');
