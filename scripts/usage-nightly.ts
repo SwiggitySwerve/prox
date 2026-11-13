@@ -6,6 +6,12 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { assertLoopbackEndpoint } from './usage-parity/run';
 import { QueryGate } from './usage-parity/io';
 import { ExecutionWindow, IncompleteRun, parseDeadline } from './usage-parity/window';
+import { ROLLUP_BACKFILL_BUSY_ERROR } from '../server/usage/writerProtocol';
+
+// A rollup backfill holds bulk admission between hours; retry only that refusal.
+const ADMISSION_RETRY_MS = 30000;
+const ADMISSION_RETRY_WINDOW_MS = 15 * 60000;
+const CPAMP_COLLECTORS = 2;
 
 type JobKind = 'prune' | 'reconcile' | 'backup';
 interface Job {
@@ -22,11 +28,21 @@ export interface NightlyOptions {
   // Enable only after the paced snapshot implementation and restore gate have landed.
   backupEnabled: boolean;
   pollMs: number;
+  // CPAMP's /status (loopback) and the admin key file that authorizes it.
+  cpamp: { url: string; keyFile: string };
+}
+export interface CpampCollector {
+  mode: string;
+  transport: string;
+  state: string;
 }
 export interface NightlyReport {
   status: 'succeeded' | 'failed' | 'incomplete';
   completed: string[];
   backup: 'skipped' | 'pending' | 'completed';
+  cpamp?: { ok: boolean; collectors: CpampCollector[] };
+  // Submit POSTs per kind, counting backfill-busy retries.
+  attempts: Partial<Record<JobKind, number>>;
   cancellation?: 'requested' | 'unconfirmed';
   recovery?: 'owned-job' | 'no-owned-job' | 'unavailable';
   refused?: { kind: JobKind; status: number };
@@ -57,9 +73,49 @@ function jobFrom(value: unknown, kind: JobKind, id?: number, clientToken?: strin
   return job;
 }
 class JobHttpFailure extends Error {
-  constructor(readonly status: number) {
+  constructor(
+    readonly status: number,
+    // True only for the server's fixed rollup-backfill refusal, never another 409.
+    readonly backfillBusy = false
+  ) {
     super('Nightly job HTTP failure');
   }
+}
+async function isBackfillBusy(response: Response): Promise<boolean> {
+  try {
+    const text = await response.text();
+    return (
+      text.length <= 512 &&
+      (JSON.parse(text) as { error?: unknown }).error === ROLLUP_BACKFILL_BUSY_ERROR
+    );
+  } catch {
+    return false;
+  }
+}
+// Closed vocabulary: CPAMP text never reaches the report.
+const known = (value: unknown, allowed: string[]) =>
+  typeof value === 'string' && allowed.includes(value) ? value : 'unknown';
+async function readCpampCollectors(
+  cpamp: NightlyOptions['cpamp'],
+  signal: AbortSignal
+): Promise<CpampCollector[]> {
+  // The key lives only in this call's headers.
+  const response = await fetch(cpamp.url, {
+    redirect: 'error',
+    headers: { authorization: `Bearer ${readFileSync(cpamp.keyFile, 'utf8').trim()}` },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error('CPAMP status unavailable');
+  }
+  const { collectors } = (await response.json()) as { collectors?: unknown };
+  if (!Array.isArray(collectors)) throw new Error('CPAMP status has no collectors');
+  return collectors.map((value: { mode?: unknown; transport?: unknown; collector?: unknown }) => ({
+    mode: known(value?.mode, ['auto', 'subscribe', 'http', 'resp']),
+    transport: known(value?.transport, ['subscribe', 'http', 'resp', '']),
+    state: known(value?.collector, ['running', 'starting', 'error', 'stopped']),
+  }));
 }
 
 async function parityProcess(deadlineMs: number, signal: AbortSignal): Promise<number> {
@@ -111,6 +167,7 @@ export async function runNightly(
     status: 'failed',
     completed: [],
     backup: options.backupEnabled ? 'pending' : 'skipped',
+    attempts: {},
   };
   let key = '';
   let active: Job | undefined;
@@ -131,58 +188,98 @@ export async function runNightly(
           : AbortSignal.timeout(mode === 'cleanup' ? 5000 : 15000),
     });
     if (!response.ok) {
-      await response.body?.cancel();
-      throw new JobHttpFailure(response.status);
+      const read = mode === 'submit' && response.status === 409;
+      const busy = read && (await isBackfillBusy(response));
+      if (!read) await response.body?.cancel();
+      throw new JobHttpFailure(response.status, busy);
     }
     return response.json();
   };
   try {
     window.check();
     assertLoopbackEndpoint(options.url);
+    assertLoopbackEndpoint(options.cpamp.url);
     if (!Number.isSafeInteger(options.pollMs) || options.pollMs < 1)
       throw new Error('Invalid poll interval');
     key = readFileSync(options.keyFile, 'utf8').trim();
     if (!key) throw new Error('Empty nightly credential');
+    // A polling CPAMP would silently lose history once Prox holds the subscription.
+    report.cpamp = { ok: false, collectors: [] };
+    try {
+      report.cpamp.collectors = await gate.run(() =>
+        readCpampCollectors(options.cpamp, window.signal)
+      );
+    } catch {
+      throw new Error('CPAMP status unreachable');
+    }
+    report.cpamp.ok =
+      report.cpamp.collectors.length >= CPAMP_COLLECTORS &&
+      report.cpamp.collectors.every(
+        (collector) => collector.transport === 'subscribe' && collector.state === 'running'
+      );
+    if (!report.cpamp.ok) throw new Error('CPAMP collectors are not all subscribed');
     for (const kind of [
       'prune',
       'reconcile',
       ...(options.backupEnabled ? ['backup'] : []),
     ] as JobKind[]) {
       window.check();
-      await gate.run(async () => {
-        const clientToken = crypto.randomUUID();
+      const retryUntil = now() + ADMISSION_RETRY_WINDOW_MS;
+      let busy: JobHttpFailure | undefined;
+      for (;;) {
         try {
-          active = jobFrom(
-            await request('/v1/jobs', { kind, clientToken }, 'submit'),
-            kind,
-            undefined,
-            clientToken
-          );
-        } catch (error) {
-          // Only the server-echoed token proves ownership after a lost response.
-          // A newer same-kind operator job and HTTP 409 never grant ownership.
-          if (error instanceof JobHttpFailure) {
-            report.refused = { kind, status: error.status };
-          } else {
+          // A fresh token per attempt: a backfill refusal admitted nothing, and any
+          // ambiguous failure below is recovered by its own token and never retried.
+          await gate.run(async () => {
+            // Gate waits can outlast the retry bound; give up with the last refusal.
+            if (busy && now() > retryUntil) throw busy;
+            report.attempts[kind] = (report.attempts[kind] ?? 0) + 1;
+            delete report.refused;
+            const clientToken = crypto.randomUUID();
             try {
-              const value = await request('/v1/jobs', undefined, 'cleanup');
-              report.recovery = 'no-owned-job';
-              const candidate = jobFrom(value, kind);
-              if (
-                candidate.clientToken === clientToken &&
-                candidate.state === 'running' &&
-                candidate.finishedAtMs === null
-              ) {
-                active = candidate;
-                report.recovery = 'owned-job';
-              } else report.recovery = 'no-owned-job';
-            } catch {
-              report.recovery ??= 'unavailable';
+              active = jobFrom(
+                await request('/v1/jobs', { kind, clientToken }, 'submit'),
+                kind,
+                undefined,
+                clientToken
+              );
+            } catch (error) {
+              // Only the server-echoed token proves ownership after a lost response.
+              // A newer same-kind operator job and HTTP 409 never grant ownership.
+              if (error instanceof JobHttpFailure) {
+                report.refused = { kind, status: error.status };
+              } else {
+                try {
+                  const value = await request('/v1/jobs', undefined, 'cleanup');
+                  report.recovery = 'no-owned-job';
+                  const candidate = jobFrom(value, kind);
+                  if (
+                    candidate.clientToken === clientToken &&
+                    candidate.state === 'running' &&
+                    candidate.finishedAtMs === null
+                  ) {
+                    active = candidate;
+                    report.recovery = 'owned-job';
+                  } else report.recovery = 'no-owned-job';
+                } catch {
+                  report.recovery ??= 'unavailable';
+                }
+              }
+              throw error;
             }
-          }
-          throw error;
+          });
+          break;
+        } catch (error) {
+          if (error instanceof JobHttpFailure && error.backfillBusy) busy = error;
+          if (
+            !(error instanceof JobHttpFailure && error.backfillBusy) ||
+            now() + ADMISSION_RETRY_MS > retryUntil
+          )
+            throw error;
+          await wait(Math.min(ADMISSION_RETRY_MS, window.remainingMs()), window.signal);
+          window.check();
         }
-      });
+      }
       if (!active) throw new Error('Missing admitted nightly job');
       for (;;) {
         window.check();
@@ -216,11 +313,18 @@ export async function runNightly(
     report.status = 'succeeded';
   } catch {
     report.status = window.signal.reason instanceof IncompleteRun ? 'incomplete' : 'failed';
-    report.error = report.refused
-      ? `Nightly ${report.refused.kind} admission refused (HTTP ${report.refused.status})`
-      : report.status === 'incomplete'
+    const attempts = report.refused && report.attempts[report.refused.kind];
+    report.error =
+      report.status === 'incomplete'
         ? 'UTC cutoff or forbidden window; chain incomplete'
-        : 'Nightly chain stopped; a step failed, was interrupted or could not be verified';
+        : report.refused
+          ? `Nightly ${report.refused.kind} admission refused (HTTP ${report.refused.status})` +
+            (attempts && attempts > 1 ? ` after ${attempts} attempts` : '')
+          : report.cpamp && !report.cpamp.ok
+            ? report.cpamp.collectors.length
+              ? 'CPAMP collectors are not all subscribed; no job started'
+              : 'CPAMP status unreachable; no job started'
+            : 'Nightly chain stopped; a step failed, was interrupted or could not be verified';
     if (report.recovery === 'no-owned-job')
       report.error += '; no job with the submission token was recovered';
     if (active && active.finishedAtMs === null) {
@@ -252,6 +356,10 @@ if (import.meta.main) {
       keyFile: join(homedir(), '.config/cli-proxy-rerank/management-key'),
       backupEnabled: process.env.PROX_USAGE_ENABLE_PACED_BACKUP === '1',
       pollMs: 10000,
+      cpamp: {
+        url: 'http://127.0.0.1:18317/status',
+        keyFile: join(homedir(), '.config/prox/cpa-admin-key'),
+      },
     },
     { signal: controller.signal }
   );

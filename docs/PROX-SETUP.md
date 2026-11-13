@@ -298,7 +298,18 @@ status read recovers only a running job echoing the exact unique `clientToken`
 sent before that submission. Cancellation carries that token and the server
 refuses mismatches. A newer same-kind operator job is never sufficient proof;
 no match stops the chain with `recovery=no-owned-job`. HTTP rejections, including
-409, grant no ownership. Manual job commands may omit the optional token;
+409, grant no ownership. While a rollup backfill holds bulk admission, the submit
+answers 409 `Rollup backfill in progress`; the chain retries only that refusal
+every 30 s for up to 15 minutes (new token each attempt, still inside the noon
+cutoff) and reports the `attempts` count. Any other 409, such as an active bulk
+job, is not retried, and giving up keeps `refused: {kind, status}`.
+Before any job, the chain reads CPAMP's `/status` (port 18317) with the key in
+`~/.config/prox/cpa-admin-key` and fails the night, starting nothing, with
+`cpamp: {ok: false, collectors}` unless every collector (at least two) reports
+transport `subscribe` and state `running`, or if CPAMP is unreachable. A polling
+CPAMP would otherwise lose history silently. The nightly runs as the same user,
+so the key needs no extra mount. Restart CPAMP after its proxies are up; a failed
+guard night does not count toward the two-clean-nights gate. Manual job commands may omit the optional token;
 provided tokens must contain 1–64 ASCII letters/digits/underscore/hyphen.
 Incomplete
 parity exits 2 and cannot pass the chain. Parity has a 5h30min runtime cap; the

@@ -11,6 +11,28 @@ const cleanups: (() => void)[] = [];
 afterEach(() => {
   while (cleanups.length) cleanups.pop()!();
 });
+const subscribing = { mode: 'auto', transport: 'subscribe', collector: 'running' };
+// Synthetic CPAMP /status. Never the live service; it checks the admin key it is given.
+function fakeCpamp(collectors: object[] | 'down' = [subscribing, subscribing]) {
+  const root = mkdtempSync('/dev/shm/prox-nightly-cpamp-');
+  cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+  const keyFile = join(root, 'cpamp-key');
+  writeFileSync(keyFile, 'synthetic-cpamp-key\n');
+  const requests: string[] = [];
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request) {
+      requests.push(`${new URL(request.url).pathname} ${request.headers.get('authorization')}`);
+      return request.headers.get('authorization') === 'Bearer synthetic-cpamp-key'
+        ? Response.json({ collector: collectors === 'down' ? {} : collectors[0], collectors })
+        : new Response(null, { status: 401 });
+    },
+  });
+  cleanups.push(() => server.stop(true));
+  if (collectors === 'down') server.stop(true);
+  return { url: `http://127.0.0.1:${server.port}/status`, keyFile, requests };
+}
 function fixture(
   options: {
     fail?: string;
@@ -20,13 +42,22 @@ function fixture(
     unfinishedSuccess?: boolean;
     postDelay?: number;
     parityExit?: number;
+    cpamp?: object[] | 'down';
+    busy?: number;
+    busyError?: string;
+    // Advance the clock by this much as the third gated call (the first retry) waits.
+    stall?: number;
   } = {}
 ) {
   const root = mkdtempSync('/dev/shm/prox-nightly-test-');
   cleanups.push(() => rmSync(root, { recursive: true, force: true }));
   const keyFile = join(root, 'key');
   writeFileSync(keyFile, 'synthetic-nightly-key');
-  let now = options.at ?? Date.UTC(2026, 10, 13, 4, 20);
+  const cpamp = fakeCpamp(options.cpamp);
+  const start = options.at ?? Date.UTC(2026, 10, 13, 4, 20);
+  let now = start;
+  let busy = 0;
+  const submits: number[] = [];
   const calls: string[] = [];
   const tokens: string[] = [];
   let job: {
@@ -55,6 +86,14 @@ function fixture(
           clientToken: string;
         };
         tokens.push(clientToken);
+        submits.push(now);
+        if (options.busy !== undefined && busy++ < options.busy) {
+          calls.push(`busy-${kind}`);
+          return Response.json(
+            { error: options.busyError ?? 'Rollup backfill in progress' },
+            { status: 409 }
+          );
+        }
         calls.push(`start-${kind}`);
         expect(job === null || job.finishedAtMs !== null).toBe(true);
         job = {
@@ -80,6 +119,13 @@ function fixture(
   });
   cleanups.push(() => server.stop(true));
   const signal = new AbortController().signal;
+  const gate = quietGate(signal);
+  const gated = gate.run.bind(gate);
+  let gateCalls = 0;
+  gate.run = (fn) => {
+    if (++gateCalls === 3) now += options.stall ?? 0;
+    return gated(fn);
+  };
   const run = () =>
     runNightly(
       {
@@ -87,11 +133,12 @@ function fixture(
         keyFile,
         backupEnabled: options.backup ?? false,
         pollMs: options.delay ?? 1000,
+        cpamp,
       },
       {
         signal,
         now: () => now,
-        gate: quietGate(signal),
+        gate,
         sleep: async (ms) => {
           now += ms;
         },
@@ -103,7 +150,7 @@ function fixture(
         },
       }
     );
-  return { run, calls, tokens };
+  return { run, calls, tokens, submits, cpamp, elapsed: () => now - start };
 }
 test('nightly chain waits for terminal success and cleanup before every subsequent step', async () => {
   const f = fixture({ backup: true, unfinishedSuccess: true });
@@ -287,7 +334,13 @@ for (const stop of ['noon', 'interrupt', 'broken-response'] as const) {
     });
     cleanups.push(() => server.stop(true));
     const report = await runNightly(
-      { url: `http://127.0.0.1:${server.port}`, keyFile, backupEnabled: false, pollMs: 1 },
+      {
+        url: `http://127.0.0.1:${server.port}`,
+        keyFile,
+        backupEnabled: false,
+        pollMs: 1,
+        cpamp: fakeCpamp(),
+      },
       {
         signal: controller.signal,
         now: () => now,
@@ -361,7 +414,13 @@ test('ambiguous recovery never cancels newer operator jobs without the exact tok
     cleanups.push(() => server.stop(true));
     const signal = new AbortController().signal;
     const report = await runNightly(
-      { url: `http://127.0.0.1:${server.port}`, keyFile, backupEnabled: false, pollMs: 1 },
+      {
+        url: `http://127.0.0.1:${server.port}`,
+        keyFile,
+        backupEnabled: false,
+        pollMs: 1,
+        cpamp: fakeCpamp(),
+      },
       { signal, now: () => now, gate: quietGate(signal) }
     );
     expect(report.status).toBe('failed');
@@ -381,4 +440,196 @@ test('ambiguous recovery never cancels newer operator jobs without the exact tok
     }
     expect(calls).toEqual(variant === '409' ? ['submit'] : ['submit', 'recover']);
   }
+});
+
+test('a transient rollup-backfill 409 is retried with a fresh token until admitted', async () => {
+  const f = fixture({ busy: 3 });
+  const report = await f.run();
+  expect(report).toMatchObject({
+    status: 'succeeded',
+    completed: ['prune', 'reconcile', 'parity'],
+    attempts: { prune: 4, reconcile: 1 },
+  });
+  expect(report.refused).toBeUndefined();
+  expect(report.error).toBeUndefined();
+  expect(new Set(f.tokens).size).toBe(f.tokens.length);
+  expect(f.elapsed()).toBe(3 * 30000 + 1000 * 2);
+  expect(f.calls.slice(0, 5)).toEqual([
+    'busy-prune',
+    'busy-prune',
+    'busy-prune',
+    'start-prune',
+    'poll-prune',
+  ]);
+});
+test('a persistent rollup-backfill 409 gives up inside 15 minutes with the refused report', async () => {
+  const f = fixture({ busy: Infinity });
+  const report = await f.run();
+  expect(report).toMatchObject({
+    status: 'failed',
+    completed: [],
+    refused: { kind: 'prune', status: 409 },
+    attempts: { prune: 31 },
+    error: 'Nightly prune admission refused (HTTP 409) after 31 attempts',
+  });
+  expect(f.elapsed()).toBeLessThanOrEqual(15 * 60000);
+  expect(f.calls.every((call) => call === 'busy-prune')).toBe(true);
+  expect(report.cancellation).toBeUndefined();
+  expect(report.recovery).toBeUndefined();
+});
+test('a 409 from another bulk job is never retried', async () => {
+  for (const busyError of ['Bulk job unavailable or ID differs', 'Rollup backfill in progress.']) {
+    const f = fixture({ busy: Infinity, busyError });
+    expect(await f.run()).toMatchObject({
+      status: 'failed',
+      refused: { kind: 'prune', status: 409 },
+      attempts: { prune: 1 },
+      error: 'Nightly prune admission refused (HTTP 409)',
+    });
+    expect(f.calls).toEqual(['busy-prune']);
+  }
+});
+test('the noon cutoff during a backfill retry stops without another submit', async () => {
+  const f = fixture({ busy: Infinity, at: Date.UTC(2026, 10, 13, 11, 58) });
+  const report = await f.run();
+  expect(report).toMatchObject({ status: 'incomplete', completed: [], attempts: { prune: 4 } });
+  expect(report.error).toBe('UTC cutoff or forbidden window; chain incomplete');
+  expect(f.submits).toHaveLength(4);
+  expect(f.submits.every((at) => at < Date.UTC(2026, 10, 13, 12))).toBe(true);
+  expect(f.calls).not.toContain('cancel');
+  expect(f.calls).not.toContain('parity');
+});
+
+test('both CPAMP collectors subscribing lets the chain run, using the admin key', async () => {
+  const f = fixture();
+  expect(await f.run()).toMatchObject({
+    status: 'succeeded',
+    cpamp: {
+      ok: true,
+      collectors: [
+        { mode: 'auto', transport: 'subscribe', state: 'running' },
+        { mode: 'auto', transport: 'subscribe', state: 'running' },
+      ],
+    },
+  });
+  expect(f.cpamp.requests).toEqual(['/status Bearer synthetic-cpamp-key']);
+});
+test('a CPAMP collector that is polling, errored or missing fails before any job', async () => {
+  for (const collectors of [
+    [subscribing, { mode: 'auto', transport: 'http', collector: 'running' }],
+    [subscribing, { mode: 'auto', transport: 'resp', collector: 'running' }],
+    [subscribing, { mode: 'auto', transport: 'subscribe', collector: 'error' }],
+    [subscribing, { mode: 'auto', transport: '', collector: 'starting', lastError: 'secret' }],
+    [subscribing],
+    [],
+  ]) {
+    const f = fixture({ cpamp: collectors });
+    const report = await f.run();
+    expect(report).toMatchObject({
+      status: 'failed',
+      completed: [],
+      cpamp: { ok: false },
+    });
+    expect(report.error).toContain('CPAMP');
+    expect(JSON.stringify(report)).not.toContain('secret');
+    expect(JSON.stringify(report)).not.toContain('synthetic-cpamp-key');
+    expect(f.calls).toEqual([]);
+  }
+});
+test('an unreachable or unauthorized CPAMP fails before any job', async () => {
+  const down = fixture({ cpamp: 'down' });
+  expect(await down.run()).toMatchObject({
+    status: 'failed',
+    cpamp: { ok: false, collectors: [] },
+    error: 'CPAMP status unreachable; no job started',
+  });
+  expect(down.calls).toEqual([]);
+  const denied = fixture();
+  writeFileSync(denied.cpamp.keyFile, 'wrong-key');
+  expect(await denied.run()).toMatchObject({
+    status: 'failed',
+    cpamp: { ok: false, collectors: [] },
+    error: 'CPAMP status unreachable; no job started',
+  });
+  expect(denied.calls).toEqual([]);
+});
+test('I/O-gate waits cannot push a backfill retry past the 15-minute bound', async () => {
+  const f = fixture({ busy: Infinity, stall: 16 * 60000 });
+  expect(await f.run()).toMatchObject({
+    status: 'failed',
+    refused: { kind: 'prune', status: 409 },
+    attempts: { prune: 1 },
+    error: 'Nightly prune admission refused (HTTP 409)',
+  });
+  expect(f.submits).toHaveLength(1);
+});
+test('attempts count only sent POSTs when a gate wait runs into the noon cutoff', async () => {
+  const f = fixture({ busy: Infinity, at: Date.UTC(2026, 10, 13, 11, 50), stall: 11 * 60000 });
+  expect(await f.run()).toMatchObject({ status: 'incomplete', attempts: { prune: 1 } });
+  expect(f.submits).toHaveLength(1);
+});
+test('a refusal from an earlier attempt is not reported when a later submit needs recovery', async () => {
+  const root = mkdtempSync('/dev/shm/prox-nightly-stale-refusal-');
+  cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+  const keyFile = join(root, 'key');
+  writeFileSync(keyFile, 'synthetic-key');
+  let now = Date.UTC(2026, 10, 13, 4, 20);
+  const calls: string[] = [];
+  let token = '';
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      if (new URL(request.url).pathname.endsWith('/cancel')) {
+        calls.push('cancel');
+        return Response.json({});
+      }
+      if (request.method === 'POST') {
+        token = ((await request.json()) as { clientToken: string }).clientToken;
+        calls.push('submit');
+        return calls.length === 1
+          ? Response.json({ error: 'Rollup backfill in progress' }, { status: 409 })
+          : new Response('{"job":');
+      }
+      calls.push('recover');
+      return Response.json({
+        job: {
+          id: 5,
+          kind: 'prune',
+          state: 'running',
+          startedAtMs: now,
+          finishedAtMs: null,
+          clientToken: token,
+        },
+      });
+    },
+  });
+  cleanups.push(() => server.stop(true));
+  const signal = new AbortController().signal;
+  const report = await runNightly(
+    {
+      url: `http://127.0.0.1:${server.port}`,
+      keyFile,
+      backupEnabled: false,
+      pollMs: 1,
+      cpamp: fakeCpamp(),
+    },
+    {
+      signal,
+      now: () => now,
+      gate: quietGate(signal),
+      sleep: async (ms) => {
+        now += ms;
+      },
+    }
+  );
+  expect(report).toMatchObject({
+    status: 'failed',
+    recovery: 'owned-job',
+    cancellation: 'requested',
+    attempts: { prune: 2 },
+  });
+  expect(report.refused).toBeUndefined();
+  expect(report.error).not.toContain('refused');
+  expect(calls).toEqual(['submit', 'submit', 'recover', 'cancel']);
 });
