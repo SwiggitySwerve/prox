@@ -13,7 +13,7 @@ import {
   USAGE_MIGRATIONS,
   WRITER_PRAGMAS_SQL,
 } from './schema';
-import type { IngestGap } from './writerProtocol';
+import type { IngestGap, UsageCursor, UsageCommit } from './writerProtocol';
 import type {
   DimKind,
   EventSession,
@@ -209,7 +209,7 @@ export class UsageStore {
   private readonly insertDetail: Statement;
   private readonly insertEvent: Statement;
   private readonly insertAll: {
-    immediate(items: readonly IngestItem[], ingest: IngestSource): Stored[];
+    immediate(items: readonly IngestItem[], ingest: IngestSource, progress?: UsageCommit): Stored[];
   };
 
   /** `raw: null` runs without the raw payload buffer (imported history brings no payloads). */
@@ -242,27 +242,46 @@ export class UsageStore {
       `${insertSql('event_detail', DETAIL_COLUMNS)} ON CONFLICT (execution_id) DO NOTHING`
     );
     this.insertEvent = this.db.query(insertSql('events', EVENT_COLUMNS));
-    this.insertAll = this.db.transaction((items: readonly IngestItem[], ingest: IngestSource) => {
-      const stored: Stored[] = [];
-      for (const item of items) {
-        const seq = this.nextSeq;
-        // The identity check and the write are one statement: a known execution_id writes nothing.
-        if (this.insertDetail.run(this.detailRow(item.event, seq)).changes === 0) continue;
-        this.nextSeq += 1;
-        this.insertEvent.run(this.eventRow(item.event, seq, ingest));
-        stored.push({ seq, item });
+    this.insertAll = this.db.transaction(
+      (items: readonly IngestItem[], ingest: IngestSource, progress: UsageCommit = {}) => {
+        const stored: Stored[] = [];
+        for (const item of items) {
+          const seq = this.nextSeq;
+          // The identity check and the write are one statement: a known execution_id writes nothing.
+          if (this.insertDetail.run(this.detailRow(item.event, seq)).changes === 0) continue;
+          this.nextSeq += 1;
+          this.insertEvent.run(this.eventRow(item.event, seq, ingest));
+          stored.push({ seq, item });
+        }
+        for (const { instance, cursor } of progress.cursors ?? []) {
+          const previous = this.getCursor(instance);
+          if (
+            !previous ||
+            previous.bootId !== cursor.bootId ||
+            previous.queueSeq < cursor.queueSeq
+          ) {
+            this.setMeta(`cursor:${instance}`, JSON.stringify(cursor));
+            this.setMeta(`cursor-at:${instance}`, String(this.now()));
+          }
+        }
+        if (progress.gap) this.recordGap(progress.gap);
+        if (progress.recoveredInstance) this.clearRecovery(progress.recoveredInstance);
+        this.setMeta('next_seq', String(this.nextSeq));
+        return stored;
       }
-      this.setMeta('next_seq', String(this.nextSeq));
-      return stored;
-    });
+    );
   }
 
   /** Store the events that are not yet known, in one transaction. */
-  insert(items: readonly IngestItem[], ingest: IngestSource): InsertResult {
+  insert(
+    items: readonly IngestItem[],
+    ingest: IngestSource,
+    progress: UsageCommit = {}
+  ): InsertResult {
     const firstSeq = this.nextSeq;
     let stored: Stored[];
     try {
-      stored = this.insertAll.immediate(items, ingest);
+      stored = this.insertAll.immediate(items, ingest, progress);
     } catch (error) {
       // The rollback also undid the sequence numbers and dictionary rows handed out above.
       this.nextSeq = firstSeq;
@@ -332,6 +351,11 @@ export class UsageStore {
     })();
   }
 
+  getCursor(instance: string): UsageCursor | null {
+    const value = this.getMeta(`cursor:${instance}`);
+    return value === null ? null : JSON.parse(value);
+  }
+
   getMeta(key: string): string | null {
     const row = this.db
       .query<{ value: string }, [string]>('SELECT value FROM meta WHERE key = ?')
@@ -351,9 +375,36 @@ export class UsageStore {
   recordGap(gap: IngestGap): void {
     this.db
       .query(
-        'INSERT INTO ingest_gaps (instance, from_ms, to_ms, reason, missed) VALUES (?, ?, ?, ?, NULL)'
+        'INSERT INTO ingest_gaps (instance, from_ms, to_ms, reason, missed) VALUES (?, ?, ?, ?, ?)'
       )
-      .run(gap.instance, gap.fromMs, gap.toMs, gap.reason);
+      .run(gap.instance, gap.fromMs, gap.toMs, gap.reason, gap.missed ?? null);
+  }
+
+  /** A provisional coverage gap stays visible until replay establishes continuity. */
+  recordRecovery(gap: IngestGap): void {
+    this.db
+      .transaction(() => {
+        const key = `recovery-gap:${gap.instance}`;
+        const existing = this.getMeta(key);
+        if (existing !== null) {
+          this.db
+            .query('UPDATE ingest_gaps SET to_ms = MAX(to_ms, ?) WHERE id = ?')
+            .run(gap.toMs, Number(existing));
+        } else {
+          this.recordGap({ ...gap, missed: null });
+          const row = this.db.query<{ id: number }, []>('SELECT last_insert_rowid() AS id').get()!;
+          this.setMeta(key, String(row.id));
+        }
+      })
+      .immediate();
+  }
+
+  private clearRecovery(instance: string): void {
+    const key = `recovery-gap:${instance}`;
+    const id = this.getMeta(key);
+    if (id === null) return;
+    this.db.query('DELETE FROM ingest_gaps WHERE id = ?').run(Number(id));
+    this.db.query('DELETE FROM meta WHERE key = ?').run(key);
   }
 
   gapCount(): number {

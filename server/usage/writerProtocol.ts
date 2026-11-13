@@ -30,17 +30,34 @@ export interface BulkJobReport {
   lastBackupSuccessAtMs: number | null;
 }
 
+export interface UsageCursor {
+  bootId: string;
+  queueSeq: number;
+}
+export interface SourceResume {
+  cursor: UsageCursor | null;
+  heartbeat: number | null;
+  cursorAtMs?: number;
+}
 export interface UsagePayload {
   instance: string;
   payload: string;
   ingest: IngestSource;
   label?: AccountLabel;
+  cursor?: UsageCursor;
 }
 export interface IngestGap {
   instance: string;
   fromMs: number;
   toMs: number;
-  reason: 'stale-heartbeat' | 'subscription-dropped' | 'writer-overflow';
+  reason: 'stale-heartbeat' | 'subscription-dropped' | 'writer-overflow' | 'proxy-restart';
+  missed?: number | null;
+}
+/** Event-store progress published in the same transaction as its covered events. */
+export interface UsageCommit {
+  cursors?: readonly { instance: string; cursor: UsageCursor }[];
+  gap?: IngestGap;
+  recoveredInstance?: string;
 }
 export interface ExporterConfig {
   rateBookPath?: string;
@@ -53,6 +70,7 @@ export interface WriterStatus {
     rate_book_loaded: boolean;
     client_aliases_loaded: boolean;
   };
+  resume?: SourceResume;
   backlog: number;
   inserted: number;
   duplicates: number;
@@ -64,6 +82,15 @@ export interface WriterStatus {
 export interface CollectorWriter {
   readonly backlog: number;
   enqueue(payload: UsagePayload): void;
+  resume(instance: string): Promise<SourceResume>;
+  replay(
+    instance: string,
+    payloads: UsagePayload[],
+    cursor: UsageCursor,
+    gap?: IngestGap,
+    complete?: boolean
+  ): Promise<void>;
+  recovery(gap: IngestGap): Promise<void>;
   gap(gap: IngestGap): Promise<void>;
   heartbeat(instance: string, atMs: number): Promise<void>;
 }
@@ -81,6 +108,19 @@ export type WriterRequest =
       };
     }
   | { id: number; kind: 'live'; body: UsagePayload[] }
+  | { id: number; kind: 'resume'; body: { instance: string } }
+  | {
+      id: number;
+      kind: 'replay';
+      body: {
+        instance: string;
+        payloads: UsagePayload[];
+        cursor: UsageCursor;
+        gap?: IngestGap;
+        complete?: boolean;
+      };
+    }
+  | { id: number; kind: 'recovery'; body: IngestGap }
   | { id: number; kind: 'gap'; body: IngestGap }
   | { id: number; kind: 'heartbeat'; body: { instance: string; atMs: number } }
   | { id: number; kind: BulkJobKind; body: null }
@@ -91,4 +131,3 @@ export type WriterReply =
   | { id: number; ok: true; body: WriterStatus }
   | { id: number; ok: false; body: { error: string; fatal: boolean } };
 export const WRITER_HIGH_WATER = 50_000;
-export const QUEUE_RETENTION_MS = 3_600_000;
