@@ -1,6 +1,7 @@
 // Worker-owned bulk orchestration. No sockets or HTTP; database work goes through bounded chunks.
 import { loadBackupConfig, UsageBackup } from './backup';
 import { runCpampJob } from './importCpamp';
+import type { RollupWriteResult } from './rollup';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoGovernorOptions } from './ioGovernor';
 import { openUsageReader, type RawPruneCursor, type UsageStore } from './store';
 import {
@@ -17,6 +18,7 @@ export class UsageBulkJobs {
   private active: { controller: AbortController; settled: Promise<void> } | null = null;
   private nextId = 0;
   private closing = false;
+  private rollupBackfill = false;
 
   constructor(
     private readonly store: UsageStore,
@@ -37,7 +39,7 @@ export class UsageBulkJobs {
   start(kind: BulkJobKind, clientToken?: string): BulkJobReport {
     if (clientToken !== undefined && !isBulkJobClientToken(clientToken))
       throw new Error('Invalid client token');
-    if (this.closing || this.active) throw new Error('Bulk job unavailable');
+    if (this.closing || this.active || this.rollupBackfill) throw new Error('Bulk job unavailable');
     this.latest = {
       id: ++this.nextId,
       ...(clientToken === undefined ? {} : { clientToken }),
@@ -77,14 +79,25 @@ export class UsageBulkJobs {
     }
   }
 
-  /** Automatic maintenance shares the manual jobs' governor and serialized chunk boundary. */
-  runRollupChunk<T>(work: () => T, signal: AbortSignal): Promise<T> {
-    if (this.closing) return Promise.reject(new Error('Bulk jobs are closing'));
-    return runIoChunk('rollup', work, {
-      governor: this.getGovernor(),
-      signal,
-      scheduleChunk: this.scheduleChunk,
-    });
+  /** Reserve admission across the entire backfill, including IO waits and between hours.
+   * A previously admitted manual job pauses maintenance without advancing its stored cursor.
+   * Only a null work result releases the reservation: that pass has drained all closed hours.
+   */
+  async runRollupChunk(work: () => RollupWriteResult | null, signal: AbortSignal): Promise<void> {
+    if (this.closing) throw new Error('Bulk jobs are closing');
+    if (this.active) return;
+    this.rollupBackfill = true;
+    try {
+      const result = await runIoChunk('rollup', work, {
+        governor: this.getGovernor(),
+        signal,
+        scheduleChunk: this.scheduleChunk,
+      });
+      if (result === null) this.rollupBackfill = false;
+    } catch (error) {
+      if (signal.aborted) this.rollupBackfill = false;
+      throw error;
+    }
   }
 
   private getGovernor(): IoGovernor {

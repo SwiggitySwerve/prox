@@ -22,7 +22,7 @@ export function startHourlyRollups(store: UsageStore, jobs: UsageBulkJobs, path?
     try {
       await jobs.runRollupChunk(() => {
         const book = loader.load().book ?? { version: 1 as const, models: {} };
-        store.rebuildNextHour(book);
+        return store.rebuildNextHour(book);
       }, controller.signal);
     } catch {
       // Replacement is transactional. Failed hours stay raw and retry after an event-loop yield.

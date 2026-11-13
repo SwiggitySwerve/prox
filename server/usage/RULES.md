@@ -786,6 +786,12 @@ and private aliases, and verify bearer routing, exact label values and source he
   waits precede queue admission, and measured thread IO bytes are charged after
   each hour, including a failed hour. Pressure/byte waits stay outside the queue,
   so a paused rollup cannot hold live commits. Shutdown aborts these waits.
+  Backfill reserves bulk admission from its first chunk until a no-work result,
+  including pressure/pacing waits and the yield between hours: manual/nightly
+  POST `/v1/jobs` returns 409 throughout that interval. If a manual job is already
+  active, the maintenance tick does nothing and retries later without advancing
+  its durable discovery cursor or dirty set. This uses the refusal-and-pause
+  policy; it adds no report kind and never overwrites a manual job's client token.
 - Migration 2 creates empty tables only. Pre-migration events are discovered
   using a persisted time cursor and a primary-key seek, one hour per maintenance
   job, without rewriting or grouping the events table at startup. Already-built
@@ -821,4 +827,3 @@ tier mixtures, pagination, layout changes and unsupported timings. Additional
 checks cover transactional failure, duplicates, pre-migration discovery and a
 3,000-hour import drained one job at a time. These synthetic tests do not replace
 P6's comparison with CPAMP or a live performance gate.
-
