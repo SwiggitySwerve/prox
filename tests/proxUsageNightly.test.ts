@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { runNightly } from '../scripts/usage-nightly';
 import { quietGate } from './helpers/usageParity';
 import { generateParityEvidence } from './helpers/usageParityEvidence';
-import { Socket } from 'node:net';
+import { Socket, connect, createConnection } from 'node:net';
 import { takeBlockedTestPorts } from './support/noLivePorts';
 
 const cleanups: (() => void)[] = [];
@@ -28,7 +28,13 @@ function fixture(
   writeFileSync(keyFile, 'synthetic-nightly-key');
   let now = options.at ?? Date.UTC(2026, 10, 13, 4, 20);
   const calls: string[] = [];
-  let job: { id: number; kind: string; state: string; finishedAtMs: number | null } | null = null;
+  let job: {
+    id: number;
+    kind: string;
+    state: string;
+    startedAtMs: number;
+    finishedAtMs: number | null;
+  } | null = null;
   let polls = 0;
   const server = Bun.serve({
     hostname: '127.0.0.1',
@@ -44,7 +50,13 @@ function fixture(
         const { kind } = (await request.json()) as { kind: string };
         calls.push(`start-${kind}`);
         expect(job === null || job.finishedAtMs !== null).toBe(true);
-        job = { id: (job?.id ?? 0) + 1, kind, state: 'running', finishedAtMs: null };
+        job = {
+          id: (job?.id ?? 0) + 1,
+          kind,
+          state: 'running',
+          startedAtMs: now,
+          finishedAtMs: null,
+        };
         polls = 0;
         now += options.postDelay ?? 0;
       } else {
@@ -176,7 +188,11 @@ test('test network guard blocks live ports before fetch, Node or Bun TCP admissi
     expect(() =>
       Bun.connect({ hostname: '127.0.0.1', port, socket: { data() {}, open() {} } })
     ).toThrow('Tests must not contact live port');
-    expect(takeBlockedTestPorts()).toEqual([port, port, port]);
+    expect(() => connect(port, '127.0.0.1')).toThrow('Tests must not contact live port');
+    expect(() => createConnection({ port, host: '127.0.0.1' })).toThrow(
+      'Tests must not contact live port'
+    );
+    expect(takeBlockedTestPorts()).toEqual([port, port, port, port, port]);
   }
 });
 
@@ -195,5 +211,132 @@ test('failed or incomplete parity cannot make the nightly chain pass', async () 
     const report = await f.run();
     expect(report.status).toBe(status);
     expect(report.completed).toEqual(['prune', 'reconcile']);
+  }
+});
+
+// Hold a real HTTP response body in flight while the window/interrupt fires.
+// The submit must finish reading its accepted ID using its own bounded signal.
+for (const stop of ['noon', 'interrupt', 'broken-response'] as const) {
+  test(`in-flight submission retains or recovers cancellation ownership on ${stop}`, async () => {
+    const root = mkdtempSync('/dev/shm/prox-nightly-inflight-');
+    cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+    const keyFile = join(root, 'key');
+    writeFileSync(keyFile, 'synthetic-key');
+    const controller = new AbortController();
+    let now =
+      stop === 'noon' ? Date.UTC(2026, 10, 13, 11, 59, 59, 990) : Date.UTC(2026, 10, 13, 4, 20);
+    const job = { id: 71, kind: 'prune', state: 'running', startedAtMs: now, finishedAtMs: null };
+    const calls: string[] = [];
+    let broken = false;
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      async fetch(request) {
+        expect(request.headers.get('authorization')).toBe('Bearer synthetic-key');
+        const path = new URL(request.url).pathname;
+        if (path === '/v1/jobs/cancel') {
+          expect(await request.json()).toEqual({ jobId: 71 });
+          calls.push('cancel');
+          return Response.json({ job });
+        }
+        if (request.method === 'GET') {
+          calls.push('recover');
+          return Response.json({ job });
+        }
+        calls.push('submit');
+        return new Response(
+          new ReadableStream({
+            start(stream) {
+              stream.enqueue(new TextEncoder().encode('{"job":'));
+              setTimeout(() => {
+                if (stop === 'interrupt') controller.abort();
+                if (stop === 'noon') now = Date.UTC(2026, 10, 13, 12);
+              }, 1);
+              setTimeout(() => {
+                if (stop === 'broken-response') {
+                  broken = true;
+                  stream.error(new Error('synthetic connection lost'));
+                } else {
+                  stream.enqueue(new TextEncoder().encode(`${JSON.stringify(job)}}`));
+                  stream.close();
+                }
+              }, 40);
+            },
+          }),
+          { headers: { 'content-type': 'application/json' } }
+        );
+      },
+    });
+    cleanups.push(() => server.stop(true));
+    const report = await runNightly(
+      { url: `http://127.0.0.1:${server.port}`, keyFile, backupEnabled: false, pollMs: 1 },
+      {
+        signal: controller.signal,
+        now: () => now,
+        gate: quietGate(controller.signal),
+        parity: async () => {
+          throw new Error('Must not reach parity');
+        },
+      }
+    );
+    expect(report).toMatchObject({
+      status: stop === 'noon' ? 'incomplete' : 'failed',
+      cancellation: 'requested',
+      completed: [],
+    });
+    expect(calls).toEqual(
+      stop === 'broken-response' ? ['submit', 'recover', 'cancel'] : ['submit', 'cancel']
+    );
+    expect(broken).toBe(stop === 'broken-response');
+  });
+}
+
+test('ambiguous submission recovery never cancels older, different-kind or terminal jobs', async () => {
+  for (const variant of ['older', 'different-kind', 'terminal', '409'] as const) {
+    const root = mkdtempSync('/dev/shm/prox-nightly-recovery-');
+    cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+    const keyFile = join(root, 'key');
+    writeFileSync(keyFile, 'synthetic-key');
+    const now = Date.UTC(2026, 10, 13, 4, 20);
+    const calls: string[] = [];
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch(request) {
+        if (new URL(request.url).pathname.endsWith('/cancel')) {
+          calls.push('cancel');
+          return Response.json({});
+        }
+        if (request.method === 'POST') {
+          calls.push('submit');
+          return variant === '409' ? new Response(null, { status: 409 }) : new Response('{"job":');
+        }
+        calls.push('recover');
+        return Response.json({
+          job: {
+            id: 81,
+            kind: variant === 'different-kind' ? 'backup' : 'prune',
+            startedAtMs: variant === 'older' ? now - 1 : now,
+            state: variant === 'terminal' ? 'succeeded' : 'running',
+            finishedAtMs: variant === 'terminal' ? now : null,
+          },
+        });
+      },
+    });
+    cleanups.push(() => server.stop(true));
+    const signal = new AbortController().signal;
+    expect(
+      (
+        await runNightly(
+          { url: `http://127.0.0.1:${server.port}`, keyFile, backupEnabled: false, pollMs: 1 },
+          {
+            signal,
+            now: () => now,
+            gate: quietGate(signal),
+          }
+        )
+      ).status
+    ).toBe('failed');
+    expect(calls).toEqual(variant === '409' ? ['submit'] : ['submit', 'recover']);
   }
 });

@@ -42,8 +42,18 @@ install -D -m 644 deploy/prox-usage-job@.service "$HOME/.config/systemd/user/pro
 install -D -m 644 deploy/prox-usage-nightly.service "$HOME/.config/systemd/user/prox-usage-nightly.service"
 install -D -m 644 deploy/prox-usage-nightly.timer "$HOME/.config/systemd/user/prox-usage-nightly.timer"
 install -D -m 644 deploy/prox-usage-parity.service "$HOME/.config/systemd/user/prox-usage-parity.service"
-# Legacy independent timers are no longer shipped. Operators must disable/remove any
-# previously installed prune/reconcile/backup/parity timers before enabling this chain.
+# Retire independent usage timers on upgrades before reloading the unit graph.
+for retired in prune reconcile backup parity; do
+  timer="prox-usage-$retired.timer"
+  if ! retirement_error=$(LC_ALL=C systemctl --user disable --now "$timer" 2>&1); then
+    case "$retirement_error" in
+      *"not loaded"*|*"does not exist"*|*"not found"*) ;;
+      *) printf '%s\n' "$retirement_error" >&2; exit 1 ;;
+    esac
+  fi
+  rm -f -- "$HOME/.config/systemd/user/$timer" \
+    "$HOME/.config/systemd/user/timers.target.wants/$timer"
+done
 systemctl --user daemon-reload
 systemctl --user enable --now prox-auth-janitor.path prox-auth-janitor.timer
 # UI/history deploys leave the live usage subscription alone when its code did not change.

@@ -291,7 +291,11 @@ and completed cleanup before starting the next. It reads the management bearer
 inside the process, polls `/v1/jobs` every ten seconds through the shared PSI gate,
 and stops on job/API/parity failure. It enforces today's absolute **12:00 UTC**
 cutoff and the 01:00–04:00 / 12:20–12:50 forbidden windows on every admission and
-wait; at cutoff/interruption it requests active-job cancellation. Incomplete
+wait; at cutoff/interruption it requests active-job cancellation. A submit POST has its own 15-second timeout so a cutoff
+cannot discard its accepted job ID. On an ambiguous response failure, a bounded
+status read recovers only a running same-kind job started at/after submission
+before cancelling that exact ID; HTTP rejections, including 409, grant no ownership.
+Incomplete
 parity exits 2 and cannot pass the chain. Parity has a 5h30min runtime cap; the
 whole oneshot has a 7h40min start timeout as a backstop.
 
@@ -299,7 +303,8 @@ Backup stays **skipped** with `PROX_USAGE_ENABLE_PACED_BACKUP=0`. Only set it to
 `1` through a nightly-service override after the paced snapshot implementation
 and restore gate land. Upload pacing does not make the existing VACUUM snapshot
 bounded. The old independent prune/reconcile/backup/parity timers are no longer
-shipped: disable/remove any previously installed copies before enabling the sole
-nightly timer. `prox-usage-job@.service` and `prox-usage-parity.service` remain for
+shipped. On upgrades, deployment disables/stops each retired timer, removes its
+unit and enable link, then reloads systemd; missing timers are tolerated, manager
+failures stop deployment. The sole nightly timer remains disabled. `prox-usage-job@.service` and `prox-usage-parity.service` remain for
 manual use. The deployment script copies templates without enabling them; this
 change installs, enables and runs no live maintenance unit.

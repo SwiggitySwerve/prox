@@ -12,6 +12,7 @@ interface Job {
   id: number;
   kind: JobKind;
   state: 'running' | 'cancelling' | 'cancelled' | 'succeeded' | 'failed';
+  startedAtMs: number;
   finishedAtMs: number | null;
 }
 export interface NightlyOptions {
@@ -41,6 +42,8 @@ function jobFrom(value: unknown, kind: JobKind, id?: number): Job {
     !job ||
     !Number.isSafeInteger(job.id) ||
     job.id < 1 ||
+    !Number.isSafeInteger(job.startedAtMs) ||
+    job.startedAtMs < 0 ||
     job.kind !== kind ||
     (id !== undefined && job.id !== id) ||
     !['running', 'cancelling', 'cancelled', 'succeeded', 'failed'].includes(job.state) ||
@@ -49,6 +52,8 @@ function jobFrom(value: unknown, kind: JobKind, id?: number): Job {
     throw new Error('Invalid or replaced nightly job');
   return job;
 }
+class JobHttpFailure extends Error {}
+
 async function parityProcess(deadlineMs: number, signal: AbortSignal): Promise<number> {
   signal = AbortSignal.any([signal, AbortSignal.timeout(5.5 * 3600000)]);
   signal.throwIfAborted();
@@ -101,19 +106,25 @@ export async function runNightly(
   };
   let key = '';
   let active: Job | undefined;
-  const request = async (path: string, body?: object, cleanup = false): Promise<unknown> => {
+  const request = async (
+    path: string,
+    body?: object,
+    mode: 'query' | 'submit' | 'cleanup' = 'query'
+  ): Promise<unknown> => {
     const response = await fetch(new URL(path, options.url), {
       method: body ? 'POST' : 'GET',
       redirect: 'error',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
-      signal: cleanup
-        ? AbortSignal.timeout(5000)
-        : AbortSignal.any([window.signal, AbortSignal.timeout(15000)]),
+      // Once submitted, read the accepted ID even if the run is interrupted at noon.
+      signal:
+        mode === 'query'
+          ? AbortSignal.any([window.signal, AbortSignal.timeout(15000)])
+          : AbortSignal.timeout(mode === 'cleanup' ? 5000 : 15000),
     });
     if (!response.ok) {
       await response.body?.cancel();
-      throw new Error('Nightly job HTTP failure');
+      throw new JobHttpFailure('Nightly job HTTP failure');
     }
     return response.json();
   };
@@ -131,7 +142,27 @@ export async function runNightly(
     ] as JobKind[]) {
       window.check();
       await gate.run(async () => {
-        active = jobFrom(await request('/v1/jobs', { kind }), kind);
+        const submittedAt = now();
+        try {
+          active = jobFrom(await request('/v1/jobs', { kind }, 'submit'), kind);
+        } catch (error) {
+          // A lost response can leave an accepted job running. Recover only our new,
+          // same-kind job; an HTTP rejection (especially 409) never grants ownership.
+          if (!(error instanceof JobHttpFailure)) {
+            try {
+              const candidate = jobFrom(await request('/v1/jobs', undefined, 'cleanup'), kind);
+              if (
+                candidate.startedAtMs >= submittedAt &&
+                candidate.state === 'running' &&
+                candidate.finishedAtMs === null
+              )
+                active = candidate;
+            } catch {
+              report.cancellation = 'unconfirmed';
+            }
+          }
+          throw error;
+        }
       });
       if (!active) throw new Error('Missing admitted nightly job');
       for (;;) {
@@ -173,7 +204,7 @@ export async function runNightly(
     if (active && active.finishedAtMs === null) {
       // Cancellation is control traffic, admitted even at the stop boundary. Never start more work.
       try {
-        await request('/v1/jobs/cancel', { jobId: active.id }, true);
+        await request('/v1/jobs/cancel', { jobId: active.id }, 'cleanup');
         report.cancellation = 'requested';
       } catch {
         report.cancellation = 'unconfirmed';

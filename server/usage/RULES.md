@@ -594,10 +594,16 @@ HTTP error or nonzero parity stops the chain; incomplete parity remains exit 2.
 Every admission and wait uses the same PSI/UTC gates and today's noon cutoff.
 At cutoff/interruption the chain requests cancellation of its active job and
 starts no further step; cancellation request success is not a terminal-success
-claim. The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
+claim. Submit POSTs use an independent 15-second timeout so cutoff/interruption
+does not lose the accepted ID. Ambiguous response failures trigger a bounded
+status read; only a running same-kind job started at/after submission can grant
+cancellation ownership. HTTP rejection (especially 409) never does.
+The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
 absolute noon deadline. The standalone parity service keeps `RuntimeMaxSec=5h30min`.
 The old independent prune/reconcile/backup/parity timers are removed from shipping;
-operators must disable/remove old installed timers before enabling this chain.
+deployment disables/stops each old timer and removes its unit/enable link before
+daemon-reload, tolerating missing units but failing on manager errors. The new
+chain timer stays disabled until operator enablement.
 No live unit is installed, enabled or disabled by this work.
 
 **Backup chain gate:** `PROX_USAGE_ENABLE_PACED_BACKUP` defaults to `0`, so the

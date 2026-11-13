@@ -199,8 +199,9 @@ The standalone parity service remains manual, with `RuntimeMaxSec=5h30min`;
 the chain applies that same parity runtime cap and passes an absolute noon
 cutoff. `TimeoutStartSec=7h40min` backs the whole oneshot chain. The previous
 prune/reconcile/backup/parity timers are no longer shipped. The deploy script
-copies the sole timer disabled; operators must disable/remove any legacy timers
-before enabling it. Per-job manual units remain available. Templates assume
+copies the sole timer disabled and retires legacy timers on upgrades: disable/stop,
+remove unit/enable link, then daemon-reload. Missing units are tolerated; manager
+errors stop deployment. Per-job manual units remain available. Templates assume
 `%h/src/prox` and require path review. This work installs or enables nothing.
 
 A read-only `GET /v1/jobs` observation before event comparison reports whether the

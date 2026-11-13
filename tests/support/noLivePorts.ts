@@ -25,7 +25,8 @@ globalThis.fetch = Object.assign(
 );
 const connectOriginal = Socket.prototype.connect;
 Socket.prototype.connect = function (this: Socket, ...args: unknown[]) {
-  const first = args[0];
+  let first = args[0];
+  while (Array.isArray(first)) first = first[0];
   assertTestPort(
     typeof first === 'object' && first !== null && 'port' in first ? first.port : first
   );

@@ -97,17 +97,30 @@ shipped; manual per-job units remain. No unit was installed or enabled.
 The synthetic evidence helper now passes its ephemeral job URL and synthetic
 key explicitly, and asserts both status requests. A test preload blocks fetch,
 Node TCP and Bun TCP attempts to ports 18317/18320/8317/8319; unconsumed attempts
-fail the test even when application code catches the network error.
+fail the test even when application code catches the network error. Normalized
+Node argument arrays are unwrapped; regressions cover `net.connect`,
+`net.createConnection` and direct `Socket.connect`.
 
-## Verification after review fixes
+The final review fixes also retire installed legacy timer units and enable links
+before deployment reload, tested against a synthetic enabled installation and
+missing-unit/manager-error cases. No live retirement was performed. Job submits
+use an independent 15-second timeout so in-flight accepted responses survive a
+cutoff/interrupt. A broken response triggers a bounded status read and cancels
+only the running same-kind ID started at/after submission; older/different/terminal
+jobs and HTTP 409 are excluded. Real streamed-response tests cover noon,
+interruption and a broken body, including ownership recovery.
 
-- Harness, nightly, service and job suites: **89 passed**, 0 failed, 6,679
-  assertions, nine files. Synthetic databases and credentials lived in `/dev/shm`
+## Verification after the final review fixes
+
+`origin/main` (including replay PR #78) was merged before these fixes.
+
+- Harness, nightly, service and job suites: **96 passed**, 0 failed, 6,731
+  assertions, ten files. Synthetic databases and credentials lived in `/dev/shm`
   and were removed by fixture cleanup. Fake jobs test terminal cleanup, ordering,
   failure stop, noon/forbidden cutoffs, cancellation, delayed starts and parity
   exit 2; port guards prove no live fixture endpoint is used.
-- One new `bun run verify` under `ionice -c3 nice -n10`: **3,168 tests passed**,
-  0 failed, 36,309 assertions; lint passed with six existing warnings and all
+- One new `bun run verify` under `ionice -c3 nice -n10`: **3,188 tests passed**,
+  0 failed, 36,431 assertions; lint passed with six existing warnings and all
   frontend/server/usage builds passed.
 - Standalone strict TypeScript passed, including the nightly script and guard.
 - Original live run: complete, **exit 1 intentionally preserved**. The follow-up
