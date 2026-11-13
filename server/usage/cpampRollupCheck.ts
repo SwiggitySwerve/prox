@@ -126,6 +126,32 @@ export async function checkCpampRollups(
       after = buckets[buckets.length - 1].bucket_ms;
     }
   }
+  // CPAMP keeps ingesting during the dual run, so the global coverage marker runs ahead of
+  // this job. Decide per hour instead: the tail of events newer than the verified maximum
+  // is small, and one rowid-range query yields the hours it touches (no per-hour table scan,
+  // whatever timestamp index exists). Ids only grow, so a changed max(id) inside an hour's
+  // snapshot is the cheap signal to refresh the tail.
+  let tail: { maxId: number; hours: Set<number> } | undefined;
+  const tailHours = () => {
+    const maxId = source
+      .query<{ id: number }, []>('SELECT coalesce(max(id), 0) AS id FROM usage_events')
+      .get()!.id;
+    if (tail?.maxId !== maxId) {
+      tail = {
+        maxId,
+        hours: new Set(
+          source
+            .query<{ hour: number }, [number]>(
+              `SELECT DISTINCT (timestamp_ms / ${HOUR_MS}) * ${HOUR_MS} AS hour FROM usage_events
+                WHERE id > ? AND timestamp_ms IS NOT NULL`
+            )
+            .all(options.verifiedMaxId)
+            .map((row) => row.hour)
+        ),
+      };
+    }
+    return tail.hours;
+  };
   for (const hourMs of [...hours].sort((a, b) => a - b)) {
     await chunk(() =>
       source
@@ -140,8 +166,6 @@ export async function checkCpampRollups(
             reason = 'rollup-revision-changed';
           else if (!['ready', 'catching_up'].includes(state.status) || state.last_error)
             reason = 'rollup-not-ready';
-          else if (state.coverage_event_id > options.verifiedMaxId)
-            reason = 'rollup-ahead-of-source';
           else if (state.coverage_event_id < (sourceMaxIds.get(hourMs) ?? 0))
             reason = 'rollup-behind-hour';
           else if (
@@ -151,6 +175,7 @@ export async function checkCpampRollups(
             hourMs > state.max_bucket_ms
           )
             reason = 'outside-rollup-range';
+          else if (tailHours().has(hourMs)) reason = 'hour-has-unverified-events';
           // A rebuilt pricing cache can contain retained archive rows no longer in usage_events.
           if (
             !reason &&
