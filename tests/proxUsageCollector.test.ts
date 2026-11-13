@@ -19,11 +19,20 @@ async function setup() {
   const gaps: IngestGap[] = [];
   const beats: number[] = [];
   const pressure = { backlog: 0 };
+  let cursor: import('../server/usage/writerProtocol').UsageCursor | null = null;
   const writer: CollectorWriter = {
     get backlog() {
       return pressure.backlog;
     },
+    recovery: async () => {},
+    resume: async () => ({ cursor, heartbeat: null }),
+    replay: async (_instance, payloads, next, gap) => {
+      items.push(...payloads);
+      cursor = next;
+      if (gap) gaps.push(gap);
+    },
     enqueue: (item) => {
+      if (item.cursor) cursor = item.cursor;
       items.push(item);
     },
     gap: async (gap) => {
@@ -56,15 +65,15 @@ async function ready(env: Awaited<ReturnType<typeof setup>>) {
 }
 
 describe('usage collector with an in-process proxy', () => {
-  test('subscribes before destructive HTTP drain, drains to empty and keeps label snapshots', async () => {
+  test('subscribes before non-destructive replay and keeps label snapshots', async () => {
     const env = await setup();
-    env.proxy.queued.push(usagePayload());
+    env.proxy.emit(usagePayload());
     await ready(env);
-    await eventually(() => env.collector.status.drainRequests === 2);
+    await eventually(() => env.collector.status.drainRequests === 1);
     expect(env.proxy.log.slice(0, 3)).toEqual(['AUTH', 'SUBSCRIBE', 'credentials']);
-    expect(env.proxy.log.indexOf('SUBSCRIBE')).toBeLessThan(env.proxy.log.indexOf('drain'));
+    expect(env.proxy.log.indexOf('SUBSCRIBE')).toBeLessThan(env.proxy.log.indexOf('replay'));
     expect(env.items).toHaveLength(1);
-    expect(env.items[0].ingest).toBe(1);
+    expect(env.items[0].ingest).toBe(3);
     expect(env.items[0].label).toEqual({ label: 'Test account', account: 'test@example.test' });
     env.proxy.emit(usagePayload({ execution_id: 'live-event' }));
     await eventually(() => env.items.length === 2);
@@ -72,7 +81,7 @@ describe('usage collector with an in-process proxy', () => {
     expect(env.collector.status.lastEventAtMs).toBe(env.clock.now());
   });
 
-  test('reconnects at 1, 2, 4 seconds, capped at 30 seconds and records drops', async () => {
+  test('reconnects at 1, 2, 4 seconds, capped at 30 seconds without false gaps', async () => {
     const env = await setup();
     await ready(env);
     for (const delay of [1000, 2000, 4000, 8000, 16000, 30000, 30000]) {
@@ -87,7 +96,7 @@ describe('usage collector with an in-process proxy', () => {
       await eventually(() => env.collector.status.drainRequests > auths);
     }
     expect(env.collector.status.reconnects).toBe(7);
-    expect(env.gaps.some((gap) => gap.reason === 'subscription-dropped')).toBe(true);
+    expect(env.gaps).toHaveLength(0);
   });
 
   test('reads events until UNSUBSCRIBE ack and does not finish shutdown early', async () => {
@@ -108,12 +117,12 @@ describe('usage collector with an in-process proxy', () => {
     expect(env.collector.status.state).toBe('stopped');
   });
 
-  test('drops a subscription above 50,000 queued payloads, records a gap and pauses', async () => {
+  test('drops a subscription above 50,000 queued payloads and pauses for replay', async () => {
     const env = await setup();
     await ready(env);
     env.pressure.backlog = 50_001;
     env.proxy.emit(usagePayload());
-    await eventually(() => env.gaps.some((gap) => gap.reason === 'writer-overflow'));
+    await eventually(() => env.collector.status.state === 'backoff');
     await env.clock.advance(1000);
     await eventually(() => env.collector.status.state === 'paused');
     expect(env.proxy.log.filter((x) => x === 'AUTH')).toHaveLength(1);
@@ -163,7 +172,7 @@ describe('usage collector with an in-process proxy', () => {
     expect(env.collector.status.state).toBe('subscribed');
     await env.clock.advance(1001);
     await eventually(() => env.collector.status.state === 'backoff');
-    expect(env.gaps.length).toBeGreaterThan(0);
+    expect(env.gaps).toHaveLength(0);
   });
 
   test('refresh control reloads labels; support_refresh is ignored', async () => {

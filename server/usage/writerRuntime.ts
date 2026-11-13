@@ -7,7 +7,7 @@ import { normalizeUsagePayload } from './normalize';
 import { WriterQueue } from './writerQueue';
 import {
   isBulkJobKind,
-  QUEUE_RETENTION_MS,
+  type UsagePayload,
   type WriterRequest,
   type WriterStatus,
 } from './writerProtocol';
@@ -99,17 +99,17 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
       return;
     }
     if (kind === 'live') status.backlog += body.length;
-    void enqueueJob(kind, () => {
+    void enqueueJob(kind === 'replay' ? 'live' : kind, () => {
       if (kind === 'init') {
         if (store) throw new Error('Writer already initialized');
         store = new UsageStore({ events: body.events, raw: body.raw });
         for (const instance of body.sources) {
           const heartbeat = Number(store.getMeta(`heartbeat:${instance}`));
-          if (heartbeat > 0 && body.nowMs - heartbeat > QUEUE_RETENTION_MS) {
-            store.recordGap({
+          if (heartbeat > 0 && heartbeat < body.nowMs) {
+            store.recordRecovery({
               instance,
               fromMs: heartbeat,
-              toMs: body.nowMs - QUEUE_RETENTION_MS,
+              toMs: body.nowMs,
               reason: 'stale-heartbeat',
             });
           }
@@ -132,31 +132,62 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
         jobs = new UsageBulkJobs(store, enqueueJob, body.jobs, governorOptions);
       } else {
         if (!store) throw new Error('Writer not initialized');
-        if (kind === 'live') {
-          // Group only consecutive records of the same transport, retaining their ingestion order.
-          let items: IngestItem[] = [];
-          let ingest = body[0]?.ingest ?? 0;
-          const commit = () => {
-            if (!items.length) return;
-            const result = store!.insert(items, ingest);
+        if (kind === 'live' || kind === 'replay') {
+          const payloads = kind === 'live' ? body : body.payloads;
+          const groups: UsagePayload[][] = [];
+          for (const item of payloads) {
+            const group = groups[groups.length - 1];
+            if (group?.[0].ingest === item.ingest) group.push(item);
+            else groups.push([item]);
+          }
+          if (!groups.length) groups.push([]);
+          for (const [index, group] of groups.entries()) {
+            const items: IngestItem[] = [];
+            const cursors = [];
+            for (const item of group) {
+              const result = normalizeUsagePayload(item.payload, () => item.label);
+              if (result.kind === 'event') items.push({ event: result.event, raw: result.raw });
+              else if (result.kind === 'rejected') {
+                status.rejected += 1;
+                store.recordRejected(result.reason, result.raw);
+              }
+              if (item.cursor) cursors.push({ instance: item.instance, cursor: item.cursor });
+            }
+            const last = index === groups.length - 1;
+            if (kind === 'replay' && last)
+              cursors.push({ instance: body.instance, cursor: body.cursor });
+            const gap = kind === 'replay' && last ? body.gap : undefined;
+            const recovered =
+              kind === 'replay' && last && body.complete ? body.instance : undefined;
+            const result = store.insert(items, group[0]?.ingest ?? 3, {
+              cursors,
+              gap,
+              recoveredInstance: recovered,
+            });
             status.inserted += result.inserted;
             status.duplicates += result.duplicates;
-            items = [];
-          };
-          for (const item of body) {
-            if (item.ingest !== ingest) {
-              commit();
-              ingest = item.ingest;
-            }
-            const result = normalizeUsagePayload(item.payload, () => item.label);
-            if (result.kind === 'event') items.push({ event: result.event, raw: result.raw });
-            else if (result.kind === 'rejected') {
-              status.rejected += 1;
-              store.recordRejected(result.reason, result.raw);
-            }
           }
-          commit();
-          status.backlog -= body.length;
+          status.gaps = store.gapCount();
+          if (kind === 'live') status.backlog -= body.length;
+        } else if (kind === 'resume') {
+          const heartbeat = store.getMeta(`heartbeat:${body.instance}`);
+          const cursorAt = store.getMeta(`cursor-at:${body.instance}`);
+          self.postMessage({
+            id,
+            ok: true,
+            body: {
+              ...status,
+              resume: {
+                cursor: store.getCursor(body.instance),
+                ...(cursorAt === null ? {} : { cursorAtMs: Number(cursorAt) }),
+                heartbeat: heartbeat === null ? null : Number(heartbeat),
+              },
+            },
+          });
+          return;
+        } else if (kind === 'recovery') {
+          store.recordRecovery(body);
+          status.gaps = store.gapCount();
         } else if (kind === 'gap') {
           store.recordGap(body);
           status.gaps += 1;
