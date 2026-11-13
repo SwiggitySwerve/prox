@@ -45,6 +45,8 @@ function fixture(
     cpamp?: object[] | 'down';
     busy?: number;
     busyError?: string;
+    // Advance the clock by this much as the third gated call (the first retry) waits.
+    stall?: number;
   } = {}
 ) {
   const root = mkdtempSync('/dev/shm/prox-nightly-test-');
@@ -117,6 +119,13 @@ function fixture(
   });
   cleanups.push(() => server.stop(true));
   const signal = new AbortController().signal;
+  const gate = quietGate(signal);
+  const gated = gate.run.bind(gate);
+  let gateCalls = 0;
+  gate.run = (fn) => {
+    if (++gateCalls === 3) now += options.stall ?? 0;
+    return gated(fn);
+  };
   const run = () =>
     runNightly(
       {
@@ -129,7 +138,7 @@ function fixture(
       {
         signal,
         now: () => now,
-        gate: quietGate(signal),
+        gate,
         sleep: async (ms) => {
           now += ms;
         },
@@ -543,4 +552,84 @@ test('an unreachable or unauthorized CPAMP fails before any job', async () => {
     error: 'CPAMP status unreachable; no job started',
   });
   expect(denied.calls).toEqual([]);
+});
+test('I/O-gate waits cannot push a backfill retry past the 15-minute bound', async () => {
+  const f = fixture({ busy: Infinity, stall: 16 * 60000 });
+  expect(await f.run()).toMatchObject({
+    status: 'failed',
+    refused: { kind: 'prune', status: 409 },
+    attempts: { prune: 1 },
+    error: 'Nightly prune admission refused (HTTP 409)',
+  });
+  expect(f.submits).toHaveLength(1);
+});
+test('attempts count only sent POSTs when a gate wait runs into the noon cutoff', async () => {
+  const f = fixture({ busy: Infinity, at: Date.UTC(2026, 10, 13, 11, 50), stall: 11 * 60000 });
+  expect(await f.run()).toMatchObject({ status: 'incomplete', attempts: { prune: 1 } });
+  expect(f.submits).toHaveLength(1);
+});
+test('a refusal from an earlier attempt is not reported when a later submit needs recovery', async () => {
+  const root = mkdtempSync('/dev/shm/prox-nightly-stale-refusal-');
+  cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+  const keyFile = join(root, 'key');
+  writeFileSync(keyFile, 'synthetic-key');
+  let now = Date.UTC(2026, 10, 13, 4, 20);
+  const calls: string[] = [];
+  let token = '';
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(request) {
+      if (new URL(request.url).pathname.endsWith('/cancel')) {
+        calls.push('cancel');
+        return Response.json({});
+      }
+      if (request.method === 'POST') {
+        token = ((await request.json()) as { clientToken: string }).clientToken;
+        calls.push('submit');
+        return calls.length === 1
+          ? Response.json({ error: 'Rollup backfill in progress' }, { status: 409 })
+          : new Response('{"job":');
+      }
+      calls.push('recover');
+      return Response.json({
+        job: {
+          id: 5,
+          kind: 'prune',
+          state: 'running',
+          startedAtMs: now,
+          finishedAtMs: null,
+          clientToken: token,
+        },
+      });
+    },
+  });
+  cleanups.push(() => server.stop(true));
+  const signal = new AbortController().signal;
+  const report = await runNightly(
+    {
+      url: `http://127.0.0.1:${server.port}`,
+      keyFile,
+      backupEnabled: false,
+      pollMs: 1,
+      cpamp: fakeCpamp(),
+    },
+    {
+      signal,
+      now: () => now,
+      gate: quietGate(signal),
+      sleep: async (ms) => {
+        now += ms;
+      },
+    }
+  );
+  expect(report).toMatchObject({
+    status: 'failed',
+    recovery: 'owned-job',
+    cancellation: 'requested',
+    attempts: { prune: 2 },
+  });
+  expect(report.refused).toBeUndefined();
+  expect(report.error).not.toContain('refused');
+  expect(calls).toEqual(['submit', 'submit', 'recover', 'cancel']);
 });

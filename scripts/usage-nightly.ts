@@ -225,12 +225,16 @@ export async function runNightly(
     ] as JobKind[]) {
       window.check();
       const retryUntil = now() + ADMISSION_RETRY_WINDOW_MS;
+      let busy: JobHttpFailure | undefined;
       for (;;) {
-        report.attempts[kind] = (report.attempts[kind] ?? 0) + 1;
         try {
           // A fresh token per attempt: a backfill refusal admitted nothing, and any
           // ambiguous failure below is recovered by its own token and never retried.
           await gate.run(async () => {
+            // Gate waits can outlast the retry bound; give up with the last refusal.
+            if (busy && now() > retryUntil) throw busy;
+            report.attempts[kind] = (report.attempts[kind] ?? 0) + 1;
+            delete report.refused;
             const clientToken = crypto.randomUUID();
             try {
               active = jobFrom(
@@ -264,9 +268,9 @@ export async function runNightly(
               throw error;
             }
           });
-          delete report.refused;
           break;
         } catch (error) {
+          if (error instanceof JobHttpFailure && error.backfillBusy) busy = error;
           if (
             !(error instanceof JobHttpFailure && error.backfillBusy) ||
             now() + ADMISSION_RETRY_MS > retryUntil
