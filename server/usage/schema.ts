@@ -136,7 +136,17 @@ const MIGRATION_2_SQL = `
     PRIMARY KEY (bucket, ${groupDimensions.join(', ')})
   ) WITHOUT ROWID;
 `;
-export const USAGE_MIGRATIONS: readonly string[] = [MIGRATION_1_SQL, MIGRATION_2_SQL];
+const MIGRATION_3_SQL = `
+  -- A gap stays recorded after an exact CPAMP import or reconcile pass accounts for every
+  -- source event in its interval; raw_complete then ignores it. NULL means still open.
+  ALTER TABLE ingest_gaps ADD COLUMN filled_at_ms INTEGER;
+  ALTER TABLE ingest_gaps ADD COLUMN filled_by TEXT;  -- the job kind: import or reconcile
+`;
+export const USAGE_MIGRATIONS: readonly string[] = [
+  MIGRATION_1_SQL,
+  MIGRATION_2_SQL,
+  MIGRATION_3_SQL,
+];
 
 /** usage-raw.sqlite: a 30-day buffer for re-deriving events. Analytics never reads it. It has
  * no migrations: the file may be deleted while the service is stopped and is created again. */

@@ -20,6 +20,7 @@ export const HELP = `Usage: ionice -c3 nice -n10 bun scripts/usage-parity.ts [op
   --cpamp-url <loopback URL> --prox-url <loopback URL>
   --cpamp-key-file <path> --prox-key-file <path>        never print file contents
   --rate-book <path>                                  approved deployed book for D5 witnesses
+  --cpamp-projection-coverage <event ID>               replaying older CPAMP responses only: their projection coverage
   --cpamp-outages <JSON array file>                    [{from_ms,to_ms,instance,reason}]
   --output <prefix>                                  writes <prefix>.json and <prefix>.md
   --help
@@ -49,6 +50,7 @@ export function parseArgs(args: string[], now = Date.now()): ParityOptions {
     'prox-key-file',
     'rate-book',
     'cpamp-outages',
+    'cpamp-projection-coverage',
     'output',
   ];
   for (let i = 0; i < args.length; i++) {
@@ -122,6 +124,7 @@ export function parseArgs(args: string[], now = Date.now()): ParityOptions {
     limit: integer('limit'),
     sample: integer('sample'),
     deadlineMs: values.has('deadline') ? parseDeadline(values.get('deadline')!, now) : undefined,
+    cpampProjectionCoverage: integer('cpamp-projection-coverage', undefined, 0),
     gapMs: integer('min-gap-ms', 2000, 0)!,
     outages: values.has('cpamp-outages')
       ? validateIntervals(JSON.parse(readFileSync(values.get('cpamp-outages')!, 'utf8')))

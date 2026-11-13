@@ -225,6 +225,116 @@ describe('CPAMP migration jobs', () => {
     expect(scalar(f.reader, 'SELECT count(*) FROM events')).toBe(3);
   });
 
+  describe('ingest gaps filled by an exact pass', () => {
+    const at = (hour: number, second: number) => Date.UTC(2026, 10, 1, hour, 0, second);
+    const gap = (hour: number, from: number, to: number, instance = 'primary') => ({
+      instance,
+      fromMs: at(hour, from),
+      toMs: at(hour, to),
+      reason: 'subscription-dropped',
+    });
+    const filled = (f: ReturnType<typeof fixture>) =>
+      f.reader
+        .query('SELECT id, filled_at_ms IS NOT NULL AS filled, filled_by FROM ingest_gaps ORDER BY id')
+        .all();
+
+    test('an exact import fills covered gaps and records the job; other gaps stay open', async () => {
+      const f = fixture();
+      f.store.recordGap(gap(1, 10, 20));
+      f.store.recordGap({ ...gap(2, 5, 6), toMs: Date.UTC(2026, 10, 1, 3, 0, 1) }); // after every source row
+      f.store.recordRecovery(gap(1, 30, 40, 'provisional')); // still waiting for replay evidence
+      const started = Date.now();
+      const report = await runCpampJob(f.store, f.source, {
+        mode: 'import',
+        governor: fakeIo().governor,
+      });
+      expect(report.verification.exact).toBe(true);
+      expect(report.filledGaps).toEqual([1]);
+      expect(filled(f)).toEqual([
+        { id: 1, filled: 1, filled_by: 'import' },
+        { id: 2, filled: 0, filled_by: null },
+        { id: 3, filled: 0, filled_by: null },
+      ]);
+      const finished = scalar(f.reader, 'SELECT filled_at_ms FROM ingest_gaps WHERE id = 1');
+      expect(finished).toBeGreaterThanOrEqual(started);
+      expect(finished).toBeLessThanOrEqual(Date.now());
+    });
+
+    test('reconcile fills a gap recorded after the first import', async () => {
+      const f = fixture();
+      await runCpampJob(f.store, f.source, { mode: 'import', governor: fakeIo().governor });
+      f.store.recordGap(gap(1, 10, 20));
+      const report = await runCpampJob(f.store, f.source, {
+        mode: 'reconcile',
+        governor: fakeIo().governor,
+      });
+      expect(report.filledGaps).toEqual([1]);
+      expect(filled(f)).toEqual([{ id: 1, filled: 1, filled_by: 'reconcile' }]);
+    });
+
+    test('a limited pass, an inexact pass and verify fill nothing', async () => {
+      const f = fixture();
+      f.store.recordGap(gap(1, 10, 20));
+      await runCpampJob(f.store, f.source, {
+        mode: 'import',
+        maxRows: 2,
+        governor: fakeIo().governor,
+      });
+      expect(filled(f)).toEqual([{ id: 1, filled: 0, filled_by: null }]);
+      // Rows a verified hour cannot account for: an imported extra makes the pass inexact.
+      f.store.insert([item(93, { timestamp: '2026-11-01T01:00:00Z' })], INGEST.imported);
+      const inexact = await runCpampJob(f.store, f.source, {
+        mode: 'reconcile',
+        governor: fakeIo().governor,
+      });
+      expect(inexact.verification.exact).toBe(false);
+      expect(inexact.filledGaps).toEqual([]);
+      expect(filled(f)).toEqual([{ id: 1, filled: 0, filled_by: null }]);
+    });
+
+    test('verify writes nothing, even when it is exact', async () => {
+      const f = fixture();
+      f.store.recordGap(gap(1, 10, 20));
+      await runCpampJob(f.store, f.source, {
+        mode: 'import',
+        maxRows: 1,
+        governor: fakeIo().governor,
+      });
+      await runCpampJob(f.store, f.source, { mode: 'reconcile', governor: fakeIo().governor });
+      f.store.recordGap(gap(2, 10, 20));
+      const before = f.reader.serialize();
+      const verified = await runCpampJob(f.store, f.source, {
+        mode: 'verify',
+        governor: fakeIo().governor,
+      });
+      expect(verified.verification.exact).toBe(true);
+      expect(verified.filledGaps).toEqual([]);
+      expect(filled(f)).toEqual([
+        { id: 1, filled: 1, filled_by: 'reconcile' },
+        { id: 2, filled: 0, filled_by: null },
+      ]);
+      expect(f.reader.serialize()).toEqual(before);
+    });
+
+    test('a source row inside the gap that arrived after the verified maximum keeps it open', async () => {
+      const f = fixture();
+      f.store.recordGap(gap(1, 10, 20));
+      let calls = 0;
+      const report = await runCpampJob(f.store, f.source, {
+        mode: 'import',
+        governor: fakeIo().governor,
+        betweenChunks: async () => {
+          // The first call reads the source maximum; add a later-ID row inside the gap after it.
+          if (++calls === 2) f.writableSource.add(cpampRow(4, { timestamp_ms: at(1, 15) }));
+        },
+      });
+      expect(report.maxId).toBe(3);
+      expect(report.verification.exact).toBe(true);
+      expect(report.filledGaps).toEqual([]);
+      expect(filled(f)).toEqual([{ id: 1, filled: 0, filled_by: null }]);
+    });
+  });
+
   test('independently detects target-only imported rows, while excluding subscribed and drained rows', async () => {
     const f = fixture(1);
     await runCpampJob(f.store, f.source, { mode: 'import', governor: fakeIo().governor });

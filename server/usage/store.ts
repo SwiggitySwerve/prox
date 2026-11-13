@@ -472,6 +472,38 @@ export class UsageStore {
       .run(key, unanchored, `recovery-checkpoint:${instance}`);
   }
 
+  /** Open gaps; a provisional one still waits for replay evidence and is never fillable. */
+  unfilledGaps(): {
+    id: number;
+    instance: string;
+    from_ms: number;
+    to_ms: number;
+    provisional: boolean;
+  }[] {
+    return this.db
+      .query<
+        { id: number; instance: string; from_ms: number; to_ms: number; provisional: number },
+        []
+      >(
+        `SELECT g.id, g.instance, g.from_ms, g.to_ms, EXISTS (
+           SELECT 1 FROM meta m WHERE m.key = 'recovery-gap:' || g.instance
+             AND m.value = CAST(g.id AS TEXT)) AS provisional
+         FROM ingest_gaps g WHERE g.filled_at_ms IS NULL ORDER BY g.id`
+      )
+      .all()
+      .map((row) => ({ ...row, provisional: !!row.provisional }));
+  }
+
+  /** Record which job accounted for these gaps. A gap that is already filled keeps its record. */
+  markGapsFilled(ids: readonly number[], by: string, atMs: number): number {
+    const update = this.db.query(
+      'UPDATE ingest_gaps SET filled_at_ms = ?, filled_by = ? WHERE id = ? AND filled_at_ms IS NULL'
+    );
+    return this.db
+      .transaction(() => ids.reduce((count, id) => count + update.run(atMs, by, id).changes, 0))
+      .immediate();
+  }
+
   gapCount(): number {
     return this.db.query<{ count: number }, []>('SELECT count(*) AS count FROM ingest_gaps').get()!
       .count;

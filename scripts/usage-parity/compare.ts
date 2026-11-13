@@ -8,6 +8,7 @@ export const KNOWN_RESPONSE_RULES = [
   'detail-trace',
   'detail-provider',
   'coverage-limitations',
+  'search-cpamp-only',
 ] as const;
 export type DifferenceClass =
   | 'unexplained'
@@ -15,6 +16,7 @@ export type DifferenceClass =
   | 'detail-provider'
   | 'detail-trace'
   | 'coverage-limitations'
+  | 'search-cpamp-only'
   | 'drained-during-cpamp-outage'
   | 'ingest-gap'
   | 'ttft-zero-null';
@@ -28,16 +30,27 @@ type JsonObject = Record<string, unknown>;
 const object = (value: unknown): value is JsonObject =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
-/** Relative tolerance only at cost.usd. In particular zero has no absolute epsilon. */
+/**
+ * Relative tolerance only at cost.usd (1e-9) and average_latency_ms (1e-12). In particular
+ * zero has no absolute epsilon. Prox returns the correctly rounded mean of integer latency
+ * sums (verified against exact rationals); CPAMP's mean is occasionally one ulp (about 2e-16
+ * relative) away from it. 1e-12 is four orders above one ulp and far below any count or
+ * latency difference, which are whole milliseconds on at least one sample.
+ */
+const TOLERANCE: [suffix: string, relative: number][] = [
+  ['.cost.usd', 1e-9],
+  ['.average_latency_ms', 1e-12],
+];
 export function equalValue(a: unknown, b: unknown, path: string): boolean {
   if (a === b) return true;
+  const rule = TOLERANCE.find(([suffix]) => path.endsWith(suffix));
   return (
-    path.endsWith('.cost.usd') &&
+    !!rule &&
     typeof a === 'number' &&
     typeof b === 'number' &&
     Number.isFinite(a) &&
     Number.isFinite(b) &&
-    Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b))
+    Math.abs(a - b) <= rule[1] * Math.max(Math.abs(a), Math.abs(b))
   );
 }
 export function normalizeResponse(response: AnalyticsResponse): JsonObject {
@@ -104,8 +117,47 @@ export function diffValues(a: unknown, b: unknown, path = '$'): Difference[] {
 export interface D5Witness {
   // Independently replay the very same Prox query with the approved book and with only
   // D5 models removed. A difference is eligible only if BOTH replayed values match.
-  priced: AnalyticsResponse;
-  unpriced: AnalyticsResponse;
+  priced?: AnalyticsResponse;
+  unpriced?: AnalyticsResponse;
+  // search-cpamp-only: the same query replayed with exactly the events that CPAMP's search
+  // document matches only through fields or field-bridging wildcards that Prox does not have
+  // (see searchCpampOnly.ts). Prox matched them in the replay and nowhere else. `matched` uses the approved book;
+  // `unpricedMatched` also drops the D5 models, for a path that both rules touch.
+  matched?: AnalyticsResponse;
+  unpricedMatched?: AnalyticsResponse;
+}
+const COST_PATH = (path: string) => /\.cost(?:\.|$)/.test(path) || path.startsWith('$.rates[');
+/** Paths where the witness response differs from `from`, keyed for exact value matching. */
+function permittedDifferences(
+  expected: AnalyticsResponse | undefined,
+  actual: JsonObject,
+  only: (path: string) => boolean = () => true
+) {
+  const permitted = new Map<string, Difference>();
+  if (expected)
+    for (const difference of diffValues(normalizeResponse(expected), actual))
+      if (only(difference.path)) permitted.set(difference.path, difference);
+  return permitted;
+}
+/**
+ * Deep equality that ignores object key order and keeps each path's tolerance. A whole request
+ * item is compared without `provider` and `trace_id`: those two differ by the documented
+ * detail-provider and detail-trace rules whichever way the item reached the page.
+ */
+function sameValue(a: unknown, b: unknown, path: string): boolean {
+  if (equalValue(a, b, path)) return true;
+  if (Array.isArray(a) && Array.isArray(b))
+    return a.length === b.length && a.every((value, i) => sameValue(value, b[i], `${path}[${i}]`));
+  if (object(a) && object(b)) {
+    const skipped = /^\$\.requests\.items\[\d+\]$/.test(path) ? ['provider', 'trace_id'] : [];
+    const keys = Object.keys(a).filter((key) => !skipped.includes(key));
+    const other = Object.keys(b).filter((key) => !skipped.includes(key));
+    return (
+      keys.length === other.length &&
+      keys.every((key) => key in b && sameValue(a[key], b[key], `${path}.${key}`))
+    );
+  }
+  return false;
 }
 export function compareResponses(
   cpamp: AnalyticsResponse,
@@ -114,35 +166,34 @@ export function compareResponses(
 ): Difference[] {
   const a = normalizeResponse(cpamp),
     b = normalizeResponse(prox);
-  const permitted = new Map<string, Difference>();
-  if (witness) {
-    for (const difference of diffValues(
-      normalizeResponse(witness.unpriced),
-      normalizeResponse(witness.priced)
-    )) {
-      if (/\.cost(?:\.|$)/.test(difference.path) || difference.path.startsWith('$.rates['))
-        permitted.set(difference.path, difference);
-    }
-  }
+  // D5: CPAMP's expected value is the unpriced replay and Prox's the priced one.
+  const d5 = witness?.priced && witness.unpriced
+    ? permittedDifferences(witness.unpriced, normalizeResponse(witness.priced), COST_PATH)
+    : new Map<string, Difference>();
+  // Search: CPAMP's expected value is the replay with the extra matches; Prox's is its own.
+  const search = permittedDifferences(witness?.matched, b);
+  const both = permittedDifferences(witness?.unpricedMatched, b, COST_PATH);
   const coverage = coverageDifference(cpamp, prox);
   const differences = diffValues(a, b).filter(
     (d) => !/^\$\.coverage\.limitations(?:\[|\.|$)/.test(d.path)
   );
   if (coverage) differences.push(coverage);
+  const explains = (permitted: Map<string, Difference>, difference: Difference) => {
+    const allowed = permitted.get(difference.path);
+    return (
+      !!allowed &&
+      sameValue(difference.cpamp, allowed.cpamp, difference.path) &&
+      sameValue(difference.prox, allowed.prox, difference.path)
+    );
+  };
   return differences.map((difference) => {
     if (/^\$\.requests\.items\[\d+\]\.provider$/.test(difference.path))
       return { ...difference, class: 'detail-provider' };
     if (/^\$\.requests\.items\[\d+\]\.trace_id$/.test(difference.path))
       return { ...difference, class: 'detail-trace' };
-    const allowed = permitted.get(difference.path);
-    if (
-      allowed &&
-      (equalValue(difference.cpamp, allowed.cpamp, difference.path) ||
-        JSON.stringify(difference.cpamp) === JSON.stringify(allowed.cpamp)) &&
-      (equalValue(difference.prox, allowed.prox, difference.path) ||
-        JSON.stringify(difference.prox) === JSON.stringify(allowed.prox))
-    )
-      return { ...difference, class: 'd5-pricing' };
+    if (explains(d5, difference)) return { ...difference, class: 'd5-pricing' };
+    if (explains(search, difference) || explains(both, difference))
+      return { ...difference, class: 'search-cpamp-only' };
     return difference;
   });
 }

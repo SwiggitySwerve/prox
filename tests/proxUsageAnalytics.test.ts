@@ -268,6 +268,37 @@ test('coverage reports only overlapping gaps, pruning, imports, rate failure and
     queryAnalytics(f.db, query({ from_ms: BASE + 20 }), rateState()).coverage.raw_complete
   ).toBe(true);
 });
+test('raw_complete ignores only gaps that an exact import marked filled, and keeps listing them', () => {
+  const f = setup();
+  f.insert([event(1)]);
+  f.store.recordGap({ instance: 'filled-source', fromMs: BASE + 10, toMs: BASE + 20, reason: 'test' });
+  f.store.recordGap({ instance: 'open-source', fromMs: BASE + 30, toMs: BASE + 40, reason: 'test' });
+  const open = queryAnalytics(f.db, query(), rateState());
+  expect(open.coverage.raw_complete).toBe(false);
+  const [first] = f.store.unfilledGaps();
+  expect(f.store.markGapsFilled([first.id], 'import', BASE + 99)).toBe(1);
+  const partly = queryAnalytics(f.db, query(), rateState());
+  // The second gap still overlaps the range, so only the filled gap's sentence goes away.
+  expect(partly.coverage.raw_complete).toBe(false);
+  expect(partly.coverage.limitations.join('\n')).not.toContain('filled-source');
+  expect(partly.coverage.limitations.join('\n')).toContain('open-source');
+  f.store.markGapsFilled(
+    f.store.unfilledGaps().map((gap) => gap.id),
+    'reconcile',
+    BASE + 100
+  );
+  const filled = queryAnalytics(f.db, query(), rateState());
+  expect(filled.coverage.raw_complete).toBe(true);
+  expect(filled.coverage.limitations.join('\n')).not.toContain('Known collection gap');
+  // The rows and the audit trail stay; a second fill never rewrites the first job's record.
+  expect(f.store.markGapsFilled([first.id], 'reconcile', BASE + 200)).toBe(0);
+  expect(
+    f.db.query('SELECT id, filled_at_ms, filled_by FROM ingest_gaps ORDER BY id').all()
+  ).toEqual([
+    { id: 1, filled_at_ms: BASE + 99, filled_by: 'import' },
+    { id: 2, filled_at_ms: BASE + 100, filled_by: 'reconcile' },
+  ]);
+});
 test('empty scope remains unavailable with null timing and no cursor', () => {
   const f = setup();
   const result = queryAnalytics(f.db, query(), rateState());

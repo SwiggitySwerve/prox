@@ -6,7 +6,7 @@ import { HOUR_MS, DAY_MS, type AggregateRow } from './aggregate';
 import { sourceAttribution } from './parity';
 import { analyticsCosts } from './analyticsPricing';
 import { buildRateInventory } from './pricing';
-import { queryFilter, requestPage, type Dimension } from './search';
+import { queryFilter, requestPage, type CpampSearchReplay, type Dimension } from './search';
 import { KNOWN_PROVIDERS } from './types';
 import type { RateBookState } from './rates';
 import type { UsageAnalyticsQuery } from './validate';
@@ -74,6 +74,8 @@ export interface AnalyticsReadOptions {
   /** Boundary observer for deterministic concurrent-write regression tests. Runs in the snapshot. */
   afterAggregate?: () => void;
   checkDeadline?: () => void;
+  /** Parity replay only: search the way CPAMP's document does, plus the events only it matches. */
+  cpampSearch?: CpampSearchReplay;
 }
 export function queryAnalytics(
   db: Database,
@@ -89,7 +91,7 @@ export function queryAnalytics(
       check();
       const dims = db.query<Dimension, []>('SELECT id, kind, value FROM dim').all();
       const names = new Map(dims.map((d) => [d.id, d.value]));
-      const filter = queryFilter(db, q, dims);
+      const filter = queryFilter(db, q, dims, false, options.cpampSearch);
       const bucketSize = q.granularity === 'day' ? DAY_MS : HOUR_MS;
       const { rows, latency, coverageRows } = readAnalyticsGroups(
         db,
@@ -135,7 +137,7 @@ export function queryAnalytics(
       let selectorRows: { model_id: number; provider_id: number }[];
       if (!q.model?.trim() && !q.provider?.trim() && q.outcome === 'all') selectorRows = rows;
       else {
-        const selectors = queryFilter(db, q, dims, true);
+        const selectors = queryFilter(db, q, dims, true, options.cpampSearch);
         selectorRows = db
           .query<{ model_id: number; provider_id: number }, (number | string)[]>(
             `SELECT DISTINCT e.model_id, e.provider_id FROM events e WHERE ${selectors.sql}`
@@ -151,7 +153,7 @@ export function queryAnalytics(
       );
       const gaps = db
         .query<{ instance: string; from_ms: number; to_ms: number }, [number, number]>(
-          'SELECT instance, from_ms, to_ms FROM ingest_gaps WHERE from_ms < ? AND to_ms > ? ORDER BY from_ms, id'
+          'SELECT instance, from_ms, to_ms FROM ingest_gaps WHERE from_ms < ? AND to_ms > ? AND filled_at_ms IS NULL ORDER BY from_ms, id'
         )
         .all(q.to_ms, q.from_ms);
       // Coverage describes the range, including rows hidden by filters or supplementary exclusion.
