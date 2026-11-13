@@ -643,9 +643,36 @@ and never replaces, bearer authentication. Recovery without an exact match
 starts/cancels nothing else and reports `no-owned-job`. HTTP rejection
 (especially 409) never grants ownership. Nightly admission failures retain the
 attempted kind and numeric HTTP status as `refused: {kind, status}` and name that
-refusal in the safe error. Rejected submissions trigger no retry, recovery read
-or cancellation; response bodies and credential text are never copied into the
-failure report.
+refusal in the safe error. Response bodies and credential text are never copied
+into the failure report. A rejected submission triggers no recovery read or
+cancellation, and no retry except the one below.
+
+**Backfill admission retry.** A rollup backfill reserves bulk admission, so POST
+`/v1/jobs` answers 409 `Rollup backfill in progress` (`ROLLUP_BACKFILL_BUSY_ERROR`).
+Only a 409 whose JSON `error` equals that fixed string is retried: every 30 s for
+at most 15 min from the kind's first attempt, each attempt with a fresh
+`clientToken`, all inside the same PSI gate, execution window and noon cutoff. A
+backfill refusal admitted no job, so ownership is unaffected; any other 409 (an
+active bulk job, an ID mismatch, an empty body) and every non-HTTP failure is
+never retried. Give-up keeps the `refused` report (its error adds
+`after N attempts` when N > 1); a cutoff during a retry wait ends `incomplete`
+with no further submit. The report's `attempts` maps each submitted kind to its
+POST count, and a later successful admission clears the stale `refused`.
+
+**CPAMP subscribe guard.** CPAMP runs `auto` and, if it starts while a proxy is
+unreachable, falls back to polling a queue that stays empty once Prox holds the
+subscription, so its history would silently stop. At chain start, before any job,
+the nightly reads CPAMP's `GET http://127.0.0.1:18317/status` with the admin key in
+`~/.config/prox/cpa-admin-key` (read per request, sent only as the bearer header,
+never stored or reported; the unit has no `ProtectHome`, so no mount is needed).
+`collectors[]` (primary plus extra upstreams) carries `mode` (configured),
+`transport` (live) and `collector` state. The guard passes only with at least two
+collectors that are all `transport: subscribe` and `collector: running`. Otherwise
+the night is `failed` (exit 1) with `cpamp: {ok: false, collectors}`, no job
+started. An unreachable, unauthorized or malformed status is the same failure with
+empty `collectors`. The report copies only a closed vocabulary of these three
+fields, never CPAMP text. A failed night is never clean for the two-clean-nights
+gate. The check is once at chain start, not a monitor.
 The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
 absolute noon deadline. The standalone parity service keeps `RuntimeMaxSec=5h30min`.
 The old independent prune/reconcile/backup/parity timers are removed from shipping;

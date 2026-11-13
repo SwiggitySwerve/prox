@@ -14,5 +14,6 @@ ExecStart=/usr/bin/ionice -c3 /usr/bin/nice -n10 bun scripts/usage-nightly.ts
 TimeoutStartSec=7h40min
 KillSignal=SIGINT
 TimeoutStopSec=45
+# Reads ~/.config/prox/cpa-admin-key for the CPAMP /status guard; no ProtectHome, so no mount.
 NoNewPrivileges=yes
 UMask=0077
