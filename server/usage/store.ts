@@ -386,19 +386,24 @@ export class UsageStore {
   recordRecovery(gap: IngestGap, requireAnchor = false): void {
     this.db
       .transaction(() => {
+        // Clock regressions must not make a provisional interval end before its start.
+        const toMs = Math.max(gap.fromMs, gap.toMs);
         const key = `recovery-gap:${gap.instance}`;
         const existing = this.getMeta(key);
         if (existing !== null) {
           this.db
-            .query('UPDATE ingest_gaps SET to_ms = MAX(to_ms, ?) WHERE id = ?')
-            .run(gap.toMs, Number(existing));
+            .query('UPDATE ingest_gaps SET to_ms = MAX(to_ms, from_ms, ?) WHERE id = ?')
+            .run(toMs, Number(existing));
         } else {
-          this.recordGap({ ...gap, missed: null });
+          this.recordGap({ ...gap, toMs, missed: null });
           const row = this.db.query<{ id: number }, []>('SELECT last_insert_rowid() AS id').get()!;
           this.setMeta(key, String(row.id));
           // Capture receipt order with the gap, before any recovery traffic can qualify.
           // nextSeq is the authoritative monotonic allocator, including pruned history.
-          this.setMeta(`recovery-checkpoint:${gap.instance}`, String(this.nextSeq - 1));
+          const checkpointKey = `recovery-checkpoint:${gap.instance}`;
+          if (this.getMeta(checkpointKey) === null) {
+            this.setMeta(checkpointKey, String(this.nextSeq - 1));
+          }
         }
         if (requireAnchor) this.setMeta(`recovery-unanchored:${gap.instance}`, '1');
       })

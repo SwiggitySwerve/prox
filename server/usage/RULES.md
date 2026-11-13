@@ -164,6 +164,13 @@ Regression coverage lives in `tests/proxUsageNormalize.test.ts` and
   only that provisional row in the cursor transaction when coverage is proven.
   A saved cursor proving full recovery leaves no gap, even with a heartbeat older
   than the retention window.
+- Before writer initialization returns, every cursorless source with a persisted
+  heartbeat enters provisional recovery, even when the heartbeat is equal to or
+  later than the current clock. New gaps freeze their receipt checkpoint before
+  subscription/credential refresh can commit live traffic. The gap starts at the
+  heartbeat, with its end clamped to at least that start. Extending recovery never
+  creates or moves an existing pending gap's checkpoint; older missing checkpoints
+  remain unknown.
 - Within one boot, each replay page starts with the pruned interval
   `(after_seq, oldest_seq)` and excludes its overlap with the same-boot live range
   accepted on the current ordered subscription. The replay writer barrier requires

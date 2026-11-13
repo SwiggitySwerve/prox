@@ -155,6 +155,75 @@ describe('usage replay with the real writer and synthetic proxy', () => {
     });
   }
 
+  for (const startupTime of [9000, 10000, 11000]) {
+    test(`cursorless startup at ${startupTime} checkpoints prior receipts before credential-refresh live traffic`, async () => {
+      const env = await setup();
+      env.clock.time = startupTime;
+      const normalStartup = startupTime === 11000;
+      const before = usagePayload({ instance_id: 'test-proxy', execution_id: 'before-startup' });
+      env.proxy.emit(before);
+      const store = new UsageStore({ events: env.paths.events, raw: null });
+      if (normalStartup) {
+        const event = normalizeUsagePayload(JSON.stringify(before));
+        if (event.kind !== 'event') throw new Error('Invalid fixture');
+        store.insert([{ event: event.event, raw: event.raw }], 0);
+      } else env.proxy.pruneThrough(1); // An outage execution was never received.
+      store.setMeta('heartbeat:test-proxy', '10000');
+      store.close();
+      let injected = false;
+      let startupGaps: unknown[] = [];
+      let startupCheckpoint: unknown[] = [];
+      let afterLiveCheckpoint: unknown[] = [];
+      const checkpointSql = "SELECT value FROM meta WHERE key = 'recovery-checkpoint:test-proxy'";
+      const run = await env.start({
+        fetcher: (async (input, init) => {
+          if (String(input).endsWith('/credentials') && !injected) {
+            injected = true;
+            startupGaps = env.rows(gaps);
+            startupCheckpoint = env.rows(checkpointSql);
+            env.clock.time = 11000;
+            env.proxy.emit(
+              usagePayload({ instance_id: 'test-proxy', execution_id: 'during-credentials' })
+            );
+            // Hold credential refresh until this post-startup live receipt is durable.
+            // Replay must use the earlier checkpoint, never this now-committed row.
+            await eventually(() => run.writer.status.inserted === 1);
+            afterLiveCheckpoint = env.rows(checkpointSql);
+          }
+          return fetch(input, init);
+        }) as typeof fetch,
+      });
+      await ready(run);
+      const checkpoint = [{ value: normalStartup ? '1' : '0' }];
+      expect(startupCheckpoint).toEqual(checkpoint);
+      expect(afterLiveCheckpoint).toEqual(checkpoint);
+      expect(startupGaps).toEqual([
+        {
+          instance: 'test-proxy',
+          from_ms: 10000,
+          to_ms: Math.max(10000, startupTime),
+          reason: 'stale-heartbeat',
+          missed: null,
+        },
+      ]);
+      expect(env.rows(events)).toHaveLength(normalStartup ? 2 : 1);
+      expect((await run.writer.resume('test-proxy')).cursor?.queueSeq).toBe(2);
+      expect(env.rows(gaps)).toEqual(
+        normalStartup
+          ? []
+          : [
+              {
+                instance: 'test-proxy',
+                from_ms: 10000,
+                to_ms: 11000,
+                reason: 'stale-heartbeat',
+                missed: null,
+              },
+            ]
+      );
+    });
+  }
+
   test('a backward clock cannot turn a concurrent live receipt into a pre-checkpoint anchor', async () => {
     const env = await setup();
     env.clock.time = 11_000;

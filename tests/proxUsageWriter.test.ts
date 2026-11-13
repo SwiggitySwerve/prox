@@ -49,6 +49,29 @@ describe('usage writer worker', () => {
     expect(writer.status.gaps).toBe(1);
   });
 
+  test.each([0, 10000, 20000])(
+    'any persisted heartbeat %s creates a nonnegative cursorless startup gap',
+    async (heartbeat) => {
+      const files = paths();
+      const store = new UsageStore({ events: files.events, raw: null });
+      store.setMeta('heartbeat:test-proxy', String(heartbeat));
+      store.close();
+      const writer = await writerAt(files, 10000);
+      expect(writer.status.gaps).toBe(1);
+      const reader = openUsageReader(files.events);
+      try {
+        expect(reader.query('SELECT from_ms, to_ms, missed FROM ingest_gaps').all()).toEqual([
+          { from_ms: heartbeat, to_ms: Math.max(heartbeat, 10000), missed: null },
+        ]);
+        expect(
+          reader.query("SELECT value FROM meta WHERE key = 'recovery-checkpoint:test-proxy'").get()
+        ).toEqual({ value: '0' });
+      } finally {
+        reader.close();
+      }
+    }
+  );
+
   test('cursorless uncertainty survives a restart after an intermediate replay cursor commits', async () => {
     const files = paths();
     const now = 1_800_000_000_000;
