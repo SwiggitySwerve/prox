@@ -210,7 +210,22 @@ export class UsageCollector {
         });
         continue;
       }
-      const missed = Math.max(0, page.oldestSeq - after - 1);
+      const prunedThrough = page.oldestSeq - 1;
+      const firstLive = this.firstLive;
+      const lastLive = this.lastLive;
+      // One subscription delivers in order. Its accepted range remains covered even if
+      // retention prunes it before replay; writer.replay flushes that range before
+      // committing this page's gap/cursor, so excluded records must become durable first.
+      const liveCovered =
+        firstLive?.bootId === page.bootId && lastLive?.bootId === page.bootId
+          ? Math.max(
+              0,
+              Math.min(prunedThrough, lastLive.queueSeq) -
+                Math.max(after + 1, firstLive.queueSeq) +
+                1
+            )
+          : 0;
+      const missed = Math.max(0, prunedThrough - after) - liveCovered;
       const gap: IngestGap | undefined =
         missed > 0
           ? {

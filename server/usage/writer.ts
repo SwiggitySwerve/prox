@@ -111,7 +111,10 @@ export class UsageWriter implements CollectorWriter {
     gap?: IngestGap,
     complete = false
   ): Promise<void> {
-    this.dispatch();
+    // Replay can exclude accepted live records from loss counts. Require their commit
+    // acknowledgements before posting a cursor that relies on them; queue order alone
+    // cannot stop a later job from running after an earlier live transaction fails.
+    await this.flush();
     this.queued += payloads.length;
     await this.send(
       { kind: 'replay', body: { instance, payloads, cursor, gap, complete } },

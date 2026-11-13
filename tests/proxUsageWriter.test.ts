@@ -160,6 +160,45 @@ describe('usage writer worker', () => {
     }
   });
 
+  test('replay never advances past a failed live batch whose coverage it relies on', async () => {
+    const files = paths();
+    const seed = new UsageStore(files);
+    seed.close();
+    const db = new Database(files.events);
+    db.exec(
+      "CREATE TRIGGER fail_live BEFORE INSERT ON events BEGIN SELECT RAISE(ABORT, 'synthetic live failure'); END"
+    );
+    db.close();
+    const writer = new UsageWriter();
+    cleanups.push(async () => {
+      try {
+        await writer.close();
+      } catch {
+        /* Expected fatal live-commit failure. */
+      }
+    });
+    await writer.init(files, ['test-proxy']);
+    // During replay the live record has no cursor. Advancing a later page relies
+    // on successfully committing that live record, even if it was pruned upstream.
+    writer.enqueue(item('live-covered-but-uncommitted'));
+    let failed = false;
+    try {
+      await writer.replay('test-proxy', [], { bootId: 'failure-boot', queueSeq: 7 });
+    } catch {
+      failed = true;
+    }
+    expect(failed).toBe(true);
+    const reader = openUsageReader(files.events);
+    try {
+      expect(
+        reader.query("SELECT value FROM meta WHERE key = 'cursor:test-proxy'").get()
+      ).toBeNull();
+      expect(reader.query('SELECT count(*) AS count FROM events').get()).toEqual({ count: 0 });
+    } finally {
+      reader.close();
+    }
+  });
+
   test('built worker entry starts from a runtime path beside the main bundle', async () => {
     const files = paths();
     const result = await Bun.build({

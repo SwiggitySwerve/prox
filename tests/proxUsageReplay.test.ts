@@ -197,6 +197,36 @@ describe('usage replay with the real writer and synthetic proxy', () => {
     expect(env.rows(events)).toHaveLength(emitted);
   });
 
+  for (const missing of [0, 25]) {
+    test(`pruning between replay pages counts only ${missing} undelivered records before the live suffix`, async () => {
+      const env = await setup();
+      // The first page ends at 1000. Any extra preloaded records were never subscribed.
+      for (let i = 1; i <= 1000 + missing; i++) {
+        env.proxy.emit(usagePayload({ execution_id: `pruning-${i}` }));
+      }
+      env.proxy.onReplay = () => {
+        env.proxy.onReplay = null;
+        for (let i = 1001 + missing; i <= 1100; i++) {
+          env.proxy.emit(usagePayload({ execution_id: `pruning-${i}` }));
+        }
+        // All records disappear from replay after the first page snapshot. The live
+        // suffix must remain covered even though its cursor was withheld during replay.
+        env.proxy.pruneThrough(1100);
+      };
+      const run = await env.start();
+      await ready(run);
+      expect(env.proxy.replayRequests).toEqual([0, 1000]);
+      expect(env.rows(events)).toHaveLength(1100 - missing);
+      expect(run.writer.status.inserted).toBe(1100 - missing);
+      expect((await run.writer.resume('test-proxy')).cursor?.queueSeq).toBe(1100);
+      if (missing === 0) expect(env.rows(gaps)).toEqual([]);
+      else
+        expect(env.rows(gaps)).toMatchObject([
+          { instance: 'test-proxy', reason: 'subscription-dropped', missed: missing },
+        ]);
+    });
+  }
+
   test('400 backs off, preserves the durable cursor and never falls back to popping', async () => {
     const env = await setup();
     env.seed(3);

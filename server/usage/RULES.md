@@ -163,9 +163,13 @@ Regression coverage lives in `tests/proxUsageNormalize.test.ts` and
   process restarts extend the same uncertain interval. Final recovery clears
   only that provisional row in the cursor transaction. No proven loss means no
   remaining gap, even with a heartbeat older than the retention window.
-- Within one boot, each replay page records `max(0, oldest_seq - after_seq - 1)`
-  as `missed` only when positive, in the page's event/cursor transaction. The
-  interval starts at the disconnect, previous heartbeat or cursor commit time.
+- Within one boot, each replay page starts with the pruned interval
+  `(after_seq, oldest_seq)` and excludes its overlap with the same-boot live range
+  accepted on the current ordered subscription. The replay writer barrier requires
+  successful live-commit acknowledgements before posting the page's gap/cursor
+  transaction. Only the uncovered count is recorded as `missed`, and only when
+  positive; retention of already-received live records creates no loss gap. The interval starts at the
+  disconnect, previous heartbeat or cursor commit time.
   A changed boot commits a `proxy-restart` gap with `missed=NULL`, resets to zero
   and replays the new process. Cross-process loss cannot be counted. Graceful
   shutdown needs only the existing unsubscribe acknowledgement and writer flush.
