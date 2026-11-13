@@ -82,6 +82,7 @@ export interface ExporterConfig {
 export interface WriterStatus {
   exporter?: ExporterSnapshot & {
     jobs: BulkJobHealth;
+    jobs_outcome_error: boolean;
     rate_book_error: boolean;
     client_alias_error: boolean;
     rate_book_loaded: boolean;

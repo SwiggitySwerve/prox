@@ -2,6 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageWriter } from '../server/usage/writer';
+import { UsageStore } from '../server/usage/store';
 import { createUsageStatusHandler } from '../server/usage/status';
 import {
   BULK_JOB_KINDS,
@@ -9,13 +10,14 @@ import {
   type BulkJobKind,
 } from '../server/usage/writerProtocol';
 import { createCpamp } from './fixtures/cpampUsage';
+import { usagePayload } from './fixtures/usagePayloads';
 
 const cleanups: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
 
-async function fixture() {
+async function fixture(savedOutcomes: Partial<Record<BulkJobKind, string>> = {}) {
   const root = mkdtempSync('/dev/shm/prox-job-health-');
   cleanups.push(() => rmSync(root, { recursive: true, force: true }));
   const cpampPath = join(root, 'cpamp.sqlite');
@@ -50,6 +52,15 @@ async function fixture() {
     })
   );
   const paths = { events: join(root, 'usage.sqlite'), raw: null };
+  if (Object.keys(savedOutcomes).length) {
+    const seed = new UsageStore(paths);
+    try {
+      for (const [kind, value] of Object.entries(savedOutcomes))
+        seed.setMeta(`job-outcome:${kind}`, value);
+    } finally {
+      seed.close();
+    }
+  }
   let writer = new UsageWriter(entry);
   cleanups.push(() => writer.close());
   const init = (config: BulkJobConfig = {}) =>
@@ -174,6 +185,63 @@ test('exporter HTTP JSON adds all job kinds while retaining its version-1 shape'
     newest_event_time_seconds: 0,
     models_priced: expect.any(Number),
     jobs: expected,
+    jobs_outcome_error: false,
     sources: [],
+  });
+});
+
+test.each([
+  ['{', null, null],
+  ['null', null, null],
+  ['[]', null, null],
+  ['{"lastSuccessAtMs":"5"}', null, null],
+  ['{"lastSuccessAtMs":-5,"lastFailureAtMs":null}', null, null],
+  ['{"lastSuccessAtMs":1.5,"lastFailureAtMs":null}', null, null],
+  ['{"lastSuccessAtMs":1e999,"lastFailureAtMs":null}', null, null],
+  ['{"lastSuccessAtMs":12345,"lastFailureAtMs":"5"}', 12.345, null],
+  ['{"lastSuccessAtMs":-5,"lastFailureAtMs":12345}', null, 12.345],
+  ['{}', null, null],
+] as const)(
+  'invalid saved job outcomes %s preserve ingestion and exporter availability',
+  async (saved, success, failure) => {
+    const f = await fixture({
+      import: saved,
+      reconcile: '{"lastSuccessAtMs":12345,"lastFailureAtMs":67890}',
+    });
+    let failed = false;
+    f.writer.onFailure = () => {
+      failed = true;
+    };
+    f.writer.enqueue({
+      instance: 'test',
+      ingest: 0,
+      payload: JSON.stringify(usagePayload({ execution_id: 'after-invalid-outcome' })),
+    });
+    await f.writer.flush();
+    expect(f.writer.status.inserted).toBe(1);
+    expect(failed).toBe(false);
+    expect(await f.writer.exporterSnapshot()).toMatchObject({
+      schema_version: 1,
+      jobs_outcome_error: true,
+      jobs: {
+        import: { last_success_seconds: success, last_failure_seconds: failure },
+        reconcile: { last_success_seconds: 12.345, last_failure_seconds: 67.89 },
+      },
+      groups: [{ requests: 1 }],
+    });
+  }
+);
+
+test('valid saved job outcomes accept zero and null without an outcome error', async () => {
+  const f = await fixture({
+    import: '{"lastSuccessAtMs":0,"lastFailureAtMs":null}',
+    reconcile: '{"lastSuccessAtMs":null,"lastFailureAtMs":12345}',
+  });
+  expect(await f.writer.exporterSnapshot()).toMatchObject({
+    jobs_outcome_error: false,
+    jobs: {
+      import: { last_success_seconds: 0, last_failure_seconds: null },
+      reconcile: { last_success_seconds: null, last_failure_seconds: 12.345 },
+    },
   });
 });

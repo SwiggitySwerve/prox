@@ -724,8 +724,13 @@ The version-1 snapshot also includes `jobs` for import, reconcile, verify, backu
 and prune, each with nullable `last_success_seconds` and `last_failure_seconds`.
 The writer loads `meta` keys `job-outcome:<kind>` at init and stores JSON
 `lastSuccessAtMs` / `lastFailureAtMs` from terminal `finishedAtMs` before publishing
-completion; cancellation changes neither. These survive restarts and support a
-missed-nightly alert such as
+completion; cancellation changes neither. Saved values must be JSON objects with
+nullable, finite, non-negative integer millisecond fields. Invalid JSON or shapes
+default both fields to null; an invalid field defaults only that field to null,
+preserving valid fields and other job kinds. The sanitized boolean
+`jobs_outcome_error` reports any invalid saved outcome encountered at init and
+remains true for that writer's lifetime; collection and exporter requests continue.
+Saved outcomes survive restarts and support a missed-nightly alert such as
 `time() - cliproxy_usage_job_last_success_timestamp_seconds{kind="reconcile"} > 30 * 60 * 60`,
 once the exporter maps the field to a gauge; never-run jobs remain null and need a
 separate missing-success check.

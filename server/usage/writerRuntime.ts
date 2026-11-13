@@ -85,6 +85,7 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
             exporter: {
               ...exporter.snapshot(aliasState.aliases),
               jobs: jobs.health(),
+              jobs_outcome_error: jobs.outcomeError,
               rate_book_error: !!rateState.error,
               rate_book_loaded: rateState.book !== null,
               client_alias_error: aliasState.error,

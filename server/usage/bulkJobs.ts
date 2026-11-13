@@ -19,6 +19,7 @@ interface JobOutcome {
 const outcomeKey = (kind: BulkJobKind) => `job-outcome:${kind}`;
 
 export class UsageBulkJobs {
+  readonly outcomeError: boolean = false;
   private readonly outcomes = new Map<BulkJobKind, JobOutcome>();
   private governor: IoGovernor | null = null;
   private backup: UsageBackup | null = null;
@@ -35,10 +36,27 @@ export class UsageBulkJobs {
   ) {
     for (const kind of BULK_JOB_KINDS) {
       const saved = store.getMeta(outcomeKey(kind));
-      this.outcomes.set(
-        kind,
-        saved === null ? { lastSuccessAtMs: null, lastFailureAtMs: null } : JSON.parse(saved)
-      );
+      const outcome: JobOutcome = { lastSuccessAtMs: null, lastFailureAtMs: null };
+      if (saved !== null) {
+        try {
+          const parsed: unknown = JSON.parse(saved);
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+            throw new Error('Invalid job outcome');
+          for (const field of ['lastSuccessAtMs', 'lastFailureAtMs'] as const) {
+            const value = (parsed as Record<string, unknown>)[field];
+            if (
+              value === null ||
+              (typeof value === 'number' && Number.isInteger(value) && value >= 0)
+            )
+              outcome[field] = value;
+            else this.outcomeError = true;
+          }
+        } catch {
+          // Health metadata must not prevent collection or expose stored text in diagnostics.
+          this.outcomeError = true;
+        }
+      }
+      this.outcomes.set(kind, outcome);
     }
   }
 
