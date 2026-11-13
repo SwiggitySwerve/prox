@@ -4,9 +4,9 @@ Measured with Bun 1.4.3 on 2026-11-12. No live database, service, unit or contai
 P5 and the subsequent manual-job/deployment wiring are merged from `origin/main`.
 
 **The final synthetic 30-day hourly budget fails.** Its p95 is 1,031.383 ms against
-<1,000 ms. The daily and 24-hour budgets pass. The coordinator must measure both
-paths on the same real imported history before merging; this evidence does not
-satisfy that gate.
+<1,000 ms. The daily and 24-hour budgets pass. The real imported-history gate was
+then measured on a copy of the live database and **passes**; see
+[Real-data measurement](#real-data-measurement-2026-11-13) below.
 
 ## Synthetic budget
 
@@ -152,7 +152,8 @@ for the intended fixed window. Send the same authenticated `/v1/analytics`
 query with `debug_force_raw: true` and without it. The default response may
 still use raw spans while backfill is incomplete; do not interpret that as a
 clean-rollup measurement. Repeat the 50-warm-run real-store gate and P6 parity
-checks before merging. No real-data result is claimed here.
+checks before merging. The first real-store result is recorded in the Real-data
+measurement section at the end of this file.
 
 ## Fixture review follow-up
 
@@ -269,3 +270,80 @@ No live DB access, systemctl, deployment or live measurement occurred. The
 synthetic 30-day hourly budget miss and the coordinator's real imported-data
 performance/parity gate remain unresolved; these review fixes do not claim a
 performance improvement.
+
+## Real-data measurement (2026-11-13)
+
+The merge gate, run on a consistent copy of the live post-import database and nothing
+else. The copy was made with
+`sqlite3 "file:$HOME/.local/share/prox-usage/usage.sqlite?mode=ro" ".backup /dev/shm/p5b-real/usage.sqlite"`
+(0.43 s, no write to the live file). Opening the copy applied migration 2 to the copy
+only. No live service, unit, container or port was used. Harness:
+[`scripts/usage-real-measure.ts`](../../../scripts/usage-real-measure.ts), run as a
+user systemd unit under `ionice -c3 nice -n10`, using the production
+`startHourlyRollups` scheduler and the live `usage-rates.json`. Raw output:
+[real-data.jsonl](real-data.jsonl) (`run` 1 = backfill, whose equality phase then
+rejected my 41-day window as over the API's 31-day maximum; `run` 2 = the same copy,
+already backfilled, with a 31-day window instead, giving the equality and latency
+results). Bun 1.4.2, not the pinned 1.4.3.
+
+Store: **811,361 events**, 2026-10-03 07:35 to 2026-11-13 07:58 UTC, 322,109,440 bytes
+at schema version 1, 787 distinct UTC hours containing events (1,290 provider
+coverage rows).
+
+### (a) Backfill
+
+| Measure | Result |
+| --- | ---: |
+| Wall time, production scheduler | **827.6 s** (787 hours; 1.05 s per hour) |
+| Syscall bytes read (`rchar`) | 97,733,818 (124,185 per hour) |
+| Syscall bytes written (`wchar`) | 46,763,921 (59,421 per hour) |
+| Governor charge at the default 4 MB/s | 144.5 MB, about 36 s of budget |
+| Mean IO rate | 0.17 MB/s |
+| Rollup rows / hours | 4,955 rows (6.3 per hour) / 787 hours |
+| Sample blobs in rollup | 6,482,416 bytes |
+| DB file growth | 322,109,440 to 332,984,320 bytes (+10.9 MB, 13.8 KB per hour) |
+| Peak WAL | 4,169,472 bytes |
+
+It completed under the default governor: PSI admission below 5%, 4 MB/s byte budget
+and the one-second yield. Wall time is dominated by the one-second tick (787 s), not
+by IO: pacing needed only about 36 s. All 14 progress samples show the
+`between-hours` pause, none `io-pressure`; `/proc/pressure/io` `full avg10` read 0.17
+to 0.30 around the run. After it, all 787 hour states are `dirty=0, supported=1`.
+`rchar`/`wchar` are syscall bytes (what the governor charges), measured on tmpfs, so
+they say nothing about storage-device latency or ZFS write amplification. Reads are
+about twice the writes (each hour is aggregated from `events`; I did not profile the
+split further). The write cost is **59 KB per hour including WAL, 13.8 KB per hour in
+the database file**.
+
+### (b) 30-day latency, raw against rollup
+
+50 warm runs per cell after three discarded warmups, through the authenticated handler
+and query worker, window `[now-30 d, now]` (so the open hour and the partial first hour
+read raw even on the rollup path). No concurrent ingest. The raw path adds
+`debug_force_raw: true`.
+
+| Query | Path | p50 | p95 | Maximum | Budget | Result |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| 24 h, hourly | raw | 55.252 ms | 60.303 ms | 60.718 ms | | |
+| 24 h, hourly | rollup | 9.832 ms | 13.363 ms | 17.624 ms | <150 ms | PASS |
+| 30 d, daily | raw | 1,168.159 ms | 1,200.387 ms | 1,205.684 ms | | |
+| 30 d, daily | rollup | 74.709 ms | 85.894 ms | 94.502 ms | <1,000 ms | PASS |
+| 30 d, hourly | raw | 1,102.863 ms | 1,138.025 ms | 1,162.953 ms | | |
+| 30 d, hourly | rollup | 88.871 ms | 101.303 ms | 116.067 ms | <1,000 ms | PASS |
+
+Raw misses the 30-day budget on real data (1.14 to 1.20 s p95), which confirms the
+rollup is needed; the rollup path is about 12 times faster at the 95th percentile.
+
+### (c) Exact equality
+
+For 17 windows, `queryAnalytics` ran with one fixed clock on a read-only connection,
+raw forced and default, and the serialized `AnalyticsResponse` strings were compared
+(no float tolerance, no reordering): **17 of 17 identical**. Windows: 1 d, 7 d, 30 d and
+31 d (the API maximum), each at day and hour granularity; a 30 d window offset by 17 min
+at both ends; an exact-hour-aligned 30 d window; a 5-day window with unaligned ends;
+a single aligned hour; and a 30-minute sub-hour window. Counts per window ranged from
+1,094 to 773,594 calls. In run 1 the five windows before the rejected 41-day one
+(1 d, 7 d, 30 d) were also identical.
+
+Not covered here: P6's request-detail and filter/search paths (they read raw by rule),
+concurrent live ingest on this store, and storage-device latency.
