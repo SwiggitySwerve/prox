@@ -6,7 +6,7 @@
   "packageManager": "bun@1.4.3",
   "scripts": {
     "dev": "vite",
-    "build": "bun run sources:check && tsc && tsc -p tsconfig.server.json && vite build && bun build ./server/main.ts --target=bun --outdir dist --entry-naming server.js && bun run build:usage",
+    "build": "bun run sources:check && tsc && tsc -p tsconfig.server.json && vite build && bun build ./server/main.ts --target=bun --outdir dist --entry-naming server.js && bun run build:usage && bun run build:usage-jobs",
     "preview": "vite preview",
     "test": "bun test",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
@@ -16,7 +16,8 @@
     "sources:generate": "bun scripts/generate-provider-sources.ts",
     "sources:check": "bun scripts/generate-provider-sources.ts --check",
     "test:ui:analytics": "tsc -p tsconfig.browser.json && playwright test --config playwright.config.ts",
-    "build:usage": "bun build ./server/usage/main.ts --target=bun --outdir dist/usage --entry-naming main.js && bun build ./server/usage/writer.worker.ts ./server/usage/query.worker.ts --target=bun --outdir dist/usage --entry-naming [name].js"
+    "build:usage": "bun build ./server/usage/main.ts --target=bun --outdir dist/usage --entry-naming main.js && bun build ./server/usage/writer.worker.ts ./server/usage/query.worker.ts --target=bun --outdir dist/usage --entry-naming [name].js",
+    "build:usage-jobs": "bun build ./scripts/usage-nightly.ts ./scripts/usage-parity.ts --target=bun --outdir dist/usage-jobs --entry-naming [name].js"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.3",

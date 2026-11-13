@@ -630,8 +630,11 @@ batches. A failed raw transaction fails only the bulk job; collection continues.
 `deploy/prox-usage-job@.service` remains a manual bearer-protected submission
 unit; its shell script reads the key and pipes the header, never using curl argv.
 The sole shipped nightly timer is `prox-usage-nightly.timer`, nonpersistent at
-04:20 UTC, installed disabled. Its oneshot calls `scripts/usage-nightly.ts` under
-ionice/nice: prune → reconcile → optional backup → parity. Each job is polled
+04:20 UTC, installed disabled. Its oneshot runs the installed bundle
+`~/.local/share/prox/usage-jobs/usage-nightly.js` (built from `scripts/usage-nightly.ts` by
+`bun run build:usage-jobs` and installed atomically by `scripts/deploy-homelab.sh`, never run
+from a checkout; it spawns `usage-parity.js` beside itself; evidence goes to
+`PROX_USAGE_EVIDENCE_DIR`, `~/.local/share/prox/usage-evidence/`) under ionice/nice: prune → reconcile → optional backup → parity. Each job is polled
 through GET `/v1/jobs` until `succeeded` AND `finishedAtMs` is present, so source
 cleanup releases the bulk slot before the next start. A failure, replaced job,
 HTTP error or nonzero parity stops the chain; incomplete parity remains exit 2.

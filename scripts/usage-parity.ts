@@ -112,10 +112,11 @@ export function parseArgs(args: string[], now = Date.now()): ParityOptions {
     cpampKeyFile: get('cpamp-key-file', `${home}/.config/prox/cpa-admin-key`),
     proxKeyFile: get('prox-key-file', `${home}/.config/cli-proxy-rerank/management-key`),
     rateBookFile: get('rate-book', `${home}/.local/share/prox-usage/usage-rates.json`),
+    // Installed units set PROX_USAGE_EVIDENCE_DIR; a repo run keeps the checkout-relative default.
     output: resolve(
       get(
         'output',
-        `docs/evidence/prox-usage-parity/${new Date(now).toISOString().replaceAll(':', '-')}-${mode}`
+        `${process.env.PROX_USAGE_EVIDENCE_DIR || 'docs/evidence/prox-usage-parity'}/${new Date(now).toISOString().replaceAll(':', '-')}-${mode}`
       )
     ),
     limit: integer('limit'),

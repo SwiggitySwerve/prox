@@ -285,8 +285,15 @@ resumes old counters and can double-count traffic already counted by the new one
 ## Nightly usage maintenance (operator enablement only)
 
 The shipped `prox-usage-nightly.timer` is disabled by default and starts one
-oneshot chain at **04:20 UTC**, without catch-up. Review its `%h/src/prox` path
-before installation. `scripts/usage-nightly.ts` waits for **prune → reconcile →
+oneshot chain at **04:20 UTC**, without catch-up. The units run self-contained
+bundles, not a checkout: `scripts/deploy-homelab.sh` builds `dist/usage-jobs/usage-nightly.js`
+and `usage-parity.js` (`bun run build:usage-jobs`, part of `bun run verify`) from the commit it
+deploys, installs both by temp-file-and-rename into `~/.local/share/prox/usage-jobs/`, and
+runs `usage-nightly.js --check-install` (starts the sibling parity bundle with `--help`; no
+network or keys) before reloading systemd. The nightly bundle spawns `usage-parity.js` from
+its own directory. Both units use that directory as `WorkingDirectory` and write parity evidence
+to `~/.local/share/prox/usage-evidence/` (`PROX_USAGE_EVIDENCE_DIR`); a manual repo run keeps
+the `docs/evidence/prox-usage-parity/` default. `scripts/usage-nightly.ts` waits for **prune → reconcile →
 optional backup → quick/event parity**, observing each job's terminal success
 and completed cleanup before starting the next. It reads the management bearer
 inside the process, polls `/v1/jobs` every ten seconds through the shared PSI gate,

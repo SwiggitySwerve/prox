@@ -118,13 +118,18 @@ async function readCpampCollectors(
   }));
 }
 
+// The sibling entry point: source beside this file, or the installed bundle beside this bundle.
+const parityScript = join(
+  import.meta.dir,
+  import.meta.file.endsWith('.ts') ? 'usage-parity.ts' : 'usage-parity.js'
+);
 async function parityProcess(deadlineMs: number, signal: AbortSignal): Promise<number> {
   signal = AbortSignal.any([signal, AbortSignal.timeout(5.5 * 3600000)]);
   signal.throwIfAborted();
   const child = Bun.spawn(
     [
       process.execPath,
-      join(import.meta.dir, 'usage-parity.ts'),
+      parityScript,
       '--previous-utc-day',
       '--matrix',
       'quick',
@@ -344,6 +349,15 @@ export async function runNightly(
     window.close();
   }
   return report;
+}
+if (import.meta.main && process.argv.includes('--check-install')) {
+  // Deploy self-check: no network, no keys. The sibling parity entry point must start.
+  const ok = Bun.spawnSync([process.execPath, parityScript, '--help'], {
+    stdout: 'ignore',
+    stderr: 'ignore',
+  }).success;
+  console.log(JSON.stringify({ parity: parityScript, ok }));
+  process.exit(ok ? 0 : 1);
 }
 if (import.meta.main) {
   const controller = new AbortController();
