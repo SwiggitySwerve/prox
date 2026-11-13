@@ -3,7 +3,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageWriter } from '../server/usage/writer';
 import { createUsageStatusHandler } from '../server/usage/status';
-import { BULK_JOB_KINDS, type BulkJobConfig, type BulkJobKind } from '../server/usage/writerProtocol';
+import {
+  BULK_JOB_KINDS,
+  type BulkJobConfig,
+  type BulkJobKind,
+} from '../server/usage/writerProtocol';
 import { createCpamp } from './fixtures/cpampUsage';
 
 const cleanups: (() => void | Promise<void>)[] = [];
@@ -49,10 +53,16 @@ async function fixture() {
   let writer = new UsageWriter(entry);
   cleanups.push(() => writer.close());
   const init = (config: BulkJobConfig = {}) =>
-    writer.init(paths, [], Date.now(), { cpampPath, backupConfigPath, ...config }, {
-      rateBookPath: join(root, 'missing-rates.json'),
-      clientAliasesPath: join(root, 'missing-aliases.json'),
-    });
+    writer.init(
+      paths,
+      [],
+      Date.now(),
+      { cpampPath, backupConfigPath, ...config },
+      {
+        rateBookPath: join(root, 'missing-rates.json'),
+        clientAliasesPath: join(root, 'missing-aliases.json'),
+      }
+    );
   await init();
   return {
     get writer() {

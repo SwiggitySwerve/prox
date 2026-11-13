@@ -4,13 +4,22 @@ import { runCpampJob } from './importCpamp';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoGovernorOptions } from './ioGovernor';
 import { openUsageReader, type RawPruneCursor, type UsageStore } from './store';
 import {
+  BULK_JOB_KINDS,
   isBulkJobClientToken,
   type BulkJobConfig,
+  type BulkJobHealth,
   type BulkJobKind,
   type BulkJobReport,
 } from './writerProtocol';
 
+interface JobOutcome {
+  lastSuccessAtMs: number | null;
+  lastFailureAtMs: number | null;
+}
+const outcomeKey = (kind: BulkJobKind) => `job-outcome:${kind}`;
+
 export class UsageBulkJobs {
+  private readonly outcomes = new Map<BulkJobKind, JobOutcome>();
   private governor: IoGovernor | null = null;
   private backup: UsageBackup | null = null;
   private latest: BulkJobReport | null = null;
@@ -23,7 +32,29 @@ export class UsageBulkJobs {
     private readonly scheduleChunk: ChunkScheduler,
     private readonly config: BulkJobConfig = {},
     private readonly governorOptions: IoGovernorOptions = {}
-  ) {}
+  ) {
+    for (const kind of BULK_JOB_KINDS) {
+      const saved = store.getMeta(outcomeKey(kind));
+      this.outcomes.set(
+        kind,
+        saved === null ? { lastSuccessAtMs: null, lastFailureAtMs: null } : JSON.parse(saved)
+      );
+    }
+  }
+
+  health(): BulkJobHealth {
+    return Object.fromEntries(
+      [...this.outcomes].map(([kind, outcome]) => [
+        kind,
+        {
+          last_success_seconds:
+            outcome.lastSuccessAtMs === null ? null : outcome.lastSuccessAtMs / 1000,
+          last_failure_seconds:
+            outcome.lastFailureAtMs === null ? null : outcome.lastFailureAtMs / 1000,
+        },
+      ])
+    ) as BulkJobHealth;
+  }
 
   report(): BulkJobReport | null {
     if (!this.latest) return null;
@@ -151,8 +182,28 @@ export class UsageBulkJobs {
         report.state = 'failed';
         report.error = 'Usage bulk source cleanup failed';
       }
-      report.finishedAtMs = Date.now();
-      this.active = null;
+      try {
+        // Publish completion only after its metadata commits on the sole write connection.
+        await this.scheduleChunk(kind, () => {
+          if (signal.aborted && report.state !== 'failed') report.state = 'cancelled';
+          const finishedAtMs = Date.now();
+          if (report.state === 'succeeded' || report.state === 'failed') {
+            const outcome = {
+              ...this.outcomes.get(kind)!,
+              [report.state === 'succeeded' ? 'lastSuccessAtMs' : 'lastFailureAtMs']: finishedAtMs,
+            };
+            this.store.setMeta(outcomeKey(kind), JSON.stringify(outcome));
+            this.outcomes.set(kind, outcome);
+          }
+          report.finishedAtMs = finishedAtMs;
+        });
+      } catch {
+        report.state = 'failed';
+        report.error = 'Usage bulk outcome persistence failed';
+        report.finishedAtMs = Date.now();
+      } finally {
+        this.active = null;
+      }
     }
   }
 }

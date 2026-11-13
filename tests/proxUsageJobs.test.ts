@@ -68,7 +68,7 @@ async function rejection(promise: Promise<unknown>): Promise<string> {
 }
 const finished = (report: BulkJobReport) => report.finishedAtMs !== null;
 
-test('worker runs import, reconcile and read-only verify with exact typed reports and progress', async () => {
+test('worker runs import, reconcile and event-read-only verify with exact typed reports and progress', async () => {
   const f = await fixture(1001);
   expect(await f.writer.jobReport()).toBeNull(); // boot starts no bulk work
   const started = await f.writer.startJob('import');
@@ -88,13 +88,13 @@ test('worker runs import, reconcile and read-only verify with exact typed report
       report: { mode: 'reconcile', inserted: 1, lastId: 1002, verification: { exact: true } },
     },
   });
-  const before = f.reader.serialize();
+  const before = f.reader.query('SELECT * FROM events ORDER BY seq').all();
   await f.writer.startJob('verify');
   expect(await reportWhen(f.writer, finished)).toMatchObject({
     state: 'succeeded',
     result: { report: { mode: 'verify', verification: { read: 1002, exact: true } } },
   });
-  expect(f.reader.serialize()).toEqual(before);
+  expect(f.reader.query('SELECT * FROM events ORDER BY seq').all()).toEqual(before);
   expect(f.writer.status.job?.state).toBe('succeeded');
 }, 15_000);
 

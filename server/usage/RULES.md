@@ -720,6 +720,16 @@ priced-model count. It remains additive during the dual run. Source health repor
 instance, state, subscribed and last-event age in seconds; no event since process
 start is `null`, never a healthy zero age.
 
+The version-1 snapshot also includes `jobs` for import, reconcile, verify, backup
+and prune, each with nullable `last_success_seconds` and `last_failure_seconds`.
+The writer loads `meta` keys `job-outcome:<kind>` at init and stores JSON
+`lastSuccessAtMs` / `lastFailureAtMs` from terminal `finishedAtMs` before publishing
+completion; cancellation changes neither. These survive restarts and support a
+missed-nightly alert such as
+`time() - cliproxy_usage_job_last_success_timestamp_seconds{kind="reconcile"} > 30 * 60 * 60`,
+once the exporter maps the field to a gauge; never-run jobs remain null and need a
+separate missing-success check.
+
 `rate_book_loaded` and `client_aliases_loaded` distinguish a first-load failure
 from a failed edit with a last-good snapshot. `rate_book_error` and
 `client_alias_error` report the latest reload result. The HTTP response can carry
