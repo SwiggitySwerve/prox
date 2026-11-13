@@ -1,0 +1,503 @@
+{
+  "schema_version": 1,
+  "kind": "sanitized-live-event-evidence",
+  "implementation_sha": "2505df721a2abe3dbe1249d6a9f221e19e12cd12",
+  "window": {
+    "from": "2026-11-12T21:20:00Z",
+    "to": "2026-11-12T23:40:00Z"
+  },
+  "started_at": "2026-11-13T00:24:32.892Z",
+  "finished_at": "2026-11-13T00:27:01.073Z",
+  "deadline": "2026-11-13T00:50:00Z",
+  "complete": true,
+  "status": "failed",
+  "exit_code": 1,
+  "before": {
+    "provenance": "coordinator-provided prior live run; not rerun here",
+    "cpamp_rows": 9217,
+    "prox_rows": 9215,
+    "exact_matched": 9163,
+    "unexplained": 54
+  },
+  "events": {
+    "from_ms": 1794518400000,
+    "to_ms": 1794526800000,
+    "cpamp_rows": 9217,
+    "prox_rows": 9215,
+    "matched": 9215,
+    "exact_matched": 9163,
+    "matched_by_ingest": {
+      "subscribed": 9215,
+      "drained": 0,
+      "imported": 0,
+      "replayed": 0
+    },
+    "reverse_only_omitted_by_ingest": {
+      "subscribed": 0,
+      "drained": 0,
+      "imported": 0,
+      "replayed": 0
+    },
+    "cpamp_max_id": 798677,
+    "gaps": [
+      {
+        "instance": "claude-primary",
+        "from_ms": 1794523490815,
+        "to_ms": 1794523490843,
+        "reason": "subscription-dropped"
+      },
+      {
+        "instance": "claude-primary",
+        "from_ms": 1794523490844,
+        "to_ms": 1794523491901,
+        "reason": "subscription-dropped"
+      },
+      {
+        "instance": "claude-primary",
+        "from_ms": 1794523674023,
+        "to_ms": 1794523674030,
+        "reason": "subscription-dropped"
+      },
+      {
+        "instance": "claude-primary",
+        "from_ms": 1794523674031,
+        "to_ms": 1794523675132,
+        "reason": "subscription-dropped"
+      },
+      {
+        "instance": "codex-primary",
+        "from_ms": 1794524080244,
+        "to_ms": 1794524081766,
+        "reason": "subscription-dropped"
+      },
+      {
+        "instance": "codex-primary",
+        "from_ms": 1794524081766,
+        "to_ms": 1794524082816,
+        "reason": "subscription-dropped"
+      }
+    ],
+    "preconditions": {
+      "missingExecutionId": 0,
+      "duplicateExecutionId": 0,
+      "invalidTimestamp": 0,
+      "invalidTokens": 0,
+      "incompleteBreakdown": 0,
+      "invalidBreakdownIdentity": 0,
+      "nonPositiveLatency": 0,
+      "invalidJson": 0
+    },
+    "windows_completed": 28,
+    "complete": true
+  },
+  "counts": {
+    "unexplained": 2,
+    "d5-pricing": 0,
+    "detail-provider": 0,
+    "detail-trace": 0,
+    "coverage-limitations": 0,
+    "drained-during-cpamp-outage": 0,
+    "ingest-gap": 0,
+    "ttft-zero-null": 52
+  },
+  "reconcile": {
+    "status": "not-confirmed",
+    "completed_for_window": null,
+    "observed_at_ms": 1794529472894,
+    "message": "No retained import/reconcile report; prior completion is unknown."
+  },
+  "io": {
+    "queries": 62,
+    "minimum_gap_ms": 2000,
+    "bytesRead": 103747328,
+    "bytesWritten": 0,
+    "pauseSeconds": 0,
+    "longPauses": 0
+  },
+  "matrix": {
+    "ran": false,
+    "pairs": 0,
+    "responses": 0
+  },
+  "event_differences": [
+    {
+      "class": "ttft-zero-null",
+      "path": "events.106ceec8-c398-4695-9e0b-18c710d1ef39.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.06da7c88-909f-4133-84d1-8f990ae1df63.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.3b4c3fd8-52ee-49af-bc56-5a02e64d924f.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.30cb1c95-fbf8-484f-8bd5-da7d2f8a3cbf.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.816b2989-c53f-4072-920e-b51d4783dc37.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.539ce908-04e3-4caf-9059-c618f33a2974.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.325602ac-5b19-4590-9ee0-fa37da3210a4.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.3c0f308d-c92d-4ae7-8dd1-94c359a828d0.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.56022b08-5ab7-4cd4-ae7d-37ae3d3d6f90.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.da4d6f72-33b7-4f35-be49-0a78d5126ad7.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.4954c3b5-715f-4f06-a581-e77b2d7e7e7e.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.1f29c840-483b-415f-8596-0d9769035723.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.d08f6036-daea-4652-9ebb-fe61957dc6ee.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.e3e96966-a6b4-4a52-ba6e-542f0f71ba2b.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.f1f1c971-a6d9-40a4-be77-74b7555d9d6d.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.68141901-f27b-49a6-8d30-d9b651563e0c.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.8dc20e39-7925-4af2-86d3-e3b9eb42283f.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.36dde4ff-6f31-4efa-91c6-2ecbabcfdd39.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.874f741e-9ecf-4eec-9fc5-b0df52a73e5d.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.7f6a5427-6772-4e12-a0c1-ecf04e0513fc.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.31da4d69-7d6b-4e96-b309-19d9da3646ab.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.a6a96f06-5156-459c-a8b0-f9d55d57faf0.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.12668c04-b18c-4b5e-b771-8c1c267a306a.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.85cf9952-88a5-49cb-907b-205d248a1205.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.892e58a4-db5e-4fda-8199-dfddc0321b66.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.cbc48d6f-56c2-453e-a168-41131d512f8e.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.0417856e-d84c-453a-bb99-1eca4339d26d.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.6d417d91-9cc4-4bfe-946a-7700c83fe9a1.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.96b6eb30-7966-4e98-b101-36c2f3843309.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.f66c9b8e-804b-42d3-914f-4efefb5bd93d.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.2943c6d0-64f0-4828-8fea-74ffafac792c.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.ebb4bd17-da83-499a-95f1-38ef18a32f51.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.593603e4-1487-464c-8498-ca3d970380fa.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.e29536b1-a671-403b-b342-41b067312093.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.576d10cf-d417-4f48-9c03-5b32b3d83557.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.58ed1197-abff-4291-acec-fd099448477a.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "unexplained",
+      "path": "events.4016d4e7-ed5a-4477-8164-9c9eda27cec2",
+      "cpamp": {
+        "execution_id": "4016d4e7-ed5a-4477-8164-9c9eda27cec2",
+        "instance": "codex-primary",
+        "ts_ms": 1794524188819,
+        "provider": "codex",
+        "model": "gpt-6.1-sol",
+        "requested_model": "gpt-6.1-sol",
+        "billing_model": "gpt-6.1-sol",
+        "tier": "priority",
+        "failed": 0,
+        "status_code": 200,
+        "latency_ms": 20345,
+        "ttft_ms": 18147,
+        "input_total": 397798,
+        "input_uncached": 358,
+        "cache_read": 397440,
+        "cache_write": 0,
+        "output_total": 642,
+        "reasoning": 455,
+        "total": 398440,
+        "usage_flags": 511,
+        "record_kind": 1
+      },
+      "prox": null,
+      "operational_note": "awaiting reconcile; remains unexplained"
+    },
+    {
+      "class": "unexplained",
+      "path": "events.7d6aadf4-3ae1-43fd-b728-c793adb83196",
+      "cpamp": {
+        "execution_id": "7d6aadf4-3ae1-43fd-b728-c793adb83196",
+        "instance": "claude-primary",
+        "ts_ms": 1794524195308,
+        "provider": "claude",
+        "model": "claude-fable-5-2",
+        "requested_model": "claude-fable-5-2",
+        "billing_model": "claude-fable-5-2",
+        "tier": "standard",
+        "failed": 0,
+        "status_code": 200,
+        "latency_ms": 14118,
+        "ttft_ms": 3674,
+        "input_total": 287482,
+        "input_uncached": 4,
+        "cache_read": 287364,
+        "cache_write": 114,
+        "output_total": 1087,
+        "reasoning": 751,
+        "total": 288569,
+        "usage_flags": 447,
+        "record_kind": 1
+      },
+      "prox": null,
+      "operational_note": "awaiting reconcile; remains unexplained"
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.0e941a9b-203f-4fd6-b46b-f9841bbf9765.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.977af5d8-96bf-4ac0-b713-b7e7ea8a26c2.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.6cc4587f-b265-4536-9d44-9d9c8c309121.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.7a582fbd-f2bc-4842-b6e3-0969b9aadcc4.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.32e47fb8-1554-474d-8071-f685176c6a63.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.d5657be6-9f41-4ff2-9b70-e68813495c64.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.f5ce2cde-7bff-42e8-9e54-195f15d296b0.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.24a4e86b-9cdc-48d0-86e4-980fdb4e3b75.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.fe78760a-cc5e-4410-9821-41f325dbf13c.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.4a390314-521b-4221-9b41-5aac1864205d.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.9a3fa9ce-33a5-434e-ac54-dbc425d4fb33.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.5e57d493-a221-4c2d-9aad-f8fb052cb2ac.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.d0f6b8a1-ca89-42da-b9e2-42455117e98b.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.fb0e7f1d-f21f-4752-80f5-24c4ede75c13.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.04d7abfd-82b6-464a-91cd-947507a2461a.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    },
+    {
+      "class": "ttft-zero-null",
+      "path": "events.1d0f2100-9f91-4fc1-81d2-3b17f0be1e68.ttft_ms",
+      "cpamp": 0,
+      "prox": null
+    }
+  ],
+  "privacy": {
+    "omitted_missing_row_fields": [
+      "account",
+      "account_label",
+      "api_key_hash"
+    ],
+    "reason": "Private labels and key hashes omitted from public evidence; original local report retains both full values.",
+    "original_report_sha256": "a2adfd5ad385c55c912a036026a0f27aba149e77edb8deb49c6858c59891d8ff"
+  }
+}

@@ -1,8 +1,9 @@
 # P6 parity harness
 
-This directory contains synthetic plumbing evidence, not a live cutover verdict.
-No live response pair or live event comparison was run for this PR. Neither
-database was changed, and neither systemd template was installed or enabled.
+This directory contains the original P6 synthetic plumbing evidence from PR #76,
+not a live cutover verdict. That PR ran no live comparison. The later read-only
+event recheck is documented in [the follow-up](../prox-usage-event-followup/README.md).
+Neither database was changed, and neither systemd template was installed or enabled.
 
 The harness is `scripts/usage-parity.ts`. Run it from the repository root with
 Bun 1.4.3. It writes a JSON report and a short Markdown report to this directory;
