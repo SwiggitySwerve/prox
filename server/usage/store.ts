@@ -244,6 +244,8 @@ export class UsageStore {
     this.insertEvent = this.db.query(insertSql('events', EVENT_COLUMNS));
     this.insertAll = this.db.transaction(
       (items: readonly IngestItem[], ingest: IngestSource, progress: UsageCommit = {}) => {
+        // Check before inserts: a new record on this page is not a pre-outage receipt.
+        if (progress.replayInstance) this.anchorRecovery(progress.replayInstance, items);
         const stored: Stored[] = [];
         for (const item of items) {
           const seq = this.nextSeq;
@@ -381,7 +383,7 @@ export class UsageStore {
   }
 
   /** A provisional coverage gap stays visible until replay establishes continuity. */
-  recordRecovery(gap: IngestGap): void {
+  recordRecovery(gap: IngestGap, requireAnchor = false): void {
     this.db
       .transaction(() => {
         const key = `recovery-gap:${gap.instance}`;
@@ -395,16 +397,53 @@ export class UsageStore {
           const row = this.db.query<{ id: number }, []>('SELECT last_insert_rowid() AS id').get()!;
           this.setMeta(key, String(row.id));
         }
+        if (requireAnchor) this.setMeta(`recovery-unanchored:${gap.instance}`, '1');
       })
       .immediate();
+  }
+
+  recoveryFromMs(instance: string): number | null {
+    const id = this.getMeta(`recovery-gap:${instance}`);
+    if (id === null) return null;
+    return (
+      this.db
+        .query<{ from_ms: number }, [number]>('SELECT from_ms FROM ingest_gaps WHERE id = ?')
+        .get(Number(id))?.from_ms ?? null
+    );
+  }
+
+  /** A retained execution received before the outage proves the ordered log covers it. */
+  private anchorRecovery(instance: string, items: readonly IngestItem[]): void {
+    const key = `recovery-unanchored:${instance}`;
+    if (this.getMeta(key) === null) return;
+    const fromMs = this.recoveryFromMs(instance);
+    if (fromMs === null) return;
+    const prior = this.db.query<{ ingested_at_ms: number }, [string, string]>(`
+      SELECT detail.ingested_at_ms FROM event_detail detail
+      JOIN events event ON event.ts_ms = detail.ts_ms AND event.seq = detail.seq
+      JOIN dim instance ON instance.id = event.instance_id
+      WHERE detail.execution_id = ? AND instance.kind = 'instance' AND instance.value = ?
+    `);
+    if (
+      items.some(({ event }) => {
+        const receipt = prior.get(event.executionId, instance);
+        return receipt !== null && receipt.ingested_at_ms < fromMs;
+      })
+    )
+      this.db.query('DELETE FROM meta WHERE key = ?').run(key);
   }
 
   private clearRecovery(instance: string): void {
     const key = `recovery-gap:${instance}`;
     const id = this.getMeta(key);
     if (id === null) return;
-    this.db.query('DELETE FROM ingest_gaps WHERE id = ?').run(Number(id));
-    this.db.query('DELETE FROM meta WHERE key = ?').run(key);
+    const unanchored = `recovery-unanchored:${instance}`;
+    // Without a pre-outage anchor the provisional interval becomes a permanent
+    // unknown gap. Detach its metadata so later reconnects cannot erase it.
+    if (this.getMeta(unanchored) === null) {
+      this.db.query('DELETE FROM ingest_gaps WHERE id = ?').run(Number(id));
+    }
+    this.db.query('DELETE FROM meta WHERE key IN (?, ?)').run(key, unanchored);
   }
 
   gapCount(): number {

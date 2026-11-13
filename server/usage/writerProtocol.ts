@@ -38,6 +38,7 @@ export interface SourceResume {
   cursor: UsageCursor | null;
   heartbeat: number | null;
   cursorAtMs?: number;
+  recoveryFromMs?: number;
 }
 export interface UsagePayload {
   instance: string;
@@ -58,6 +59,7 @@ export interface UsageCommit {
   cursors?: readonly { instance: string; cursor: UsageCursor }[];
   gap?: IngestGap;
   recoveredInstance?: string;
+  replayInstance?: string;
 }
 export interface ExporterConfig {
   rateBookPath?: string;
@@ -90,7 +92,7 @@ export interface CollectorWriter {
     gap?: IngestGap,
     complete?: boolean
   ): Promise<void>;
-  recovery(gap: IngestGap): Promise<void>;
+  recovery(gap: IngestGap, requireAnchor?: boolean): Promise<void>;
   gap(gap: IngestGap): Promise<void>;
   heartbeat(instance: string, atMs: number): Promise<void>;
 }
@@ -120,7 +122,7 @@ export type WriterRequest =
         complete?: boolean;
       };
     }
-  | { id: number; kind: 'recovery'; body: IngestGap }
+  | { id: number; kind: 'recovery'; body: { gap: IngestGap; requireAnchor: boolean } }
   | { id: number; kind: 'gap'; body: IngestGap }
   | { id: number; kind: 'heartbeat'; body: { instance: string; atMs: number } }
   | { id: number; kind: BulkJobKind; body: null }

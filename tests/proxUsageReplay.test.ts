@@ -7,6 +7,7 @@ import { UsageWriter } from '../server/usage/writer';
 import { UsageStore, openUsageReader } from '../server/usage/store';
 import { subscribeUsage } from '../server/usage/resp';
 import { parseReplayPage } from '../server/usage/replay';
+import { normalizeUsagePayload } from '../server/usage/normalize';
 import { usagePayload } from './fixtures/usagePayloads';
 import { eventually, fakeUsageProxy, FakeUsageClock } from './helpers/usageFakeProxy';
 
@@ -109,6 +110,60 @@ describe('usage replay with the real writer and synthetic proxy', () => {
       queueSeq: 3,
     });
     expect(env.proxy.log).not.toContain('drain');
+  });
+
+  for (const covered of [true, false]) {
+    test(`cursorless replay with old pruning leaves ${covered ? 'no gap for recovered' : 'an unknown gap for unrecovered'} outage records`, async () => {
+      const env = await setup();
+      const from = env.clock.now() - 7000;
+      for (let i = 1; i <= 1000; i++) {
+        env.proxy.emit(usagePayload({ instance_id: 'test-proxy', execution_id: `first-${i}` }));
+      }
+      // Old Prox collected this execution before C1 cursors existed. Its persisted
+      // receipt, rather than the payload's request timestamp, proves pre-outage coverage.
+      const old = normalizeUsagePayload(JSON.stringify(env.proxy.retained[999].payload));
+      if (old.kind !== 'event') throw new Error('Invalid fixture');
+      const store = new UsageStore({ events: env.paths.events, raw: null }, () => from - 1);
+      store.insert([{ event: old.event, raw: old.raw }], 0);
+      store.setMeta('heartbeat:test-proxy', String(from));
+      expect(store.getCursor('test-proxy')).toBeNull();
+      store.close();
+      env.proxy.emit(usagePayload({ instance_id: 'test-proxy', execution_id: 'outage-first' }));
+      env.proxy.emit(usagePayload({ instance_id: 'test-proxy', execution_id: 'outage-second' }));
+      env.proxy.pruneThrough(covered ? 999 : 1001);
+      const run = await env.start();
+      await ready(run);
+      expect(env.proxy.replayRequests).toEqual([0]);
+      expect((await run.writer.resume('test-proxy')).cursor).toEqual({
+        bootId: env.proxy.bootId,
+        queueSeq: 1002,
+      });
+      expect(env.rows(events)).toHaveLength(covered ? 3 : 2);
+      expect(env.rows(gaps)).toEqual(
+        covered
+          ? []
+          : [
+              {
+                instance: 'test-proxy',
+                from_ms: from,
+                to_ms: env.clock.now(),
+                reason: 'stale-heartbeat',
+                missed: null,
+              },
+            ]
+      );
+    });
+  }
+
+  test('a new source without prior outage history adopts a pruned log without a loss count', async () => {
+    const env = await setup();
+    env.proxy.sequence = 1000;
+    env.proxy.emit(usagePayload({ execution_id: 'first-retained' }));
+    const run = await env.start();
+    await ready(run);
+    expect(env.rows(gaps)).toEqual([]);
+    expect(env.rows(events)).toEqual([{ execution_id: 'first-retained' }]);
+    expect((await run.writer.resume('test-proxy')).cursor?.queueSeq).toBe(1001);
   });
 
   test('retention loss has the exact missed count and interval; retries do not count it again', async () => {

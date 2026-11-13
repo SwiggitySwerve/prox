@@ -161,18 +161,37 @@ Regression coverage lives in `tests/proxUsageNormalize.test.ts` and
   Startup and dropped connections create a provisional `ingest_gaps` interval;
   its row ID is tracked in `meta` under `recovery-gap:<instance>` so retries and
   process restarts extend the same uncertain interval. Final recovery clears
-  only that provisional row in the cursor transaction. No proven loss means no
-  remaining gap, even with a heartbeat older than the retention window.
+  only that provisional row in the cursor transaction when coverage is proven.
+  A saved cursor proving full recovery leaves no gap, even with a heartbeat older
+  than the retention window.
 - Within one boot, each replay page starts with the pruned interval
   `(after_seq, oldest_seq)` and excludes its overlap with the same-boot live range
   accepted on the current ordered subscription. The replay writer barrier requires
   successful live-commit acknowledgements before posting the page's gap/cursor
   transaction. Only the uncovered count is recorded as `missed`, and only when
-  positive; retention of already-received live records creates no loss gap. The interval starts at the
-  disconnect, previous heartbeat or cursor commit time.
+  positive; retention of already-received live records creates no loss gap. The
+  interval starts at the disconnect, previous heartbeat or cursor commit time.
   A changed boot commits a `proxy-restart` gap with `missed=NULL`, resets to zero
   and replays the new process. Cross-process loss cannot be counted. Graceful
   shutdown needs only the existing unsubscribe acknowledgement and writer flush.
+- With no saved cursor, `after_seq=0` adopts retained history; sequences pruned
+  before that first checkpoint do not provide a numeric missed count. A source
+  with no previous outage history creates no historical loss claim. An existing
+  cursorless outage stays uncertain until replay includes a same-source execution
+  durably received before the outage (`event_detail.ingested_at_ms < from_ms`).
+  This receipt proves retained history reaches before the outage; request start
+  timestamps do not. The proof check runs before page inserts, in their transaction.
+- `meta.recovery-unanchored:<instance>` marks cursorless uncertainty and survives
+  intermediate cursor commits/restarts. A pre-outage receipt clears the marker;
+  completing replay then removes the provisional gap. Without such evidence,
+  completion keeps the interval with `missed=NULL` and detaches its recovery
+  metadata so subsequent reconnects cannot erase it. Stored-cursor boot changes
+  remain separate `proxy-restart` gaps. Retention caps, missing history or absent
+  source attribution can prevent proof even when actual loss is unknown.
+- Existing numbered gaps lack first-run/cursor provenance and cannot be deleted
+  automatically by signature. The two reported first-run false gaps require the
+  operator-only, ID-and-value-guarded procedure in
+  [the repair note](../../docs/usage-first-replay-gap-repair.md).
 - Credential refreshes keep the last good snapshot; unknown indices trigger at
   most one refresh per 10 seconds. Each queued event carries its label snapshot
   so later credential changes cannot relabel an accepted event.
