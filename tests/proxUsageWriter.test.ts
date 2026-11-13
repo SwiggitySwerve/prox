@@ -56,10 +56,22 @@ describe('usage writer worker', () => {
     store.setMeta('heartbeat:test-proxy', String(now - 7000));
     store.close();
     const first = await writerAt(files, now);
+    first.enqueue(item('post-checkpoint'));
+    await first.flush();
     await first.replay('test-proxy', [], { bootId: 'same-boot', queueSeq: 1000 });
     await first.close();
     const second = await writerAt(files, now + 1000);
     expect((await second.resume('test-proxy')).recoveryFromMs).toBe(now - 7000);
+    const checkpointReader = openUsageReader(files.events);
+    try {
+      expect(
+        checkpointReader
+          .query("SELECT value FROM meta WHERE key = 'recovery-checkpoint:test-proxy'")
+          .get()
+      ).toEqual({ value: '0' });
+    } finally {
+      checkpointReader.close();
+    }
     await second.replay('test-proxy', [], { bootId: 'same-boot', queueSeq: 1001 }, undefined, true);
     expect(second.status.gaps).toBe(1);
     // A later ordinary reconnect cannot erase an already permanent unknown gap.

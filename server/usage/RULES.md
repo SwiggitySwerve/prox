@@ -178,13 +178,18 @@ Regression coverage lives in `tests/proxUsageNormalize.test.ts` and
   before that first checkpoint do not provide a numeric missed count. A source
   with no previous outage history creates no historical loss claim. An existing
   cursorless outage stays uncertain until replay includes a same-source execution
-  durably received before the outage (`event_detail.ingested_at_ms < from_ms`).
-  This receipt proves retained history reaches before the outage; request start
-  timestamps do not. The proof check runs before page inserts, in their transaction.
+  stored at or before the gap's receipt-order checkpoint. Creating a provisional
+  gap atomically saves `meta.recovery-checkpoint:<instance>` as the last assigned
+  ingestion sequence (`meta.next_seq - 1`); extending a gap never changes it.
+  Only an existing `events.seq <= checkpoint` proves retained coverage. Wall-clock
+  receipt/request timestamps cannot prove it: clocks can move backward. The check
+  runs before page inserts, in their transaction. Live/replay rows committed after
+  the checkpoint never qualify. An older pending gap without a checkpoint stays
+  unknown; retry/startup must not fabricate one from newer receipts.
 - `meta.recovery-unanchored:<instance>` marks cursorless uncertainty and survives
   intermediate cursor commits/restarts. A pre-outage receipt clears the marker;
-  completing replay then removes the provisional gap. Without such evidence,
-  completion keeps the interval with `missed=NULL` and detaches its recovery
+  completing replay then removes the provisional gap and its checkpoint. Without
+  such evidence, completion keeps the interval with `missed=NULL` and detaches its recovery
   metadata so subsequent reconnects cannot erase it. Stored-cursor boot changes
   remain separate `proxy-restart` gaps. Retention caps, missing history or absent
   source attribution can prevent proof even when actual loss is unknown.

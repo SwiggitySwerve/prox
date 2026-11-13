@@ -396,6 +396,9 @@ export class UsageStore {
           this.recordGap({ ...gap, missed: null });
           const row = this.db.query<{ id: number }, []>('SELECT last_insert_rowid() AS id').get()!;
           this.setMeta(key, String(row.id));
+          // Capture receipt order with the gap, before any recovery traffic can qualify.
+          // nextSeq is the authoritative monotonic allocator, including pruned history.
+          this.setMeta(`recovery-checkpoint:${gap.instance}`, String(this.nextSeq - 1));
         }
         if (requireAnchor) this.setMeta(`recovery-unanchored:${gap.instance}`, '1');
       })
@@ -412,14 +415,16 @@ export class UsageStore {
     );
   }
 
-  /** A retained execution received before the outage proves the ordered log covers it. */
+  /** Only a receipt at or before the gap's durable ingestion checkpoint proves coverage. */
   private anchorRecovery(instance: string, items: readonly IngestItem[]): void {
     const key = `recovery-unanchored:${instance}`;
     if (this.getMeta(key) === null) return;
-    const fromMs = this.recoveryFromMs(instance);
-    if (fromMs === null) return;
-    const prior = this.db.query<{ ingested_at_ms: number }, [string, string]>(`
-      SELECT detail.ingested_at_ms FROM event_detail detail
+    const saved = this.getMeta(`recovery-checkpoint:${instance}`);
+    if (saved === null) return; // Older pending gaps have no safe receipt-order baseline.
+    const checkpoint = Number(saved);
+    if (!Number.isSafeInteger(checkpoint) || checkpoint < 0) return;
+    const prior = this.db.query<{ seq: number }, [string, string]>(`
+      SELECT event.seq FROM event_detail detail
       JOIN events event ON event.ts_ms = detail.ts_ms AND event.seq = detail.seq
       JOIN dim instance ON instance.id = event.instance_id
       WHERE detail.execution_id = ? AND instance.kind = 'instance' AND instance.value = ?
@@ -427,7 +432,7 @@ export class UsageStore {
     if (
       items.some(({ event }) => {
         const receipt = prior.get(event.executionId, instance);
-        return receipt !== null && receipt.ingested_at_ms < fromMs;
+        return receipt !== null && receipt.seq <= checkpoint;
       })
     )
       this.db.query('DELETE FROM meta WHERE key = ?').run(key);
@@ -443,7 +448,9 @@ export class UsageStore {
     if (this.getMeta(unanchored) === null) {
       this.db.query('DELETE FROM ingest_gaps WHERE id = ?').run(Number(id));
     }
-    this.db.query('DELETE FROM meta WHERE key IN (?, ?)').run(key, unanchored);
+    this.db
+      .query('DELETE FROM meta WHERE key IN (?, ?, ?)')
+      .run(key, unanchored, `recovery-checkpoint:${instance}`);
   }
 
   gapCount(): number {
