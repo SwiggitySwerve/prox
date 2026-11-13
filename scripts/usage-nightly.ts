@@ -29,6 +29,7 @@ export interface NightlyReport {
   backup: 'skipped' | 'pending' | 'completed';
   cancellation?: 'requested' | 'unconfirmed';
   recovery?: 'owned-job' | 'no-owned-job' | 'unavailable';
+  refused?: { kind: JobKind; status: number };
   error?: string;
 }
 interface Dependencies {
@@ -55,7 +56,11 @@ function jobFrom(value: unknown, kind: JobKind, id?: number, clientToken?: strin
     throw new Error('Invalid or replaced nightly job');
   return job;
 }
-class JobHttpFailure extends Error {}
+class JobHttpFailure extends Error {
+  constructor(readonly status: number) {
+    super('Nightly job HTTP failure');
+  }
+}
 
 async function parityProcess(deadlineMs: number, signal: AbortSignal): Promise<number> {
   signal = AbortSignal.any([signal, AbortSignal.timeout(5.5 * 3600000)]);
@@ -127,7 +132,7 @@ export async function runNightly(
     });
     if (!response.ok) {
       await response.body?.cancel();
-      throw new JobHttpFailure('Nightly job HTTP failure');
+      throw new JobHttpFailure(response.status);
     }
     return response.json();
   };
@@ -156,7 +161,9 @@ export async function runNightly(
         } catch (error) {
           // Only the server-echoed token proves ownership after a lost response.
           // A newer same-kind operator job and HTTP 409 never grant ownership.
-          if (!(error instanceof JobHttpFailure)) {
+          if (error instanceof JobHttpFailure) {
+            report.refused = { kind, status: error.status };
+          } else {
             try {
               const value = await request('/v1/jobs', undefined, 'cleanup');
               report.recovery = 'no-owned-job';
@@ -209,8 +216,9 @@ export async function runNightly(
     report.status = 'succeeded';
   } catch {
     report.status = window.signal.reason instanceof IncompleteRun ? 'incomplete' : 'failed';
-    report.error =
-      report.status === 'incomplete'
+    report.error = report.refused
+      ? `Nightly ${report.refused.kind} admission refused (HTTP ${report.refused.status})`
+      : report.status === 'incomplete'
         ? 'UTC cutoff or forbidden window; chain incomplete'
         : 'Nightly chain stopped; a step failed, was interrupted or could not be verified';
     if (report.recovery === 'no-owned-job')

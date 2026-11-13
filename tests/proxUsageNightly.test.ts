@@ -373,6 +373,12 @@ test('ambiguous recovery never cancels newer operator jobs without the exact tok
       expect(report.recovery).toBe('no-owned-job');
       expect(report.error).toContain('no job with the submission token');
     }
+    if (variant === '409') {
+      expect(report.refused).toEqual({ kind: 'prune', status: 409 });
+      expect(report.error).toBe('Nightly prune admission refused (HTTP 409)');
+      expect(report.recovery).toBeUndefined();
+      expect(report.cancellation).toBeUndefined();
+    }
     expect(calls).toEqual(variant === '409' ? ['submit'] : ['submit', 'recover']);
   }
 });

@@ -16,6 +16,7 @@ await writer.init(
   {
     events: dbPath,
     raw: process.env.PROX_USAGE_RAW_PATH ?? '/data/usage-raw.sqlite',
+    rateBookPath: process.env.PROX_USAGE_RATES_PATH,
   },
   manifest.sources.map((source) => source.instanceId),
   Date.now(),

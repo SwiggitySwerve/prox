@@ -3,6 +3,7 @@ import { authorized } from '../http/auth';
 import type { SourceStatus } from './collector';
 import {
   isBulkJobKind,
+  bulkJobFailureMessage,
   isBulkJobClientToken,
   type BulkJobKind,
   type BulkJobReport,
@@ -100,7 +101,12 @@ export function createUsageStatusHandler(options: {
       try {
         const job = (await options.jobs?.jobReport()) ?? null;
         if (path === '/v1/jobs') return json({ job });
-        return json({ sources: options.sources(), writer: { ...options.writer(), job } });
+        const { rollup, ...writer } = options.writer();
+        return json({
+          sources: options.sources(),
+          writer: { ...writer, job },
+          ...(rollup ? { rollup } : {}),
+        });
       } catch {
         return json({ error: 'Usage writer unavailable' }, 503);
       }
@@ -142,8 +148,8 @@ export function createUsageStatusHandler(options: {
               body.clientToken as string | undefined
             );
       return json({ job }, 202);
-    } catch {
-      return json({ error: 'Bulk job unavailable or ID differs' }, 409);
+    } catch (error) {
+      return json({ error: bulkJobFailureMessage(error) }, 409);
     }
   };
 }

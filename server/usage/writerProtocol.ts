@@ -2,6 +2,7 @@
 import type { AccountLabel, IngestSource } from './types';
 import type { CpampProgress, CpampReport } from './importCpamp';
 import type { ExporterSnapshot } from './exporter';
+import type { IoPauseReason } from './ioGovernor';
 import type { BackupReport } from './backup';
 
 export const BULK_JOB_KINDS = ['import', 'reconcile', 'verify', 'backup', 'prune'] as const;
@@ -79,7 +80,24 @@ export interface ExporterConfig {
   rateBookPath?: string;
   clientAliasesPath?: string;
 }
+export const ROLLUP_BACKFILL_BUSY_ERROR = 'Rollup backfill in progress';
+/** Only explicitly safe command errors cross the worker and HTTP boundaries. */
+export function bulkJobFailureMessage(error: unknown): string {
+  return error instanceof Error && error.message === ROLLUP_BACKFILL_BUSY_ERROR
+    ? ROLLUP_BACKFILL_BUSY_ERROR
+    : 'Bulk job unavailable or ID differs';
+}
+export interface RollupBackfillReport {
+  state: 'running' | 'paused' | 'waiting-for-job' | 'done' | 'failed';
+  currentHour: number | null;
+  hoursCompleted: number;
+  hoursTotal: null;
+  pauseReason: IoPauseReason | 'between-hours' | 'bulk-job' | null;
+  lastFailure: { atMs: number; hour: number | null; error: string } | null;
+}
+
 export interface WriterStatus {
+  rollup?: { backfill: RollupBackfillReport };
   exporter?: ExporterSnapshot & {
     jobs: BulkJobHealth;
     jobs_outcome_error: boolean;
@@ -121,6 +139,7 @@ export type WriterRequest =
         raw: string | null;
         sources: string[];
         nowMs: number;
+        rateBookPath?: string;
         jobs?: BulkJobConfig;
         exporter?: ExporterConfig;
       };

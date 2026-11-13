@@ -1,3 +1,5 @@
+import { groupDimensions, sumColumns } from './aggregate';
+
 // SQL text only, so any thread may import it. The connections live in store.ts.
 
 export const WRITER_PRAGMAS_SQL = `
@@ -110,7 +112,31 @@ const MIGRATION_1_SQL = `
  * `meta.schema_version` records how many have run. Append; never edit or reorder an entry that
  * has shipped. A migration that rewrites a table must run as a governed bulk job instead.
  */
-export const USAGE_MIGRATIONS: readonly string[] = [MIGRATION_1_SQL];
+const MIGRATION_2_SQL = `
+  -- Missing state is unbuilt. Dirty state and event inserts commit atomically.
+  CREATE TABLE usage_hour_state (
+    hour_ms INTEGER PRIMARY KEY,
+    layout TEXT NOT NULL DEFAULT '',
+    dirty INTEGER NOT NULL DEFAULT 1,
+    supported INTEGER NOT NULL DEFAULT 1
+  );
+  -- Coverage also includes supplementary events, unlike displayed metrics.
+  CREATE TABLE usage_hour_coverage (
+    hour_ms INTEGER NOT NULL,
+    provider_id INTEGER NOT NULL,
+    imported INTEGER NOT NULL,
+    PRIMARY KEY (hour_ms, provider_id)
+  ) WITHOUT ROWID;
+  CREATE TABLE usage_hour_rollup (
+    bucket INTEGER NOT NULL,
+    ${groupDimensions.map((key) => `${key} INTEGER NOT NULL`).join(',\n    ')},
+    ${sumColumns.map((key) => `${key} INTEGER NOT NULL`).join(',\n    ')},
+    latencies BLOB NOT NULL,
+    ttfts BLOB NOT NULL,
+    PRIMARY KEY (bucket, ${groupDimensions.join(', ')})
+  ) WITHOUT ROWID;
+`;
+export const USAGE_MIGRATIONS: readonly string[] = [MIGRATION_1_SQL, MIGRATION_2_SQL];
 
 /** usage-raw.sqlite: a 30-day buffer for re-deriving events. Analytics never reads it. It has
  * no migrations: the file may be deleted while the service is stopped and is created again. */

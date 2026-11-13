@@ -344,6 +344,58 @@ test('live jobs run before queued bulk chunks, with one running job at a time', 
   expect(await queue.enqueueJob('live', () => 42)).toBe(42);
 });
 
+test('worker rebuilds a closed hour through paced maintenance using its configured rate book', async () => {
+  const files = paths();
+  const rateBookPath = join(files.dir, 'rates.json');
+  await Bun.write(rateBookPath, JSON.stringify({ version: 1, models: {} }));
+  // Inject only host pressure, through the runtime's existing governor test boundary.
+  const psiPath = join(files.dir, 'psi');
+  await Bun.write(psiPath, 'full avg10=0.00 avg60=0.00');
+  const entry = join(files.dir, 'maintenance.worker.ts');
+  await Bun.write(
+    entry,
+    `
+    import { readFileSync } from 'node:fs';
+    import { startUsageWriterWorker } from ${JSON.stringify(join(import.meta.dir, '../server/usage/writerRuntime.ts'))};
+    startUsageWriterWorker({ readPsi: () => readFileSync(${JSON.stringify(psiPath)}, 'utf8') });
+  `
+  );
+  const writer = new UsageWriter(entry);
+  cleanups.push(() => writer.close());
+  await writer.init({ ...files, rateBookPath }, ['test-proxy']);
+  writer.enqueue(item('hourly-maintenance'));
+  await writer.flush();
+  const reader = openUsageReader(files.events);
+  try {
+    await eventually(
+      () => !!reader.query('SELECT hour_ms FROM usage_hour_state WHERE dirty = 0').get(),
+      'hour rebuild'
+    );
+    expect(reader.query('SELECT calls FROM usage_hour_rollup').get()).toEqual({ calls: 1 });
+    writer.enqueue(item('late-hourly-maintenance'));
+    await writer.flush();
+    expect(reader.query('SELECT dirty FROM usage_hour_state').get()).toEqual({ dirty: 1 });
+    await eventually(
+      () => !!reader.query('SELECT hour_ms FROM usage_hour_state WHERE dirty = 0').get(),
+      'late rebuild'
+    );
+    expect(reader.query('SELECT calls FROM usage_hour_rollup').get()).toEqual({ calls: 2 });
+    await Bun.write(psiPath, 'full avg10=5.00 avg60=0.00');
+    writer.enqueue(item('dirty-during-pressure'));
+    await writer.flush();
+    await Bun.sleep(1100); // Let the next maintenance tick enter its pressure wait.
+    expect(reader.query('SELECT dirty FROM usage_hour_state').get()).toEqual({ dirty: 1 });
+    writer.enqueue(item('live-while-rollup-paused'));
+    await writer.flush();
+    expect(writer.status.inserted).toBe(4);
+    const closingAt = performance.now();
+    await writer.close();
+    expect(performance.now() - closingAt).toBeLessThan(1500);
+  } finally {
+    reader.close();
+  }
+}, 10000);
+
 test('close rejects promptly after a worker exits instead of posting to a dead worker', async () => {
   const files = paths();
   const entry = join(files.dir, 'exits.worker.ts');

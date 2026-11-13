@@ -433,7 +433,9 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   Backup settings use `loadBackupConfig` above. `UsageWriter.init` also accepts
   these paths/budget as typed config for embedding and synthetic tests. HTTP
   never accepts file paths, budget overrides or backup credentials.
-- Nothing starts a bulk job at boot. Deployment copies optional timers without enabling them. On the existing listener at
+- Import, reconcile, verify, backup and prune remain manual; automatic hour rebuilds
+  are described below. Deployment copies optional timers without enabling them.
+  On the existing listener at
   `127.0.0.1:18320`, the coordinator explicitly calls:
   - `POST /v1/jobs` with `{"kind":"import"}` (or `reconcile`, `verify`,
     `backup`, `prune`): 202 with the running report, 409 if a job is already active.
@@ -615,6 +617,7 @@ traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
 The live performance/parity gate is a separate deployment responsibility; a
 30-day p95 above 1 s requires P5b before P6, per the plan.
 
+
 ### Raw-buffer expiry and schedules
 
 `prune` fixes its cutoff at job admission minus 30 days. `store.pruneRawBefore`
@@ -646,7 +649,11 @@ the same token and the worker atomically refuses mismatches with 409. Existing
 manual commands without a token retain their behavior; the token supplements,
 and never replaces, bearer authentication. Recovery without an exact match
 starts/cancels nothing else and reports `no-owned-job`. HTTP rejection
-(especially 409) never grants ownership.
+(especially 409) never grants ownership. Nightly admission failures retain the
+attempted kind and numeric HTTP status as `refused: {kind, status}` and name that
+refusal in the safe error. Rejected submissions trigger no retry, recovery read
+or cancellation; response bodies and credential text are never copied into the
+failure report.
 The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
 absolute noon deadline. The standalone parity service keeps `RuntimeMaxSec=5h30min`.
 The old independent prune/reconcile/backup/parity timers are removed from shipping;
@@ -666,9 +673,8 @@ pacing alone does not make the current VACUUM snapshot bounded.
 `exporter.ts` owns a writer-worker in-memory fold over the existing canonical event
 columns. Startup folds retained events once; `store.onCommit` adds only newly
 committed events after the outer transaction succeeds. Duplicate executions and
-rolled-back transactions add nothing. No derived state is persisted. The schema
-remains migration 1: no original-counter metadata, backfill or secondary import
-cursor is required. Raw-buffer expiry never deletes events or lowers counters.
+rolled-back transactions add nothing. No derived state is persisted. The exporter adds no migration: no original-counter metadata or secondary
+import cursor is required; P5b independently adds its hourly rollup tables. Raw-buffer expiry never deletes events or lowers counters.
 Any future event archive must preserve lifetime totals before deleting events.
 
 Metrics use the same canonical input/output/cache/reasoning counters as analytics.
@@ -773,5 +779,91 @@ A rollback resumes old counters and can count traffic already counted in the new
 series. None of these rollout actions is performed by this implementation.
 
 Tests compare independent fixture totals and the analytics engine over identical
-scopes, enforce commit/rollback/deduplication and schema 1, exercise reload readiness
+scopes and enforce commit/rollback/deduplication and the current schema, exercise reload readiness
 and private aliases, and verify bearer routing, exact label values and source health.
+
+
+## Hourly rollup (P5b)
+
+- `aggregate.ts` owns the SQL group dimensions, additive integer columns and
+  context-band expression shared by raw reads and rebuilds. Migration 2 adds
+  `usage_hour_rollup`: its key is the UTC hour plus provider, model, billing
+  model, requested model, tier, context band, usage flags, record kind and failed.
+  Base bands use the internal sentinel -1. No price or rate is stored.
+- `rollup.ts` replaces one closed hour in one writer transaction. Rows are pure
+  functions of that hour's events; sums are never incremented. Each row stores
+  sorted positive latency and TTFT samples as signed 32-bit integer blobs.
+  A timing above 2,147,483,647 ms makes the entire hour unsupported and raw, so
+  conversion cannot wrap or lose precision. Zero TTFT stays out of percentiles.
+- The shared insertion transaction used by `UsageStore.insert` and P3's
+  `importChunk` marks each affected hour dirty in the event transaction,
+  including imports, late events, and the open hour. Duplicate execution ids
+  invalidate nothing. Rebuild, state publication and dirty clearing commit
+  together; failure preserves the old rollup and dirty state. Consumers never
+  read stale rows while dirty. Future event retention must invalidate affected
+  hours in its deletion transaction as well; no event pruning exists here yet.
+- The writer schedules at most one `enqueueJob('rollup', ...)` at a time, one
+  hour per job, with a one-second timer between jobs. Live jobs have priority.
+  The event-loop yield lets live messages enter the queue between hours. A bulk
+  import can leave thousands of durable dirty hours without creating thousands
+  of queued callbacks. Shutdown cancels maintenance instead of draining history.
+  A failed background replacement logs a safe error and retries; raw reads remain
+  correct. `rollupMaintenance.ts` calls `UsageBulkJobs.runRollupChunk`, sharing
+  P3's one governor and `runIoChunk` contract with manual jobs: pressure
+  waits precede queue admission, and measured thread IO bytes are charged after
+  each hour, including a failed hour. Pressure/byte waits stay outside the queue,
+  so a paused rollup cannot hold live commits. Shutdown aborts these waits.
+  Backfill reserves bulk admission from its first chunk until a no-work result,
+  including pressure/pacing waits and the yield between hours: manual/nightly
+  POST `/v1/jobs` returns 409 throughout that interval. If a manual job is already
+  active, the maintenance tick does nothing and retries later without advancing
+  its durable discovery cursor or dirty set. This uses the refusal-and-pause
+  policy; it adds no report kind and never overwrites a manual job's client token.
+- Bearer-protected GET `/v1/status` includes `rollup.backfill`, refreshed through
+  the existing writer RPC without main-thread SQLite or an extra history scan.
+  States are `running`, `paused`, `waiting-for-job`, `done` and `failed`.
+  `currentHour` is the most recently selected UTC hour in epoch milliseconds,
+  null before selection and after draining. `hoursCompleted` counts distinct
+  successfully processed hours since writer start (including already-clean
+  discovery visits); `hoursTotal` stays null. Pause reasons distinguish
+  `io-pressure`, `io-pacing`, `between-hours` and `bulk-job`. `lastFailure` retains
+  a safe fixed error, epoch-millisecond timestamp and selected hour after recovery.
+  This status is in memory only. Backfill and refused submissions never write
+  `job-outcome:<kind>` metadata. Bulk POSTs refused for backfill retain HTTP 409
+  and return the safe error `Rollup backfill in progress`. Other worker errors
+  retain their generic safe messages.
+- Migration 2 creates empty tables only. Pre-migration events are discovered
+  using a persisted time cursor and a primary-key seek, one hour per maintenance
+  job, without rewriting or grouping the events table at startup. Already-built
+  hours are skipped. Late imports behind the cursor carry their own dirty marks.
+- Context bands depend on the book's model membership and thresholds. Each
+  completed hour carries a hash of that layout. A layout change makes old hours
+  read raw until rebuilt; rate-only, service-rate and provenance edits reuse
+  sums and samples and apply current prices at query time. Different worker
+  book snapshots remain safe because a reader checks its own layout hash.
+- `rollupRead.ts` selects only fully included, closed, clean, supported hours
+  under the reader's current layout. All other time spans read `events` in the
+  same snapshot. It merges integer sums by the full raw SQL group key in
+  TypeScript before pricing, and merges exact samples into the same nearest-rank
+  owner (`latency.ts`). SQLite concatenates sample bytes by bucket/model/provider
+  and casts the result back to BLOB before Bun sees it; no text is decoded and
+  NUL/invalid UTF-8 byte patterns are covered by regression tests. Pricing and
+  ordered reasons use the same groups and ordering in both paths. Request detail stays raw. `coverage.ts` owns range-wide
+  import/provider facts, including supplementary events; rebuilds retain those
+  facts in `usage_hour_coverage` and reads merge them with the same raw time spans.
+  Coverage therefore avoids an otherwise redundant full-range scan without
+  changing which events it describes.
+- Any model/provider/outcome filter or nonempty search forces the whole response
+  to raw events. A future dimension may use rollups only if the rollup retains
+  it and equivalence coverage is extended. The authenticated query-only boolean
+  `debug_force_raw: true` forces raw reads for P6; it adds no response fields and
+  changes no shared browser contract. Range, catalog, pagination and UTC bucket
+  choices otherwise retain their existing semantics.
+
+`tests/proxUsageRollup.test.ts` compares entire `AnalyticsResponse` documents
+without normalizing floats, reason arrays or any field, using a fixed clock on
+four seeded randomized stores, mixed dirty/imported/open/partial hours, band and
+tier mixtures, pagination, layout changes and unsupported timings. Additional
+checks cover transactional failure, duplicates, pre-migration discovery and a
+3,000-hour import drained one job at a time. These synthetic tests do not replace
+P6's comparison with CPAMP or a live performance gate.

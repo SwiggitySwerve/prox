@@ -1,10 +1,13 @@
 // Worker-owned bulk orchestration. No sockets or HTTP; database work goes through bounded chunks.
 import { loadBackupConfig, UsageBackup } from './backup';
 import { runCpampJob } from './importCpamp';
+import type { RollupWriteResult } from './rollup';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoGovernorOptions } from './ioGovernor';
 import { openUsageReader, type RawPruneCursor, type UsageStore } from './store';
 import {
   BULK_JOB_KINDS,
+  ROLLUP_BACKFILL_BUSY_ERROR,
+  type RollupBackfillReport,
   isBulkJobClientToken,
   type BulkJobConfig,
   type BulkJobHealth,
@@ -27,6 +30,16 @@ export class UsageBulkJobs {
   private active: { controller: AbortController; settled: Promise<void> } | null = null;
   private nextId = 0;
   private closing = false;
+  private rollupBackfill = false;
+  private readonly completedRollupHours = new Set<number>();
+  private readonly backfill: RollupBackfillReport = {
+    state: 'running',
+    currentHour: null,
+    hoursCompleted: 0,
+    hoursTotal: null,
+    pauseReason: null,
+    lastFailure: null,
+  };
 
   constructor(
     private readonly store: UsageStore,
@@ -87,6 +100,7 @@ export class UsageBulkJobs {
     if (clientToken !== undefined && !isBulkJobClientToken(clientToken))
       throw new Error('Invalid client token');
     if (this.closing || this.active) throw new Error('Bulk job unavailable');
+    if (this.rollupBackfill) throw new Error(ROLLUP_BACKFILL_BUSY_ERROR);
     this.latest = {
       id: ++this.nextId,
       ...(clientToken === undefined ? {} : { clientToken }),
@@ -126,18 +140,94 @@ export class UsageBulkJobs {
     }
   }
 
+  backfillReport(): RollupBackfillReport {
+    const pauseReason = this.backfill.state === 'running' ? this.governor?.pauseReason : null;
+    return {
+      ...this.backfill,
+      ...(pauseReason ? { state: 'paused' as const, pauseReason } : {}),
+      lastFailure: this.backfill.lastFailure ? { ...this.backfill.lastFailure } : null,
+    };
+  }
+
+  /** Reserve admission across the entire backfill, including IO waits and between hours.
+   * A previously admitted manual job pauses maintenance without advancing its stored cursor.
+   * Only a null work result releases the reservation: that pass has drained all closed hours.
+   */
+  async runRollupChunk(
+    work: (onHour: (hour: number) => void) => RollupWriteResult | null,
+    signal: AbortSignal
+  ): Promise<void> {
+    if (this.closing) throw new Error('Bulk jobs are closing');
+    if (this.active) {
+      this.backfill.state = 'waiting-for-job';
+      this.backfill.pauseReason = 'bulk-job';
+      return;
+    }
+    this.rollupBackfill = true;
+    this.backfill.state = 'running';
+    this.backfill.pauseReason = null;
+    try {
+      const result = await runIoChunk(
+        'rollup',
+        () => {
+          const result = work((hour) => {
+            this.backfill.currentHour = hour;
+          });
+          if (result) {
+            this.backfill.currentHour = result.hour;
+            this.completedRollupHours.add(result.hour);
+            this.backfill.hoursCompleted = this.completedRollupHours.size;
+          }
+          return result;
+        },
+        {
+          governor: this.getGovernor(),
+          signal,
+          scheduleChunk: this.scheduleChunk,
+        }
+      );
+      if (result === null) {
+        this.rollupBackfill = false;
+        this.backfill.state = 'done';
+        this.backfill.currentHour = null;
+        this.backfill.pauseReason = null;
+      } else {
+        this.backfill.state = 'paused';
+        this.backfill.pauseReason = 'between-hours';
+      }
+    } catch (error) {
+      this.backfill.pauseReason = null;
+      if (signal.aborted) {
+        this.rollupBackfill = false;
+        this.backfill.state = 'paused';
+      } else {
+        this.backfill.state = 'failed';
+        this.backfill.lastFailure = {
+          atMs: Date.now(),
+          hour: this.backfill.currentHour,
+          error: 'Usage hourly rollup rebuild failed; raw events retained',
+        };
+      }
+      throw error;
+    }
+  }
+
+  private getGovernor(): IoGovernor {
+    return (this.governor ??= new IoGovernor({
+      bytesPerSecond:
+        this.config.bytesPerSecond ??
+        (process.env.PROX_USAGE_BULK_BYTES_PER_SECOND
+          ? Number(process.env.PROX_USAGE_BULK_BYTES_PER_SECOND)
+          : undefined),
+      ...this.governorOptions,
+    }));
+  }
+
   private async run(kind: BulkJobKind, signal: AbortSignal): Promise<void> {
     let source: ReturnType<typeof openUsageReader> | undefined;
     const report = this.latest!;
     try {
-      this.governor ??= new IoGovernor({
-        bytesPerSecond:
-          this.config.bytesPerSecond ??
-          (process.env.PROX_USAGE_BULK_BYTES_PER_SECOND
-            ? Number(process.env.PROX_USAGE_BULK_BYTES_PER_SECOND)
-            : undefined),
-        ...this.governorOptions,
-      });
+      this.governor = this.getGovernor();
       const options = { governor: this.governor, signal, scheduleChunk: this.scheduleChunk };
       if (kind === 'prune') {
         const prune = {

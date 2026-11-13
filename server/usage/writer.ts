@@ -80,7 +80,7 @@ export class UsageWriter implements CollectorWriter {
   }
 
   async init(
-    paths: { events: string; raw: string | null },
+    paths: { events: string; raw: string | null; rateBookPath?: string },
     sources: string[],
     nowMs = Date.now(),
     jobs?: BulkJobConfig,

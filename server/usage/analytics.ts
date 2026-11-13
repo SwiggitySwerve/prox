@@ -1,13 +1,14 @@
 // Read-side analytics owner. Called inside a worker, with one immutable rate-book snapshot.
 import type { Database } from 'bun:sqlite';
 import type { AnalyticsMetrics, AnalyticsResponse } from '../../src/domain/analytics/types';
-import { LatencyGroups } from './latency';
+import { readAnalyticsGroups } from './rollupRead';
+import { HOUR_MS, DAY_MS, type AggregateRow } from './aggregate';
 import { sourceAttribution } from './parity';
-import { analyticsCosts, type AggregatePricingRow } from './analyticsPricing';
+import { analyticsCosts } from './analyticsPricing';
 import { buildRateInventory } from './pricing';
 import { queryFilter, requestPage, type Dimension } from './search';
-import { INGEST, KNOWN_PROVIDERS, type RecordKindCode } from './types';
-import type { RateBook, RateBookState } from './rates';
+import { KNOWN_PROVIDERS } from './types';
+import type { RateBookState } from './rates';
 import type { UsageAnalyticsQuery } from './validate';
 
 export const COVERAGE_LIMITATIONS = [
@@ -18,49 +19,7 @@ export const COVERAGE_LIMITATIONS = [
   'Historical canonical output and effective tiers are not rewritten; older Gemini output may omit thoughts.',
   'Output speed uses output tokens divided by full execution duration. TTFT methods may differ; no generation-time subtraction is performed.',
 ];
-interface AggregateRow extends AggregatePricingRow {
-  usage_flags: number;
-  record_kind: RecordKindCode;
-  failures: number;
-  latency_sum: number;
-  latency_count: number;
-}
-/** Values are dictionary ids and validated integer thresholds, never interpolated text.
- * Each candidate CASE returns -1 for a configured base-only model: it must stop fallback.
- * Thresholds are tested descending so each event gets the largest STRICTLY exceeded band.
- */
-function contextBandSql(dims: readonly Dimension[], book: RateBook): string {
-  const rated = dims.filter(
-    (d) => d.kind === 'model' && Object.prototype.hasOwnProperty.call(book.models, d.value)
-  );
-  if (!rated.length) return 'NULL';
-  const candidate = (column: string) =>
-    `CASE e.${column} ${rated
-      .map((d) => {
-        const tiers = book.models[d.value].context_tiers;
-        const band = tiers.length
-          ? `CASE ${[...tiers]
-              .reverse()
-              .map(
-                (tier) =>
-                  `WHEN e.input_total > ${tier.above_input_tokens} THEN ${tier.above_input_tokens}`
-              )
-              .join(' ')} ELSE -1 END`
-          : '-1';
-        return `WHEN ${d.id} THEN ${band}`;
-      })
-      .join(' ')} END`;
-  return `nullif(coalesce(${['billing_model_id', 'model_id', 'requested_model_id'].map(candidate).join(', ')}), -1)`;
-}
-const tokenColumns = [
-  'input_total',
-  'input_uncached',
-  'cache_read',
-  'cache_write',
-  'output_total',
-  'reasoning',
-  'total',
-] as const;
+
 function emptyMetrics(): AnalyticsMetrics {
   return {
     calls: 0,
@@ -110,6 +69,8 @@ function group(map: Map<number, Metrics>, key: number): Metrics {
 }
 export interface AnalyticsReadOptions {
   now?: () => number;
+  /** Internal benchmark observer; never serialized in an AnalyticsResponse. */
+  onPhase?: (phase: string) => void;
   /** Boundary observer for deterministic concurrent-write regression tests. Runs in the snapshot. */
   afterAggregate?: () => void;
   checkDeadline?: () => void;
@@ -129,46 +90,25 @@ export function queryAnalytics(
       const dims = db.query<Dimension, []>('SELECT id, kind, value FROM dim').all();
       const names = new Map(dims.map((d) => [d.id, d.value]));
       const filter = queryFilter(db, q, dims);
-      const bucketSize = q.granularity === 'day' ? 86400000 : 3600000;
-      const bucket = `(e.ts_ms / ${bucketSize}) * ${bucketSize}`;
-      const rows = db
-        .query<AggregateRow, (number | string)[]>(
-          `SELECT ${bucket} AS bucket,
-      e.provider_id, e.model_id, e.billing_model_id, e.requested_model_id, e.tier_id,
-      ${contextBandSql(dims, book)} AS band, e.usage_flags, e.record_kind,
-      count(*) AS calls, sum(e.failed) AS failures,
-      ${tokenColumns.map((key) => `sum(e.${key}) AS ${key}`).join(', ')},
-      coalesce(sum(e.latency_ms), 0) AS latency_sum, count(e.latency_ms) AS latency_count
-      FROM events e WHERE ${filter.sql}
-      GROUP BY bucket, provider_id, model_id, billing_model_id, requested_model_id,
-        tier_id, band, usage_flags, record_kind, failed
-      ORDER BY bucket, model_id, billing_model_id, tier_id, band, usage_flags, record_kind, failed`
-        )
-        .all(...filter.args);
-      options.afterAggregate?.();
-      check();
-      const latency = new LatencyGroups();
-      // Iterate instead of materializing a million JS row objects. Samples grow in typed arrays.
-      const samples = db.query<
-        {
-          bucket: number;
-          model_id: number;
-          provider_id: number;
-          latency_ms: number | null;
-          ttft_ms: number | null;
-        },
-        (number | string)[]
-      >(
-        `SELECT ${bucket} AS bucket, e.model_id, e.provider_id, e.latency_ms, e.ttft_ms FROM events e WHERE ${filter.sql}`
+      const bucketSize = q.granularity === 'day' ? DAY_MS : HOUR_MS;
+      const { rows, latency, coverageRows } = readAnalyticsGroups(
+        db,
+        q,
+        filter,
+        dims,
+        book,
+        bucketSize,
+        (options.now ?? Date.now)(),
+        check,
+        options.onPhase,
+        options.afterAggregate
       );
-      let scanned = 0;
-      for (const row of samples.iterate(...filter.args)) {
-        latency.add(row.bucket, row.model_id, row.provider_id, row.latency_ms, row.ttft_ms);
-        if ((++scanned & 4095) === 0) check();
-      }
+      check();
       const ranks = latency.result();
       check();
+      options.onPhase?.('percentiles');
       const page = requestPage(db, q, filter, names, book);
+      options.onPhase?.('request-page');
       const summary = new Metrics();
       const timeline = new Map<number, Metrics>();
       const models = new Map<number, Metrics>();
@@ -183,11 +123,14 @@ export function queryAnalytics(
         group(providers, row.provider_id).add(row);
         observed.set(`${provider}\0${model}`, { provider, id: model });
       }
-      const costs = analyticsCosts(rows, names, book);
+
+      const costs = analyticsCosts(rows, names, book, options.onPhase);
       summary.value.cost = costs.summary;
       for (const [id, metrics] of models) metrics.value.cost = costs.models.get(id)!;
       for (const [id, metrics] of providers) metrics.value.cost = costs.providers.get(id)!;
       for (const [id, metrics] of timeline) metrics.value.cost = costs.buckets.get(id)!;
+      options.onPhase?.('pricing');
+
       // Selectors ignore provider/model/outcome, while retaining the range and search.
       let selectorRows: { model_id: number; provider_id: number }[];
       if (!q.model?.trim() && !q.provider?.trim() && q.outcome === 'all') selectorRows = rows;
@@ -212,11 +155,6 @@ export function queryAnalytics(
         )
         .all(q.to_ms, q.from_ms);
       // Coverage describes the range, including rows hidden by filters or supplementary exclusion.
-      const coverageRows = db
-        .query<{ imported: number; provider_id: number }, [number, number]>(
-          `SELECT max(ingest = ${INGEST.imported}) AS imported, provider_id FROM events WHERE ts_ms >= ? AND ts_ms < ? GROUP BY provider_id`
-        )
-        .all(q.from_ms, q.to_ms);
       const limitations = [...COVERAGE_LIMITATIONS];
       if (q.from_ms < floor)
         limitations.push(`History before retention_floor_ms ${floor} has been pruned.`);
@@ -235,6 +173,7 @@ export function queryAnalytics(
           'Records from an unknown provider are stored as reported; normalization is limited.'
         );
       limitations.push('records in flight during a collector or proxy restart may be absent');
+      options.onPhase?.('coverage');
       const breakdown = (map: Map<number, Metrics>, ranked: typeof ranks.models) =>
         [...map]
           .map(([id, metrics]) => ({

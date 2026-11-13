@@ -13,6 +13,9 @@ import {
   USAGE_MIGRATIONS,
   WRITER_PRAGMAS_SQL,
 } from './schema';
+import { HOUR_MS } from './aggregate';
+import { rebuildNextHour } from './rollup';
+import type { RateBook } from './rates';
 import type { IngestGap, UsageCursor, UsageCommit } from './writerProtocol';
 import type {
   DimKind,
@@ -242,11 +245,13 @@ export class UsageStore {
       `${insertSql('event_detail', DETAIL_COLUMNS)} ON CONFLICT (execution_id) DO NOTHING`
     );
     this.insertEvent = this.db.query(insertSql('events', EVENT_COLUMNS));
+
     this.insertAll = this.db.transaction(
       (items: readonly IngestItem[], ingest: IngestSource, progress: UsageCommit = {}) => {
         // Check before inserts: a new record on this page is not a pre-outage receipt.
         if (progress.replayInstance) this.anchorRecovery(progress.replayInstance, items);
         const stored: Stored[] = [];
+        const dirtyHours = new Set<number>();
         for (const item of items) {
           const seq = this.nextSeq;
           // The identity check and the write are one statement: a known execution_id writes nothing.
@@ -254,7 +259,11 @@ export class UsageStore {
           this.nextSeq += 1;
           this.insertEvent.run(this.eventRow(item.event, seq, ingest));
           stored.push({ seq, item });
+          dirtyHours.add(Math.floor(item.event.tsMs / HOUR_MS) * HOUR_MS);
         }
+        const markDirty = this.db.query(`INSERT INTO usage_hour_state (hour_ms) VALUES (?)
+          ON CONFLICT (hour_ms) DO UPDATE SET dirty = 1`);
+        for (const hour of dirtyHours) markDirty.run(hour);
         for (const { instance, cursor } of progress.cursors ?? []) {
           const previous = this.getCursor(instance);
           if (
@@ -304,6 +313,11 @@ export class UsageStore {
       })();
     });
     return { inserted: stored.length, duplicates: items.length - stored.length };
+  }
+
+  /** One bounded maintenance job; imports use insert(), so their hours invalidate atomically. */
+  rebuildNextHour(book: RateBook, nowMs = this.now(), onHour?: (hour: number) => void) {
+    return rebuildNextHour(this.db, book, nowMs, onHour);
   }
 
   /** Keep what can be kept of a payload that did not become an event. */

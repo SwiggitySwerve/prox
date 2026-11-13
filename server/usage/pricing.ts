@@ -57,12 +57,19 @@ const COMPONENT_FLAGS =
   USAGE_FLAG.cacheReadTokens |
   USAGE_FLAG.cacheCreationTokens;
 
-export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost {
+function estimateWithRates(
+  group: PricingGroup,
+  book: RateBook,
+  ratesFor = effectiveRates
+): AnalyticsCost {
   const calls = group.calls ?? 1;
-  for (const [key, value] of Object.entries({ ...group.tokens, calls })) {
+  for (const key of Object.keys(group.tokens) as (keyof EventTokens)[]) {
+    const value = group.tokens[key];
     if (!Number.isSafeInteger(value) || value < 0)
       throw new Error(`${key} must be a non-negative safe integer`);
   }
+  if (!Number.isSafeInteger(calls) || calls < 0)
+    throw new Error('calls must be a non-negative safe integer');
   if (calls === 0) return { usd: null, status: 'unavailable', reasons: ['no-retained-events'] };
   const result: AnalyticsCost = {
     usd: null,
@@ -105,7 +112,7 @@ export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost
         throw new Error('Aggregate pricing requires an explicit per-event context band');
       }
       const tier = group.tier ?? '';
-      const effective = effectiveRates(price, band, tier);
+      const effective = ratesFor(price, band, tier);
       // CPAMP does not count a cache-write-only row as a configured model price.
       if (effective.input === null && effective.output === null && effective.cache_read === null) {
         result.reasons.push('model-rates-not-configured');
@@ -156,19 +163,45 @@ export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost
   return result;
 }
 
+export function estimateCost(group: PricingGroup, book: RateBook): AnalyticsCost {
+  return estimateWithRates(group, book);
+}
+
 /** CPAMP pricingTokensForStat/TimelinePoint supply sums, not event component metadata.
  * Presence is always unknown; the aggregate caller adds its legacy-kind compatibility reason.
  */
+function aggregateGroup(group: PricingGroup): PricingGroup {
+  return {
+    ...group,
+    usagePresent: null,
+    usageFlags: COMPONENT_FLAGS | USAGE_FLAG.fieldsPresent | USAGE_FLAG.breakdownComplete,
+    recordKind: RECORD_KIND.execution,
+  };
+}
 export function estimateAggregateCost(group: PricingGroup, book: RateBook): AnalyticsCost {
-  return estimateCost(
-    {
-      ...group,
-      usagePresent: null,
-      usageFlags: COMPONENT_FLAGS | USAGE_FLAG.fieldsPresent | USAGE_FLAG.breakdownComplete,
-      recordKind: RECORD_KIND.execution,
-    },
-    book
-  );
+  return estimateCost(aggregateGroup(group), book);
+}
+
+/** Repeated hourly groups share an immutable book and band/tier schedules. Reuse only the
+ * resolved rates within this response; arithmetic and status decisions still run per group.
+ */
+export function createAggregateCostEstimator(book: RateBook) {
+  const schedules = new WeakMap<ModelRate, Map<string, RateValues>>();
+  const ratesFor = (price: ModelRate, band: number | null, tier: string): RateValues => {
+    let bySchedule = schedules.get(price);
+    if (!bySchedule) {
+      bySchedule = new Map();
+      schedules.set(price, bySchedule);
+    }
+    const key = `${band ?? ''}:${tier}`;
+    let rates = bySchedule.get(key);
+    if (!rates) {
+      rates = effectiveRates(price, band, tier);
+      bySchedule.set(key, rates);
+    }
+    return rates;
+  };
+  return (group: PricingGroup) => estimateWithRates(aggregateGroup(group), book, ratesFor);
 }
 
 /** proxRequest uses the event's presence, without aggregate counts or a legacy-kind reason. */
@@ -186,7 +219,9 @@ export function estimateRequestCost(group: PricingGroup, book: RateBook): Analyt
 
 /** Preserve known subtotals, unique reasons in first-seen order, and call counts. */
 export function combineEstimates(left: AnalyticsCost, right: AnalyticsCost): AnalyticsCost {
-  const reasons = [...new Set([...left.reasons, ...right.reasons])];
+  const reasons: string[] = [];
+  for (const reason of left.reasons) if (!reasons.includes(reason)) reasons.push(reason);
+  for (const reason of right.reasons) if (!reasons.includes(reason)) reasons.push(reason);
   const usd = left.usd === null && right.usd === null ? null : (left.usd ?? 0) + (right.usd ?? 0);
   const priced = (left.priced_calls ?? 0) + (right.priced_calls ?? 0);
   const unpriced = (left.unpriced_calls ?? 0) + (right.unpriced_calls ?? 0);

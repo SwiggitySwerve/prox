@@ -1,7 +1,7 @@
 // CPAMP's per-view pricing projections and combination order, after the unchanged SQL grouping.
 import type { AnalyticsCost } from '../../src/domain/analytics/types';
 import { aggregateEstimate } from './parity';
-import { combineEstimates, estimateAggregateCost, resolveModelPrice } from './pricing';
+import { combineEstimates, createAggregateCostEstimator, resolveModelPrice } from './pricing';
 import type { RateBook } from './rates';
 import { eventTokens, type TokenRow } from './search';
 import { RECORD_KIND, type EventTokens } from './types';
@@ -26,43 +26,56 @@ export interface PricingOrderKey {
 // Go strings and SQLite BINARY both compare UTF-8 bytes, rather than JavaScript UTF-16 units.
 const compareText = (left: string, right: string) =>
   left === right ? 0 : Buffer.compare(Buffer.from(left), Buffer.from(right));
-function pricingModelCompare(left: PricingOrderKey, right: PricingOrderKey): number {
+function pricingModelCompare(
+  left: PricingOrderKey,
+  right: PricingOrderKey,
+  compare = compareText
+): number {
   return (
-    compareText(left.model, right.model) ||
-    compareText(left.billingModel, right.billingModel) ||
-    compareText(left.pricingModel, right.pricingModel)
+    compare(left.model, right.model) ||
+    compare(left.billingModel, right.billingModel) ||
+    compare(left.pricingModel, right.pricingModel)
   );
 }
 /** Exact port of monitoring/prox.go pricingRowLess, expressed as a stable-sort comparator. */
-export function pricingRowCompare(left: PricingOrderKey, right: PricingOrderKey): number {
+function comparePricingRows(
+  left: PricingOrderKey,
+  right: PricingOrderKey,
+  compare = compareText
+): number {
   return (
-    pricingModelCompare(left, right) ||
-    compareText(left.tier, right.tier) ||
+    pricingModelCompare(left, right, compare) ||
+    compare(left.tier, right.tier) ||
     (left.band ?? -1) - (right.band ?? -1)
   );
 }
-interface PricingRow extends PricingOrderKey {
+export function pricingRowCompare(left: PricingOrderKey, right: PricingOrderKey): number {
+  return comparePricingRows(left, right, compareText);
+}
+interface PricingDetails extends PricingOrderKey {
+  key: string;
   requestedModel: string;
   modelId: number;
+}
+interface PricingRow {
+  details: PricingDetails;
   providerId: number;
   bucket: number;
   calls: number;
   tokens: EventTokens;
 }
-function fold(map: Map<string, PricingRow>, row: PricingRow, scope: number | null) {
+function fold(
+  map: Map<string, PricingRow>,
+  row: PricingRow,
+  scope: number | null,
+  ownsRow = false
+) {
   // CPAMP model stats omit bucket/provider, timeline adds bucket, provider stats add provider.
   // Event flags, kind and outcome remain in SQL; these pricing projections carry only sums.
-  const key = JSON.stringify([
-    scope,
-    row.model,
-    row.billingModel,
-    row.pricingModel,
-    row.band,
-    row.tier,
-  ]);
+  const key = `${scope ?? ''}:${row.details.key}`;
   const existing = map.get(key);
   if (!existing) {
-    map.set(key, { ...row, tokens: { ...row.tokens } });
+    map.set(key, ownsRow ? row : { ...row, tokens: { ...row.tokens } });
     return;
   }
   existing.calls += row.calls;
@@ -78,52 +91,85 @@ function add(map: Map<number, AnalyticsCost>, key: number, cost: AnalyticsCost) 
 export function analyticsCosts(
   rows: readonly AggregatePricingRow[],
   names: ReadonlyMap<number, string>,
-  book: RateBook
+  book: RateBook,
+  onPhase?: (phase: string) => void
 ) {
   const stats = new Map<string, PricingRow>();
   const timeline = new Map<string, PricingRow>();
   const providerStats = new Map<string, PricingRow>();
   const modelProviders = new Map<number, Set<number>>();
+  // Both caches belong to this book snapshot and response. Repeated hourly rows need neither
+  // repeated candidate resolution/key serialization nor fresh UTF-8 buffers during sorting.
+  const utf8 = new Map<string, Buffer>();
+  const bytes = (value: string) => {
+    let result = utf8.get(value);
+    if (!result) {
+      result = Buffer.from(value);
+      utf8.set(value, result);
+    }
+    return result;
+  };
+  const compare = (left: string, right: string) =>
+    left === right ? 0 : Buffer.compare(bytes(left), bytes(right));
+  const metadata = new Map<string, PricingDetails>();
   for (const row of rows) {
-    const model = names.get(row.model_id)!;
-    const billingModel = names.get(row.billing_model_id)!;
-    const requestedModel = names.get(row.requested_model_id)!;
-    const pricing: PricingRow = {
-      model,
-      billingModel,
-      requestedModel,
-      pricingModel:
+    const metadataKey = `${row.model_id},${row.billing_model_id},${row.requested_model_id},${row.tier_id},${row.band ?? ''}`;
+    let details = metadata.get(metadataKey);
+    if (!details) {
+      const model = names.get(row.model_id)!;
+      const billingModel = names.get(row.billing_model_id)!;
+      const requestedModel = names.get(row.requested_model_id)!;
+      const pricingModel =
         resolveModelPrice([billingModel, model, requestedModel], book)?.matchedModel ??
+        billingModel;
+      const tier = names.get(row.tier_id)!;
+      details = {
+        model,
         billingModel,
-      tier: names.get(row.tier_id)!,
-      band: row.band,
+        requestedModel,
+        pricingModel,
+        tier,
+        band: row.band,
+        modelId: row.model_id,
+        key: JSON.stringify([model, billingModel, pricingModel, row.band, tier]),
+      };
+      metadata.set(metadataKey, details);
+    }
+    const pricing: PricingRow = {
+      details,
       calls: row.calls,
-      modelId: row.model_id,
       providerId: row.provider_id,
       bucket: row.bucket,
       tokens: eventTokens(row),
     };
     fold(stats, pricing, null);
-    fold(timeline, pricing, row.bucket);
+    // This freshly constructed row can belong to the timeline. The other projections copy
+    // new entries so their later folds cannot mutate another view's token sums.
+    fold(timeline, pricing, row.bucket, true);
     fold(providerStats, pricing, row.provider_id);
     const providers = modelProviders.get(row.model_id) ?? new Set<number>();
     providers.add(row.provider_id);
     modelProviders.set(row.model_id, providers);
   }
+  onPhase?.('pricing-fold');
+  const estimateAggregate = createAggregateCostEstimator(book);
   const estimate = (row: PricingRow) =>
     aggregateEstimate(
-      estimateAggregateCost(
-        {
-          ...row,
-          usageFlags: 0,
-          recordKind: RECORD_KIND.execution,
-          contextThreshold: row.band,
-        },
-        book
-      )
+      estimateAggregate({
+        model: row.details.model,
+        billingModel: row.details.billingModel,
+        requestedModel: row.details.requestedModel,
+        tier: row.details.tier,
+        tokens: row.tokens,
+        calls: row.calls,
+        usageFlags: 0,
+        recordKind: RECORD_KIND.execution,
+        contextThreshold: row.details.band,
+      })
     );
   const sortedStats = [...stats.values()].sort(
-    (left, right) => right.calls - left.calls || pricingRowCompare(left, right)
+    (left, right) =>
+      right.calls - left.calls || comparePricingRows(left.details, right.details, compare)
   );
   let summary: AnalyticsCost = {
     usd: null,
@@ -140,25 +186,29 @@ export function analyticsCosts(
       models.size ? summary : { usd: null, status: 'unpriced', reasons: [] },
       cost
     );
-    add(models, row.modelId, cost);
+    add(models, row.details.modelId, cost);
     if (regroupProviders) add(providers, row.providerId, cost);
   }
+  onPhase?.('pricing-stats');
   for (const row of [...timeline.values()].sort(
-    (left, right) => left.bucket - right.bucket || pricingRowCompare(left, right)
+    (left, right) =>
+      left.bucket - right.bucket || comparePricingRows(left.details, right.details, compare)
   ))
     add(buckets, row.bucket, estimate(row));
+  onPhase?.('pricing-timeline');
   if (!regroupProviders) {
     // The fallback is ProviderModelStatsWithFilter: calls DESC, ties in its SQL GROUP BY
     // key order (band before tier). prox.go does not re-sort that repository result.
     const sortedProviders = [...providerStats.values()].sort(
       (left, right) =>
         right.calls - left.calls ||
-        pricingModelCompare(left, right) ||
-        (left.band ?? -1) - (right.band ?? -1) ||
-        compareText(left.tier, right.tier) ||
-        compareText(names.get(left.providerId)!, names.get(right.providerId)!)
+        pricingModelCompare(left.details, right.details, compare) ||
+        (left.details.band ?? -1) - (right.details.band ?? -1) ||
+        compare(left.details.tier, right.details.tier) ||
+        compare(names.get(left.providerId)!, names.get(right.providerId)!)
     );
     for (const row of sortedProviders) add(providers, row.providerId, estimate(row));
   }
+  onPhase?.('pricing-providers');
   return { summary, models, providers, buckets };
 }

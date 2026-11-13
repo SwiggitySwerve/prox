@@ -244,7 +244,7 @@ test('store publishes only committed inserts, not duplicates or rolled-back impo
   const restarted = new UsageExporter((visit) => f.store.scanExporterEvents(visit));
   restarted.refresh(book());
   expect(restarted.snapshot(emptyAliases)).toEqual(fold.snapshot(emptyAliases));
-  expect(USAGE_MIGRATIONS).toHaveLength(1);
+  expect(f.store.getMeta('schema_version')).toBe(String(USAGE_MIGRATIONS.length));
   expect(f.db.query('PRAGMA table_info(event_detail)').all()).not.toContainEqual(
     expect.objectContaining({ name: 'reported_input' })
   );

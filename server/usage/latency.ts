@@ -35,6 +35,20 @@ class Samples {
     }
     this.values[this.length++] = value;
   }
+  addSamples(samples: Int32Array) {
+    const needed = this.length + samples.length;
+    if (needed > this.values.length) {
+      const expanded = new Float64Array(Math.max(needed, this.values.length * 2));
+      expanded.set(this.values.subarray(0, this.length));
+      this.values = expanded;
+    }
+    // Most rollup groups contain only a handful of events. Avoid crossing the typed-array
+    // bulk-copy boundary eight times per tiny row; keep bulk copies for larger groups.
+    if (samples.length <= 16) {
+      for (let i = 0; i < samples.length; i++) this.values[this.length + i] = samples[i];
+    } else this.values.set(samples, this.length);
+    this.length = needed;
+  }
   p95() {
     return nearestRank(this.values.subarray(0, this.length));
   }
@@ -45,6 +59,10 @@ class Pair {
   add(latency: number | null, ttft: number | null) {
     this.latency.add(latency);
     this.ttft.add(ttft);
+  }
+  addSamples(latency: Int32Array, ttft: Int32Array) {
+    this.latency.addSamples(latency);
+    this.ttft.addSamples(ttft);
   }
   result() {
     return { p95_latency_ms: this.latency.p95(), p95_ttft_ms: this.ttft.p95() };
@@ -63,18 +81,29 @@ export class LatencyGroups {
     ttft: number | null
   ) {
     this.overall.add(latency, ttft);
-    for (const [map, key] of [
-      [this.buckets, bucket],
-      [this.models, model],
-      [this.providers, provider],
-    ] as const) {
-      let group = map.get(key);
-      if (!group) {
-        group = new Pair();
-        map.set(key, group);
-      }
-      group.add(latency, ttft);
+    this.group(this.buckets, bucket).add(latency, ttft);
+    this.group(this.models, model).add(latency, ttft);
+    this.group(this.providers, provider).add(latency, ttft);
+  }
+  addSamples(
+    bucket: number,
+    model: number,
+    provider: number,
+    latency: Int32Array,
+    ttft: Int32Array
+  ) {
+    this.overall.addSamples(latency, ttft);
+    this.group(this.buckets, bucket).addSamples(latency, ttft);
+    this.group(this.models, model).addSamples(latency, ttft);
+    this.group(this.providers, provider).addSamples(latency, ttft);
+  }
+  private group(map: Map<number, Pair>, key: number): Pair {
+    let group = map.get(key);
+    if (!group) {
+      group = new Pair();
+      map.set(key, group);
     }
+    return group;
   }
   result() {
     const results = (map: Map<number, Pair>) =>
