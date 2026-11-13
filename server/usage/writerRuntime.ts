@@ -103,15 +103,23 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
       if (kind === 'init') {
         if (store) throw new Error('Writer already initialized');
         store = new UsageStore({ events: body.events, raw: body.raw });
+        // Freeze cursorless receipt boundaries before init returns and subscriptions start.
+        // A persisted heartbeat can be ahead of now after a backward wall-clock step.
         for (const instance of body.sources) {
-          const heartbeat = Number(store.getMeta(`heartbeat:${instance}`));
-          if (heartbeat > 0 && heartbeat < body.nowMs) {
-            store.recordRecovery({
-              instance,
-              fromMs: heartbeat,
-              toMs: body.nowMs,
-              reason: 'stale-heartbeat',
-            });
+          const savedHeartbeat = store.getMeta(`heartbeat:${instance}`);
+          if (savedHeartbeat === null) continue;
+          const heartbeat = Number(savedHeartbeat);
+          const cursorless = store.getCursor(instance) === null;
+          if (cursorless || heartbeat < body.nowMs) {
+            store.recordRecovery(
+              {
+                instance,
+                fromMs: heartbeat,
+                toMs: body.nowMs,
+                reason: 'stale-heartbeat',
+              },
+              cursorless
+            );
           }
         }
         status.gaps = store.gapCount();
@@ -163,6 +171,7 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
               cursors,
               gap,
               recoveredInstance: recovered,
+              replayInstance: kind === 'replay' ? body.instance : undefined,
             });
             status.inserted += result.inserted;
             status.duplicates += result.duplicates;
@@ -172,6 +181,7 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
         } else if (kind === 'resume') {
           const heartbeat = store.getMeta(`heartbeat:${body.instance}`);
           const cursorAt = store.getMeta(`cursor-at:${body.instance}`);
+          const recoveryFromMs = store.recoveryFromMs(body.instance);
           self.postMessage({
             id,
             ok: true,
@@ -180,13 +190,14 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
               resume: {
                 cursor: store.getCursor(body.instance),
                 ...(cursorAt === null ? {} : { cursorAtMs: Number(cursorAt) }),
+                ...(recoveryFromMs === null ? {} : { recoveryFromMs }),
                 heartbeat: heartbeat === null ? null : Number(heartbeat),
               },
             },
           });
           return;
         } else if (kind === 'recovery') {
-          store.recordRecovery(body);
+          store.recordRecovery(body.gap, body.requireAnchor);
           status.gaps = store.gapCount();
         } else if (kind === 'gap') {
           store.recordGap(body);

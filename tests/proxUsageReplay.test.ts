@@ -7,6 +7,7 @@ import { UsageWriter } from '../server/usage/writer';
 import { UsageStore, openUsageReader } from '../server/usage/store';
 import { subscribeUsage } from '../server/usage/resp';
 import { parseReplayPage } from '../server/usage/replay';
+import { normalizeUsagePayload } from '../server/usage/normalize';
 import { usagePayload } from './fixtures/usagePayloads';
 import { eventually, fakeUsageProxy, FakeUsageClock } from './helpers/usageFakeProxy';
 
@@ -30,8 +31,8 @@ async function setup() {
       reader.close();
     }
   };
-  const start = async () => {
-    const writer = new UsageWriter();
+  const start = async (options: { workerPath?: string; fetcher?: typeof fetch } = {}) => {
+    const writer = new UsageWriter(options.workerPath);
     cleanup.push(() => writer.close());
     await writer.init(paths, ['test-proxy'], clock.now());
     const collector = new UsageCollector(
@@ -45,7 +46,7 @@ async function setup() {
         managementKeyFile: '/synthetic-key',
       },
       writer,
-      { clock, readKey: async () => 'synthetic-key' }
+      { clock, readKey: async () => 'synthetic-key', fetcher: options.fetcher }
     );
     cleanup.push(() => collector.stop());
     collector.start();
@@ -109,6 +110,207 @@ describe('usage replay with the real writer and synthetic proxy', () => {
       queueSeq: 3,
     });
     expect(env.proxy.log).not.toContain('drain');
+  });
+
+  for (const covered of [true, false]) {
+    test(`cursorless replay with old pruning leaves ${covered ? 'no gap for recovered' : 'an unknown gap for unrecovered'} outage records`, async () => {
+      const env = await setup();
+      const from = env.clock.now() - 7000;
+      for (let i = 1; i <= 1000; i++) {
+        env.proxy.emit(usagePayload({ instance_id: 'test-proxy', execution_id: `first-${i}` }));
+      }
+      // Old Prox collected this execution before the recovery checkpoint. Its receipt
+      // time is deliberately after the outage time: ingestion order must prove coverage.
+      const old = normalizeUsagePayload(JSON.stringify(env.proxy.retained[999].payload));
+      if (old.kind !== 'event') throw new Error('Invalid fixture');
+      const store = new UsageStore({ events: env.paths.events, raw: null }, () => from + 10_000);
+      store.insert([{ event: old.event, raw: old.raw }], 0);
+      store.setMeta('heartbeat:test-proxy', String(from));
+      expect(store.getCursor('test-proxy')).toBeNull();
+      store.close();
+      env.proxy.emit(usagePayload({ instance_id: 'test-proxy', execution_id: 'outage-first' }));
+      env.proxy.emit(usagePayload({ instance_id: 'test-proxy', execution_id: 'outage-second' }));
+      env.proxy.pruneThrough(covered ? 999 : 1001);
+      const run = await env.start();
+      await ready(run);
+      expect(env.proxy.replayRequests).toEqual([0]);
+      expect((await run.writer.resume('test-proxy')).cursor).toEqual({
+        bootId: env.proxy.bootId,
+        queueSeq: 1002,
+      });
+      expect(env.rows(events)).toHaveLength(covered ? 3 : 2);
+      expect(env.rows(gaps)).toEqual(
+        covered
+          ? []
+          : [
+              {
+                instance: 'test-proxy',
+                from_ms: from,
+                to_ms: env.clock.now(),
+                reason: 'stale-heartbeat',
+                missed: null,
+              },
+            ]
+      );
+    });
+  }
+
+  for (const startupTime of [9000, 10000, 11000]) {
+    test(`cursorless startup at ${startupTime} checkpoints prior receipts before credential-refresh live traffic`, async () => {
+      const env = await setup();
+      env.clock.time = startupTime;
+      const normalStartup = startupTime === 11000;
+      const before = usagePayload({ instance_id: 'test-proxy', execution_id: 'before-startup' });
+      env.proxy.emit(before);
+      const store = new UsageStore({ events: env.paths.events, raw: null });
+      if (normalStartup) {
+        const event = normalizeUsagePayload(JSON.stringify(before));
+        if (event.kind !== 'event') throw new Error('Invalid fixture');
+        store.insert([{ event: event.event, raw: event.raw }], 0);
+      } else env.proxy.pruneThrough(1); // An outage execution was never received.
+      store.setMeta('heartbeat:test-proxy', '10000');
+      store.close();
+      let injected = false;
+      let startupGaps: unknown[] = [];
+      let startupCheckpoint: unknown[] = [];
+      let afterLiveCheckpoint: unknown[] = [];
+      const checkpointSql = "SELECT value FROM meta WHERE key = 'recovery-checkpoint:test-proxy'";
+      const run = await env.start({
+        fetcher: (async (input, init) => {
+          if (String(input).endsWith('/credentials') && !injected) {
+            injected = true;
+            startupGaps = env.rows(gaps);
+            startupCheckpoint = env.rows(checkpointSql);
+            env.clock.time = 11000;
+            env.proxy.emit(
+              usagePayload({ instance_id: 'test-proxy', execution_id: 'during-credentials' })
+            );
+            // Hold credential refresh until this post-startup live receipt is durable.
+            // Replay must use the earlier checkpoint, never this now-committed row.
+            await eventually(() => run.writer.status.inserted === 1);
+            afterLiveCheckpoint = env.rows(checkpointSql);
+          }
+          return fetch(input, init);
+        }) as typeof fetch,
+      });
+      await ready(run);
+      const checkpoint = [{ value: normalStartup ? '1' : '0' }];
+      expect(startupCheckpoint).toEqual(checkpoint);
+      expect(afterLiveCheckpoint).toEqual(checkpoint);
+      expect(startupGaps).toEqual([
+        {
+          instance: 'test-proxy',
+          from_ms: 10000,
+          to_ms: Math.max(10000, startupTime),
+          reason: 'stale-heartbeat',
+          missed: null,
+        },
+      ]);
+      expect(env.rows(events)).toHaveLength(normalStartup ? 2 : 1);
+      expect((await run.writer.resume('test-proxy')).cursor?.queueSeq).toBe(2);
+      expect(env.rows(gaps)).toEqual(
+        normalStartup
+          ? []
+          : [
+              {
+                instance: 'test-proxy',
+                from_ms: 10000,
+                to_ms: 11000,
+                reason: 'stale-heartbeat',
+                missed: null,
+              },
+            ]
+      );
+    });
+  }
+
+  test('a backward clock cannot turn a concurrent live receipt into a pre-checkpoint anchor', async () => {
+    const env = await setup();
+    env.clock.time = 11_000;
+    const store = new UsageStore({ events: env.paths.events, raw: null });
+    store.setMeta('heartbeat:test-proxy', '10000');
+    store.close();
+    env.proxy.emit(usagePayload({ instance_id: 'test-proxy', execution_id: 'lost-first' }));
+    env.proxy.pruneThrough(1);
+    // Control only this worker's receipt clock. Production clock APIs remain unchanged.
+    const clockPath = join(env.dir, 'receipt-clock');
+    writeFileSync(clockPath, '11000');
+    const workerPath = join(env.dir, 'clock.worker.ts');
+    writeFileSync(
+      workerPath,
+      `
+      import { readFileSync } from 'node:fs';
+      import { startUsageWriterWorker } from ${JSON.stringify(join(import.meta.dir, '../server/usage/writerRuntime.ts'))};
+      Date.now = () => Number(readFileSync(${JSON.stringify(clockPath)}, 'utf8'));
+      startUsageWriterWorker();
+    `
+    );
+    const run = await env.start({
+      workerPath,
+      fetcher: (async (input, init) => {
+        if (String(input).includes('after_seq=0')) {
+          writeFileSync(clockPath, '9000');
+          env.clock.time = 9000;
+          env.proxy.emit(
+            usagePayload({ instance_id: 'test-proxy', execution_id: 'concurrent-live' })
+          );
+          // Ensure the live row exists before the replay page containing the same record.
+          await eventually(() => run.writer.status.inserted === 1);
+        }
+        return fetch(input, init);
+      }) as typeof fetch,
+    });
+    await ready(run);
+    expect(env.rows('SELECT seq, ingested_at_ms FROM event_detail')).toEqual([
+      { seq: 1, ingested_at_ms: 9000 },
+    ]);
+    expect(env.rows(events)).toEqual([{ execution_id: 'concurrent-live' }]);
+    expect((await run.writer.resume('test-proxy')).cursor?.queueSeq).toBe(2);
+    expect(env.rows(gaps)).toEqual([
+      {
+        instance: 'test-proxy',
+        from_ms: 10000,
+        to_ms: 11000,
+        reason: 'stale-heartbeat',
+        missed: null,
+      },
+    ]);
+  });
+
+  test('an older pending recovery without a receipt checkpoint stays unknown', async () => {
+    const env = await setup();
+    env.clock.time = 11000;
+    const payload = usagePayload({ instance_id: 'test-proxy', execution_id: 'older-receipt' });
+    env.proxy.emit(payload);
+    const old = normalizeUsagePayload(JSON.stringify(payload));
+    if (old.kind !== 'event') throw new Error('Invalid fixture');
+    const store = new UsageStore({ events: env.paths.events, raw: null }, () => 9000);
+    store.insert([{ event: old.event, raw: old.raw }], 0);
+    store.setMeta('heartbeat:test-proxy', '10000');
+    store.recordRecovery(
+      { instance: 'test-proxy', fromMs: 10000, toMs: 11000, reason: 'stale-heartbeat' },
+      true
+    );
+    store.close();
+    // Reproduce a pending gap from the older build; do not invent a checkpoint at retry.
+    const db = new Database(env.paths.events);
+    db.query('DELETE FROM meta WHERE key = ?').run('recovery-checkpoint:test-proxy');
+    db.close();
+    const run = await env.start();
+    await ready(run);
+    expect(env.rows(gaps)).toMatchObject([{ reason: 'stale-heartbeat', missed: null }]);
+    expect((await run.writer.resume('test-proxy')).cursor?.queueSeq).toBe(1);
+  });
+
+  test('a new source without prior outage history adopts a pruned log without a loss count', async () => {
+    const env = await setup();
+    env.proxy.sequence = 1000;
+    env.proxy.emit(usagePayload({ execution_id: 'first-retained' }));
+    const run = await env.start();
+    await ready(run);
+    expect(env.rows(gaps)).toEqual([]);
+    expect(env.rows(events)).toEqual([{ execution_id: 'first-retained' }]);
+    expect((await run.writer.resume('test-proxy')).cursor?.queueSeq).toBe(1001);
   });
 
   test('retention loss has the exact missed count and interval; retries do not count it again', async () => {

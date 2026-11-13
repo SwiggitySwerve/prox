@@ -122,8 +122,8 @@ export class UsageWriter implements CollectorWriter {
     );
   }
 
-  async recovery(body: IngestGap): Promise<void> {
-    await this.send({ kind: 'recovery', body });
+  async recovery(gap: IngestGap, requireAnchor = false): Promise<void> {
+    await this.send({ kind: 'recovery', body: { gap, requireAnchor } });
   }
 
   async gap(body: IngestGap): Promise<void> {

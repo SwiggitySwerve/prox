@@ -182,13 +182,27 @@ export class UsageCollector {
     const instance = this.source.instanceId;
     const resume = await this.writer.resume(instance);
     let cursor = resume.cursor;
-    const fromMs = this.outageAt ?? resume.heartbeat ?? resume.cursorAtMs ?? this.clock.now();
-    await this.writer.recovery({
-      instance,
-      fromMs,
-      toMs: this.clock.now(),
-      reason: this.dropReason,
-    });
+    const fromMs =
+      resume.recoveryFromMs ??
+      this.outageAt ??
+      resume.heartbeat ??
+      resume.cursorAtMs ??
+      this.clock.now();
+    const requireAnchor =
+      cursor === null &&
+      (resume.recoveryFromMs !== undefined ||
+        this.outageAt !== null ||
+        resume.heartbeat !== null ||
+        resume.cursorAtMs !== undefined);
+    await this.writer.recovery(
+      {
+        instance,
+        fromMs,
+        toMs: this.clock.now(),
+        reason: this.dropReason,
+      },
+      requireAnchor
+    );
     while (!this.session!.signal.aborted && !this.stopping.signal.aborted) {
       const after = cursor?.queueSeq ?? 0;
       const response = await this.read(`observability/usage/queue?after_seq=${after}&count=1000`);
@@ -225,7 +239,9 @@ export class UsageCollector {
                 1
             )
           : 0;
-      const missed = Math.max(0, prunedThrough - after) - liveCovered;
+      // Zero without a saved cursor is a request for retained history, not a known
+      // prior receipt. Pruning before that first checkpoint cannot supply a loss count.
+      const missed = cursor === null ? 0 : Math.max(0, prunedThrough - after) - liveCovered;
       const gap: IngestGap | undefined =
         missed > 0
           ? {

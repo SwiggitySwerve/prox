@@ -244,6 +244,8 @@ export class UsageStore {
     this.insertEvent = this.db.query(insertSql('events', EVENT_COLUMNS));
     this.insertAll = this.db.transaction(
       (items: readonly IngestItem[], ingest: IngestSource, progress: UsageCommit = {}) => {
+        // Check before inserts: a new record on this page is not a pre-outage receipt.
+        if (progress.replayInstance) this.anchorRecovery(progress.replayInstance, items);
         const stored: Stored[] = [];
         for (const item of items) {
           const seq = this.nextSeq;
@@ -381,30 +383,79 @@ export class UsageStore {
   }
 
   /** A provisional coverage gap stays visible until replay establishes continuity. */
-  recordRecovery(gap: IngestGap): void {
+  recordRecovery(gap: IngestGap, requireAnchor = false): void {
     this.db
       .transaction(() => {
+        // Clock regressions must not make a provisional interval end before its start.
+        const toMs = Math.max(gap.fromMs, gap.toMs);
         const key = `recovery-gap:${gap.instance}`;
         const existing = this.getMeta(key);
         if (existing !== null) {
           this.db
-            .query('UPDATE ingest_gaps SET to_ms = MAX(to_ms, ?) WHERE id = ?')
-            .run(gap.toMs, Number(existing));
+            .query('UPDATE ingest_gaps SET to_ms = MAX(to_ms, from_ms, ?) WHERE id = ?')
+            .run(toMs, Number(existing));
         } else {
-          this.recordGap({ ...gap, missed: null });
+          this.recordGap({ ...gap, toMs, missed: null });
           const row = this.db.query<{ id: number }, []>('SELECT last_insert_rowid() AS id').get()!;
           this.setMeta(key, String(row.id));
+          // Capture receipt order with the gap, before any recovery traffic can qualify.
+          // nextSeq is the authoritative monotonic allocator, including pruned history.
+          const checkpointKey = `recovery-checkpoint:${gap.instance}`;
+          if (this.getMeta(checkpointKey) === null) {
+            this.setMeta(checkpointKey, String(this.nextSeq - 1));
+          }
         }
+        if (requireAnchor) this.setMeta(`recovery-unanchored:${gap.instance}`, '1');
       })
       .immediate();
+  }
+
+  recoveryFromMs(instance: string): number | null {
+    const id = this.getMeta(`recovery-gap:${instance}`);
+    if (id === null) return null;
+    return (
+      this.db
+        .query<{ from_ms: number }, [number]>('SELECT from_ms FROM ingest_gaps WHERE id = ?')
+        .get(Number(id))?.from_ms ?? null
+    );
+  }
+
+  /** Only a receipt at or before the gap's durable ingestion checkpoint proves coverage. */
+  private anchorRecovery(instance: string, items: readonly IngestItem[]): void {
+    const key = `recovery-unanchored:${instance}`;
+    if (this.getMeta(key) === null) return;
+    const saved = this.getMeta(`recovery-checkpoint:${instance}`);
+    if (saved === null) return; // Older pending gaps have no safe receipt-order baseline.
+    const checkpoint = Number(saved);
+    if (!Number.isSafeInteger(checkpoint) || checkpoint < 0) return;
+    const prior = this.db.query<{ seq: number }, [string, string]>(`
+      SELECT event.seq FROM event_detail detail
+      JOIN events event ON event.ts_ms = detail.ts_ms AND event.seq = detail.seq
+      JOIN dim instance ON instance.id = event.instance_id
+      WHERE detail.execution_id = ? AND instance.kind = 'instance' AND instance.value = ?
+    `);
+    if (
+      items.some(({ event }) => {
+        const receipt = prior.get(event.executionId, instance);
+        return receipt !== null && receipt.seq <= checkpoint;
+      })
+    )
+      this.db.query('DELETE FROM meta WHERE key = ?').run(key);
   }
 
   private clearRecovery(instance: string): void {
     const key = `recovery-gap:${instance}`;
     const id = this.getMeta(key);
     if (id === null) return;
-    this.db.query('DELETE FROM ingest_gaps WHERE id = ?').run(Number(id));
-    this.db.query('DELETE FROM meta WHERE key = ?').run(key);
+    const unanchored = `recovery-unanchored:${instance}`;
+    // Without a pre-outage anchor the provisional interval becomes a permanent
+    // unknown gap. Detach its metadata so later reconnects cannot erase it.
+    if (this.getMeta(unanchored) === null) {
+      this.db.query('DELETE FROM ingest_gaps WHERE id = ?').run(Number(id));
+    }
+    this.db
+      .query('DELETE FROM meta WHERE key IN (?, ?, ?)')
+      .run(key, unanchored, `recovery-checkpoint:${instance}`);
   }
 
   gapCount(): number {

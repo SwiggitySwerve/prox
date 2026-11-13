@@ -31,7 +31,7 @@ const item = (id: string) => ({
 });
 
 describe('usage writer worker', () => {
-  test('startup records provisional heartbeat coverage and replay clears a fully recovered outage', async () => {
+  test('startup preserves unknown cursorless coverage when replay has no pre-outage receipt', async () => {
     const files = paths();
     const store = new UsageStore({ events: files.events, raw: null });
     const now = 1_800_000_000_000;
@@ -40,9 +40,107 @@ describe('usage writer worker', () => {
     store.close();
     const writer = await writerAt(files, now);
     expect(writer.status.gaps).toBe(1);
-    expect(await writer.resume('test-proxy')).toEqual({ cursor: null, heartbeat: last });
+    expect(await writer.resume('test-proxy')).toEqual({
+      cursor: null,
+      heartbeat: last,
+      recoveryFromMs: last,
+    });
     await writer.replay('test-proxy', [], { bootId: 'test-boot', queueSeq: 0 }, undefined, true);
-    expect(writer.status.gaps).toBe(0);
+    expect(writer.status.gaps).toBe(1);
+  });
+
+  test.each([0, 10000, 20000])(
+    'any persisted heartbeat %s creates a nonnegative cursorless startup gap',
+    async (heartbeat) => {
+      const files = paths();
+      const store = new UsageStore({ events: files.events, raw: null });
+      store.setMeta('heartbeat:test-proxy', String(heartbeat));
+      store.close();
+      const writer = await writerAt(files, 10000);
+      expect(writer.status.gaps).toBe(1);
+      const reader = openUsageReader(files.events);
+      try {
+        expect(reader.query('SELECT from_ms, to_ms, missed FROM ingest_gaps').all()).toEqual([
+          { from_ms: heartbeat, to_ms: Math.max(heartbeat, 10000), missed: null },
+        ]);
+        expect(
+          reader.query("SELECT value FROM meta WHERE key = 'recovery-checkpoint:test-proxy'").get()
+        ).toEqual({ value: '0' });
+      } finally {
+        reader.close();
+      }
+    }
+  );
+
+  test('cursorless uncertainty survives a restart after an intermediate replay cursor commits', async () => {
+    const files = paths();
+    const now = 1_800_000_000_000;
+    const store = new UsageStore({ events: files.events, raw: null });
+    store.setMeta('heartbeat:test-proxy', String(now - 7000));
+    store.close();
+    const first = await writerAt(files, now);
+    first.enqueue(item('post-checkpoint'));
+    await first.flush();
+    await first.replay('test-proxy', [], { bootId: 'same-boot', queueSeq: 1000 });
+    await first.close();
+    const second = await writerAt(files, now + 1000);
+    expect((await second.resume('test-proxy')).recoveryFromMs).toBe(now - 7000);
+    const checkpointReader = openUsageReader(files.events);
+    try {
+      expect(
+        checkpointReader
+          .query("SELECT value FROM meta WHERE key = 'recovery-checkpoint:test-proxy'")
+          .get()
+      ).toEqual({ value: '0' });
+    } finally {
+      checkpointReader.close();
+    }
+    await second.replay('test-proxy', [], { bootId: 'same-boot', queueSeq: 1001 }, undefined, true);
+    expect(second.status.gaps).toBe(1);
+    // A later ordinary reconnect cannot erase an already permanent unknown gap.
+    await second.recovery({
+      instance: 'test-proxy',
+      fromMs: now,
+      toMs: now + 1000,
+      reason: 'subscription-dropped',
+    });
+    await second.replay('test-proxy', [], { bootId: 'same-boot', queueSeq: 1001 }, undefined, true);
+    expect(second.status.gaps).toBe(1);
+    const reader = openUsageReader(files.events);
+    try {
+      expect(reader.query('SELECT from_ms, reason, missed FROM ingest_gaps').all()).toEqual([
+        { from_ms: now - 7000, reason: 'stale-heartbeat', missed: null },
+      ]);
+      expect(reader.query("SELECT key FROM meta WHERE key LIKE 'recovery-%'").all()).toEqual([]);
+    } finally {
+      reader.close();
+    }
+  });
+
+  test('startup preserves historical gaps whose first-run origin was never recorded', async () => {
+    const files = paths();
+    const store = new UsageStore({ events: files.events, raw: null });
+    for (const missed of [943, 1318]) {
+      store.recordGap({
+        instance: 'test-proxy',
+        fromMs: 1000,
+        toMs: 8000,
+        reason: 'subscription-dropped',
+        missed,
+      });
+    }
+    store.close();
+    const writer = await writerAt(files);
+    await writer.replay('test-proxy', [], { bootId: 'test-boot', queueSeq: 2000 }, undefined, true);
+    const reader = openUsageReader(files.events);
+    try {
+      expect(reader.query('SELECT reason, missed FROM ingest_gaps ORDER BY id').all()).toEqual([
+        { reason: 'subscription-dropped', missed: 943 },
+        { reason: 'subscription-dropped', missed: 1318 },
+      ]);
+    } finally {
+      reader.close();
+    }
   });
 
   test('new/fresh heartbeats do not create gaps; explicit drops are durable', async () => {
