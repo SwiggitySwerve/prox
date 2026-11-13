@@ -31,7 +31,7 @@ const item = (id: string) => ({
 });
 
 describe('usage writer worker', () => {
-  test('stale heartbeat records only the interval outside queue retention at startup', async () => {
+  test('startup records provisional heartbeat coverage and replay clears a fully recovered outage', async () => {
     const files = paths();
     const store = new UsageStore({ events: files.events, raw: null });
     const now = 1_800_000_000_000;
@@ -40,20 +40,9 @@ describe('usage writer worker', () => {
     store.close();
     const writer = await writerAt(files, now);
     expect(writer.status.gaps).toBe(1);
-    const reader = openUsageReader(files.events);
-    try {
-      expect(
-        reader.query('SELECT instance, from_ms, to_ms, reason, missed FROM ingest_gaps').get()
-      ).toEqual({
-        instance: 'test-proxy',
-        from_ms: last,
-        to_ms: now - 3_600_000,
-        reason: 'stale-heartbeat',
-        missed: null,
-      });
-    } finally {
-      reader.close();
-    }
+    expect(await writer.resume('test-proxy')).toEqual({ cursor: null, heartbeat: last });
+    await writer.replay('test-proxy', [], { bootId: 'test-boot', queueSeq: 0 }, undefined, true);
+    expect(writer.status.gaps).toBe(0);
   });
 
   test('new/fresh heartbeats do not create gaps; explicit drops are durable', async () => {
@@ -149,7 +138,7 @@ describe('usage writer worker', () => {
     writer.onFailure = () => {
       failed = true;
     };
-    writer.enqueue(item('cannot-commit'));
+    writer.enqueue({ ...item('cannot-commit'), cursor: { bootId: 'failure-boot', queueSeq: 7 } });
     let rejected = false;
     try {
       await writer.flush();
@@ -160,6 +149,15 @@ describe('usage writer worker', () => {
     expect(failed).toBe(true);
     expect(writer.backlog).toBe(1);
     expect(() => writer.enqueue(item('next'))).toThrow();
+    const reader = openUsageReader(files.events);
+    try {
+      expect(
+        reader.query("SELECT value FROM meta WHERE key = 'cursor:test-proxy'").get()
+      ).toBeNull();
+      expect(reader.query('SELECT count(*) AS count FROM events').get()).toEqual({ count: 0 });
+    } finally {
+      reader.close();
+    }
   });
 
   test('built worker entry starts from a runtime path beside the main bundle', async () => {

@@ -125,25 +125,50 @@ Regression coverage lives in `tests/proxUsageNormalize.test.ts` and
   Their runtime import graph never reaches `bun:sqlite`; the service test walks
   that graph. The writer entry is resolved beside the running bundle at runtime.
 - A source authenticates and waits for the `SUBSCRIBE usage` acknowledgement
-  before draining the destructive HTTP queue. Both RESP and HTTP authentication
-  failures block that source's management requests for at least 60 seconds.
+  before reading the non-destructive v8 usage log with `after_seq` and pages of
+  at most 1000 records. `replay.ts` validates the numbered envelope. Both RESP and
+  HTTP authentication failures block that source's management requests for at
+  least 60 seconds. A 400 or malformed page backs off without popping or advancing.
+- Per-source `(boot_id, queue_seq)` lives in `meta` under `cursor:<instance>`;
+  `cursor-at:<instance>` records its commit time for coverage when no heartbeat
+  exists yet. Each cursor update commits in the event transaction, including
+  duplicate/rejected records and empty pages advancing past pruned records.
+  Transport metadata is never retained by the payload normalizer.
+- Live records continue entering the writer during replay, with cursor updates
+  withheld until continuity is established. Replay stops at the first numbered
+  live overlap or a short/empty page; a final writer barrier commits the accepted
+  live suffix before switching back to ordinary live cursor commits. Execution
+  identity deduplicates all overlap. Source state is `replaying` until then.
+- The destructive pop drain is removed. The C1 replay log retains every record
+  independently of subscribers, including everything placed in the legacy pop
+  queue. Emptying that queue adds no recovery coverage and would consume records
+  for another legacy reader. Existing status counters `drainRequests`/`drained`
+  now count committed replay pages/payloads.
 - Shutdown keeps accepting messages until `UNSUBSCRIBE` acknowledges. Only then
   does it flush accepted batches and close the writer. Missing acknowledgements
   and event-store failures produce an unsuccessful exit, not a successful flush.
 - The main thread dispatches at 100 payloads or 50 ms. Its backlog includes
   buffered payloads and every batch awaiting a worker acknowledgement. Above
   50,000 it drops all subscriptions, records gaps, and waits until at most 1,000
-  remain before reconnecting. Another subscriber (including CPAMP) prevents the
-  proxy retaining this traffic: the dual-run reconcile remains necessary.
+  remain before reconnecting. The proxy's replay log retains traffic even while
+  another subscriber (including CPAMP) remains connected. Retention time, record
+  and byte caps can still prune it before recovery.
 - The worker serializes every write through `enqueueJob(kind, fn)`; `live` jobs
   precede waiting background jobs. P3 supplies bounded import, backup and prune
   chunks through that hook, including the roadmap's byte/IO governor. No bulk
   jobs or automatic raw-buffer pruning run in P2.
-- Heartbeats commit every 10 seconds while subscribed, behind accepted events.
-  Startup records the interval between a stale heartbeat and the start of the
-  proxy's 3600-second retention window. A drop records the uncertain interval
-  since the last socket activity; reconnect/stop records the subsequent outage
-  as an adjacent gap. `missed` stays NULL: this protocol cannot count losses.
+- Heartbeats commit every 10 seconds after replay, behind accepted events.
+  Startup and dropped connections create a provisional `ingest_gaps` interval;
+  its row ID is tracked in `meta` under `recovery-gap:<instance>` so retries and
+  process restarts extend the same uncertain interval. Final recovery clears
+  only that provisional row in the cursor transaction. No proven loss means no
+  remaining gap, even with a heartbeat older than the retention window.
+- Within one boot, each replay page records `max(0, oldest_seq - after_seq - 1)`
+  as `missed` only when positive, in the page's event/cursor transaction. The
+  interval starts at the disconnect, previous heartbeat or cursor commit time.
+  A changed boot commits a `proxy-restart` gap with `missed=NULL`, resets to zero
+  and replays the new process. Cross-process loss cannot be counted. Graceful
+  shutdown needs only the existing unsubscribe acknowledgement and writer flush.
 - Credential refreshes keep the last good snapshot; unknown indices trigger at
   most one refresh per 10 seconds. Each queued event carries its label snapshot
   so later credential changes cannot relabel an accepted event.

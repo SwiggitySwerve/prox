@@ -1,5 +1,7 @@
 // Main-thread batching and worker RPC. No SQLite or worker module imports are allowed here.
 import type {
+  SourceResume,
+  UsageCursor,
   BulkJobConfig,
   ExporterConfig,
   BulkJobKind,
@@ -63,6 +65,7 @@ export class UsageWriter implements CollectorWriter {
       this.queued -= pending.count;
       this.snapshot = { ...data.body };
       delete this.snapshot.exporter;
+      delete this.snapshot.resume;
       pending.resolve(data.body);
     };
     this.worker.onerror = () => this.workerDied();
@@ -94,6 +97,30 @@ export class UsageWriter implements CollectorWriter {
     if (this.buffered.length >= 100) this.dispatch();
     else if (!this.timer) this.timer = setTimeout(() => this.dispatch(), 50);
     if (!wasHigh && this.backlog > WRITER_HIGH_WATER) this.onOverflow();
+  }
+
+  async resume(instance: string): Promise<SourceResume> {
+    this.dispatch();
+    return (await this.send({ kind: 'resume', body: { instance } })).resume!;
+  }
+
+  async replay(
+    instance: string,
+    payloads: UsagePayload[],
+    cursor: UsageCursor,
+    gap?: IngestGap,
+    complete = false
+  ): Promise<void> {
+    this.dispatch();
+    this.queued += payloads.length;
+    await this.send(
+      { kind: 'replay', body: { instance, payloads, cursor, gap, complete } },
+      payloads.length
+    );
+  }
+
+  async recovery(body: IngestGap): Promise<void> {
+    await this.send({ kind: 'recovery', body });
   }
 
   async gap(body: IngestGap): Promise<void> {
