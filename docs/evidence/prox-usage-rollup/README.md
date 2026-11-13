@@ -170,3 +170,55 @@ tests/proxUsageRollup.test.ts tests/proxUsageAnalytics.test.ts`: **23 passed,
 follow-up changes tests and evidence only. The full verification recorded above
 was not repeated. Production code, synthetic performance results and the real
 imported-data merge gate are unchanged.
+
+## Main merge and bulk-job exclusion (2026-11-13)
+
+Merged `origin/main` at `1374f4cc` with a merge commit (`9860cced`), without
+rebasing or force-pushing. Conflict resolutions preserve both branches:
+
+- `server/usage/RULES.md`: kept recovery/replay, nightly/clientToken and exporter
+  sections alongside the rollup rules; documented the admission policy below.
+- `server/usage/store.ts`: kept pre-insert recovery anchoring and atomic replay
+  cursor/gap/recovery progress; dirty-hour marks remain in that same transaction.
+  Writer-init `recovery-checkpoint:<instance>` and `cursor:<instance>` semantics stay.
+- `server/usage/writerRuntime.ts`: kept startup recovery freezing, replay priority,
+  exporter commit hooks and clientToken forwarding on both start and cancel;
+  rollup startup and cancellation still wrap the store lifetime.
+
+The previous rollup implementation shared a governor and writer queue but did
+not reserve bulk-job admission. Manual jobs could overlap backfill orchestration.
+The smaller **refusal-and-pause policy** in `2276e1ac` fixes that, without a new
+job/report kind:
+
+- From the first backfill chunk until a no-work result, POST `/v1/jobs` returns
+  409. This covers PSI/byte waits and the one-second interval between hours.
+  Rejected submissions do not acquire an ID or overwrite a manual clientToken.
+- A manual job admitted before backfill owns the slot. Maintenance ticks return
+  without executing a chunk or advancing the dirty set/discovery cursor. They
+  retry after the manual job finishes. Progress stays durable and resumable.
+- Live/replay commits still use the live-first queue while all waits stay outside
+  it. Backfill cancellation remains part of writer shutdown. GET `/v1/jobs`
+  retains its existing manual-job report contract.
+
+The new `proxUsageRollupJobs` tests caught HTTP 202 instead of 409 before the
+fix. They now verify rejection during waits and between hours, admission only
+after drain, and manual-first pause/resume without consuming progress. Full
+replay, startup-recovery and clientToken tests also pass. The first full run
+found one old exporter test assuming exactly one migration (3,220 passed,
+1 failed). It now checks the current schema version; exporter commit/rollback
+checks are retained.
+
+Final checks used pinned Bun 1.4.3, kept `node_modules`, and used synthetic tmpfs
+files only:
+
+```sh
+ionice -c3 nice -n10 env PATH=/dev/shm/prox-bun-1.4.3/bun-linux-x64:$PATH TMPDIR=/dev/shm/prox-rollup-verify-tmp bun test
+ionice -c3 nice -n10 env PATH=/dev/shm/prox-bun-1.4.3/bun-linux-x64:$PATH TMPDIR=/dev/shm/prox-rollup-verify-tmp bun run verify
+```
+
+Both commands passed **3,221 tests, 0 failures**, 278 files and 36,832 assertions.
+Verify also passed lint (0 errors, six existing React Refresh warnings), TypeScript,
+manifest checks, the single-file Vite build and all server/worker bundles. The
+existing Vite native-config-loader warning remains. No live DB access, deploy,
+systemctl or live performance measurement was performed. The historical synthetic
+hourly budget miss above and the real imported-data merge gate remain unchanged.
