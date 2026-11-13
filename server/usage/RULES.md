@@ -641,7 +641,11 @@ the same token and the worker atomically refuses mismatches with 409. Existing
 manual commands without a token retain their behavior; the token supplements,
 and never replaces, bearer authentication. Recovery without an exact match
 starts/cancels nothing else and reports `no-owned-job`. HTTP rejection
-(especially 409) never grants ownership.
+(especially 409) never grants ownership. Nightly admission failures retain the
+attempted kind and numeric HTTP status as `refused: {kind, status}` and name that
+refusal in the safe error. Rejected submissions trigger no retry, recovery read
+or cancellation; response bodies and credential text are never copied into the
+failure report.
 The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
 absolute noon deadline. The standalone parity service keeps `RuntimeMaxSec=5h30min`.
 The old independent prune/reconcile/backup/parity timers are removed from shipping;
@@ -807,6 +811,19 @@ and private aliases, and verify bearer routing, exact label values and source he
   active, the maintenance tick does nothing and retries later without advancing
   its durable discovery cursor or dirty set. This uses the refusal-and-pause
   policy; it adds no report kind and never overwrites a manual job's client token.
+- Bearer-protected GET `/v1/status` includes `rollup.backfill`, refreshed through
+  the existing writer RPC without main-thread SQLite or an extra history scan.
+  States are `running`, `paused`, `waiting-for-job`, `done` and `failed`.
+  `currentHour` is the most recently selected UTC hour in epoch milliseconds,
+  null before selection and after draining. `hoursCompleted` counts distinct
+  successfully processed hours since writer start (including already-clean
+  discovery visits); `hoursTotal` stays null. Pause reasons distinguish
+  `io-pressure`, `io-pacing`, `between-hours` and `bulk-job`. `lastFailure` retains
+  a safe fixed error, epoch-millisecond timestamp and selected hour after recovery.
+  This status is in memory only. Backfill and refused submissions never write
+  `job-outcome:<kind>` metadata. Bulk POSTs refused for backfill retain HTTP 409
+  and return the safe error `Rollup backfill in progress`. Other worker errors
+  retain their generic safe messages.
 - Migration 2 creates empty tables only. Pre-migration events are discovered
   using a persisted time cursor and a primary-key seek, one hour per maintenance
   job, without rewriting or grouping the events table at startup. Already-built

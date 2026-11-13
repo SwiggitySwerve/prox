@@ -222,3 +222,50 @@ manifest checks, the single-file Vite build and all server/worker bundles. The
 existing Vite native-config-loader warning remains. No live DB access, deploy,
 systemctl or live performance measurement was performed. The historical synthetic
 hourly budget miss above and the real imported-data merge gate remain unchanged.
+
+## R1/R2 review fixes and job-outcome merge (2026-11-13)
+
+Merge commit `864597c3` brings in `origin/main` at `7e94c5c3` (#81), without
+rebasing or force-pushing. The only conflict was `tests/proxUsageJobs.test.ts`.
+Its whole-database verify assertion is retained unchanged: it compares every
+persisted table, excluding only `meta` key `job-outcome:verify`. No rollup-table
+exclusion is needed because bulk-job admission prevents maintenance writes while
+verify runs. #81's persisted per-kind outcomes and exporter fields are retained.
+
+R1 (`5bf1771a`) keeps the attempted job kind and numeric HTTP status in a safe
+nightly failure report, for example `refused: {kind: 'prune', status: 409}` and
+`Nightly prune admission refused (HTTP 409)`. The existing 409 regression asserts
+these fields and a single submit operation, with no recovery read, retry or
+cancellation. Response bodies and credentials are not copied into the report.
+
+R2 (`efa2c452`) exposes `rollup.backfill` on bearer-protected GET `/v1/status`
+through the existing writer RPC. It reports running, paused, waiting-for-job,
+done or failed state; the selected UTC hour in epoch milliseconds; distinct
+successfully processed hours since writer start; pause reason; and the last
+safe failure with its hour and timestamp. Already-clean discovery visits count
+as processed hours. The current hour clears after drain, and the last failure
+remains visible after recovery. `hoursTotal` is null: status adds no history scan.
+Bulk submissions refused for backfill return HTTP 409 with the safe message
+`Rollup backfill in progress`. The existing refusal-and-pause policy is unchanged.
+
+A real writer-worker regression covers authentication, status transitions,
+progress, failure recovery and safe errors without exposing a synthetic private
+SQLite trigger error. It also checks the HTTP 409 message. This and the existing
+exclusion tests assert that backfill and refused submissions create no
+`job-outcome:<kind>` metadata; backfill is not a bulk job kind.
+
+Focused checks: the nightly suite passed **13 tests, 0 failures**; the combined
+backfill-status, rollup-jobs, jobs, nightly, IO-governor and service suites passed
+**46 tests, 0 failures**. Both full commands recorded in the preceding section
+were rerun with pinned Bun 1.4.3, `ionice -c3 nice -n10` and tmpfs temporary files:
+
+- `bun test`: **3,236 passed, 0 failed**, 280 files, 40.93 seconds.
+- `bun run verify`: **3,236 passed, 0 failed**, 280 files, 38.90 seconds for tests;
+  lint (0 errors, six existing React Refresh warnings), TypeScript, manifest
+  checks, Vite single-file output and history/usage worker builds all passed.
+
+The existing Vite native-config-loader warning remains. `node_modules` was kept.
+No live DB access, systemctl, deployment or live measurement occurred. The
+synthetic 30-day hourly budget miss and the coordinator's real imported-data
+performance/parity gate remain unresolved; these review fixes do not claim a
+performance improvement.
