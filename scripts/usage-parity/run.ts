@@ -15,6 +15,7 @@ import {
 } from './compare';
 import { matrix, selectCases, type MatrixCase } from './matrix';
 import { QueryGate } from './io';
+import { observeReconcile, confirmWindow } from './reconcile';
 import { ExecutionWindow, IncompleteRun } from './window';
 import {
   createReport,
@@ -26,6 +27,11 @@ import {
 export type { ParityOptions, ParityReport } from './report';
 export { writeReport } from './report';
 
+function readCredential(path: string): string {
+  const key = readFileSync(path, 'utf8').trim();
+  if (!key) throw new Error('Empty analytics credential');
+  return key;
+}
 export function assertLoopbackEndpoint(value: string) {
   const u = new URL(value);
   if (
@@ -115,6 +121,8 @@ export async function runParity(
     dependencies.wallNow ?? (() => dependencies.nowMs ?? Date.now())
   );
   gate.setWindow(window);
+  let proxKey: string | undefined;
+  const getProxKey = () => (proxKey ??= readCredential(options.proxKeyFile));
   let source: Database | undefined, target: Database | undefined;
   const record = (difference: Difference) => {
     report.counts[difference.class]++;
@@ -138,6 +146,7 @@ export async function runParity(
     const getTarget = async () =>
       (target ??= await gate.run(() => openParityReader(options.proxDb)));
     if (options.level !== 'responses') {
+      report.reconcile = await observeReconcile(options.proxUrl, getProxKey, gate, window.now);
       source = await gate.run(() => openParityReader(options.cpampDb));
       await getTarget();
       report.events = createEventReport(options.fromMs, options.toMs);
@@ -153,14 +162,14 @@ export async function runParity(
         options.outages,
         report.events
       );
+      report.reconcile = confirmWindow(report.reconcile, report.events);
       source.close();
       source = undefined;
     }
     if (options.level !== 'events') {
       // Read bearer files only into private process memory; never include them in the report/errors.
-      const cpampKey = readFileSync(options.cpampKeyFile, 'utf8').trim();
-      const proxKey = readFileSync(options.proxKeyFile, 'utf8').trim();
-      if (!cpampKey || !proxKey) throw new Error('Empty analytics credential');
+      const cpampKey = readCredential(options.cpampKeyFile);
+      const proxKey = getProxKey();
       const sourceCases = matrix(options.mode, options.toMs);
       report.matrix.source_cases = sourceCases.length;
       report.matrix.clipped_cases = sourceCases.filter(

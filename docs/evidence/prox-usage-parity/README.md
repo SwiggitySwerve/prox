@@ -79,21 +79,35 @@ Metadata-only fields follow CPAMP's Go parser. All subscribed Prox-only events f
 | Billing model | Persisted `resolved_model`, else the effective persisted requested model |
 | Tier | Persisted `service_tier` (`NULL` is CPAMP's empty tier); raw requested/effective/response tiers are never consulted |
 | Seven token counters | Persisted normalized input/cache columns plus output/reasoning/total; never raw payload counters |
-| Latency and TTFT | Persisted measurements unchanged, including zero/negative values |
+| Latency and TTFT | Persisted measurements, with only the counted CPAMP TTFT 0 → Prox null exception below |
 | Account | CPAMP exporter SQL semantics: `coalesce(nullif(account_snapshot,''),auth_label_snapshot,auth_index)`; empty label remains empty |
 | Account label, client-key hash | Persisted `auth_label_snapshot`, `api_key_hash` unchanged; no trimming or recasing |
 | Metadata-only identifiers, flags and record kind | Allowlisted envelope metadata decoded independently under CPAMP's Go contract, including its whitespace rules |
 
 This oracle intentionally does not reuse the Prox algorithm it audits. Column
-projection and metadata-key schema facts are shared; expected accounting is not. Extra imported/replayed events are counted outside that reverse cohort.
+projection and metadata-key schema facts are shared; expected accounting is not.
+Forward CPAMP→Prox matches compare all fields for every ingest kind: subscribed,
+drained, imported (including reconciled), and replayed. `matched_by_ingest` counts
+accepted matches; `exact_matched` excludes known TTFT equivalences. Only subscribed
+Prox-only rows fail the reverse check; `reverse_only_omitted_by_ingest` separately
+counts other reverse-only rows, without excluding them from forward matches.
 No credential-label timing exception is assumed.
 
 Explicit counted rules:
 
-- `ingest-gap`: missing Prox event whose instance/time falls in a stored gap.
-  The interval and reason are retained even if it explains no missing event.
-- `drained-during-cpamp-outage`: a Prox-only `ingest=1` event requires a supplied
-  CPAMP outage with the same instance and time. Without evidence it fails.
+- `ttft-zero-null`: CPAMP persisted `ttft_ms=0` and Prox `ttft_ms=null` represent
+  unmeasured TTFT. Each difference is retained and counted. Reverse null→0, other
+  values and all latency differences remain unexplained. CPAMP's writer preserves
+  supplied zeros for both measurements; this rule deliberately covers TTFT only.
+- `ingest-gap`: missing Prox event whose persisted completion (`timestamp_ms +
+  latency_ms`) falls within an existing recorded gap for the same instance, with
+  ±2,000 ms around the half-open interval. Positive safe integer latency is required.
+  This is a two-monitor-tick boundary allowance, not a queue-delivery guarantee;
+  timestamp/latency millisecond truncation contributes less than 2 ms. No interval
+  is inferred from a restart. Interval, completion and tolerance stay in evidence.
+- `drained-during-cpamp-outage`: optional provenance for a reverse-only drained row,
+  requiring a supplied CPAMP outage with the same instance and start time. Such
+  rows are outside the subscribed reverse cohort regardless of provenance.
 - `detail-provider`: only `requests.items[].provider`, payload versus credential
   snapshot, as documented by P5 PR #71. Aggregate/filter differences still fail.
 - `detail-trace`: only `requests.items[].trace_id`, payload versus response-header
@@ -167,13 +181,21 @@ guessed gap. All paths/endpoints have documented `--help` overrides.
 `deploy/prox-usage-parity.service` and `.timer` are uninstalled templates. The
 service assumes `%h/src/prox` and Bun on its configured PATH; the coordinator
 must review those paths before installing. It invokes `ionice -c3 nice -n10`,
-quick plus events for the previous UTC day at **04:30 UTC**, passing
-`--deadline 12:00Z`. `Type=exec` makes `RuntimeMaxSec=7h30min` effective as a
+quick plus events for the previous UTC day at **05:00 UTC**, after the 04:40 reconcile timer, passing
+`--deadline 12:00Z`. `Type=exec` makes `RuntimeMaxSec=7h` effective as a
 systemd backstop; the harness's absolute cutoff also handles delayed starts.
 `Persistent=false`
 avoids a catch-up run at login during the forbidden period. There is no install,
 enable or start action in this PR. This read-only timer does not perform the
-separate reconcile/import jobs needed by plan step C.
+separate reconcile/import jobs needed by plan step C. It has no reconcile unit dependency.
+A read-only `GET /v1/jobs` observation before event comparison reports whether the
+latest retained job confirms completed exact import/reconcile covering this window's
+CPAMP IDs, started at least ten minutes after its end. Missing, overwritten, stale
+or unavailable reports mean **not confirmed/unknown**, never proof that no reconcile
+ran. This note cannot turn event differences into matches or block comparison.
+
+Live follow-up evidence for TTFT and ingest matching is in
+[../prox-usage-event-followup/README.md](../prox-usage-event-followup/README.md).
 
 ## Verification
 

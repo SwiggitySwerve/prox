@@ -162,11 +162,12 @@ test('CLI uses fixed UTC windows, validates controls, and preserves nightly sett
   expect(service).toContain('/usr/bin/ionice -c3 /usr/bin/nice -n10');
   expect(service).toContain('--previous-utc-day --matrix quick --level both --deadline 12:00Z');
   expect(service).toContain('Type=exec');
-  expect(service).toContain('RuntimeMaxSec=7h30min');
+  expect(service).toContain('RuntimeMaxSec=7h');
+  expect(service).not.toMatch(/^(After|Requires|Wants)=.*prox-usage-job@reconcile/m);
   expect(parseArgs(['--previous-utc-day', '--deadline', '12:00Z'], now).deadlineMs).toBe(
     Date.UTC(2026, 10, 13, 12)
   );
-  expect(timer).toContain('OnCalendar=*-*-* 04:30:00 UTC');
+  expect(timer).toContain('OnCalendar=*-*-* 05:00:00 UTC');
   expect(timer).toContain('Persistent=false');
 });
 

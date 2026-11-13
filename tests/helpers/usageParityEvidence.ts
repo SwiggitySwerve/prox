@@ -68,6 +68,13 @@ export async function generateParityEvidence(directory: string) {
   const root = mkdtempSync('/dev/shm/prox-parity-evidence-events-');
   const sourcePath = join(root, 'cpamp.sqlite'),
     targetPath = join(root, 'prox.sqlite');
+  const jobServer = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: () => Response.json({ job: null }),
+  });
+  const keyPath = join(root, 'synthetic-key');
+  writeFileSync(keyPath, 'synthetic-parity-key');
   const cpamp = createCpamp(sourcePath, 0);
   const start = DUAL_RUN_START + 300000;
   for (let i = 1; i <= 3; i++) cpamp.add(cpampRow(i, { timestamp_ms: start + i }));
@@ -156,6 +163,7 @@ export async function generateParityEvidence(directory: string) {
       })
     );
   } finally {
+    jobServer.stop(true);
     source.close();
     store.close();
     cpamp.db.close();

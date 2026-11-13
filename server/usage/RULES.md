@@ -407,9 +407,9 @@ models, provider, tier, failure, status, flags and record kind, plus exporter
 account, account-label and client-key-hash dimensions. The import owner's account
 SQL fallback (`nullif(snapshot,'')`, then nullable label, then credential index)
 is applied to persisted fields, preserving empty labels, whitespace and key-hash
-case. No label snapshot timing exception is authorized by this harness. A missing Prox event is
-explained only by a matching instance/time in `ingest_gaps`; a Prox-only drained
-event needs an explicit, documented CPAMP outage interval. Subscribed extras fail.
+case. No label snapshot timing exception is authorized by this harness. Missing
+Prox events require recorded gap evidence as defined below. Subscribed extras fail;
+optional outage provenance for reverse-only drained rows is counted separately.
 
 All operations share the existing IO governor and one serial query gate, with a
 2-second default minimum gap after completion, cancellable PSI waits, measured
@@ -433,7 +433,7 @@ never rolls the cutoff into tomorrow. The earliest deadline/forbidden boundary
 aborts fetches and PSI/pacing waits, and is rechecked at synchronous boundaries.
 An incomplete run writes `complete=false`, its termination reason and partial
 counts, then exits 2 (unexplained differences exit 1; SIGINT exits 130). The user
-unit passes `--deadline 12:00Z` and uses `Type=exec` plus `RuntimeMaxSec=7h30min`
+unit passes `--deadline 12:00Z` and uses `Type=exec` plus `RuntimeMaxSec=7h`
 as a backstop. None of these templates is installed or enabled by this work.
 
 The matrix is ported from CPAMP commit `52b12b45e010a766bd69ff55a55e566263d8bede`.
@@ -442,8 +442,24 @@ rotation rather than extra time-zone/granularity factors. All view slots are kep
 and mapped to UTC. Each backend supplies its own second-page cursor. Reports
 reconcile the stale plan counts, expose each axis and window clipping, and retain
 both values for every difference. The disabled user timer template runs quick
-plus events for the previous UTC day at 04:30 UTC; installation and the two-night
+plus events for the previous UTC day at 05:00 UTC, after the 04:40 reconcile timer; installation and the two-night
 cutover decision belong to the coordinator.
+
+Forward CPAMP→Prox event parity compares full fields across every ingest kind;
+reverse parity requires only subscribed (`ingest=0`) rows. Accepted matches and
+reverse-only rows outside that cohort are counted separately by ingest kind.
+Only CPAMP persisted TTFT zero → Prox null is an accepted measurement difference,
+under the counted `ttft-zero-null` rule; latency and reverse null → zero stay strict.
+A missing row can use a recorded same-instance gap only when its persisted
+positive latency places completion inside that gap (±2,000 ms, two monitor ticks).
+No restart implies an unrecorded gap. Gap metadata reads may extend past the
+start-time window; CPAMP event scans do not.
+
+A read-only job-status observation notes whether the latest retained successful,
+exact import/reconcile completed for the observed window's source IDs. Unknown or
+unavailable history is stated as such. It is informational: no reconcile is started,
+no dependency is installed, and missing events remain unexplained until they exist
+and compare equal. The 05:00 timer is a schedule after reconcile, not proof of it.
 
 ## Analytics queries
 
