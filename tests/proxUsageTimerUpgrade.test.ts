@@ -56,7 +56,8 @@ rm -f "$HOME/.config/systemd/user/timers.target.wants/$4" "$HOME/.config/systemd
     { mode: 0o700 }
   );
   const script = readFileSync('scripts/deploy-homelab.sh', 'utf8');
-  const start = script.indexOf('# Retire units no longer shipped');
+  // `# Retire ` opens the retirement block in this and earlier deploy scripts.
+  const start = script.indexOf('# Retire ');
   const end = script.indexOf('systemctl --user daemon-reload', start);
   expect(start).toBeGreaterThan(0);
   expect(end).toBeGreaterThan(start);
