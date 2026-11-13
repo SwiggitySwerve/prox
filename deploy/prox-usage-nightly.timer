@@ -1,0 +1,12 @@
+# Template only: deployment installs disabled. No catch-up run at login.
+[Unit]
+Description=Serial Prox usage nightly maintenance at 04:20 UTC
+
+[Timer]
+OnCalendar=*-*-* 04:20:00 UTC
+AccuracySec=1s
+Persistent=false
+Unit=prox-usage-nightly.service
+
+[Install]
+WantedBy=timers.target

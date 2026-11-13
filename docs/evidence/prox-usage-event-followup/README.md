@@ -54,7 +54,17 @@ with exact verification; this worker did not run that import or any live write.
 
 ## Counted rules and reconcile observation
 
-`ttft-zero-null` accepts only persisted CPAMP TTFT **0** → Prox **null**.
+`ttft-zero-null` accepts persisted CPAMP TTFT **0** → Prox **null** only when
+CPAMP's own metadata decoder establishes **unknown/unavailable instrumentation**.
+A follow-up bounded read-only classification of all 52 original differences found
+**52 unavailable, 0 unknown, 0 first-byte, 0 substantive-content, 0 fallback-packet**.
+Thus **0 measured zeros** were excused and the **54 → 2** verdict is unchanged.
+The [classification report](ttft-classification.json) lists every execution ID,
+start, persisted zero and raw method; 30 gated operations read 26,626,785 bytes,
+wrote zero and incurred no PSI pause. This was a metadata classification of the
+completed run, not another full event comparison.
+CPAMP [explicitly preserves measured zero for all three measured methods](https://github.com/SwiggitySwerve/CPA-Manager-Plus/blob/52b12b45e010a766bd69ff55a55e566263d8bede/apps/manager-server/internal/usage/analytics.go#L117-L130);
+negative regressions cover each.
 Reverse null→0, other TTFT values and all latency differences still fail.
 CPAMP [passes both latency and TTFT to `nullInt`](https://github.com/SwiggitySwerve/CPA-Manager-Plus/blob/52b12b45e010a766bd69ff55a55e566263d8bede/apps/manager-server/internal/repository/usageevent/repository.go#L506-L507),
 which [preserves every supplied integer, including zero](https://github.com/SwiggitySwerve/CPA-Manager-Plus/blob/52b12b45e010a766bd69ff55a55e566263d8bede/apps/manager-server/internal/repository/usageevent/repository.go#L819-L823).
@@ -65,31 +75,42 @@ Forward parity accepts all ingest kinds with full field comparison; reverse
 parity checks subscribed rows only. Synthetic tests show that imported/reconciled
 rows repair both losses only when fields match, and token drift still fails.
 
-A strict recorded-gap rule uses completion time, requiring positive persisted
-latency, the same instance and an existing half-open interval with ±2,000 ms.
-The proxy [timestamps records at request start](https://github.com/SwiggitySwerve/CLIProxyAPI/blob/b62afcb3e32c6b6d0a70f944a3a273ef6eeda5fb/internal/redisqueue/plugin.go#L30-L32)
-and [encodes elapsed latency in milliseconds](https://github.com/SwiggitySwerve/CLIProxyAPI/blob/b62afcb3e32c6b6d0a70f944a3a273ef6eeda5fb/internal/redisqueue/plugin.go#L147-L149),
-snapshotted [when constructing the published record](https://github.com/SwiggitySwerve/CLIProxyAPI/blob/b62afcb3e32c6b6d0a70f944a3a273ef6eeda5fb/internal/runtime/executor/helps/usage_helpers.go#L609-L616).
-The allowance is explicitly two [1-second collector monitor ticks](https://github.com/SwiggitySwerve/prox/blob/2505df721a2abe3dbe1249d6a9f221e19e12cd12/server/usage/collector.ts#L257-L263)
-around [locally observed gap bounds](https://github.com/SwiggitySwerve/prox/blob/2505df721a2abe3dbe1249d6a9f221e19e12cd12/server/usage/collector.ts#L157-L164);
-millisecond truncation contributes <2 ms. This is a bounded operational allowance,
-not a guarantee of queue delivery within two seconds. Longer displacement fails.
+The recorded-gap rule now requires completion strictly inside the recorded
+half-open interval for the same instance, with **zero tolerance**. Positive
+persisted latency is required. The proxy
+[timestamps records at request start](https://github.com/SwiggitySwerve/CLIProxyAPI/blob/b62afcb3e32c6b6d0a70f944a3a273ef6eeda5fb/internal/redisqueue/plugin.go#L30-L32)
+and [encodes elapsed latency in milliseconds](https://github.com/SwiggitySwerve/CLIProxyAPI/blob/b62afcb3e32c6b6d0a70f944a3a273ef6eeda5fb/internal/redisqueue/plugin.go#L147-L149).
+The former ±2-second allowance was removed after review; tests reject completion
+just outside both bounds, including equality with the exclusive upper bound.
+Neither remaining loss is covered, before or after that tightening.
 
-The read-only job observation returned **not-confirmed**: no retained
-import/reconcile report. Prior completion is unknown; the note never converts
-missing events into matches. The uninstalled timer template now starts at
-**05:00 UTC**, after the existing 04:40 reconcile schedule, without a dependency
-or a guarantee that reconcile finishes first. The harness checks retained job
-provenance and still stops at 12:00, with `RuntimeMaxSec=7h` as a backstop.
-Neither unit was installed or enabled.
+The original run's read-only job observation returned **not-confirmed**: no retained
+import/reconcile report. Prior completion is unknown; that note never converts
+missing events into matches. The replacement disabled **04:20 UTC nightly chain**
+now waits for prune → reconcile → optional backup → parity in order. Backup is
+skipped by default (`PROX_USAGE_ENABLE_PACED_BACKUP=0`) until the paced snapshot
+and restore gates land. It stops at failure, noon or a forbidden boundary, requests
+active-job cancellation, and has a 7h40min oneshot backstop. Parity is capped at
+5h30min and receives an absolute noon deadline. Separate job timers are no longer
+shipped; manual per-job units remain. No unit was installed or enabled.
 
-## Verification
+The synthetic evidence helper now passes its ephemeral job URL and synthetic
+key explicitly, and asserts both status requests. A test preload blocks fetch,
+Node TCP and Bun TCP attempts to ports 18317/18320/8317/8319; unconsumed attempts
+fail the test even when application code catches the network error.
 
-- Focused harness suites: **58 passed**, 0 failed, 6,309 assertions, five files;
-  all synthetic databases were created in `/dev/shm` and removed by fixture cleanup.
-- One `bun run verify` under `ionice -c3 nice -n10`: **3,157 tests passed**,
-  lint passed with six existing warnings, frontend/server/usage builds passed.
-  The additional two-loss reconcile regression then passed in the focused suite.
-- Standalone strict TypeScript and changed-file ESLint passed.
-- Live run: complete, **exit 1 intentionally preserved**, 52 known TTFT differences,
-  2 unexplained missing events awaiting reconcile. No full matrix or live import.
+## Verification after review fixes
+
+- Harness, nightly, service and job suites: **89 passed**, 0 failed, 6,679
+  assertions, nine files. Synthetic databases and credentials lived in `/dev/shm`
+  and were removed by fixture cleanup. Fake jobs test terminal cleanup, ordering,
+  failure stop, noon/forbidden cutoffs, cancellation, delayed starts and parity
+  exit 2; port guards prove no live fixture endpoint is used.
+- One new `bun run verify` under `ionice -c3 nice -n10`: **3,168 tests passed**,
+  0 failed, 36,309 assertions; lint passed with six existing warnings and all
+  frontend/server/usage builds passed.
+- Standalone strict TypeScript passed, including the nightly script and guard.
+- Original live run: complete, **exit 1 intentionally preserved**. The follow-up
+  bounded TTFT classification confirms **52 unavailable, 0 measured**; 2 missing
+  events remain unexplained awaiting reconcile. No full matrix, live import or
+  live chain execution.

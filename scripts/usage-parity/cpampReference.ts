@@ -10,6 +10,21 @@ import { sanitizeCredentialText } from '../../server/usage/credentialText';
 import { RECORD_KIND, USAGE_FLAG } from '../../server/usage/types';
 
 export const CPAMP_PARITY_COLUMNS = `${CPAMP_EVENT_COLUMNS}, service_tier`;
+export type CpampTimingMethod =
+  'unknown' | 'unavailable' | 'first-byte' | 'substantive-content' | 'fallback-packet';
+export interface CpampEventReference extends EventValues {
+  ttft_method: CpampTimingMethod;
+}
+// CPAMP AnalyticsMetadataFromJSON recognizes only these exact sanitized strings.
+function timingMethod(value: unknown): CpampTimingMethod {
+  const method = identifier(value);
+  return method === 'unavailable' ||
+    method === 'first-byte' ||
+    method === 'substantive-content' ||
+    method === 'fallback-packet'
+    ? method
+    : 'unknown';
+}
 export interface EventValues {
   execution_id: string;
   instance: string | null;
@@ -213,7 +228,7 @@ export function cpampReference(
   row: CpampSourceRow,
   checks: Preconditions,
   seen: Set<string>
-): EventValues | NonCanonicalMetadata | null {
+): CpampEventReference | NonCanonicalMetadata | null {
   if (!row.valid_json) checks.invalidJson++;
   const extracted = JSON.parse(row.metadata) as unknown[];
   const metadata = Object.fromEntries(CPAMP_METADATA_KEYS.map((key, i) => [key, extracted[i]]));
@@ -257,6 +272,7 @@ export function cpampReference(
     status_code: row.fail_status_code as number | null,
     latency_ms: row.latency_ms as number | null,
     ttft_ms: row.ttft_ms as number | null,
+    ttft_method: timingMethod(metadata.ttft_method),
     ...(Object.fromEntries(counters.map((key) => [key, row[key]])) as Pick<
       EventValues,
       (typeof counters)[number]

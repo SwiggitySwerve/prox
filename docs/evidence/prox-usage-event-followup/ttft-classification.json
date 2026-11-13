@@ -1,0 +1,340 @@
+{
+  "complete": true,
+  "rows": [
+    {
+      "timestamp_ms": 1794518472443,
+      "ttft_ms": 0,
+      "execution_id": "106ceec8-c398-4695-9e0b-18c710d1ef39",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794518565808,
+      "ttft_ms": 0,
+      "execution_id": "06da7c88-909f-4133-84d1-8f990ae1df63",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794518600141,
+      "ttft_ms": 0,
+      "execution_id": "3b4c3fd8-52ee-49af-bc56-5a02e64d924f",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794518711079,
+      "ttft_ms": 0,
+      "execution_id": "30cb1c95-fbf8-484f-8bd5-da7d2f8a3cbf",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794518764505,
+      "ttft_ms": 0,
+      "execution_id": "816b2989-c53f-4072-920e-b51d4783dc37",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794518955252,
+      "ttft_ms": 0,
+      "execution_id": "539ce908-04e3-4caf-9059-c618f33a2974",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794519124502,
+      "ttft_ms": 0,
+      "execution_id": "325602ac-5b19-4590-9ee0-fa37da3210a4",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794519345453,
+      "ttft_ms": 0,
+      "execution_id": "3c0f308d-c92d-4ae7-8dd1-94c359a828d0",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794519552653,
+      "ttft_ms": 0,
+      "execution_id": "56022b08-5ab7-4cd4-ae7d-37ae3d3d6f90",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794519708261,
+      "ttft_ms": 0,
+      "execution_id": "da4d6f72-33b7-4f35-be49-0a78d5126ad7",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794519717978,
+      "ttft_ms": 0,
+      "execution_id": "4954c3b5-715f-4f06-a581-e77b2d7e7e7e",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520137721,
+      "ttft_ms": 0,
+      "execution_id": "1f29c840-483b-415f-8596-0d9769035723",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520376654,
+      "ttft_ms": 0,
+      "execution_id": "d08f6036-daea-4652-9ebb-fe61957dc6ee",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520579619,
+      "ttft_ms": 0,
+      "execution_id": "e3e96966-a6b4-4a52-ba6e-542f0f71ba2b",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520612276,
+      "ttft_ms": 0,
+      "execution_id": "f1f1c971-a6d9-40a4-be77-74b7555d9d6d",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520615640,
+      "ttft_ms": 0,
+      "execution_id": "68141901-f27b-49a6-8d30-d9b651563e0c",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520732875,
+      "ttft_ms": 0,
+      "execution_id": "8dc20e39-7925-4af2-86d3-e3b9eb42283f",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520771512,
+      "ttft_ms": 0,
+      "execution_id": "36dde4ff-6f31-4efa-91c6-2ecbabcfdd39",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520803882,
+      "ttft_ms": 0,
+      "execution_id": "874f741e-9ecf-4eec-9fc5-b0df52a73e5d",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794520991520,
+      "ttft_ms": 0,
+      "execution_id": "7f6a5427-6772-4e12-a0c1-ecf04e0513fc",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794521122468,
+      "ttft_ms": 0,
+      "execution_id": "31da4d69-7d6b-4e96-b309-19d9da3646ab",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794521881419,
+      "ttft_ms": 0,
+      "execution_id": "a6a96f06-5156-459c-a8b0-f9d55d57faf0",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794522103861,
+      "ttft_ms": 0,
+      "execution_id": "12668c04-b18c-4b5e-b771-8c1c267a306a",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794522468275,
+      "ttft_ms": 0,
+      "execution_id": "85cf9952-88a5-49cb-907b-205d248a1205",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794522534212,
+      "ttft_ms": 0,
+      "execution_id": "892e58a4-db5e-4fda-8199-dfddc0321b66",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794522668767,
+      "ttft_ms": 0,
+      "execution_id": "cbc48d6f-56c2-453e-a168-41131d512f8e",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794522775801,
+      "ttft_ms": 0,
+      "execution_id": "0417856e-d84c-453a-bb99-1eca4339d26d",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794522802531,
+      "ttft_ms": 0,
+      "execution_id": "6d417d91-9cc4-4bfe-946a-7700c83fe9a1",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794522828703,
+      "ttft_ms": 0,
+      "execution_id": "96b6eb30-7966-4e98-b101-36c2f3843309",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794522859382,
+      "ttft_ms": 0,
+      "execution_id": "f66c9b8e-804b-42d3-914f-4efefb5bd93d",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794523233108,
+      "ttft_ms": 0,
+      "execution_id": "2943c6d0-64f0-4828-8fea-74ffafac792c",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794523590137,
+      "ttft_ms": 0,
+      "execution_id": "ebb4bd17-da83-499a-95f1-38ef18a32f51",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794523649968,
+      "ttft_ms": 0,
+      "execution_id": "593603e4-1487-464c-8498-ca3d970380fa",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794523671056,
+      "ttft_ms": 0,
+      "execution_id": "e29536b1-a671-403b-b342-41b067312093",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794523740303,
+      "ttft_ms": 0,
+      "execution_id": "576d10cf-d417-4f48-9c03-5b32b3d83557",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524049831,
+      "ttft_ms": 0,
+      "execution_id": "58ed1197-abff-4291-acec-fd099448477a",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524226178,
+      "ttft_ms": 0,
+      "execution_id": "0e941a9b-203f-4fd6-b46b-f9841bbf9765",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524569809,
+      "ttft_ms": 0,
+      "execution_id": "977af5d8-96bf-4ac0-b713-b7e7ea8a26c2",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524684870,
+      "ttft_ms": 0,
+      "execution_id": "6cc4587f-b265-4536-9d44-9d9c8c309121",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524877828,
+      "ttft_ms": 0,
+      "execution_id": "7a582fbd-f2bc-4842-b6e3-0969b9aadcc4",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524890067,
+      "ttft_ms": 0,
+      "execution_id": "32e47fb8-1554-474d-8071-f685176c6a63",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524926991,
+      "ttft_ms": 0,
+      "execution_id": "d5657be6-9f41-4ff2-9b70-e68813495c64",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524936886,
+      "ttft_ms": 0,
+      "execution_id": "f5ce2cde-7bff-42e8-9e54-195f15d296b0",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794524969701,
+      "ttft_ms": 0,
+      "execution_id": "24a4e86b-9cdc-48d0-86e4-980fdb4e3b75",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794525209455,
+      "ttft_ms": 0,
+      "execution_id": "fe78760a-cc5e-4410-9821-41f325dbf13c",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794525241600,
+      "ttft_ms": 0,
+      "execution_id": "4a390314-521b-4221-9b41-5aac1864205d",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794525249834,
+      "ttft_ms": 0,
+      "execution_id": "9a3fa9ce-33a5-434e-ac54-dbc425d4fb33",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794525587221,
+      "ttft_ms": 0,
+      "execution_id": "5e57d493-a221-4c2d-9aad-f8fb052cb2ac",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794525621636,
+      "ttft_ms": 0,
+      "execution_id": "d0f6b8a1-ca89-42da-b9e2-42455117e98b",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794525829892,
+      "ttft_ms": 0,
+      "execution_id": "fb0e7f1d-f21f-4752-80f5-24c4ede75c13",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794526300227,
+      "ttft_ms": 0,
+      "execution_id": "04d7abfd-82b6-464a-91cd-947507a2461a",
+      "ttft_method": "unavailable"
+    },
+    {
+      "timestamp_ms": 1794526680726,
+      "ttft_ms": 0,
+      "execution_id": "1d0f2100-9f91-4fc1-81d2-3b17f0be1e68",
+      "ttft_method": "unavailable"
+    }
+  ],
+  "counts": {
+    "unavailable": 52
+  },
+  "io": {
+    "queries": 30,
+    "bytesRead": 26626785,
+    "bytesWritten": 0,
+    "pauseSeconds": 0,
+    "longPauses": 0
+  },
+  "source": "CPAMP read-only, idx_usage_events_timestamp, 28 bounded five-minute windows, restricted to the 52 prior TTFT differences",
+  "window": {
+    "from": "2026-11-12T21:20:00Z",
+    "to": "2026-11-12T23:40:00Z"
+  },
+  "classification": {
+    "unknown": 0,
+    "unavailable": 52,
+    "first-byte": 0,
+    "substantive-content": 0,
+    "fallback-packet": 0
+  },
+  "conclusion": "All 52 remain known TTFT representation differences under the restricted rule; measured zero-to-null discrepancies: 0."
+}

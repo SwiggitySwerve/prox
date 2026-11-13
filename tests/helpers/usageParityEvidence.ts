@@ -68,10 +68,20 @@ export async function generateParityEvidence(directory: string) {
   const root = mkdtempSync('/dev/shm/prox-parity-evidence-events-');
   const sourcePath = join(root, 'cpamp.sqlite'),
     targetPath = join(root, 'prox.sqlite');
+  let jobRequests = 0;
   const jobServer = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
-    fetch: () => Response.json({ job: null }),
+    fetch: (request) => {
+      if (
+        request.method !== 'GET' ||
+        new URL(request.url).pathname !== '/v1/jobs' ||
+        request.headers.get('authorization') !== 'Bearer synthetic-parity-key'
+      )
+        return new Response(null, { status: 400 });
+      jobRequests++;
+      return Response.json({ job: null });
+    },
   });
   const keyPath = join(root, 'synthetic-key');
   writeFileSync(keyPath, 'synthetic-parity-key');
@@ -102,7 +112,7 @@ export async function generateParityEvidence(directory: string) {
     store.recordGap({
       instance: events[0].instance!,
       fromMs: start,
-      toMs: start + 100,
+      toMs: start + 2000,
       reason: 'subscription-dropped',
     });
     const outageFile = join(root, 'outages.json');
@@ -130,6 +140,10 @@ export async function generateParityEvidence(directory: string) {
         sourcePath,
         '--prox-db',
         targetPath,
+        '--prox-url',
+        `http://127.0.0.1:${jobServer.port}/v1/analytics`,
+        '--prox-key-file',
+        keyPath,
         '--cpamp-outages',
         outageFile,
         '--output',
@@ -139,6 +153,7 @@ export async function generateParityEvidence(directory: string) {
     );
     const signal = new AbortController().signal;
     const report = await runParity(options, signal, { gate: quietGate(signal), nowMs: now });
+    if (jobRequests !== 1) throw new Error('Synthetic job server was not contacted');
     console.log(
       JSON.stringify({
         synthetic: true,
@@ -154,6 +169,8 @@ export async function generateParityEvidence(directory: string) {
       signal,
       { gate: quietGate(signal), nowMs: now }
     );
+    if (Number(jobRequests) !== 2)
+      throw new Error('Synthetic job server missed the second request');
     console.log(
       JSON.stringify({
         synthetic: true,

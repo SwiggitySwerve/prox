@@ -96,16 +96,18 @@ No credential-label timing exception is assumed.
 
 Explicit counted rules:
 
-- `ttft-zero-null`: CPAMP persisted `ttft_ms=0` and Prox `ttft_ms=null` represent
-  unmeasured TTFT. Each difference is retained and counted. Reverse null→0, other
+- `ttft-zero-null`: CPAMP persisted `ttft_ms=0` and Prox `ttft_ms=null` are
+  equivalent only when CPAMP's independent metadata decoder establishes
+  `unknown` or `unavailable` instrumentation. Measured zero under `first-byte`,
+  `substantive-content` or `fallback-packet` remains unexplained. Each difference
+  is retained and counted. Reverse null→0, other
   values and all latency differences remain unexplained. CPAMP's writer preserves
   supplied zeros for both measurements; this rule deliberately covers TTFT only.
 - `ingest-gap`: missing Prox event whose persisted completion (`timestamp_ms +
-  latency_ms`) falls within an existing recorded gap for the same instance, with
-  ±2,000 ms around the half-open interval. Positive safe integer latency is required.
-  This is a two-monitor-tick boundary allowance, not a queue-delivery guarantee;
-  timestamp/latency millisecond truncation contributes less than 2 ms. No interval
-  is inferred from a restart. Interval, completion and tolerance stay in evidence.
+  latency_ms`) falls inside an existing recorded half-open gap for the same instance,
+  with **zero tolerance**. Completion at the end or outside either bound fails.
+  Positive safe integer latency is required. No interval is inferred from a restart.
+  The recorded interval and completion stay in evidence.
 - `drained-during-cpamp-outage`: optional provenance for a reverse-only drained row,
   requiring a supplied CPAMP outage with the same instance and start time. Such
   rows are outside the subscribed reverse cohort regardless of provenance.
@@ -179,16 +181,28 @@ Default DBs are `~/.local/share/cpa-manager-plus/usage.sqlite` and
 `{from_ms,to_ms,instance,reason}`; an interval needs an operational reason, not a
 guessed gap. All paths/endpoints have documented `--help` overrides.
 
-`deploy/prox-usage-parity.service` and `.timer` are uninstalled templates. The
-service assumes `%h/src/prox` and Bun on its configured PATH; the coordinator
-must review those paths before installing. It invokes `ionice -c3 nice -n10`,
-quick plus events for the previous UTC day at **05:00 UTC**, after the 04:40 reconcile timer, passing
-`--deadline 12:00Z`. `Type=exec` makes `RuntimeMaxSec=7h` effective as a
-systemd backstop; the harness's absolute cutoff also handles delayed starts.
-`Persistent=false`
-avoids a catch-up run at login during the forbidden period. There is no install,
-enable or start action in this PR. This read-only timer does not perform the
-separate reconcile/import jobs needed by plan step C. It has no reconcile unit dependency.
+The sole nightly timer is `deploy/prox-usage-nightly.timer`, at **04:20 UTC** with
+`Persistent=false`, calling the oneshot `prox-usage-nightly.service` under
+`ionice -c3 nice -n10`. `scripts/usage-nightly.ts` runs **prune → reconcile →
+optional backup → parity**, polling `GET /v1/jobs` every ten seconds until each
+job succeeds and finishes cleanup. Failed/cancelled jobs, replaced IDs, HTTP
+errors and nonzero parity stop the chain. It uses the existing PSI/serial query
+gate and UTC guard: every step and wait stops at today's **12:00 UTC** or a
+forbidden boundary; active jobs receive a bounded cancellation request. Delayed
+starts never roll noon into tomorrow. Cancellation cannot prove a stopped job
+until its terminal report is observed; an unsuccessful request is reported as
+unconfirmed and no subsequent work starts.
+
+Backup is **off by default** (`PROX_USAGE_ENABLE_PACED_BACKUP=0`); only set it to
+`1` via a service override after the paced snapshot and restore gates land.
+The standalone parity service remains manual, with `RuntimeMaxSec=5h30min`;
+the chain applies that same parity runtime cap and passes an absolute noon
+cutoff. `TimeoutStartSec=7h40min` backs the whole oneshot chain. The previous
+prune/reconcile/backup/parity timers are no longer shipped. The deploy script
+copies the sole timer disabled; operators must disable/remove any legacy timers
+before enabling it. Per-job manual units remain available. Templates assume
+`%h/src/prox` and require path review. This work installs or enables nothing.
+
 A read-only `GET /v1/jobs` observation before event comparison reports whether the
 latest retained job confirms completed exact import/reconcile covering this window's
 CPAMP IDs, started at least ten minutes after its end. Missing, overwritten, stale
@@ -205,9 +219,12 @@ servers, then delete them. They cover every event field (including exporter
 labels), 1,001 tied timestamps across a keyset boundary, read-only enforcement,
 both event directions, bounded index enforcement, each exception rule, second
 page disagreement and backend-specific cursors, exact normalization, IO gating,
-serialization, cancellation, failed responses, private credentials and CLI/unit
+serialization, cancellation, failed responses, private credentials, nightly sequencing and CLI/unit
 contracts. The committed JSON/Markdown examples below are generated by these
-same harness functions; the server calculations are synthetic plumbing checks,
+same harness functions. The fixture passes its fake job-server URL and synthetic key
+explicitly, and asserts both job-status requests arrive. A test preload blocks
+ports 18317/18320/8317/8319 through fetch and TCP, failing the test even if the
+caller catches the network error. The server calculations are synthetic plumbing checks,
 not an independent validation of CPAMP arithmetic.
 
 | Committed synthetic artifact | Compared / equal pairs | Known rules | Unexplained | Expected result |

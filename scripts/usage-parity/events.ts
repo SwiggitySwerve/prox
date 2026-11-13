@@ -7,6 +7,7 @@ import {
   cpampReference,
   CPAMP_PARITY_COLUMNS,
   type EventValues,
+  type CpampEventReference,
   type NonCanonicalMetadata,
 } from './cpampReference';
 import { INGEST } from '../../server/usage/types';
@@ -69,7 +70,6 @@ const TARGET_COLUMNS = `e.seq, e.ingest, d.execution_id, e.ts_ms,
   (SELECT value FROM dim WHERE id=e.tier_id) AS tier,
   e.failed, e.status_code, e.latency_ms, e.ttft_ms, e.input_total, e.input_uncached,
   e.cache_read, e.cache_write, e.output_total, e.reasoning, e.total, e.usage_flags, e.record_kind`;
-export const COMPLETION_GAP_TOLERANCE_MS = 2000;
 type IngestKind = keyof typeof INGEST;
 const INGEST_NAMES = Object.fromEntries(
   Object.entries(INGEST).map(([kind, code]) => [code, kind])
@@ -87,8 +87,8 @@ function completionOverlaps(row: EventValues, interval: Interval): boolean {
     completed !== null &&
     row.instance === interval.instance &&
     interval.from_ms < interval.to_ms &&
-    completed >= interval.from_ms - COMPLETION_GAP_TOLERANCE_MS &&
-    completed < interval.to_ms + COMPLETION_GAP_TOLERANCE_MS
+    completed >= interval.from_ms &&
+    completed < interval.to_ms
   );
 }
 const overlaps = (row: EventValues, interval: Interval) =>
@@ -142,8 +142,8 @@ export async function compareEvents(
     result.complete = true;
     return result;
   }
-  let gapFrom = from - COMPLETION_GAP_TOLERANCE_MS;
-  let gapTo = toMs + COMPLETION_GAP_TOLERANCE_MS;
+  let gapFrom = from;
+  let gapTo = toMs;
   const loadGaps = () =>
     gate.run(
       () =>
@@ -178,7 +178,7 @@ export async function compareEvents(
   const seen = new Set<string>();
   for (let start = from; start < toMs; start += 300_000) {
     const end = Math.min(toMs, start + 300_000);
-    const expected = new Map<string | number, EventValues | NonCanonicalMetadata>();
+    const expected = new Map<string | number, CpampEventReference | NonCanonicalMetadata>();
     const actual = new Map<string, TargetRow>();
     let timestamp = start,
       id = -1;
@@ -224,14 +224,8 @@ export async function compareEvents(
       const point = completionTime(row);
       return point === null ? [] : [point];
     });
-    const nextFrom = Math.min(
-      gapFrom,
-      ...completions.map((point) => point - COMPLETION_GAP_TOLERANCE_MS)
-    );
-    const nextTo = Math.max(
-      gapTo,
-      ...completions.map((point) => point + COMPLETION_GAP_TOLERANCE_MS + 1)
-    );
+    const nextFrom = Math.min(gapFrom, ...completions.map((point) => point));
+    const nextTo = Math.max(gapTo, ...completions.map((point) => point + 1));
     if (nextFrom !== gapFrom || nextTo !== gapTo) {
       gapFrom = nextFrom;
       gapTo = nextTo;
@@ -261,7 +255,7 @@ export async function compareEvents(
                 absent: true,
                 interval: gap,
                 completed_ms: completionTime(row),
-                tolerance_ms: COMPLETION_GAP_TOLERANCE_MS,
+                tolerance_ms: 0,
               }
             : null,
         });
@@ -269,11 +263,13 @@ export async function compareEvents(
         const values: Partial<TargetRow> = { ...found };
         delete values.seq;
         delete values.ingest;
-        const differences = diffValues(row, values, `events.${execution}`).map(
+        const { ttft_method, ...reference } = row;
+        const differences = diffValues(reference, values, `events.${execution}`).map(
           (difference): Difference =>
             difference.path === `events.${execution}.ttft_ms` &&
             difference.cpamp === 0 &&
-            difference.prox === null
+            difference.prox === null &&
+            (ttft_method === 'unknown' || ttft_method === 'unavailable')
               ? { ...difference, class: 'ttft-zero-null' }
               : difference
         );

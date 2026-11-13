@@ -279,3 +279,27 @@ billing-only policies affect costs. Apply the Sonnet 5.5 cache-read correction a
 this identity change; any later price decrease needs a new source identity.
 Importing history after the swap would appear as a huge increase. Rolling back
 resumes old counters and can double-count traffic already counted by the new ones.
+
+
+## Nightly usage maintenance (operator enablement only)
+
+The shipped `prox-usage-nightly.timer` is disabled by default and starts one
+oneshot chain at **04:20 UTC**, without catch-up. Review its `%h/src/prox` path
+before installation. `scripts/usage-nightly.ts` waits for **prune → reconcile →
+optional backup → quick/event parity**, observing each job's terminal success
+and completed cleanup before starting the next. It reads the management bearer
+inside the process, polls `/v1/jobs` every ten seconds through the shared PSI gate,
+and stops on job/API/parity failure. It enforces today's absolute **12:00 UTC**
+cutoff and the 01:00–04:00 / 12:20–12:50 forbidden windows on every admission and
+wait; at cutoff/interruption it requests active-job cancellation. Incomplete
+parity exits 2 and cannot pass the chain. Parity has a 5h30min runtime cap; the
+whole oneshot has a 7h40min start timeout as a backstop.
+
+Backup stays **skipped** with `PROX_USAGE_ENABLE_PACED_BACKUP=0`. Only set it to
+`1` through a nightly-service override after the paced snapshot implementation
+and restore gate land. Upload pacing does not make the existing VACUUM snapshot
+bounded. The old independent prune/reconcile/backup/parity timers are no longer
+shipped: disable/remove any previously installed copies before enabling the sole
+nightly timer. `prox-usage-job@.service` and `prox-usage-parity.service` remain for
+manual use. The deployment script copies templates without enabling them; this
+change installs, enables and runs no live maintenance unit.

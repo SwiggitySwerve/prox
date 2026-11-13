@@ -156,7 +156,7 @@ describe('read-only event parity', () => {
     f.store.recordGap({
       instance: f.events[0].instance!,
       fromMs: START,
-      toMs: START + 100,
+      toMs: START + 2000,
       reason: 'subscription-dropped',
     });
     const report = await f.run();
@@ -166,7 +166,7 @@ describe('read-only event parity', () => {
     other.store.recordGap({
       instance: 'unrelated',
       fromMs: START,
-      toMs: START + 100,
+      toMs: START + 2000,
       reason: 'subscription-dropped',
     });
     await other.run();
@@ -415,7 +415,9 @@ test('a later valid duplicate cannot overwrite a rejected metadata event', async
 
 test('TTFT zero-to-null is counted as equivalent only in the CPAMP-to-Prox direction', async () => {
   const f = fixture();
-  f.cpamp.db.exec('UPDATE usage_events SET ttft_ms=0');
+  f.cpamp.db.exec(
+    `UPDATE usage_events SET ttft_ms=0,raw_json=json_set(raw_json,'$.ttft_method','unavailable')`
+  );
   f.insert({ ...f.events[0], ttftMs: null });
   const report = await f.run();
   expect(report).toMatchObject({
@@ -485,7 +487,7 @@ test('reverse-only rows outside the subscribed cohort are counted separately fro
   expect(f.differences).toHaveLength(1);
   expect(f.differences[0].path).toBe('events.extra-0');
 });
-test('missing events use persisted completion times in recorded instance gaps, with bounded tolerance', async () => {
+test('missing events use persisted completion times strictly inside recorded instance gaps', async () => {
   const f = fixture(0),
     restart = START + 60000;
   for (const [i, instance, startOffset, latency] of [
@@ -518,13 +520,16 @@ test('missing events use persisted completion times in recorded instance gaps, w
   await absent.run();
   expect(absent.differences[0].class).toBe('unexplained');
 });
-test('completion gap checks reject start-only matches, invalid latency and tolerance overflow', async () => {
+test('completion gap checks reject start-only matches, invalid latency and both outside bounds', async () => {
   for (const [latency, gapFrom, gapTo] of [
     [10000, START, START + 100],
     [null, START, START + 100],
     [0, START, START + 100],
     [-1, START, START + 100],
     [3000, START, START + 1000],
+    [1000, START + 1001, START + 2000],
+    [1000, START, START + 1000],
+    [1000, START, START + 999],
   ] as const) {
     const f = fixture();
     f.cpamp.db.query('UPDATE usage_events SET timestamp_ms=?,latency_ms=?').run(START, latency);
@@ -541,8 +546,8 @@ test('completion gap checks reject start-only matches, invalid latency and toler
   edge.cpamp.db.exec(`UPDATE usage_events SET timestamp_ms=${START},latency_ms=1000`);
   edge.store.recordGap({
     instance: edge.events[0].instance!,
-    fromMs: START + 3000,
-    toMs: START + 4000,
+    fromMs: START + 1000,
+    toMs: START + 1001,
     reason: 'subscription-dropped',
   });
   await edge.run();
@@ -640,4 +645,30 @@ test('both restart losses remain unexplained without a gap until reconciled rows
   expect(after.matched_by_ingest.imported).toBe(2);
   expect(after.exact_matched).toBe(2);
   expect(f.differences).toEqual([]);
+});
+
+test('measured CPAMP TTFT zeros are never accepted as unreported', async () => {
+  for (const method of ['first-byte', 'substantive-content', 'fallback-packet']) {
+    const f = fixture();
+    f.cpamp.db
+      .query("UPDATE usage_events SET ttft_ms=0,raw_json=json_set(raw_json,'$.ttft_method',?)")
+      .run(method);
+    f.insert({ ...f.events[0], ttftMs: null });
+    expect((await f.run()).matched).toBe(0);
+    expect(f.differences).toContainEqual({
+      class: 'unexplained',
+      path: `events.${f.events[0].executionId}.ttft_ms`,
+      cpamp: 0,
+      prox: null,
+    });
+  }
+  for (const method of ['unknown', 'unavailable', '', 'unsupported']) {
+    const f = fixture();
+    f.cpamp.db
+      .query("UPDATE usage_events SET ttft_ms=0,raw_json=json_set(raw_json,'$.ttft_method',?)")
+      .run(method);
+    f.insert({ ...f.events[0], ttftMs: null });
+    expect((await f.run()).matched).toBe(1);
+    expect(f.differences[0].class).toBe('ttft-zero-null');
+  }
 });

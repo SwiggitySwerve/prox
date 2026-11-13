@@ -215,17 +215,12 @@ test('job commands require the shared bearer, validate bounded input and expose 
 test('usage schedules are UTC, nonpersistent and only installed by deploy', () => {
   const root = resolve(import.meta.dir, '..');
   const script = readFileSync(join(root, 'scripts/deploy-homelab.sh'), 'utf8');
-  for (const [kind, time] of [
-    ['prune', '04:20'],
-    ['reconcile', '04:40'],
-    ['backup', '05:10'],
-  ]) {
-    const timer = readFileSync(join(root, `deploy/prox-usage-${kind}.timer`), 'utf8');
-    expect(timer).toContain(`OnCalendar=*-*-* ${time}:00 UTC`);
-    expect(timer).toContain('Persistent=false');
-    expect(timer).toContain(`Unit=prox-usage-job@${kind}.service`);
-  }
-  expect(script).toContain('install -D -m 644 "deploy/prox-usage-$job.timer"');
+  const timer = readFileSync(join(root, 'deploy/prox-usage-nightly.timer'), 'utf8');
+  expect(timer).toContain('OnCalendar=*-*-* 04:20:00 UTC');
+  expect(timer).toContain('Persistent=false');
+  expect(timer).toContain('Unit=prox-usage-nightly.service');
+  expect(script).toContain('install -D -m 644 deploy/prox-usage-nightly.timer');
+  expect(script).not.toContain('deploy/prox-usage-$job.timer');
   expect(script).not.toMatch(/systemctl[^\n]*(?:enable|start)[^\n]*prox-usage-/);
   const service = readFileSync(join(root, 'deploy/prox-usage-job@.service'), 'utf8');
   expect(service).toContain('Type=oneshot');
