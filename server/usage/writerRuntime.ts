@@ -1,10 +1,13 @@
 // The only write connections live here. Main-thread code refers to this entry by runtime path.
+import { UsageExporter } from './exporter';
+import { DEFAULT_CLIENT_ALIASES_PATH, createClientAliasLoader } from './clientAliases';
+import { createRateBookLoader, DEFAULT_RATE_BOOK_PATH } from './rates';
 import { UsageStore } from './store';
 import { normalizeUsagePayload } from './normalize';
 import { WriterQueue } from './writerQueue';
 import {
   isBulkJobKind,
-  QUEUE_RETENTION_MS,
+  type UsagePayload,
   type WriterRequest,
   type WriterStatus,
 } from './writerProtocol';
@@ -21,6 +24,9 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
   let jobs: UsageBulkJobs | null = null;
   let closing = false;
   let rollups: ReturnType<typeof startHourlyRollups> | null = null;
+  let exporter: UsageExporter | null = null;
+  let rates: ReturnType<typeof createRateBookLoader> | null = null;
+  let aliases: ReturnType<typeof createClientAliasLoader> | null = null;
   const status: WriterStatus = {
     backlog: 0,
     inserted: 0,
@@ -38,8 +44,9 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
     if (bulk) {
       try {
         if (!jobs || closing) throw new Error('Writer unavailable');
-        if (kind === 'cancel') jobs.cancel(body.jobId);
-        else if (isBulkJobKind(kind)) jobs.start(kind);
+        if (kind === 'cancel') jobs.cancel(body.jobId, body.clientToken);
+        else if (isBulkJobKind(kind))
+          jobs.start(kind, body && 'clientToken' in body ? body.clientToken : undefined);
         reply();
       } catch {
         self.postMessage({
@@ -65,52 +72,137 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
       );
       return;
     }
+    if (kind === 'exporter') {
+      void enqueueJob('exporter', () => {
+        if (!exporter || !rates || !aliases || closing) throw new Error('Exporter unavailable');
+        const rateState = rates.load();
+        const aliasState = aliases.load();
+        exporter.refresh(rateState.book);
+        self.postMessage({
+          id,
+          ok: true,
+          body: {
+            ...status,
+            exporter: {
+              ...exporter.snapshot(aliasState.aliases),
+              rate_book_error: !!rateState.error,
+              rate_book_loaded: rateState.book !== null,
+              client_alias_error: aliasState.error,
+              client_aliases_loaded: aliasState.loaded,
+            },
+          },
+        });
+      }).catch(() =>
+        self.postMessage({
+          id,
+          ok: false,
+          body: { error: 'Usage exporter unavailable', fatal: false },
+        })
+      );
+      return;
+    }
     if (kind === 'live') status.backlog += body.length;
-    void enqueueJob(kind, () => {
+    void enqueueJob(kind === 'replay' ? 'live' : kind, () => {
       if (kind === 'init') {
         if (store) throw new Error('Writer already initialized');
         store = new UsageStore({ events: body.events, raw: body.raw });
+        // Freeze cursorless receipt boundaries before init returns and subscriptions start.
+        // A persisted heartbeat can be ahead of now after a backward wall-clock step.
         for (const instance of body.sources) {
-          const heartbeat = Number(store.getMeta(`heartbeat:${instance}`));
-          if (heartbeat > 0 && body.nowMs - heartbeat > QUEUE_RETENTION_MS) {
-            store.recordGap({
-              instance,
-              fromMs: heartbeat,
-              toMs: body.nowMs - QUEUE_RETENTION_MS,
-              reason: 'stale-heartbeat',
-            });
+          const savedHeartbeat = store.getMeta(`heartbeat:${instance}`);
+          if (savedHeartbeat === null) continue;
+          const heartbeat = Number(savedHeartbeat);
+          const cursorless = store.getCursor(instance) === null;
+          if (cursorless || heartbeat < body.nowMs) {
+            store.recordRecovery(
+              {
+                instance,
+                fromMs: heartbeat,
+                toMs: body.nowMs,
+                reason: 'stale-heartbeat',
+              },
+              cursorless
+            );
           }
         }
         status.gaps = store.gapCount();
+        rates = createRateBookLoader(body.exporter?.rateBookPath ?? DEFAULT_RATE_BOOK_PATH);
+        aliases = createClientAliasLoader(
+          body.exporter?.clientAliasesPath ?? DEFAULT_CLIENT_ALIASES_PATH
+        );
+        exporter = new UsageExporter((visit) => store!.scanExporterEvents(visit));
+        exporter.refresh(rates.load().book);
+        store.onCommit = (events) => {
+          try {
+            for (const event of events) exporter!.add(event);
+          } catch {
+            // A projection failure never turns a committed event into a failed live batch.
+            exporter!.invalidate();
+          }
+        };
         jobs = new UsageBulkJobs(store, enqueueJob, body.jobs, governorOptions);
-        rollups = startHourlyRollups(store, jobs, body.rateBookPath);
+        rollups = startHourlyRollups(store, jobs, body.rateBookPath ?? body.exporter?.rateBookPath);
       } else {
         if (!store) throw new Error('Writer not initialized');
-        if (kind === 'live') {
-          // Group only consecutive records of the same transport, retaining their ingestion order.
-          let items: IngestItem[] = [];
-          let ingest = body[0]?.ingest ?? 0;
-          const commit = () => {
-            if (!items.length) return;
-            const result = store!.insert(items, ingest);
+        if (kind === 'live' || kind === 'replay') {
+          const payloads = kind === 'live' ? body : body.payloads;
+          const groups: UsagePayload[][] = [];
+          for (const item of payloads) {
+            const group = groups[groups.length - 1];
+            if (group?.[0].ingest === item.ingest) group.push(item);
+            else groups.push([item]);
+          }
+          if (!groups.length) groups.push([]);
+          for (const [index, group] of groups.entries()) {
+            const items: IngestItem[] = [];
+            const cursors = [];
+            for (const item of group) {
+              const result = normalizeUsagePayload(item.payload, () => item.label);
+              if (result.kind === 'event') items.push({ event: result.event, raw: result.raw });
+              else if (result.kind === 'rejected') {
+                status.rejected += 1;
+                store.recordRejected(result.reason, result.raw);
+              }
+              if (item.cursor) cursors.push({ instance: item.instance, cursor: item.cursor });
+            }
+            const last = index === groups.length - 1;
+            if (kind === 'replay' && last)
+              cursors.push({ instance: body.instance, cursor: body.cursor });
+            const gap = kind === 'replay' && last ? body.gap : undefined;
+            const recovered =
+              kind === 'replay' && last && body.complete ? body.instance : undefined;
+            const result = store.insert(items, group[0]?.ingest ?? 3, {
+              cursors,
+              gap,
+              recoveredInstance: recovered,
+              replayInstance: kind === 'replay' ? body.instance : undefined,
+            });
             status.inserted += result.inserted;
             status.duplicates += result.duplicates;
-            items = [];
-          };
-          for (const item of body) {
-            if (item.ingest !== ingest) {
-              commit();
-              ingest = item.ingest;
-            }
-            const result = normalizeUsagePayload(item.payload, () => item.label);
-            if (result.kind === 'event') items.push({ event: result.event, raw: result.raw });
-            else if (result.kind === 'rejected') {
-              status.rejected += 1;
-              store.recordRejected(result.reason, result.raw);
-            }
           }
-          commit();
-          status.backlog -= body.length;
+          status.gaps = store.gapCount();
+          if (kind === 'live') status.backlog -= body.length;
+        } else if (kind === 'resume') {
+          const heartbeat = store.getMeta(`heartbeat:${body.instance}`);
+          const cursorAt = store.getMeta(`cursor-at:${body.instance}`);
+          const recoveryFromMs = store.recoveryFromMs(body.instance);
+          self.postMessage({
+            id,
+            ok: true,
+            body: {
+              ...status,
+              resume: {
+                cursor: store.getCursor(body.instance),
+                ...(cursorAt === null ? {} : { cursorAtMs: Number(cursorAt) }),
+                ...(recoveryFromMs === null ? {} : { recoveryFromMs }),
+                heartbeat: heartbeat === null ? null : Number(heartbeat),
+              },
+            },
+          });
+          return;
+        } else if (kind === 'recovery') {
+          store.recordRecovery(body.gap, body.requireAnchor);
+          status.gaps = store.gapCount();
         } else if (kind === 'gap') {
           store.recordGap(body);
           status.gaps += 1;

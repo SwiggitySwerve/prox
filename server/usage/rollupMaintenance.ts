@@ -1,10 +1,10 @@
 // Automatic hour scheduling; the shared bulk owner governs and queues each synchronous chunk.
-import { createRateBookLoader } from './rates';
+import { createRateBookLoader, DEFAULT_RATE_BOOK_PATH } from './rates';
 import type { UsageBulkJobs } from './bulkJobs';
 import type { UsageStore } from './store';
 
 export function startHourlyRollups(store: UsageStore, jobs: UsageBulkJobs, path?: string) {
-  const loader = createRateBookLoader(path ?? '/data/usage-rates.json');
+  const loader = createRateBookLoader(path ?? DEFAULT_RATE_BOOK_PATH);
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | null = null;
   let active: Promise<void> | null = null;

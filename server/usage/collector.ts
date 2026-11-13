@@ -1,4 +1,4 @@
-// Per-source socket lifecycle, destructive queue drain and credential refresh scheduling.
+// Per-source subscription, replay recovery and credential refresh scheduling.
 import { readFile } from 'node:fs/promises';
 import type { DeploymentSource } from '../../src/domain/providerSources/types';
 import { CredentialLabels } from './labels';
@@ -6,11 +6,19 @@ import { subscribeUsage, type UsageSubscription } from './resp';
 import { readProxyJson, UsageAuthError } from './proxyHttp';
 import { usageClock, type UsageClock } from './clock';
 import { INGEST, type IngestSource } from './types';
-import { WRITER_HIGH_WATER, type CollectorWriter, type IngestGap } from './writerProtocol';
+import {
+  WRITER_HIGH_WATER,
+  type CollectorWriter,
+  type IngestGap,
+  type UsagePayload,
+  type UsageCursor,
+} from './writerProtocol';
+import { parseReplayPage, usageCursor } from './replay';
 
 export interface SourceStatus {
   instance: string;
-  state: 'connecting' | 'subscribed' | 'backoff' | 'auth-error' | 'paused' | 'stopped';
+  state:
+    'connecting' | 'replaying' | 'subscribed' | 'backoff' | 'auth-error' | 'paused' | 'stopped';
   lastEventAtMs: number | null;
   lastActivityAtMs: number | null;
   drainRequests: number;
@@ -39,6 +47,9 @@ export class UsageCollector {
   private dropReason: IngestGap['reason'] = 'subscription-dropped';
   private labelsPending: Promise<void> | null = null;
   private outageAt: number | null = null;
+  private replaying = true;
+  private firstLive: UsageCursor | null = null;
+  private lastLive: UsageCursor | null = null;
 
   constructor(
     private readonly source: DeploymentSource,
@@ -117,7 +128,7 @@ export class UsageCollector {
       });
   }
 
-  private accept(payload: unknown, ingest: IngestSource): void {
+  private prepare(payload: unknown, ingest: IngestSource): UsagePayload | null {
     // Parse only enough routing metadata for labels/controls. Normalization stays in the writer.
     let record: unknown = payload;
     if (typeof record === 'string') {
@@ -129,38 +140,144 @@ export class UsageCollector {
     }
     if (record && typeof record === 'object' && !Array.isArray(record)) {
       const meta = record as Record<string, unknown>;
-      if (meta.support_refresh === true) return;
+      if (meta.support_refresh === true) return null;
       if (meta.refresh === true) {
         this.refreshLabels(true);
-        return;
+        return null;
       }
       const index = typeof meta.auth_index === 'string' ? meta.auth_index.trim() : '';
       const label = this.labels.labelFor(index);
       if (index && !label) this.refreshLabels(false, index);
-      this.writer.enqueue({
+      return {
         instance: this.source.instanceId,
         payload: typeof payload === 'string' ? payload : JSON.stringify(payload),
         ingest,
         label,
-      });
+        cursor: usageCursor(meta),
+      };
     } else {
-      this.writer.enqueue({
+      return {
         instance: this.source.instanceId,
         payload: typeof payload === 'string' ? payload : JSON.stringify(payload),
         ingest,
-      });
+      };
     }
+  }
+
+  private accept(payload: unknown): void {
+    const item = this.prepare(payload, INGEST.subscribed);
+    if (!item) return;
+    if (item.cursor) {
+      this.firstLive ??= item.cursor;
+      this.lastLive = item.cursor;
+    }
+    // Replay establishes continuity first; a live arrival must not skip an unreplayed interval.
+    if (this.replaying) delete item.cursor;
+    this.writer.enqueue(item);
     this.status.lastEventAtMs = this.clock.now();
     if (this.writer.backlog > WRITER_HIGH_WATER) this.overflow();
   }
 
-  private gap(fromMs: number, reason: IngestGap['reason']): Promise<void> {
-    return this.writer.gap({
-      instance: this.source.instanceId,
-      fromMs,
-      toMs: this.clock.now(),
-      reason,
-    });
+  private async replay(): Promise<void> {
+    const instance = this.source.instanceId;
+    const resume = await this.writer.resume(instance);
+    let cursor = resume.cursor;
+    const fromMs =
+      resume.recoveryFromMs ??
+      this.outageAt ??
+      resume.heartbeat ??
+      resume.cursorAtMs ??
+      this.clock.now();
+    const requireAnchor =
+      cursor === null &&
+      (resume.recoveryFromMs !== undefined ||
+        this.outageAt !== null ||
+        resume.heartbeat !== null ||
+        resume.cursorAtMs !== undefined);
+    await this.writer.recovery(
+      {
+        instance,
+        fromMs,
+        toMs: this.clock.now(),
+        reason: this.dropReason,
+      },
+      requireAnchor
+    );
+    while (!this.session!.signal.aborted && !this.stopping.signal.aborted) {
+      const after = cursor?.queueSeq ?? 0;
+      const response = await this.read(`observability/usage/queue?after_seq=${after}&count=1000`);
+      // Detect a new process before using its page: the old cursor may be beyond its log.
+      // Explicitly request the new process's retained history from zero.
+      const bootId =
+        response && typeof response === 'object' && 'boot_id' in response ? response.boot_id : null;
+      const changed = cursor !== null && bootId !== cursor.bootId;
+      const page = parseReplayPage(response, after);
+      if (changed) {
+        // Commit the restart marker with cursor zero so retries cannot count old-boot sequences.
+        cursor = { bootId: page.bootId, queueSeq: 0 };
+        await this.writer.replay(instance, [], cursor, {
+          instance,
+          fromMs,
+          toMs: this.clock.now(),
+          reason: 'proxy-restart',
+          missed: null,
+        });
+        continue;
+      }
+      const prunedThrough = page.oldestSeq - 1;
+      const firstLive = this.firstLive;
+      const lastLive = this.lastLive;
+      // One subscription delivers in order. Its accepted range remains covered even if
+      // retention prunes it before replay; writer.replay flushes that range before
+      // committing this page's gap/cursor, so excluded records must become durable first.
+      const liveCovered =
+        firstLive?.bootId === page.bootId && lastLive?.bootId === page.bootId
+          ? Math.max(
+              0,
+              Math.min(prunedThrough, lastLive.queueSeq) -
+                Math.max(after + 1, firstLive.queueSeq) +
+                1
+            )
+          : 0;
+      // Zero without a saved cursor is a request for retained history, not a known
+      // prior receipt. Pruning before that first checkpoint cannot supply a loss count.
+      const missed = cursor === null ? 0 : Math.max(0, prunedThrough - after) - liveCovered;
+      const gap: IngestGap | undefined =
+        missed > 0
+          ? {
+              instance,
+              fromMs,
+              toMs: this.clock.now(),
+              reason: this.dropReason,
+              missed,
+            }
+          : undefined;
+      const payloads = page.records.flatMap(({ payload }) => {
+        const item = this.prepare(payload, INGEST.replayed);
+        if (!item) return [];
+        delete item.cursor;
+        return [item];
+      });
+      cursor = { bootId: page.bootId, queueSeq: page.nextSeq };
+      await this.writer.replay(instance, payloads, cursor, gap);
+      this.status.drainRequests += 1;
+      this.status.drained += payloads.length;
+      const first = this.firstLive;
+      if (first && first.bootId !== cursor.bootId)
+        throw new Error('Usage boot changed during replay');
+      if ((first && cursor.queueSeq >= first.queueSeq) || page.records.length < 1000) {
+        // All live messages since the first overlap were accepted in socket order. Dispatch
+        // them before durably advancing through that suffix, including a quiet/empty log.
+        const last = this.lastLive;
+        const completedCursor =
+          last && last.bootId === cursor.bootId && last.queueSeq > cursor.queueSeq ? last : cursor;
+        await this.writer.replay(instance, [], completedCursor, undefined, true);
+        this.replaying = false;
+        this.outageAt = null;
+        return;
+      }
+    }
+    throw new Error('Usage replay interrupted');
   }
 
   private async run(): Promise<void> {
@@ -189,6 +306,9 @@ export class UsageCollector {
           ).trim();
           if (!this.key) throw new UsageAuthError();
           if (this.stopping.signal.aborted) break;
+          this.replaying = true;
+          this.firstLive = null;
+          this.lastLive = null;
           this.connection = await subscribeUsage({
             origin: this.source.upstreamOrigin,
             key: this.key,
@@ -196,7 +316,7 @@ export class UsageCollector {
             onActivity: () => {
               this.status.lastActivityAtMs = this.clock.now();
             },
-            onPayload: (payload) => this.accept(payload, INGEST.subscribed),
+            onPayload: (payload) => this.accept(payload),
           });
           const session = this.session;
           void this.connection.closed.then(() => session.abort());
@@ -204,22 +324,12 @@ export class UsageCollector {
           timer = this.monitor(this.connection, this.session.signal).catch(() => {
             this.connection?.close();
           });
-          if (this.outageAt !== null) {
-            await this.gap(this.outageAt, this.dropReason);
-            this.outageAt = null;
-          }
-          this.dropReason = 'subscription-dropped';
-          this.status.state = 'subscribed';
-          // Drain and labels share one HTTP auth circuit: one failure blocks all subsequent reads.
+          this.status.state = 'replaying';
+          // Replay and labels share one HTTP authentication circuit.
           await this.labels.refresh(true);
-          while (!this.session.signal.aborted && !this.stopping.signal.aborted) {
-            const records = await this.read('observability/usage/queue?count=100');
-            this.status.drainRequests += 1;
-            if (!Array.isArray(records)) throw new Error('Invalid usage queue response');
-            if (!records.length) break;
-            for (const payload of records) this.accept(payload, INGEST.drained);
-            this.status.drained += records.length;
-          }
+          await this.replay();
+          this.status.state = 'subscribed';
+          this.dropReason = 'subscription-dropped';
           await this.connection.closed;
         } catch (error) {
           if (error instanceof UsageAuthError) this.authRetryAt = this.clock.now() + 60_000;
@@ -232,8 +342,13 @@ export class UsageCollector {
           this.connection = null;
         }
         if (connectedAt !== null && !this.stopping.signal.aborted) {
-          await this.gap(this.status.lastActivityAtMs ?? connectedAt, this.dropReason);
-          this.outageAt = this.clock.now();
+          this.outageAt ??= this.status.lastActivityAtMs ?? connectedAt;
+          await this.writer.recovery({
+            instance: this.source.instanceId,
+            fromMs: this.outageAt,
+            toMs: this.clock.now(),
+            reason: this.dropReason,
+          });
           // A brief subscribe/close loop still backs off; a stable minute resets it.
           if (this.clock.now() - connectedAt >= 60_000) backoff = 1000;
         }
@@ -246,7 +361,6 @@ export class UsageCollector {
         backoff = Math.min(backoff * 2, 30_000);
       }
     } finally {
-      if (this.outageAt !== null) await this.gap(this.outageAt, this.dropReason);
       this.status.state = 'stopped';
       this.status.retryAtMs = null;
     }
@@ -267,7 +381,7 @@ export class UsageCollector {
         connection.ping();
         pingAt = now;
       }
-      if (now - heartbeatAt >= 10_000) {
+      if (!this.replaying && now - heartbeatAt >= 10_000) {
         // Waiting for disk here would also delay PING and silence detection.
         void this.writer.heartbeat(this.source.instanceId, now).catch(() => connection.close());
         heartbeatAt = now;

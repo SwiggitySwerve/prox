@@ -2,8 +2,13 @@
 import { loadBackupConfig, UsageBackup } from './backup';
 import { runCpampJob } from './importCpamp';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoGovernorOptions } from './ioGovernor';
-import { openUsageReader, type UsageStore } from './store';
-import type { BulkJobConfig, BulkJobKind, BulkJobReport } from './writerProtocol';
+import { openUsageReader, type RawPruneCursor, type UsageStore } from './store';
+import {
+  isBulkJobClientToken,
+  type BulkJobConfig,
+  type BulkJobKind,
+  type BulkJobReport,
+} from './writerProtocol';
 
 export class UsageBulkJobs {
   private governor: IoGovernor | null = null;
@@ -29,10 +34,13 @@ export class UsageBulkJobs {
     };
   }
 
-  start(kind: BulkJobKind): BulkJobReport {
+  start(kind: BulkJobKind, clientToken?: string): BulkJobReport {
+    if (clientToken !== undefined && !isBulkJobClientToken(clientToken))
+      throw new Error('Invalid client token');
     if (this.closing || this.active) throw new Error('Bulk job unavailable');
     this.latest = {
       id: ++this.nextId,
+      ...(clientToken === undefined ? {} : { clientToken }),
       kind,
       state: 'running',
       startedAtMs: Date.now(),
@@ -47,8 +55,13 @@ export class UsageBulkJobs {
     return this.report()!;
   }
 
-  cancel(jobId: number): BulkJobReport {
+  cancel(jobId: number, clientToken?: string): BulkJobReport {
     if (!this.latest || this.latest.id !== jobId) throw new Error('Bulk job ID differs');
+    if (
+      clientToken !== undefined &&
+      (!isBulkJobClientToken(clientToken) || this.latest.clientToken !== clientToken)
+    )
+      throw new Error('Bulk job client token differs');
     if (this.active) {
       this.latest.state = 'cancelling';
       this.active.controller.abort();
@@ -91,7 +104,26 @@ export class UsageBulkJobs {
     try {
       this.governor = this.getGovernor();
       const options = { governor: this.governor, signal, scheduleChunk: this.scheduleChunk };
-      if (kind === 'backup') {
+      if (kind === 'prune') {
+        const prune = {
+          beforeMs: report.startedAtMs - 30 * 24 * 60 * 60 * 1000,
+          deleted: 0,
+          chunks: 0,
+        };
+        report.result = { kind: 'prune', report: prune };
+        let cursor: RawPruneCursor = { rejectId: 0 };
+        for (;;) {
+          const chunk = await runIoChunk(
+            'prune',
+            () => this.store.pruneRawBefore(prune.beforeMs, cursor),
+            options
+          );
+          prune.deleted += chunk.deleted;
+          prune.chunks += 1;
+          cursor = chunk.cursor;
+          if (chunk.done) break;
+        }
+      } else if (kind === 'backup') {
         this.backup ??= new UsageBackup(loadBackupConfig(this.config.backupConfigPath), {
           governor: this.governor,
           scheduleChunk: this.scheduleChunk,

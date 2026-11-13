@@ -18,7 +18,13 @@ await writer.init(
     raw: process.env.PROX_USAGE_RAW_PATH ?? '/data/usage-raw.sqlite',
     rateBookPath: process.env.PROX_USAGE_RATES_PATH,
   },
-  manifest.sources.map((source) => source.instanceId)
+  manifest.sources.map((source) => source.instanceId),
+  Date.now(),
+  undefined,
+  {
+    rateBookPath: process.env.PROX_USAGE_RATES_PATH,
+    clientAliasesPath: process.env.PROX_USAGE_CLIENT_ALIASES_PATH,
+  }
 );
 const analytics = createAnalyticsHandler({
   dbPath,
@@ -33,6 +39,7 @@ const statusHandler = createUsageStatusHandler({
   sources: () => collectors.map((collector) => collector.status),
   writer: () => writer.status,
   jobs: writer,
+  exporter: () => writer.exporterSnapshot(),
   healthy: () => healthy,
 });
 const server = Bun.serve({

@@ -5,8 +5,9 @@ the analytics calculations. It is the `prox-usage` service: its own process and
 unit, not part of the history server.
 
 - `prox-usage` is the only consumer of the proxies' usage stream and the only
-  process that opens `usage.sqlite`. Everything else reads through its loopback
-  HTTP API. The history server, the browser and the exporter never open the file.
+  live process that opens `usage.sqlite`. Other services read through its loopback
+  HTTP API. The offline operator parity reader is the exception documented below.
+  The history server, the browser and the exporter never open the file.
 - The thread that owns sockets makes no SQLite call. There is exactly one write
   connection, in the writer worker; every write is a job in its queue. Readers
   are read-only and bounded by the request deadline.
@@ -124,25 +125,85 @@ Regression coverage lives in `tests/proxUsageNormalize.test.ts` and
   Their runtime import graph never reaches `bun:sqlite`; the service test walks
   that graph. The writer entry is resolved beside the running bundle at runtime.
 - A source authenticates and waits for the `SUBSCRIBE usage` acknowledgement
-  before draining the destructive HTTP queue. Both RESP and HTTP authentication
-  failures block that source's management requests for at least 60 seconds.
+  before reading the non-destructive v8 usage log with `after_seq` and pages of
+  at most 1000 records. `replay.ts` validates the numbered envelope. Both RESP and
+  HTTP authentication failures block that source's management requests for at
+  least 60 seconds. A 400 or malformed page backs off without popping or advancing.
+- Per-source `(boot_id, queue_seq)` lives in `meta` under `cursor:<instance>`;
+  `cursor-at:<instance>` records its commit time for coverage when no heartbeat
+  exists yet. Each cursor update commits in the event transaction, including
+  duplicate/rejected records and empty pages advancing past pruned records.
+  Transport metadata is never retained by the payload normalizer.
+- Live records continue entering the writer during replay, with cursor updates
+  withheld until continuity is established. Replay stops at the first numbered
+  live overlap or a short/empty page; a final writer barrier commits the accepted
+  live suffix before switching back to ordinary live cursor commits. Execution
+  identity deduplicates all overlap. Source state is `replaying` until then.
+- The destructive pop drain is removed. The C1 replay log retains every record
+  independently of subscribers, including everything placed in the legacy pop
+  queue. Emptying that queue adds no recovery coverage and would consume records
+  for another legacy reader. Existing status counters `drainRequests`/`drained`
+  now count committed replay pages/payloads.
 - Shutdown keeps accepting messages until `UNSUBSCRIBE` acknowledges. Only then
   does it flush accepted batches and close the writer. Missing acknowledgements
   and event-store failures produce an unsuccessful exit, not a successful flush.
 - The main thread dispatches at 100 payloads or 50 ms. Its backlog includes
   buffered payloads and every batch awaiting a worker acknowledgement. Above
   50,000 it drops all subscriptions, records gaps, and waits until at most 1,000
-  remain before reconnecting. Another subscriber (including CPAMP) prevents the
-  proxy retaining this traffic: the dual-run reconcile remains necessary.
+  remain before reconnecting. The proxy's replay log retains traffic even while
+  another subscriber (including CPAMP) remains connected. Retention time, record
+  and byte caps can still prune it before recovery.
 - The worker serializes every write through `enqueueJob(kind, fn)`; `live` jobs
   precede waiting background jobs. P3 supplies bounded import, backup and prune
   chunks through that hook, including the roadmap's byte/IO governor. No bulk
   jobs or automatic raw-buffer pruning run in P2.
-- Heartbeats commit every 10 seconds while subscribed, behind accepted events.
-  Startup records the interval between a stale heartbeat and the start of the
-  proxy's 3600-second retention window. A drop records the uncertain interval
-  since the last socket activity; reconnect/stop records the subsequent outage
-  as an adjacent gap. `missed` stays NULL: this protocol cannot count losses.
+- Heartbeats commit every 10 seconds after replay, behind accepted events.
+  Startup and dropped connections create a provisional `ingest_gaps` interval;
+  its row ID is tracked in `meta` under `recovery-gap:<instance>` so retries and
+  process restarts extend the same uncertain interval. Final recovery clears
+  only that provisional row in the cursor transaction when coverage is proven.
+  A saved cursor proving full recovery leaves no gap, even with a heartbeat older
+  than the retention window.
+- Before writer initialization returns, every cursorless source with a persisted
+  heartbeat enters provisional recovery, even when the heartbeat is equal to or
+  later than the current clock. New gaps freeze their receipt checkpoint before
+  subscription/credential refresh can commit live traffic. The gap starts at the
+  heartbeat, with its end clamped to at least that start. Extending recovery never
+  creates or moves an existing pending gap's checkpoint; older missing checkpoints
+  remain unknown.
+- Within one boot, each replay page starts with the pruned interval
+  `(after_seq, oldest_seq)` and excludes its overlap with the same-boot live range
+  accepted on the current ordered subscription. The replay writer barrier requires
+  successful live-commit acknowledgements before posting the page's gap/cursor
+  transaction. Only the uncovered count is recorded as `missed`, and only when
+  positive; retention of already-received live records creates no loss gap. The
+  interval starts at the disconnect, previous heartbeat or cursor commit time.
+  A changed boot commits a `proxy-restart` gap with `missed=NULL`, resets to zero
+  and replays the new process. Cross-process loss cannot be counted. Graceful
+  shutdown needs only the existing unsubscribe acknowledgement and writer flush.
+- With no saved cursor, `after_seq=0` adopts retained history; sequences pruned
+  before that first checkpoint do not provide a numeric missed count. A source
+  with no previous outage history creates no historical loss claim. An existing
+  cursorless outage stays uncertain until replay includes a same-source execution
+  stored at or before the gap's receipt-order checkpoint. Creating a provisional
+  gap atomically saves `meta.recovery-checkpoint:<instance>` as the last assigned
+  ingestion sequence (`meta.next_seq - 1`); extending a gap never changes it.
+  Only an existing `events.seq <= checkpoint` proves retained coverage. Wall-clock
+  receipt/request timestamps cannot prove it: clocks can move backward. The check
+  runs before page inserts, in their transaction. Live/replay rows committed after
+  the checkpoint never qualify. An older pending gap without a checkpoint stays
+  unknown; retry/startup must not fabricate one from newer receipts.
+- `meta.recovery-unanchored:<instance>` marks cursorless uncertainty and survives
+  intermediate cursor commits/restarts. A pre-outage receipt clears the marker;
+  completing replay then removes the provisional gap and its checkpoint. Without
+  such evidence, completion keeps the interval with `missed=NULL` and detaches its recovery
+  metadata so subsequent reconnects cannot erase it. Stored-cursor boot changes
+  remain separate `proxy-restart` gaps. Retention caps, missing history or absent
+  source attribution can prevent proof even when actual loss is unknown.
+- Existing numbered gaps lack first-run/cursor provenance and cannot be deleted
+  automatically by signature. The two reported first-run false gaps require the
+  operator-only, ID-and-value-guarded procedure in
+  [the repair note](../../docs/usage-first-replay-gap-repair.md).
 - Credential refreshes keep the last good snapshot; unknown indices trigger at
   most one refresh per 10 seconds. Each queued event carries its label snapshot
   so later credential changes cannot relabel an accepted event.
@@ -194,7 +255,7 @@ Collector, writer and service regressions use the ephemeral in-process proxy in
   D5's two missing models are added with null rates and source `pending D5`;
   approved prices are required before deploying that book.
 
-## Bulk jobs (import, reconcile, verify and backup)
+## Bulk jobs (import, reconcile, verify, backup and prune)
 
 `ioGovernor.ts` owns bulk IO admission and pacing. Share one `IoGovernor` in the
 writer worker. `waitForQuietIo(signal)` admits work only below 5% `full avg10` IO
@@ -325,7 +386,8 @@ Object keys are `usage/daily/usage-YYYYMMDD.sqlite` in UTC and, on Sundays,
 `usage/weekly/usage-YYYYMMDD.sqlite`. Configure bucket lifecycle expiration at
 14 days for the daily prefix and 56 days for the weekly prefix (eight weekly
 copies). The client never lists, prunes or deletes objects. It backs up
-`usage.sqlite`, including `client_alias`; the rate book remains a separate git
+`usage.sqlite`, including the reserved `client_alias` table; active aliases are a separate private file,
+not a backup of that table. The rate book remains a separate git
 artifact and the raw buffer is excluded. P4/P2 must arrange rate-book distribution
 alongside the backup; there is no rate-book table in the P1 schema.
 
@@ -340,7 +402,7 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   a shared governor, the read-only CPAMP handle and a retained `UsageBackup`.
   Source opening and each bounded import/verification chunk use `enqueueJob`.
   Only the backup snapshot uses that queue; upload and all waits stay outside.
-- `writerProtocol.ts` carries `import`, `reconcile`, `verify`, `backup`, `cancel`
+- `writerProtocol.ts` carries `import`, `reconcile`, `verify`, `backup`, `prune`, `cancel`
   and `job-status` requests. Replies include a typed `job` report in writer status.
   Start acknowledges admission promptly; poll for completion. A rejected command,
   bad config, source failure, bulk transaction failure or upload failure is
@@ -363,13 +425,16 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   Backup settings use `loadBackupConfig` above. `UsageWriter.init` also accepts
   these paths/budget as typed config for embedding and synthetic tests. HTTP
   never accepts file paths, budget overrides or backup credentials.
-- Import, reconcile, verify and backup remain manual; automatic hour rebuilds are
-  described below. On the existing listener at
+- Import, reconcile, verify, backup and prune remain manual; automatic hour rebuilds
+  are described below. Deployment copies optional timers without enabling them.
+  On the existing listener at
   `127.0.0.1:18320`, the coordinator explicitly calls:
-  - `POST /v1/jobs` with exactly `{"kind":"import"}` (or `reconcile`, `verify`,
-    `backup`): 202 with the running report, 409 if a job is already active.
-  - `POST /v1/jobs/cancel` with exactly `{"jobId":1}`: 202; stale IDs return 409.
-    Cancellation is idempotent for the latest finished job. Poll until settled.
+  - `POST /v1/jobs` with `{"kind":"import"}` (or `reconcile`, `verify`,
+    `backup`, `prune`): 202 with the running report, 409 if a job is already active.
+  - `POST /v1/jobs/cancel` with `{"jobId":1}`: 202; stale IDs return 409.
+    Cancellation is idempotent for the latest finished job. Both commands accept
+    optional `clientToken`; accepted tokens are echoed in the report and cancellation
+    checks supplied tokens atomically (ownership contract below). Poll until settled.
   - `GET /v1/jobs`: latest report or null. `GET /v1/status` includes the same
     progress under `writer.job`. Both reads refresh the report through worker RPC.
   These routes use `server/http/auth.ts`'s same bearer check as `/v1/status`;
@@ -381,6 +446,86 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   fatal event failures; bearer protection; and the SQLite-free main runtime graph.
   They use synthetic tmpfs databases and a loopback fake S3 endpoint only.
 
+
+## Offline parity evidence
+
+`scripts/usage-parity.ts` is the operator-only read exception during the dual run.
+It opens CPAMP and Prox with SQLite URI `mode=ro`, read-only flags and
+`query_only=1`; it never imports/reconciles, writes events or joins either server's
+runtime graph. CPAMP reads force `idx_usage_events_timestamp`, use five-minute
+windows and 1,000-row keyset pages. The importer shares only its allowlisted SQL
+projection, metadata-key schema and diagnostic-counter factory with this reader.
+`scripts/usage-parity/cpampReference.ts` is an independent CPAMP-side oracle:
+no Prox normalizer or importer mapping supplies an expected value. Persisted
+columns are authoritative, including `service_tier`; raw tiers cannot override
+it. Model identities follow CPAMP's persisted-column aggregation expressions;
+metadata-only flags/kind/identifiers follow CPAMP's Go envelope contract. This
+independent audit intentionally does not reuse the algorithm under test.
+Known decoded metadata objects accept only canonical field casing and JSON types.
+Case aliases or wrong types produce an unexplained event with reason
+`non-canonical CPAMP metadata encoding`; they are never normalized into a match.
+Nullable timing offsets and unrelated extension keys retain their existing meaning.
+
+The harness compares the seven token fields and the event identity, timing,
+models, provider, tier, failure, status, flags and record kind, plus exporter
+account, account-label and client-key-hash dimensions. The import owner's account
+SQL fallback (`nullif(snapshot,'')`, then nullable label, then credential index)
+is applied to persisted fields, preserving empty labels, whitespace and key-hash
+case. No label snapshot timing exception is authorized by this harness. Missing
+Prox events require recorded gap evidence as defined below. Subscribed extras fail;
+optional outage provenance for reverse-only drained rows is counted separately.
+
+All operations share the existing IO governor and one serial query gate, with a
+2-second default minimum gap after completion, cancellable PSI waits, measured
+DB-byte pacing and a nonzero exit on unexplained differences, failure or abort.
+There are no retries of expensive queries. The only response normalization is
+plan §3.3's four volatile fields, relative `cost.usd` tolerance and ordering inside
+equal-timestamp runs. Provider and trace provenance differences apply only to
+request-detail fields and are counted. A D5 price exception needs two read-only
+replays through `queryAnalytics`: the approved deployed book must reproduce the
+Prox value, and removing only the two D5 models must reproduce CPAMP's value.
+The `coverage-limitations` rule requires every CPAMP sentence except the exact
+successive-reads sentence. Extra Prox sentences must be the exact §2.7 conditions
+or validated gap/prune forms (overlapping range and incomplete raw coverage).
+Missing required sentences, unknown extras and duplicate sentences fail. Both
+lists remain in evidence and each changed field/pair is counted. Other coverage
+fields and one-sided paging remain exact.
+
+The harness refuses query admission during 01:00–04:00 and 12:20–12:50 UTC.
+`--deadline` accepts an absolute UTC timestamp or today's `HH:MMZ`; a delayed start
+never rolls the cutoff into tomorrow. The earliest deadline/forbidden boundary
+aborts fetches and PSI/pacing waits, and is rechecked at synchronous boundaries.
+An incomplete run writes `complete=false`, its termination reason and partial
+counts, then exits 2 (unexplained differences exit 1; SIGINT exits 130). The user
+unit passes `--deadline 12:00Z` and uses `Type=exec` plus `RuntimeMaxSec=5h30min`
+as a backstop. None of these templates is installed or enabled by this work.
+
+The matrix is ported from CPAMP commit `52b12b45e010a766bd69ff55a55e566263d8bede`.
+Its current source has 672 quick / 5,904 full base queries, with coupled view
+rotation rather than extra time-zone/granularity factors. All view slots are kept
+and mapped to UTC. Each backend supplies its own second-page cursor. Reports
+reconcile the stale plan counts, expose each axis and window clipping, and retain
+both values for every difference. The disabled nightly chain runs quick plus
+events for the previous UTC day only after maintenance succeeds; installation
+and the two-night cutover decision belong to the coordinator.
+
+Forward CPAMP→Prox event parity compares full fields across every ingest kind;
+reverse parity requires only subscribed (`ingest=0`) rows. Accepted matches and
+reverse-only rows outside that cohort are counted separately by ingest kind.
+Only CPAMP persisted TTFT zero → Prox null with CPAMP metadata decoding to
+unknown/unavailable instrumentation is accepted under `ttft-zero-null`.
+Measured zeros (first-byte, substantive-content, fallback-packet), latency and
+reverse null → zero stay strict. A missing row can use a recorded same-instance
+gap only when its positive persisted latency places completion inside the exact
+half-open interval, with zero tolerance; either outside bound fails.
+No restart implies an unrecorded gap. Gap metadata reads may extend past the
+start-time window; CPAMP event scans do not.
+
+A read-only job-status observation notes whether the latest retained successful,
+exact import/reconcile completed for the observed window's source IDs. Unknown or
+unavailable history is stated as such. It is informational in the read-only parity command: it starts no reconcile,
+and missing events remain unexplained until they exist and compare equal. The
+separate nightly chain below serializes maintenance before invoking parity.
 
 ## Analytics queries
 
@@ -464,6 +609,153 @@ traffic. Run it with `ionice -c3 nice -n10` after IO `full avg10` drops below 5.
 The live performance/parity gate is a separate deployment responsibility; a
 30-day p95 above 1 s requires P5b before P6, per the plan.
 
+
+### Raw-buffer expiry and schedules
+
+`prune` fixes its cutoff at job admission minus 30 days. `store.pruneRawBefore`
+selects at most 1,000 expired payload keys through the existing covering time
+index, then deletes those keys. Fresh payload BLOB pages are never scanned. Rejects
+keep a bounded 1,000-id scan, including fresh rows, without a startup index build. Events and event metadata are never
+pruned. Each page uses the shared 4 MB/s read-plus-write governor and yields to live
+batches. A failed raw transaction fails only the bulk job; collection continues.
+
+`deploy/prox-usage-job@.service` remains a manual bearer-protected submission
+unit; its shell script reads the key and pipes the header, never using curl argv.
+The sole shipped nightly timer is `prox-usage-nightly.timer`, nonpersistent at
+04:20 UTC, installed disabled. Its oneshot calls `scripts/usage-nightly.ts` under
+ionice/nice: prune → reconcile → optional backup → parity. Each job is polled
+through GET `/v1/jobs` until `succeeded` AND `finishedAtMs` is present, so source
+cleanup releases the bulk slot before the next start. A failure, replaced job,
+HTTP error or nonzero parity stops the chain; incomplete parity remains exit 2.
+Every admission and wait uses the same PSI/UTC gates and today's noon cutoff.
+At cutoff/interruption the chain requests cancellation of its active job and
+starts no further step; cancellation request success is not a terminal-success
+claim. Submit POSTs use an independent 15-second timeout so cutoff/interruption
+does not lose the accepted ID. Ambiguous response failures trigger a bounded
+status read; only a running same-kind job echoing the submission's unique
+`clientToken` grants cancellation ownership. Kind/time matching never does.
+The token is generated before each POST, carried through writer RPC and retained
+in the job report. POST `/v1/jobs` accepts optional `clientToken` (1–64 ASCII
+letters/digits/underscore/hyphen); malformed values are 400. Cancellation carries
+the same token and the worker atomically refuses mismatches with 409. Existing
+manual commands without a token retain their behavior; the token supplements,
+and never replaces, bearer authentication. Recovery without an exact match
+starts/cancels nothing else and reports `no-owned-job`. HTTP rejection
+(especially 409) never grants ownership.
+The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
+absolute noon deadline. The standalone parity service keeps `RuntimeMaxSec=5h30min`.
+The old independent prune/reconcile/backup/parity timers are removed from shipping;
+deployment disables/stops each old timer and removes its unit/enable link before
+daemon-reload, tolerating missing units but failing on manager errors. The new
+chain timer stays disabled until operator enablement.
+No live unit is installed, enabled or disabled by this work.
+
+**Backup chain gate:** `PROX_USAGE_ENABLE_PACED_BACKUP` defaults to `0`, so the
+step is explicitly skipped until the paced snapshot and restore gates land.
+Only then may the operator set `1` through the nightly service override. Upload
+pacing alone does not make the current VACUUM snapshot bounded.
+
+
+## Exporter lifetime counters and client names
+
+`exporter.ts` owns a writer-worker in-memory fold over the existing canonical event
+columns. Startup folds retained events once; `store.onCommit` adds only newly
+committed events after the outer transaction succeeds. Duplicate executions and
+rolled-back transactions add nothing. No derived state is persisted. The exporter adds no migration: no original-counter metadata or secondary
+import cursor is required; P5b independently adds its hourly rollup tables. Raw-buffer expiry never deletes events or lowers counters.
+Any future event archive must preserve lifetime totals before deleting events.
+
+Metrics use the same canonical input/output/cache/reasoning counters as analytics.
+Known supplementary rows are excluded, as in analytics. Non-null latency samples
+supply the latency sum/count; only positive TTFT supplies its sum/count. Successful
+zero-total events supply the accounting-gap count. Pricing calls P4's
+`estimateAggregateCost` with per-event context bands and the same ordered
+billing/canonical/requested model fallback as analytics. No exporter-only `-fast`,
+billing-only, generic cache-price or Python summation rules remain. Partial and
+unknown prices keep P4's semantics. Priced-model count uses the shared rate
+inventory's priced classification.
+
+The public model label still uses the requested model, matching the deployed
+exporter, while pricing uses the canonical model internally. Account/provider
+values retain their stored snapshots. Client aliases preserve exact names and the
+old `key <first 8 hash chars>` / `unknown` fallbacks. The shared fixture
+`tests/fixtures/usageExporterLabels.json` compares actual old SQL label values with
+the authenticated endpoint response, including a model suffix and Unicode names.
+
+Historical account-label limits are explicit. CPAMP's exporter used
+`COALESCE(NULLIF(account_snapshot,''), auth_label_snapshot, auth_index)` without
+trimming: a whitespace-bearing account snapshot stays whitespace-bearing, and an
+empty non-null auth label stays empty (rendered as `unknown`). The importer trims
+both snapshots and treats an empty auth label as absent, falling back to the auth
+index. Those two historical cases cannot be reconstructed from the retained dims;
+analytics normalization and storage remain unchanged.
+
+The coordinator checked Prometheus's distinct account sets for both request and
+token counters across all history: exactly `321267c5b92801be`, `d5a08f237a58a2e5`,
+`research@astrabit.io`, `wrollings@astrabit.io`, `wrollings@gmail.com`, and
+`wrollings@pm.me`. No value has surrounding whitespace or is empty/`unknown`.
+This is coordinator-provided evidence, not a live query run by this implementation.
+NULL-auth-label fallbacks already match. The cutover must still compare the
+**distinct account/client/provider/model label sets** from the old exporter and
+this endpoint and block on any difference; see the swap PR's label guard.
+
+For live events, CPAMP fills account/auth-label snapshots from its credential
+snapshot resolver: account first, then auth label, with provider-specific identity
+validation and name/email/file fallbacks. Prox `labels.ts` instead takes the
+management listing's safe account, explicit label or auth index and captures that
+value at ingestion. Existing safe account/explicit-label cases match; differing
+refresh snapshots or missing fields can differ. No claim of universal live-label
+identity is made. The required swap guard covers actual label sets, while P5's
+analytics dimensions and response normalization remain untouched.
+
+Rate-only edits reprice groups without reading events; changed thresholds or
+pricing-candidate membership trigger a new fold, because a newly configured
+base-only candidate can stop fallback to a different candidate's context tiers.
+Client-name edits relabel groups without a scan. A failed projection invalidates
+the fold for a later rebuild; it never turns a committed event into failed ingest.
+
+`GET /v1/exporter` uses the existing loopback listener and management bearer check.
+Its version-1 JSON contains groups per provider, requested model, account, client
+and success/failed status, token/cache totals, seconds sums/counts, zero-token
+successes and nullable current-rate cost; plus newest event epoch seconds and
+priced-model count. It remains additive during the dual run. Source health reports
+instance, state, subscribed and last-event age in seconds; no event since process
+start is `null`, never a healthy zero age.
+
+`rate_book_loaded` and `client_aliases_loaded` distinguish a first-load failure
+from a failed edit with a last-good snapshot. `rate_book_error` and
+`client_alias_error` report the latest reload result. The HTTP response can carry
+source health when configuration has never loaded. The cutover shim must skip its
+usage counters until both loaded flags are true. A reload error with loaded=true
+may keep serving the last-good values. An explicit empty alias map counts as
+loaded; unknown clients then deliberately use the documented fallbacks.
+
+Aliases come from `~/.config/prox-usage/client-aliases.json` (0600), or
+`PROX_USAGE_CLIENT_ALIASES_PATH`; the unit sets `/config/client-aliases.json` on its
+existing read-only config mount. The P4 format is
+`{"client_alias":[{"api_key_hash":"<64 lowercase SHA-256 hex>","alias":"<name>"}]}`.
+The loader checks permissions, reloads on mtime changes, validates hashes/names,
+and retains last-good names on invalid edits. It never writes the file or database.
+Full hashes and raw keys never leave the endpoint. Alias files and P4 alias
+artifacts are ignored by git. See `docs/PROX-SETUP.md` for naming a new client.
+
+The exporter rollout has two steps. First add source health beside the unchanged
+CPAMP counters. At Step E, after Step B's history import completes, switch counters
+to this endpoint and add `source="prox-usage"` to every usage counter/gauge. Old
+series end; new series start at canonical lifetime totals. Prometheus rate/increase
+does not count a new series' first sample, avoiding a legacy-value reset spike.
+Lifetime-total dashboards jump once. Canonical output and P4 pricing change values,
+including D5's Fable/Terra cost and removal of old pricing quirks. Apply the Sonnet
+5.5 cache-read correction at the identity change. Any later price decrease can
+lower the cost counter and requires a fresh source identity (e.g. `prox-usage-2`).
+A rollback resumes old counters and can count traffic already counted in the new
+series. None of these rollout actions is performed by this implementation.
+
+Tests compare independent fixture totals and the analytics engine over identical
+scopes and enforce commit/rollback/deduplication and the current schema, exercise reload readiness
+and private aliases, and verify bearer routing, exact label values and source health.
+
+
 ## Hourly rollup (P5b)
 
 - `aggregate.ts` owns the SQL group dimensions, additive integer columns and
@@ -529,3 +821,4 @@ tier mixtures, pagination, layout changes and unsupported timings. Additional
 checks cover transactional failure, duplicates, pre-migration discovery and a
 3,000-hour import drained one job at a time. These synthetic tests do not replace
 P6's comparison with CPAMP or a live performance gate.
+

@@ -1,6 +1,9 @@
 // Main-thread batching and worker RPC. No SQLite or worker module imports are allowed here.
 import type {
+  SourceResume,
+  UsageCursor,
   BulkJobConfig,
+  ExporterConfig,
   BulkJobKind,
   BulkJobReport,
   CollectorWriter,
@@ -60,7 +63,9 @@ export class UsageWriter implements CollectorWriter {
         return;
       }
       this.queued -= pending.count;
-      this.snapshot = data.body;
+      this.snapshot = { ...data.body };
+      delete this.snapshot.exporter;
+      delete this.snapshot.resume;
       pending.resolve(data.body);
     };
     this.worker.onerror = () => this.workerDied();
@@ -78,9 +83,10 @@ export class UsageWriter implements CollectorWriter {
     paths: { events: string; raw: string | null; rateBookPath?: string },
     sources: string[],
     nowMs = Date.now(),
-    jobs?: BulkJobConfig
+    jobs?: BulkJobConfig,
+    exporter?: ExporterConfig
   ): Promise<void> {
-    await this.send({ kind: 'init', body: { ...paths, sources, nowMs, jobs } });
+    await this.send({ kind: 'init', body: { ...paths, sources, nowMs, jobs, exporter } });
   }
 
   enqueue(payload: UsagePayload): void {
@@ -93,6 +99,33 @@ export class UsageWriter implements CollectorWriter {
     if (!wasHigh && this.backlog > WRITER_HIGH_WATER) this.onOverflow();
   }
 
+  async resume(instance: string): Promise<SourceResume> {
+    this.dispatch();
+    return (await this.send({ kind: 'resume', body: { instance } })).resume!;
+  }
+
+  async replay(
+    instance: string,
+    payloads: UsagePayload[],
+    cursor: UsageCursor,
+    gap?: IngestGap,
+    complete = false
+  ): Promise<void> {
+    // Replay can exclude accepted live records from loss counts. Require their commit
+    // acknowledgements before posting a cursor that relies on them; queue order alone
+    // cannot stop a later job from running after an earlier live transaction fails.
+    await this.flush();
+    this.queued += payloads.length;
+    await this.send(
+      { kind: 'replay', body: { instance, payloads, cursor, gap, complete } },
+      payloads.length
+    );
+  }
+
+  async recovery(gap: IngestGap, requireAnchor = false): Promise<void> {
+    await this.send({ kind: 'recovery', body: { gap, requireAnchor } });
+  }
+
   async gap(body: IngestGap): Promise<void> {
     await this.send({ kind: 'gap', body });
   }
@@ -102,11 +135,17 @@ export class UsageWriter implements CollectorWriter {
     await this.send({ kind: 'heartbeat', body: { instance, atMs } });
   }
 
-  async startJob(kind: BulkJobKind): Promise<BulkJobReport> {
-    return (await this.send({ kind, body: null }, 0, false)).job!;
+  async exporterSnapshot(): Promise<NonNullable<WriterStatus['exporter']>> {
+    return (await this.send({ kind: 'exporter', body: null }, 0, false)).exporter!;
   }
-  async cancelJob(jobId: number): Promise<BulkJobReport> {
-    return (await this.send({ kind: 'cancel', body: { jobId } }, 0, false)).job!;
+
+  async startJob(kind: BulkJobKind, clientToken?: string): Promise<BulkJobReport> {
+    return (
+      await this.send({ kind, body: clientToken === undefined ? null : { clientToken } }, 0, false)
+    ).job!;
+  }
+  async cancelJob(jobId: number, clientToken?: string): Promise<BulkJobReport> {
+    return (await this.send({ kind: 'cancel', body: { jobId, clientToken } }, 0, false)).job!;
   }
   async jobReport(): Promise<BulkJobReport | null> {
     return (await this.send({ kind: 'job-status', body: null }, 0, false)).job ?? null;

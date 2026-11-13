@@ -242,3 +242,73 @@ measurements remain explicitly unavailable. Retained events do not establish
 coverage of every inbound request: old missing-usage records, pre-admission failures
 and queue/process losses cannot be reconstructed. Timing methods are displayed;
 full-duration output rate must not be presented as pure generation speed.
+
+
+## Name an API key for usage metrics
+
+Client names now belong to prox-usage's private local file; CPAMP's UI is not
+needed. Edit `~/.config/prox-usage/client-aliases.json` with mode `0600`:
+
+```json
+{"client_alias":[{"api_key_hash":"<64 lowercase SHA-256 hex characters>","alias":"Work laptop"}]}
+```
+
+The P4 export produces this format as `<book.json>.client-aliases.json`; copy it
+to that private path once. Preserve existing rows when adding a key. Hash the
+exact API key bytes with SHA-256 (without a trailing newline), using a local tool
+that reads secret input from stdin; never put the key in a shell command or git.
+Save the updated file with `0600` permissions. The existing read-only `/config`
+mount exposes it to prox-usage, which reloads it on its next exporter read. No
+restart is needed. An unknown key appears as `key <first 8 hash characters>`;
+traffic without a key is `unknown`. Invalid edits retain the last good labels and
+set `client_alias_error` in the authenticated `/v1/exporter` response.
+
+The monitoring rollout first adds Prox source-health gauges beside the unchanged
+CPAMP counters. At cutover Step E, require Step B's full history import to finish,
+then require `/v1/exporter` to report `rate_book_loaded: true` and
+`client_aliases_loaded: true`. A last-good reload error may retain valid values;
+first-load failure must suppress the shim's usage counters. Use an explicit empty
+`client_alias` array if no friendly names are wanted.
+
+The cutover adds `source="prox-usage"` to usage counters and gauges. Their values
+become the canonical tokens and current-rate costs shown in Prox analytics, with
+requested-model/account/provider/client label values preserved. New series' first
+samples are not counted by Prometheus rate/increase; lifetime-total dashboards
+jump once. Fable/Terra pricing and removal of the old generic-cache, `-fast` and
+billing-only policies affect costs. Apply the Sonnet 5.5 cache-read correction at
+this identity change; any later price decrease needs a new source identity.
+Importing history after the swap would appear as a huge increase. Rolling back
+resumes old counters and can double-count traffic already counted by the new ones.
+
+
+## Nightly usage maintenance (operator enablement only)
+
+The shipped `prox-usage-nightly.timer` is disabled by default and starts one
+oneshot chain at **04:20 UTC**, without catch-up. Review its `%h/src/prox` path
+before installation. `scripts/usage-nightly.ts` waits for **prune → reconcile →
+optional backup → quick/event parity**, observing each job's terminal success
+and completed cleanup before starting the next. It reads the management bearer
+inside the process, polls `/v1/jobs` every ten seconds through the shared PSI gate,
+and stops on job/API/parity failure. It enforces today's absolute **12:00 UTC**
+cutoff and the 01:00–04:00 / 12:20–12:50 forbidden windows on every admission and
+wait; at cutoff/interruption it requests active-job cancellation. A submit POST has its own 15-second timeout so a cutoff
+cannot discard its accepted job ID. On an ambiguous response failure, a bounded
+status read recovers only a running job echoing the exact unique `clientToken`
+sent before that submission. Cancellation carries that token and the server
+refuses mismatches. A newer same-kind operator job is never sufficient proof;
+no match stops the chain with `recovery=no-owned-job`. HTTP rejections, including
+409, grant no ownership. Manual job commands may omit the optional token;
+provided tokens must contain 1–64 ASCII letters/digits/underscore/hyphen.
+Incomplete
+parity exits 2 and cannot pass the chain. Parity has a 5h30min runtime cap; the
+whole oneshot has a 7h40min start timeout as a backstop.
+
+Backup stays **skipped** with `PROX_USAGE_ENABLE_PACED_BACKUP=0`. Only set it to
+`1` through a nightly-service override after the paced snapshot implementation
+and restore gate land. Upload pacing does not make the existing VACUUM snapshot
+bounded. The old independent prune/reconcile/backup/parity timers are no longer
+shipped. On upgrades, deployment disables/stops each retired timer, removes its
+unit and enable link, then reloads systemd; missing timers are tolerated, manager
+failures stop deployment. The sole nightly timer remains disabled. `prox-usage-job@.service` and `prox-usage-parity.service` remain for
+manual use. The deployment script copies templates without enabling them; this
+change installs, enables and runs no live maintenance unit.

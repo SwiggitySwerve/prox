@@ -1,0 +1,10 @@
+[Unit]
+Description=Submit Prox usage %i job
+After=prox-usage.service
+
+[Service]
+Type=oneshot
+# The script reads the key and pipes the header, avoiding systemd/shell quote re-parsing.
+ExecStart=/bin/sh %h/.local/share/prox/prox-usage-job.sh %i
+NoNewPrivileges=yes
+UMask=0077

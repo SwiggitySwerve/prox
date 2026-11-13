@@ -3,14 +3,15 @@ import { authorized } from '../http/auth';
 import type { SourceStatus } from './collector';
 import {
   isBulkJobKind,
+  isBulkJobClientToken,
   type BulkJobKind,
   type BulkJobReport,
   type WriterStatus,
 } from './writerProtocol';
 
 interface JobControls {
-  startJob(kind: BulkJobKind): Promise<BulkJobReport>;
-  cancelJob(jobId: number): Promise<BulkJobReport>;
+  startJob(kind: BulkJobKind, clientToken?: string): Promise<BulkJobReport>;
+  cancelJob(jobId: number, clientToken?: string): Promise<BulkJobReport>;
   jobReport(): Promise<BulkJobReport | null>;
 }
 
@@ -50,6 +51,8 @@ export function createUsageStatusHandler(options: {
   writer: () => WriterStatus;
   healthy: () => boolean;
   jobs?: JobControls;
+  exporter?: () => Promise<NonNullable<WriterStatus['exporter']>>;
+  now?: () => number;
 }): (request: Request) => Promise<Response> {
   return async (request) => {
     const path = new URL(request.url).pathname;
@@ -62,13 +65,36 @@ export function createUsageStatusHandler(options: {
       if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
       return json({ ok: options.healthy() }, options.healthy() ? 200 : 503);
     }
-    if (!['/v1/status', '/v1/jobs', '/v1/jobs/cancel'].includes(path)) {
+    if (!['/v1/status', '/v1/jobs', '/v1/jobs/cancel', '/v1/exporter'].includes(path)) {
       return json({ error: 'Not found' }, 404);
     }
     try {
       if (!authorized(request, options.keyFile)) return json({ error: 'Unauthorized' }, 401);
     } catch {
       return json({ error: 'Management key unavailable' }, 503);
+    }
+    if (path === '/v1/exporter') {
+      if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
+      if (!options.healthy() || !options.exporter)
+        return json({ error: 'Exporter unavailable' }, 503);
+      try {
+        const snapshot = await options.exporter();
+        const now = (options.now ?? Date.now)();
+        return json({
+          ...snapshot,
+          sources: options.sources().map((source) => ({
+            instance: source.instance,
+            state: source.state,
+            subscribed: source.state === 'subscribed',
+            last_event_age_seconds:
+              source.lastEventAtMs === null
+                ? null
+                : Math.max(0, (now - source.lastEventAtMs) / 1000),
+          })),
+        });
+      } catch {
+        return json({ error: 'Usage exporter unavailable' }, 503);
+      }
     }
     if (request.method === 'GET' && path !== '/v1/jobs/cancel') {
       try {
@@ -86,7 +112,14 @@ export function createUsageStatusHandler(options: {
     let body: Record<string, unknown>;
     try {
       body = await command(request);
-      if (Object.keys(body).length !== 1) throw new Error('Unknown command fields');
+      const field = path === '/v1/jobs' ? 'kind' : 'jobId';
+      if (Object.keys(body).some((key) => key !== field && key !== 'clientToken'))
+        throw new Error('Unknown command fields');
+      if (
+        Object.prototype.hasOwnProperty.call(body, 'clientToken') &&
+        !isBulkJobClientToken(body.clientToken)
+      )
+        throw new Error('Invalid client token');
       if (path === '/v1/jobs') {
         if (!isBulkJobKind(body.kind)) {
           throw new Error('Invalid job kind');
@@ -100,8 +133,14 @@ export function createUsageStatusHandler(options: {
     try {
       const job =
         path === '/v1/jobs'
-          ? await options.jobs.startJob(body.kind as BulkJobKind)
-          : await options.jobs.cancelJob(body.jobId as number);
+          ? await options.jobs.startJob(
+              body.kind as BulkJobKind,
+              body.clientToken as string | undefined
+            )
+          : await options.jobs.cancelJob(
+              body.jobId as number,
+              body.clientToken as string | undefined
+            );
       return json({ job }, 202);
     } catch {
       return json({ error: 'Bulk job unavailable or ID differs' }, 409);

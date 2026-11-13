@@ -38,3 +38,7 @@ settings.local.json
 # Local browser verification artifacts
 /test-results/
 /playwright-report/
+
+# Private local client naming (P4 export artifacts and runtime config)
+client-aliases.json
+*.client-aliases.json

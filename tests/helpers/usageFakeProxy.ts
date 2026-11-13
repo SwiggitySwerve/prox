@@ -24,12 +24,39 @@ export async function fakeUsageProxy() {
       files: [{ auth_index: '3', label: 'Test account', account: 'test@example.test' }],
     },
     queued: [] as unknown[],
+    bootId: '00000000-0000-4000-8000-000000000001',
+    sequence: 0,
+    retained: [] as { queue_seq: number; payload: unknown }[],
+    replayRequests: [] as number[],
+    replayStatus: 200,
+    onReplay: null as (() => void) | null,
+    pruneThrough(seq: number) {
+      fake.retained = fake.retained.filter((record) => record.queue_seq > seq);
+    },
+    restart() {
+      fake.drop();
+      fake.bootId = crypto.randomUUID();
+      fake.sequence = 0;
+      fake.retained = [];
+      fake.queued = [];
+    },
     holdUnsubscribe: false,
     unsubscribeSocket: null as Socket | null,
     pong: true,
     emit(payload: unknown) {
-      for (const socket of subscriptions)
-        socket.write(frame(['message', 'usage', JSON.stringify(payload)]));
+      const object =
+        payload && typeof payload === 'object' && !Array.isArray(payload)
+          ? (payload as Record<string, unknown>)
+          : null;
+      const control = object?.support_refresh === true || object?.refresh === true;
+      if (!control) {
+        fake.sequence += 1;
+        if (object) payload = { ...object, queue_seq: fake.sequence, boot_id: fake.bootId };
+        fake.retained.push({ queue_seq: fake.sequence, payload });
+        if (!subscriptions.size) fake.queued.push(payload);
+      }
+      const bytes = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      for (const socket of subscriptions) socket.write(frame(['message', 'usage', bytes]));
     },
     drop() {
       for (const socket of subscriptions) socket.destroy();
@@ -60,7 +87,9 @@ export async function fakeUsageProxy() {
         httpBuffer += chunk.toString();
         if (!httpBuffer.includes('\r\n\r\n')) return;
         const path = httpBuffer.split(' ')[1];
-        log.push(path.includes('/credentials') ? 'credentials' : 'drain');
+        const url = new URL(path, 'http://fake');
+        const replay = url.searchParams.has('after_seq');
+        log.push(path.includes('/credentials') ? 'credentials' : replay ? 'replay' : 'drain');
         let value: unknown;
         let status = '200 OK';
         if (fake.httpAuthFailures > 0) {
@@ -68,7 +97,33 @@ export async function fakeUsageProxy() {
           status = '401 Unauthorized';
           value = { error: 'synthetic failure' };
         } else if (path.includes('/credentials')) value = fake.credentials;
-        else {
+        else if (replay) {
+          const raw = url.searchParams.get('after_seq')!;
+          const count = url.searchParams.get('count') ?? '1';
+          if (
+            !/^\d+$/.test(raw) ||
+            !/^\d+$/.test(count) ||
+            Number(count) <= 0 ||
+            fake.replayStatus !== 200
+          ) {
+            status = '400 Bad Request';
+            value = { error: 'synthetic invalid cursor' };
+          } else {
+            const after = Number(raw);
+            fake.replayRequests.push(after);
+            const records = fake.retained
+              .filter((record) => record.queue_seq > after)
+              .slice(0, Math.min(Number(count), 1000));
+            const oldest = fake.retained[0]?.queue_seq ?? fake.sequence + 1;
+            value = {
+              boot_id: fake.bootId,
+              oldest_seq: oldest,
+              next_seq: records.at(-1)?.queue_seq ?? Math.max(after, oldest - 1),
+              records,
+            };
+            fake.onReplay?.();
+          }
+        } else {
           value = fake.queued.splice(0, 100);
         }
         const body = JSON.stringify(value);

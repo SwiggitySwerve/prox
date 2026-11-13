@@ -4,6 +4,7 @@ import { Database, type Statement } from 'bun:sqlite';
 import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { INGEST } from './types';
+import type { ExporterEvent } from './exporter';
 import { gzipSync } from 'node:zlib';
 import {
   META_TABLE_SQL,
@@ -15,7 +16,7 @@ import {
 import { HOUR_MS } from './aggregate';
 import { rebuildNextHour } from './rollup';
 import type { RateBook } from './rates';
-import type { IngestGap } from './writerProtocol';
+import type { IngestGap, UsageCursor, UsageCommit } from './writerProtocol';
 import type {
   DimKind,
   EventSession,
@@ -52,6 +53,16 @@ const EVENT_DIMENSIONS: Record<string, DimKind> = {
 };
 
 export type ImportValues = Record<string, string | number | null>;
+export interface RawPruneCursor {
+  rejectId: number;
+}
+export interface RawPruneChunk {
+  cursor: RawPruneCursor;
+  deleted: number;
+  done: boolean;
+}
+export const RAW_PRUNE_PAGE_SIZE = 1000;
+
 export interface EventCursor {
   tsMs: number;
   seq: number;
@@ -187,6 +198,8 @@ export function openUsageReader(path: string): Database {
  */
 export class UsageStore {
   rawBufferFailures = 0;
+  /** Newly inserted events, published only after the outer transaction commits. */
+  onCommit: ((events: readonly NormalizedEvent[]) => void) | null = null;
   private readonly db: Database;
   private readonly raw: Database | null;
   private readonly dims = new Map<string, number>();
@@ -199,7 +212,7 @@ export class UsageStore {
   private readonly insertDetail: Statement;
   private readonly insertEvent: Statement;
   private readonly insertAll: {
-    immediate(items: readonly IngestItem[], ingest: IngestSource): Stored[];
+    immediate(items: readonly IngestItem[], ingest: IngestSource, progress?: UsageCommit): Stored[];
   };
 
   /** `raw: null` runs without the raw payload buffer (imported history brings no payloads). */
@@ -232,38 +245,61 @@ export class UsageStore {
       `${insertSql('event_detail', DETAIL_COLUMNS)} ON CONFLICT (execution_id) DO NOTHING`
     );
     this.insertEvent = this.db.query(insertSql('events', EVENT_COLUMNS));
-    this.insertAll = this.db.transaction((items: readonly IngestItem[], ingest: IngestSource) => {
-      const stored: Stored[] = [];
-      const dirtyHours = new Set<number>();
-      for (const item of items) {
-        const seq = this.nextSeq;
-        // The identity check and the write are one statement: a known execution_id writes nothing.
-        if (this.insertDetail.run(this.detailRow(item.event, seq)).changes === 0) continue;
-        this.nextSeq += 1;
-        this.insertEvent.run(this.eventRow(item.event, seq, ingest));
-        stored.push({ seq, item });
-        dirtyHours.add(Math.floor(item.event.tsMs / HOUR_MS) * HOUR_MS);
+
+    this.insertAll = this.db.transaction(
+      (items: readonly IngestItem[], ingest: IngestSource, progress: UsageCommit = {}) => {
+        // Check before inserts: a new record on this page is not a pre-outage receipt.
+        if (progress.replayInstance) this.anchorRecovery(progress.replayInstance, items);
+        const stored: Stored[] = [];
+        const dirtyHours = new Set<number>();
+        for (const item of items) {
+          const seq = this.nextSeq;
+          // The identity check and the write are one statement: a known execution_id writes nothing.
+          if (this.insertDetail.run(this.detailRow(item.event, seq)).changes === 0) continue;
+          this.nextSeq += 1;
+          this.insertEvent.run(this.eventRow(item.event, seq, ingest));
+          stored.push({ seq, item });
+          dirtyHours.add(Math.floor(item.event.tsMs / HOUR_MS) * HOUR_MS);
+        }
+        const markDirty = this.db.query(`INSERT INTO usage_hour_state (hour_ms) VALUES (?)
+          ON CONFLICT (hour_ms) DO UPDATE SET dirty = 1`);
+        for (const hour of dirtyHours) markDirty.run(hour);
+        for (const { instance, cursor } of progress.cursors ?? []) {
+          const previous = this.getCursor(instance);
+          if (
+            !previous ||
+            previous.bootId !== cursor.bootId ||
+            previous.queueSeq < cursor.queueSeq
+          ) {
+            this.setMeta(`cursor:${instance}`, JSON.stringify(cursor));
+            this.setMeta(`cursor-at:${instance}`, String(this.now()));
+          }
+        }
+        if (progress.gap) this.recordGap(progress.gap);
+        if (progress.recoveredInstance) this.clearRecovery(progress.recoveredInstance);
+        this.setMeta('next_seq', String(this.nextSeq));
+        return stored;
       }
-      const markDirty = this.db.query(`INSERT INTO usage_hour_state (hour_ms) VALUES (?)
-        ON CONFLICT (hour_ms) DO UPDATE SET dirty = 1`);
-      for (const hour of dirtyHours) markDirty.run(hour);
-      this.setMeta('next_seq', String(this.nextSeq));
-      return stored;
-    });
+    );
   }
 
   /** Store the events that are not yet known, in one transaction. */
-  insert(items: readonly IngestItem[], ingest: IngestSource): InsertResult {
+  insert(
+    items: readonly IngestItem[],
+    ingest: IngestSource,
+    progress: UsageCommit = {}
+  ): InsertResult {
     const firstSeq = this.nextSeq;
     let stored: Stored[];
     try {
-      stored = this.insertAll.immediate(items, ingest);
+      stored = this.insertAll.immediate(items, ingest, progress);
     } catch (error) {
       // The rollback also undid the sequence numbers and dictionary rows handed out above.
       this.nextSeq = firstSeq;
       this.dims.clear();
       throw error;
     }
+    this.onCommit?.(stored.map(({ item }) => item.event));
     this.writeRaw(() => {
       if (!this.raw) return;
       const insertPayload = this.raw.query(
@@ -295,12 +331,45 @@ export class UsageStore {
     );
   }
 
-  /** Drop buffered payloads and rejects older than `beforeMs`. Events are not touched. */
-  pruneRawBefore(beforeMs: number): number {
-    if (!this.raw) return 0;
-    const payloads = this.raw.query('DELETE FROM payloads WHERE ts_ms < ?').run(beforeMs);
-    const rejects = this.raw.query('DELETE FROM rejects WHERE received_at_ms < ?').run(beforeMs);
-    return payloads.changes + rejects.changes;
+  /** Select expired payload keys via the covering time index, without reading fresh BLOB pages.
+   * Rejects keyset by id so their scan stays bounded without a startup index build. */
+  pruneRawBefore(beforeMs: number, cursor: RawPruneCursor = { rejectId: 0 }): RawPruneChunk {
+    if (!this.raw) return { cursor, deleted: 0, done: true };
+    return this.raw.transaction(() => {
+      const page = (table: string, key: string, after: number) =>
+        this.raw!.query<{ id: number }, [number, number]>(
+          `SELECT ${key} AS id FROM ${table} WHERE ${key} > ? ORDER BY ${key} LIMIT ?`
+        ).all(after, RAW_PRUNE_PAGE_SIZE);
+      const payloads = this.raw!.query<{ seq: number }, [number, number]>(
+        'SELECT seq FROM payloads WHERE ts_ms < ? ORDER BY ts_ms, seq LIMIT ?'
+      ).all(beforeMs, RAW_PRUNE_PAGE_SIZE);
+      const rejects = page('rejects', 'id', cursor.rejectId);
+      const next = {
+        rejectId: rejects[rejects.length - 1]?.id ?? cursor.rejectId,
+      };
+      const payloadDeleted = payloads.length
+        ? this.raw!.query(
+            `DELETE FROM payloads WHERE seq IN (${payloads.map(() => '?').join(',')})`
+          ).run(...payloads.map((row) => row.seq)).changes
+        : 0;
+      const deleted =
+        payloadDeleted +
+        this.raw!.query('DELETE FROM rejects WHERE id > ? AND id <= ? AND received_at_ms < ?').run(
+          cursor.rejectId,
+          next.rejectId,
+          beforeMs
+        ).changes;
+      return {
+        cursor: next,
+        deleted,
+        done: payloads.length < RAW_PRUNE_PAGE_SIZE && rejects.length < RAW_PRUNE_PAGE_SIZE,
+      };
+    })();
+  }
+
+  getCursor(instance: string): UsageCursor | null {
+    const value = this.getMeta(`cursor:${instance}`);
+    return value === null ? null : JSON.parse(value);
   }
 
   getMeta(key: string): string | null {
@@ -322,9 +391,85 @@ export class UsageStore {
   recordGap(gap: IngestGap): void {
     this.db
       .query(
-        'INSERT INTO ingest_gaps (instance, from_ms, to_ms, reason, missed) VALUES (?, ?, ?, ?, NULL)'
+        'INSERT INTO ingest_gaps (instance, from_ms, to_ms, reason, missed) VALUES (?, ?, ?, ?, ?)'
       )
-      .run(gap.instance, gap.fromMs, gap.toMs, gap.reason);
+      .run(gap.instance, gap.fromMs, gap.toMs, gap.reason, gap.missed ?? null);
+  }
+
+  /** A provisional coverage gap stays visible until replay establishes continuity. */
+  recordRecovery(gap: IngestGap, requireAnchor = false): void {
+    this.db
+      .transaction(() => {
+        // Clock regressions must not make a provisional interval end before its start.
+        const toMs = Math.max(gap.fromMs, gap.toMs);
+        const key = `recovery-gap:${gap.instance}`;
+        const existing = this.getMeta(key);
+        if (existing !== null) {
+          this.db
+            .query('UPDATE ingest_gaps SET to_ms = MAX(to_ms, from_ms, ?) WHERE id = ?')
+            .run(toMs, Number(existing));
+        } else {
+          this.recordGap({ ...gap, toMs, missed: null });
+          const row = this.db.query<{ id: number }, []>('SELECT last_insert_rowid() AS id').get()!;
+          this.setMeta(key, String(row.id));
+          // Capture receipt order with the gap, before any recovery traffic can qualify.
+          // nextSeq is the authoritative monotonic allocator, including pruned history.
+          const checkpointKey = `recovery-checkpoint:${gap.instance}`;
+          if (this.getMeta(checkpointKey) === null) {
+            this.setMeta(checkpointKey, String(this.nextSeq - 1));
+          }
+        }
+        if (requireAnchor) this.setMeta(`recovery-unanchored:${gap.instance}`, '1');
+      })
+      .immediate();
+  }
+
+  recoveryFromMs(instance: string): number | null {
+    const id = this.getMeta(`recovery-gap:${instance}`);
+    if (id === null) return null;
+    return (
+      this.db
+        .query<{ from_ms: number }, [number]>('SELECT from_ms FROM ingest_gaps WHERE id = ?')
+        .get(Number(id))?.from_ms ?? null
+    );
+  }
+
+  /** Only a receipt at or before the gap's durable ingestion checkpoint proves coverage. */
+  private anchorRecovery(instance: string, items: readonly IngestItem[]): void {
+    const key = `recovery-unanchored:${instance}`;
+    if (this.getMeta(key) === null) return;
+    const saved = this.getMeta(`recovery-checkpoint:${instance}`);
+    if (saved === null) return; // Older pending gaps have no safe receipt-order baseline.
+    const checkpoint = Number(saved);
+    if (!Number.isSafeInteger(checkpoint) || checkpoint < 0) return;
+    const prior = this.db.query<{ seq: number }, [string, string]>(`
+      SELECT event.seq FROM event_detail detail
+      JOIN events event ON event.ts_ms = detail.ts_ms AND event.seq = detail.seq
+      JOIN dim instance ON instance.id = event.instance_id
+      WHERE detail.execution_id = ? AND instance.kind = 'instance' AND instance.value = ?
+    `);
+    if (
+      items.some(({ event }) => {
+        const receipt = prior.get(event.executionId, instance);
+        return receipt !== null && receipt.seq <= checkpoint;
+      })
+    )
+      this.db.query('DELETE FROM meta WHERE key = ?').run(key);
+  }
+
+  private clearRecovery(instance: string): void {
+    const key = `recovery-gap:${instance}`;
+    const id = this.getMeta(key);
+    if (id === null) return;
+    const unanchored = `recovery-unanchored:${instance}`;
+    // Without a pre-outage anchor the provisional interval becomes a permanent
+    // unknown gap. Detach its metadata so later reconnects cannot erase it.
+    if (this.getMeta(unanchored) === null) {
+      this.db.query('DELETE FROM ingest_gaps WHERE id = ?').run(Number(id));
+    }
+    this.db
+      .query('DELETE FROM meta WHERE key IN (?, ?, ?)')
+      .run(key, unanchored, `recovery-checkpoint:${instance}`);
   }
 
   gapCount(): number {
@@ -419,8 +564,9 @@ export class UsageStore {
     lastId: number
   ): InsertResult & { conflicts: number } {
     const firstSeq = this.nextSeq;
+    let committed: Stored[] = [];
     try {
-      return this.db
+      const result = this.db
         .transaction(() => {
           const inspections = this.inspectImportEvents(events);
           const conflict = this.db.query(`
@@ -450,14 +596,70 @@ export class UsageStore {
             events.map((event) => ({ event, raw: null })),
             INGEST.imported
           );
+          committed = stored;
           this.setMeta('import:cpamp:last_id', String(lastId));
           return { inserted: stored.length, duplicates: events.length - stored.length, conflicts };
         })
         .immediate();
+      this.onCommit?.(committed.map(({ item }) => item.event));
+      return result;
     } catch (error) {
       this.nextSeq = firstSeq;
       this.dims.clear();
       throw error;
+    }
+  }
+
+  /** Canonical events for the startup/threshold fold; ordinary scrapes use no SQL. */
+  scanExporterEvents(visit: (event: ExporterEvent) => void): void {
+    const rows = this.db.query<
+      {
+        provider: string;
+        model: string;
+        requestedModel: string;
+        billingModel: string;
+        account: string | null;
+        apiKeyHash: string | null;
+        tier: string;
+        failed: number;
+        tsMs: number;
+        latencyMs: number | null;
+        ttftMs: number | null;
+        recordKind: number;
+        inputTotal: number;
+        inputUncached: number;
+        cacheRead: number;
+        cacheWrite: number;
+        outputTotal: number;
+        reasoning: number;
+        total: number;
+      },
+      []
+    >(`SELECT p.value AS provider, m.value AS model, r.value AS requestedModel,
+      b.value AS billingModel, a.value AS account, k.value AS apiKeyHash, t.value AS tier,
+      e.failed, e.ts_ms AS tsMs, e.latency_ms AS latencyMs, e.ttft_ms AS ttftMs,
+      e.record_kind AS recordKind,
+      e.input_total AS inputTotal, e.input_uncached AS inputUncached, e.cache_read AS cacheRead,
+      e.cache_write AS cacheWrite, e.output_total AS outputTotal, e.reasoning, e.total
+      FROM events e JOIN dim p ON p.id=e.provider_id JOIN dim m ON m.id=e.model_id
+      JOIN dim r ON r.id=e.requested_model_id JOIN dim b ON b.id=e.billing_model_id
+      JOIN dim t ON t.id=e.tier_id LEFT JOIN dim a ON a.id=e.account_id
+      LEFT JOIN dim k ON k.id=e.api_key_id`);
+    for (const row of rows.iterate()) {
+      visit({
+        ...row,
+        recordKind: row.recordKind as ExporterEvent['recordKind'],
+        failed: row.failed === 1,
+        tokens: {
+          inputTotal: row.inputTotal,
+          inputUncached: row.inputUncached,
+          cacheRead: row.cacheRead,
+          cacheWrite: row.cacheWrite,
+          outputTotal: row.outputTotal,
+          reasoning: row.reasoning,
+          total: row.total,
+        },
+      });
     }
   }
 

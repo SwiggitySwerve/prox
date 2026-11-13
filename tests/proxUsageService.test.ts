@@ -165,18 +165,18 @@ test('job commands require the shared bearer, validate bounded input and expose 
     }
   }
   expect(calls).toEqual([]);
-  for (const kind of ['import', 'reconcile', 'verify', 'backup']) {
+  for (const kind of ['import', 'reconcile', 'verify', 'backup', 'prune']) {
     expect((await handler(request('/v1/jobs', 'POST', { kind }))).status).toBe(202);
   }
   expect((await handler(request('/v1/jobs/cancel', 'POST', { jobId: 1 }))).status).toBe(202);
-  expect(calls).toEqual(['import', 'reconcile', 'verify', 'backup', 1]);
+  expect(calls).toEqual(['import', 'reconcile', 'verify', 'backup', 'prune', 1]);
   expect(await (await handler(request('/v1/jobs'))).json()).toEqual({ job: report });
   expect(await (await handler(request('/v1/status'))).json()).toMatchObject({
     writer: { job: report },
   });
   for (const body of [
     {},
-    { kind: 'prune' },
+    { kind: 'vacuum' },
     { kind: 'import', path: '/forbidden' },
     { kind: { toString: 'import' } },
     [],
@@ -210,4 +210,20 @@ test('job commands require the shared bearer, validate bounded input and expose 
     }),
   });
   expect((await missingKey(request('/v1/jobs', 'POST', { kind: 'import' }))).status).toBe(503);
+});
+
+test('usage schedules are UTC, nonpersistent and only installed by deploy', () => {
+  const root = resolve(import.meta.dir, '..');
+  const script = readFileSync(join(root, 'scripts/deploy-homelab.sh'), 'utf8');
+  const timer = readFileSync(join(root, 'deploy/prox-usage-nightly.timer'), 'utf8');
+  expect(timer).toContain('OnCalendar=*-*-* 04:20:00 UTC');
+  expect(timer).toContain('Persistent=false');
+  expect(timer).toContain('Unit=prox-usage-nightly.service');
+  expect(script).toContain('install -D -m 644 deploy/prox-usage-nightly.timer');
+  expect(script).not.toContain('deploy/prox-usage-$job.timer');
+  expect(script).not.toMatch(/systemctl[^\n]*(?:enable|start)[^\n]*prox-usage-/);
+  const service = readFileSync(join(root, 'deploy/prox-usage-job@.service'), 'utf8');
+  expect(service).toContain('Type=oneshot');
+  expect(service).toContain('ExecStart=/bin/sh %h/.local/share/prox/prox-usage-job.sh %i');
+  expect(script).toContain('install -D -m 755 deploy/prox-usage-job.sh');
 });
