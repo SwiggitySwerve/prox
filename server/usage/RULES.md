@@ -23,7 +23,9 @@ unit, not part of the history server.
   introduced without changing the contract.
 - A response is computed in one read snapshot. Coverage states what is known:
   pruned ranges and recorded collection gaps make `raw_complete` false; retained
-  events are not an ingress ledger; estimates are not bills.
+  events are not an ingress ledger; estimates are not bills. A gap that an exact CPAMP
+  import or reconcile pass has accounted for is marked filled (`filled_at_ms`,
+  `filled_by`) and stops counting; the row and its audit record stay.
 - Stored and returned fields are an allowlist. Client keys are stored only as
   SHA-256; fail bodies, response headers and credential files are never stored.
   Account labels come from the proxies' credential listing through the
@@ -297,6 +299,14 @@ the measured interval. Tests inject PSI, the clock and byte counters.
   store's `importChunk` commits inserts, deduplicated field conflicts and
   `import:cpamp:last_id` together. Existing events always win. Reconcile continues
   that same cursor. Re-running a completed import writes nothing.
+  A full (no `maxRows`) import or reconcile pass whose verification is exact also marks
+  open `ingest_gaps` filled (`filled_at_ms`, `filled_by` = job kind). A gap qualifies
+  only if it is not a provisional recovery row, its interval lies between the first
+  and a later UTC hour of the verified source events, and CPAMP has no event that
+  started or completed inside it with an ID above the verified maximum. Limited, inexact and verify passes fill
+  nothing; verify still writes nothing. Filled gaps stay listed (events-level parity
+  reads every gap) but no longer make `raw_complete` false. This assumes CPAMP was
+  collecting through the gap; an interval CPAMP missed too needs a recorded outage.
 - Verify writes nothing. Every mutating pass ends with a separate governed full
   verification up to the captured source maximum, including previously committed
   chunks after a restart. It matches source execution IDs, including live overlaps,
@@ -487,7 +497,8 @@ All operations share the existing IO governor and one serial query gate, with a
 2-second default minimum gap after completion, cancellable PSI waits, measured
 DB-byte pacing and a nonzero exit on unexplained differences, failure or abort.
 There are no retries of expensive queries. The only response normalization is
-plan §3.3's four volatile fields, relative `cost.usd` tolerance and ordering inside
+plan §3.3's four volatile fields, relative `cost.usd` (1e-9) and `average_latency_ms`
+(1e-12) tolerance and ordering inside
 equal-timestamp runs. Provider and trace provenance differences apply only to
 request-detail fields and are counted. A D5 price exception needs two read-only
 replays through `queryAnalytics`: the approved deployed book must reproduce the
@@ -593,6 +604,24 @@ separate nightly chain below serializes maintenance before invoking parity.
   additionally try indexed exact execution/request/session matches. Substring
   fallback remains, including CPAMP's SQL LIKE wildcards, ASCII SQL lower(), and
   Unicode-lowercased query. It adds no search index or persisted projection.
+  **Deliberate product difference:** CPAMP keeps one search document per event (fields
+  joined by a separator) and matches a term one field at a time; Prox matches its stored
+  fields. A user therefore cannot find an event here by (1) failure text (`fail_summary`:
+  "context canceled", TLS errors, upstream HTML), (2) CPAMP's `header_trace_id` (a
+  response-header value), (3) the credential file name (`auth_file_snapshot`), or
+  (4) CPAMP's internal `event_hash`. The reverse also holds: Prox searches execution,
+  session, parent-session and trace IDs by substring, and CPAMP's document holds none of
+  them, so a hex-like or wildcard term returns events here that CPAMP does not. Fail
+  bodies, response headers and credential files are never stored (Stored and returned
+  fields are an allowlist, above), and the event hash is not an event field at all. The
+  parity rule `search-cpamp-only` accepts the difference only for those four fields, a
+  closed list in `searchCpampOnly.ts` that changes only with code and a test, and only
+  when no single Prox-searchable field of the event matches the term. Even then each pair
+  needs proof: CPAMP's own database lists the events, they map to Prox by execution ID,
+  and a replay of the Prox query that searches as CPAMP's document does (request ID, not
+  the other identifiers) with exactly those events added must reproduce CPAMP's response
+  value for value, while Prox's served response must equal its own plain replay. A
+  sanitized, searchable failure summary is a product decision, not a parity fix.
 - The inspector is an explicit allowlist. Token zero is visible only when its
   presence/component flags report it; positive counters stay visible. User agents
   pass `credentialText.ts`, a port of CPAMP's credential-text scrubber; path queries

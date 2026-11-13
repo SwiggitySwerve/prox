@@ -3,17 +3,20 @@ import type { Database } from 'bun:sqlite';
 import { readFileSync } from 'node:fs';
 import type { AnalyticsResponse } from '../../src/domain/analytics/types';
 import { queryAnalytics } from '../../server/usage/analytics';
+import type { CpampSearchReplay } from '../../server/usage/search';
 import { parseRateBook, priceRevision, type RateBookState } from '../../server/usage/rates';
 import { validateAnalyticsQuery, type UsageAnalyticsQuery } from '../../server/usage/validate';
 import { compareEvents, createEventReport, openParityReader } from './events';
 import {
   compareResponses,
   D5_MODELS,
+  type D5Witness,
   needsD5Witness,
   KNOWN_RESPONSE_RULES,
   type Difference,
 } from './compare';
 import { matrix, selectCases, type MatrixCase } from './matrix';
+import { cpampOnlySearchExecutions } from './searchCpampOnly';
 import { QueryGate } from './io';
 import { observeReconcile, confirmWindow } from './reconcile';
 import { ExecutionWindow, IncompleteRun } from './window';
@@ -90,6 +93,22 @@ function nextQuery(
     throw new Error('Invalid analytics page cursor');
   return { ...q, before_ms: ms, before_id: id };
 }
+/** Prox event sequence numbers for CPAMP execution IDs, or null if any one is absent. */
+function targetSeqs(db: Database, executions: readonly string[]): number[] | null {
+  const seqs: number[] = [];
+  for (let first = 0; first < executions.length; first += 500) {
+    const part = executions.slice(first, first + 500);
+    seqs.push(
+      ...db
+        .query<{ seq: number }, string[]>(
+          `SELECT seq FROM event_detail WHERE execution_id IN (${part.map(() => '?').join(',')})`
+        )
+        .all(...part)
+        .map((row) => row.seq)
+    );
+  }
+  return seqs.length === executions.length ? seqs : null;
+}
 function loadWitnessBooks(path: string): { priced: RateBookState; unpriced: RateBookState } {
   const book = parseRateBook(JSON.parse(readFileSync(path, 'utf8')));
   const models = { ...book.models };
@@ -123,7 +142,7 @@ export async function runParity(
   gate.setWindow(window);
   let proxKey: string | undefined;
   const getProxKey = () => (proxKey ??= readCredential(options.proxKeyFile));
-  let source: Database | undefined, target: Database | undefined;
+  let source: Database | undefined, target: Database | undefined, cpampReader: Database | undefined;
   const record = (difference: Difference) => {
     report.counts[difference.class]++;
   };
@@ -220,27 +239,60 @@ export async function runParity(
         };
         report.responses.push(result);
         report.matrix.pairs_completed++;
-        if (needsD5Witness(differences)) {
+        let replayMore: { cpamp: boolean; prox: boolean } | undefined;
+        const d5 = needsD5Witness(differences);
+        const search =
+          !!pq.search?.trim() && differences.some((difference) => difference.class === 'unexplained');
+        if (d5 || search) {
           books ??= loadWitnessBooks(options.rateBookFile);
           const db = await getTarget();
-          const replay = async (state: RateBookState) =>
+          const replay = async (
+            state: RateBookState,
+            query: UsageAnalyticsQuery,
+            cpampSearch?: CpampSearchReplay
+          ) =>
             gate.run(() => {
               const deadline = performance.now() + 30_000;
-              const response = queryAnalytics(db, pq, state, {
+              const response = queryAnalytics(db, query, state, {
+                cpampSearch,
                 checkDeadline: () => {
                   window.check();
                   if (performance.now() >= deadline) throw new Error('D5 replay deadline exceeded');
                 },
               });
-              report.matrix.d5_replays++;
+              if (cpampSearch || !d5) report.matrix.search_replays++;
+              else report.matrix.d5_replays++;
               return response;
             }, true);
-          const priced = await replay(books.priced);
-          const unpriced = await replay(books.unpriced);
-          differences = compareResponses(cpamp, prox, { priced, unpriced });
+          const witness: D5Witness = {};
+          // The plain replay is Prox's expected value for both the D5 and the search rules.
+          witness.priced = await replay(books.priced, pq);
+          if (d5) witness.unpriced = await replay(books.unpriced, pq);
+          if (search) {
+            // CPAMP's own database says which events its search document alone matches.
+            cpampReader ??= await gate.run(() => openParityReader(options.cpampDb));
+            const reader = cpampReader;
+            const executions = await gate.run(() => cpampOnlySearchExecutions(reader, pq), true);
+            const seqs = executions ? await gate.run(() => targetSeqs(db, executions), true) : null;
+            if (seqs) {
+              // Search as CPAMP's document does, plus exactly those events. The replay's own
+              // first page says where CPAMP's second page would start.
+              const as = { alsoMatchSeqs: seqs };
+              const next =
+                page === 2 ? nextQuery(item.query, await replay(books.priced, item.query, as)) : null;
+              const wq = page === 2 ? (next ?? pq) : pq;
+              witness.matched = await replay(books.priced, wq, as);
+              replayMore = {
+                cpamp: witness.matched.requests.has_more,
+                prox: witness.priced.requests.has_more,
+              };
+              if (d5) witness.unpricedMatched = await replay(books.unpriced, wq, as);
+            }
+          }
+          differences = compareResponses(cpamp, prox, witness);
         }
         result.differences = differences;
-        return { cpamp, prox };
+        return { cpamp, prox, replayMore };
       };
       for (const item of selected) {
         window.check();
@@ -249,14 +301,19 @@ export async function runParity(
         const cq = nextQuery(item.query, first.cpamp),
           pq = nextQuery(item.query, first.prox);
         if (Boolean(cq) !== Boolean(pq)) {
+          // A search replay that searches as CPAMP does says whether CPAMP had a second page.
+          const more = first.replayMore;
+          const explained =
+            more !== undefined && Boolean(cq) === more.cpamp && Boolean(pq) === more.prox;
           const mismatch: Difference = {
-            class: 'unexplained',
+            class: explained ? 'search-cpamp-only' : 'unexplained',
             path: '$.requests.second_page',
             cpamp: { available: Boolean(cq) },
             prox: { available: Boolean(pq) },
           };
           report.responses.at(-1)!.differences.push(mismatch);
-          report.matrix.paging_mismatches++;
+          if (explained) report.matrix.second_pages_limited++;
+          else report.matrix.paging_mismatches++;
         } else if (cq && pq) {
           if (report.matrix.pairs_completed < maxPairs) await pair(item, 2, cq, pq);
           else report.matrix.second_pages_limited++;
@@ -292,6 +349,7 @@ export async function runParity(
   } finally {
     window.close();
     source?.close();
+    cpampReader?.close();
     target?.close();
     [...report.event_differences, ...report.responses.flatMap((r) => r.differences)].forEach(
       record

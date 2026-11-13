@@ -38,12 +38,19 @@ const SEARCH_DIMS = [
   'executor_id',
 ];
 const SEARCH_IDS = ['execution_id', 'request_id', 'session_id', 'parent_session_id', 'trace_id'];
+/** Parity replay only: the identifier CPAMP's search document holds. It has none of the others. */
+const CPAMP_SEARCH_IDS = ['request_id'];
+/** Parity replay only: search as CPAMP's document does, plus the events its document alone matches. */
+export interface CpampSearchReplay {
+  alsoMatchSeqs: readonly number[];
+}
 
 export function queryFilter(
   db: Database,
   q: UsageAnalyticsQuery,
   dims: readonly Dimension[],
-  selectors = false
+  selectors = false,
+  replay?: CpampSearchReplay
 ): QueryFilter {
   const conditions = [
     'e.ts_ms >= ?',
@@ -78,21 +85,30 @@ export function queryFilter(
     // Long identifiers try indexed exact lookups first, but substring matches remain included.
     // Every detail lookup is joined from events inside the requested range; no global detail scan.
     if (term.length >= 16) {
-      clauses.push(
-        `e.seq IN (SELECT seq FROM event_detail WHERE execution_id = ? AND ts_ms >= ? AND ts_ms < ?)`
-      );
-      args.push(term, q.from_ms, q.to_ms);
+      if (!replay) {
+        clauses.push(
+          `e.seq IN (SELECT seq FROM event_detail WHERE execution_id = ? AND ts_ms >= ? AND ts_ms < ?)`
+        );
+        args.push(term, q.from_ms, q.to_ms);
+      }
       clauses.push(
         `e.seq IN (SELECT seq FROM event_detail WHERE request_id = ? AND ts_ms >= ? AND ts_ms < ?)`
       );
       args.push(term, q.from_ms, q.to_ms);
-      clauses.push('e.session_id IN (SELECT id FROM session WHERE uuid = ?)');
-      args.push(term);
+      if (!replay) {
+        clauses.push('e.session_id IN (SELECT id FROM session WHERE uuid = ?)');
+        args.push(term);
+      }
+    }
+    if (replay?.alsoMatchSeqs.length) {
+      if (!replay.alsoMatchSeqs.every(Number.isSafeInteger))
+        throw new Error('Invalid event sequence');
+      clauses.push(`e.seq IN (${replay.alsoMatchSeqs.join(',')})`);
     }
     clauses.push(
-      `EXISTS (SELECT 1 FROM event_detail sd WHERE sd.seq = e.seq AND (${SEARCH_IDS.map((key) => `lower(coalesce(sd.${key}, '')) LIKE ?`).join(' OR ')}))`
+      `EXISTS (SELECT 1 FROM event_detail sd WHERE sd.seq = e.seq AND (${(replay ? CPAMP_SEARCH_IDS : SEARCH_IDS).map((key) => `lower(coalesce(sd.${key}, '')) LIKE ?`).join(' OR ')}))`
     );
-    args.push(...SEARCH_IDS.map(() => `%${term}%`));
+    args.push(...(replay ? CPAMP_SEARCH_IDS : SEARCH_IDS).map(() => `%${term}%`));
     conditions.push(`(${clauses.join(' OR ')})`);
   }
   return { sql: conditions.join(' AND '), args };

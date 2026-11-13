@@ -128,6 +128,8 @@ describe('usage store schema', () => {
       'to_ms INTEGER NOT NULL',
       'reason TEXT NOT NULL',
       'missed INTEGER',
+      'filled_at_ms INTEGER',
+      'filled_by TEXT',
     ]);
     expect(columns('import_conflicts')).toEqual([
       'execution_id TEXT NOT NULL',
@@ -222,7 +224,7 @@ describe('usage store schema', () => {
     const first = open();
     first.store.setMeta('schema_version', String(USAGE_MIGRATIONS.length + 1));
     first.close();
-    expect(() => open({ root: first.root })).toThrow(/schema version 3/);
+    expect(() => open({ root: first.root })).toThrow(/schema version 4/);
   });
 });
 
@@ -611,7 +613,7 @@ describe('usage store migrations', () => {
     const db = database();
     migrateUsageDatabase(db);
     expect(version(db)).toBe(String(USAGE_MIGRATIONS.length));
-    expect(USAGE_MIGRATIONS).toHaveLength(2);
+    expect(USAGE_MIGRATIONS).toHaveLength(3);
     const before = tables(db);
     expect(before).toContain('events');
     // Migration 1 is plain CREATE TABLE: a second run of it would fail, so it did not run.
@@ -650,7 +652,7 @@ describe('usage store migrations', () => {
     const db = database();
     migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND]);
     const before = tables(db);
-    expect(() => migrateUsageDatabase(db)).toThrow(/schema version 3/);
+    expect(() => migrateUsageDatabase(db)).toThrow(/schema version 4/);
     expect(tables(db)).toEqual(before);
     expect(version(db)).toBe(String(USAGE_MIGRATIONS.length + 1));
   });

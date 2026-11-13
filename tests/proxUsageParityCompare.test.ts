@@ -43,7 +43,7 @@ describe('frozen response comparison', () => {
         b.summary.calls++;
       },
       (b: typeof a) => {
-        b.summary.average_latency_ms! += 1e-10;
+        b.summary.average_latency_ms! += 1e-6;
       },
       (b: typeof a) => {
         b.summary.p95_latency_ms! += 1e-10;
@@ -71,7 +71,21 @@ describe('frozen response comparison', () => {
       expect(compareResponses(a, b).some((d) => d.class === 'unexplained')).toBe(true);
     }
   });
-  test('relative tolerance applies only to cost.usd, including null and zero boundaries', () => {
+  test('average_latency_ms tolerates a few ulps and nothing near a real difference', () => {
+    const mean = 8449.586031746032;
+    // The 12 Nov evidence: CPAMP's mean was one ulp above the correctly rounded value.
+    expect(equalValue(8449.586031746034, mean, '$.timeline[1].average_latency_ms')).toBe(true);
+    expect(equalValue(mean, mean, '$.summary.average_latency_ms')).toBe(true);
+    expect(equalValue(mean * (1 + 9e-13), mean, '$.models[0].average_latency_ms')).toBe(true);
+    expect(equalValue(mean * (1 + 2e-12), mean, '$.models[0].average_latency_ms')).toBe(false);
+    // One whole millisecond on one sample of a million is far outside it.
+    expect(equalValue(mean + 1e-3, mean, '$.providers[0].average_latency_ms')).toBe(false);
+    expect(equalValue(null, 0, '$.summary.average_latency_ms')).toBe(false);
+    expect(equalValue(0, 1e-20, '$.summary.average_latency_ms')).toBe(false);
+    // The tolerance is for the mean only; percentiles and latencies stay exact.
+    expect(equalValue(mean, mean * (1 + 1e-13), '$.summary.p95_latency_ms')).toBe(false);
+  });
+  test('cost.usd keeps its 1e-9 relative tolerance, including null and zero boundaries', () => {
     expect(equalValue(100, 100 + 5e-8, '$.summary.cost.usd')).toBe(true);
     expect(equalValue(100, 100 + 2e-7, '$.summary.cost.usd')).toBe(false);
     expect(equalValue(0, 1e-20, '$.summary.cost.usd')).toBe(false);

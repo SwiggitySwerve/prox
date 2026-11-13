@@ -1,4 +1,5 @@
 // Real loopback HTTP, synthetic SQLite and synthetic keys, all temporary data in tmpfs.
+import { Database } from 'bun:sqlite';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageStore } from '../../server/usage/store';
@@ -16,6 +17,10 @@ export function parityServers(
     status?: number;
     delayMs?: number;
     d5?: boolean;
+    /** Event 3 fails, and CPAMP's search for "needle" matches it only through its failure text. */
+    cpampOnly?: boolean;
+    /** With cpampOnly: the term sits in a field Prox stores (model), so Prox's miss is a bug. */
+    storedField?: boolean;
   } = {}
 ) {
   const directory = mkdtempSync('/dev/shm/prox-parity-http-');
@@ -27,12 +32,16 @@ export function parityServers(
         models: { ...book.models, 'claude-fable-5-2': rates, 'gpt-6.1-terra': rates },
       })
     : book;
-  if (settings.d5) writeFileSync(join(directory, 'rates.json'), JSON.stringify(approved));
+  if (settings.d5 || settings.cpampOnly)
+    writeFileSync(join(directory, 'rates.json'), JSON.stringify(approved));
   const store = new UsageStore({ events: path, raw: null });
   store.insert(
     Array.from({ length: 8 }, (_, i) => ({
       event: event(i, {
         tsMs: end - 1000 - i,
+        ...(settings.cpampOnly && i === 3 ? { failed: true, statusCode: 502 } : {}),
+        // Both backends match these by search, so a second page exists on each side.
+        ...(settings.cpampOnly && i >= 4 ? { model: 'needle-model' } : {}),
         ...(settings.d5 && i % 3 !== 0
           ? {
               model: i % 3 === 1 ? 'claude-fable-5-2' : 'gpt-6.1-terra',
@@ -46,6 +55,32 @@ export function parityServers(
     0
   );
   const reader = openParityReader(path);
+  const failedEvent = event(3);
+  const documentText = 'needle upstream error';
+  const failedSeq = settings.cpampOnly
+    ? reader
+        .query<{ seq: number }, [string]>('SELECT seq FROM event_detail WHERE execution_id = ?')
+        .get(failedEvent.executionId)!.seq
+    : 0;
+  if (settings.cpampOnly) {
+    // CPAMP's projection, in the 29-segment layout, with the term only in the failure text.
+    const cpampPath = join(directory, 'cpamp.sqlite');
+    const db = new Database(cpampPath, { create: true });
+    db.exec(`CREATE TABLE usage_events (id INTEGER PRIMARY KEY, raw_json TEXT);
+      CREATE TABLE usage_monitoring_event_projection_v1 (event_id INTEGER PRIMARY KEY,
+        timestamp_ms INTEGER NOT NULL, search_text TEXT NOT NULL);`);
+    const text = Array.from({ length: 29 }, (_, i) => (i === (settings.storedField ? 2 : 24) ? documentText : '')).join(
+      '\x1f'
+    );
+    db.query('INSERT INTO usage_events VALUES (1, ?)').run(
+      JSON.stringify({ execution_id: failedEvent.executionId })
+    );
+    db.query('INSERT INTO usage_monitoring_event_projection_v1 VALUES (1, ?, ?)').run(
+      end - 1000 - 3,
+      text
+    );
+    db.close();
+  }
   const keys = { cpamp: 'synthetic-cpamp-key-for-parity', prox: 'synthetic-prox-key-for-parity' };
   for (const name of ['cpamp', 'prox'] as const)
     writeFileSync(join(directory, `${name}.key`), keys[name]);
@@ -71,7 +106,17 @@ export function parityServers(
               status: settings.status,
             });
           if (backend === 'cpamp' && q.before_id !== undefined) q.before_id -= 1000;
-          const result = queryAnalytics(reader, q, rateState(backend === 'prox' ? approved : book));
+          const result = queryAnalytics(reader, q, rateState(backend === 'prox' ? approved : book), {
+            // CPAMP's document holds one searchable text, and no execution or session IDs.
+            cpampSearch:
+              backend === 'cpamp' && settings.cpampOnly
+                ? {
+                    alsoMatchSeqs: q.search?.trim() && documentText.includes(q.search.trim().toLowerCase())
+                      ? [failedSeq]
+                      : [],
+                  }
+                : undefined,
+          });
           if (backend === 'cpamp') {
             result.requests.items.forEach((r) => {
               r.id = String(Number(r.id) + 1000);
@@ -92,16 +137,16 @@ export function parityServers(
     level: 'responses',
     fromMs: end - 31 * 86400000,
     toMs: end,
-    cpampDb: join(directory, 'not-opened.sqlite'),
+    cpampDb: join(directory, settings.cpampOnly ? 'cpamp.sqlite' : 'not-opened.sqlite'),
     proxDb: path,
     cpampUrl: `http://127.0.0.1:${cpamp.port}/v0/management/monitoring/prox-analytics`,
     proxUrl: `http://127.0.0.1:${prox.port}/v1/analytics`,
     cpampKeyFile: join(directory, 'cpamp.key'),
     proxKeyFile: join(directory, 'prox.key'),
-    rateBookFile: join(directory, settings.d5 ? 'rates.json' : 'not-needed.json'),
+    rateBookFile: join(directory, settings.d5 || settings.cpampOnly ? 'rates.json' : 'not-needed.json'),
     output: join(directory, 'report'),
-    limit: 2,
-    sample: 1,
+    limit: settings.cpampOnly ? undefined : 2,
+    sample: settings.cpampOnly ? undefined : 1,
     gapMs: 0,
     outages: [],
   };

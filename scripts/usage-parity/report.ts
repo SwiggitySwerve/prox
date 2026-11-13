@@ -60,6 +60,7 @@ export interface ParityReport {
     second_pages_limited: number;
     paging_mismatches: number;
     d5_replays: number;
+    search_replays: number;
     limited: boolean;
   };
   matrix_reconciliation: typeof MATRIX_RECONCILIATION;
@@ -104,7 +105,7 @@ export function writeReport(report: ParityReport, prefix: string) {
     `Matrix ${report.mode}: ${report.matrix.generated_cases} generated cases; ${report.matrix.selected_cases} selected; ` +
       `${report.matrix.pairs_completed}/${report.matrix.planned_max_pairs} maximum pairs completed ` +
       `(${report.matrix.http_responses} HTTP responses; ${report.matrix.second_pages_absent_on_both} second pages absent on both; ${report.matrix.paging_mismatches} paging mismatches).`,
-    `Limited/sample run: ${report.matrix.limited ? 'yes; not a cutover gate' : 'no'}. D5 local replays: ${report.matrix.d5_replays}.`,
+    `Limited/sample run: ${report.matrix.limited ? 'yes; not a cutover gate' : 'no'}. D5 local replays: ${report.matrix.d5_replays}; search-cpamp-only replays: ${report.matrix.search_replays}.`,
     '',
     '| Mode | Plan count | Generated base queries | Maximum pages/pairs/responses | Reconciliation |',
     '| --- | ---: | --- | --- | --- |',
@@ -170,6 +171,7 @@ export function createReport(options: ParityOptions, nowMs: number): ParityRepor
       second_pages_limited: 0,
       paging_mismatches: 0,
       d5_replays: 0,
+      search_replays: 0,
       limited: false,
     },
     matrix_reconciliation: MATRIX_RECONCILIATION,
@@ -191,6 +193,7 @@ export function createReport(options: ParityOptions, nowMs: number): ParityRepor
     counts: {
       unexplained: 0,
       'd5-pricing': 0,
+      'search-cpamp-only': 0,
       'detail-provider': 0,
       'detail-trace': 0,
       'coverage-limitations': 0,

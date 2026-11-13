@@ -206,6 +206,109 @@ test('runner proves D5 costs/rates against both read-only rate-book replays', as
   }
 });
 
+test('runner proves CPAMP-only search matches from CPAMP rows, page 2 included, and nothing more', async () => {
+  const f = parityServers({ cpampOnly: true });
+  try {
+    const signal = new AbortController().signal;
+    const report = await runParity(f.options, signal, { gate: quietGate(signal), nowMs: f.nowMs });
+    expect(report.status).toBe('passed');
+    expect(report.counts.unexplained).toBe(0);
+    expect(report.counts['search-cpamp-only']).toBeGreaterThan(0);
+    expect(report.matrix.search_replays).toBeGreaterThan(0);
+    expect(report.response_counts.known_by_rule['search-cpamp-only']).toBeGreaterThan(0);
+    // The known differences carry both values; page 2 of a "needle" search is among them.
+    const known = report.responses.filter((r) =>
+      r.differences.some((d) => d.class === 'search-cpamp-only')
+    );
+    expect(known.every((r) => !!r.prox_query.search)).toBe(true);
+    expect(known.some((r) => r.page === 2 && r.prox_query.search === 'needle')).toBe(true);
+    const calls = known[0].differences.find((d) => d.path === '$.summary.calls')!;
+    expect(Number(calls.cpamp)).toBeGreaterThan(Number(calls.prox));
+  } finally {
+    f.close();
+  }
+});
+test('a real difference beside the CPAMP-only matches still fails the run', async () => {
+  const f = parityServers({
+    cpampOnly: true,
+    mutate: (r, backend) => {
+      if (backend === 'cpamp' && r.summary.calls > 0) r.summary.input_tokens += 1;
+    },
+  });
+  try {
+    const signal = new AbortController().signal;
+    const report = await runParity(f.options, signal, { gate: quietGate(signal), nowMs: f.nowMs });
+    expect(report.status).toBe('failed');
+    const open = report.responses.flatMap((r) =>
+      r.differences.filter((d) => d.class === 'unexplained' && r.prox_query.search === 'needle')
+    );
+    expect(open.some((d) => d.path === '$.summary.input_tokens')).toBe(true);
+    expect(open.some((d) => d.path === '$.summary.calls')).toBe(false);
+  } finally {
+    f.close();
+  }
+});
+test('a missing Prox second page is not excused by a CPAMP-only replay', async () => {
+  const f = parityServers({
+    cpampOnly: true,
+    mutate: (r, backend) => {
+      // Prox's four "needle" matches need a second page at limit 3; drop it.
+      if (backend === 'prox' && r.summary.calls === 4 && r.requests.has_more) {
+        r.requests.has_more = false;
+        r.requests.next_before_ms = null;
+        r.requests.next_before_id = null;
+      }
+    },
+  });
+  try {
+    const signal = new AbortController().signal;
+    const report = await runParity(f.options, signal, { gate: quietGate(signal), nowMs: f.nowMs });
+    expect(report.status).toBe('failed');
+    expect(report.matrix.paging_mismatches).toBeGreaterThan(0);
+    const paging = report.responses
+      .filter((r) => r.prox_query.search === 'needle')
+      .flatMap((r) => r.differences.filter((d) => d.path === '$.requests.second_page'));
+    expect(paging.length).toBeGreaterThan(0);
+    expect(paging.every((d) => d.class === 'unexplained')).toBe(true);
+  } finally {
+    f.close();
+  }
+});
+test('a CPAMP match through a field Prox stores is never excused, even with a Prox replay', async () => {
+  const f = parityServers({ cpampOnly: true, storedField: true });
+  try {
+    const signal = new AbortController().signal;
+    const report = await runParity(f.options, signal, { gate: quietGate(signal), nowMs: f.nowMs });
+    expect(report.status).toBe('failed');
+    const open = report.responses.filter((r) =>
+      r.differences.some((d) => d.class === 'unexplained' && r.prox_query.search === 'needle')
+    );
+    expect(open.length).toBeGreaterThan(0);
+    // Nothing is excused for a "needle" search, whatever else the replay explains.
+    expect(
+      report.responses.some(
+        (r) =>
+          r.prox_query.search === 'needle' &&
+          r.differences.some((d) => d.class === 'search-cpamp-only')
+      )
+    ).toBe(false);
+  } finally {
+    f.close();
+  }
+});
+test('without CPAMP evidence a CPAMP-only search difference stays unexplained', async () => {
+  const f = parityServers({ cpampOnly: true });
+  try {
+    const signal = new AbortController().signal;
+    rmSync(f.options.cpampDb);
+    const report = await runParity(f.options, signal, { gate: quietGate(signal), nowMs: f.nowMs });
+    expect(report.status).toBe('failed');
+    expect(report.counts['search-cpamp-only']).toBe(0);
+  } finally {
+    f.close();
+  }
+});
+
 test('UTC cutoff during a request aborts with incomplete partial evidence and a distinct exit code', async () => {
   let at = 0;
   const f = parityServers({

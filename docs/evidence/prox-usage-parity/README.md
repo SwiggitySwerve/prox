@@ -127,12 +127,40 @@ Explicit counted rules:
   same book with only `claude-fable-5-2` and `gpt-6.1-terra` removed. Both observed
   values must match their replay. This prevents blanket exemptions for totals
   that contain a newly priced model. Replays also pass through the IO gate.
+- `search-cpamp-only`: a deliberate product difference. CPAMP keeps one search document
+  of 29 fields per event; a term matches one field at a time (a `%`/`_` wildcard never
+  bridges two fields). Prox matches its stored fields. A user cannot find an event in
+  Prox by failure text, a response-header trace id, a credential file name or CPAMP's
+  internal event hash. Conversely Prox also searches execution, session, parent-session
+  and trace IDs by substring, which CPAMP's document lacks, so a hex-like or wildcard
+  term returns events in Prox that CPAMP does not. The four unsearchable fields are a
+  closed list in `scripts/usage-parity/searchCpampOnly.ts`: `fail_summary`,
+  `header_trace_id` and `auth_file_snapshot` are never stored (`server/usage/RULES.md`,
+  stored and returned fields are an allowlist), `event_hash` is CPAMP's own. Adding a
+  field needs a code change and a test. A search pair with unexplained differences is
+  checked in three steps, all read-only. (1) CPAMP's own database lists the events in
+  the range that CPAMP matches through one of those fields while no other field matches
+  the term; an unexpected document layout or an event without an execution ID proves
+  nothing. (2) Those events map to Prox by execution ID; any one missing from Prox
+  proves nothing. (3) The same Prox query is replayed searching as CPAMP's document does
+  (among identifiers only the request ID) with exactly those events added to the match
+  (provider, model and outcome filters still apply; page 2 starts at the replay's own
+  cursor). A difference is known only if CPAMP's value equals the replay's and Prox's
+  served value equals an independent plain replay of the same query (so drift on the
+  Prox side is never excused); a one-sided second page needs both backends'
+  availability to match their replays; objects compare irrespective of key order, with
+  `provider` and `trace_id` of a whole request item left to their own rules. Any other
+  difference in the pair stays unexplained, and an event that matches through a stored
+  field is never claimed, so a Prox miss there stays a failure. Needs `--cpamp-db`,
+  read-only.
 
 Response normalization removes only `generated_at_ms`, `coverage.price_revision`,
 request item `id`, and `requests.next_before_id`; permits item reordering only
-inside equal-timestamp groups; and allows 1e-9 relative error only at `cost.usd`
-(no absolute epsilon at zero). Every integer, p95, average and pricing reason
-stays exact; other coverage fields stay exact outside the explicit limitations
+inside equal-timestamp groups; and allows relative error only at `cost.usd` (1e-9)
+and `average_latency_ms` (1e-12), with no absolute epsilon at zero. Prox's mean is the
+correctly rounded quotient of integer sums; CPAMP's is occasionally one ulp (about
+2e-16) away, and 1e-12 is far below any real difference. Every integer, p95 and
+pricing reason stays exact; other coverage fields stay exact outside the explicit limitations
 rule. Known differences remain in the report with both values.
 
 ## Running it
