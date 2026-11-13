@@ -68,7 +68,27 @@ async function rejection(promise: Promise<unknown>): Promise<string> {
 }
 const finished = (report: BulkJobReport) => report.finishedAtMs !== null;
 
-test('worker runs import, reconcile and read-only verify with exact typed reports and progress', async () => {
+function persistedExceptVerifyOutcome(db: Database) {
+  return Object.fromEntries(
+    db
+      .query<{ name: string }, []>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+      )
+      .all()
+      .map(({ name }) => {
+        const table = `"${name.replaceAll('"', '""')}"`;
+        const where = name === 'meta' ? " WHERE key != 'job-outcome:verify'" : '';
+        const sql = `SELECT * FROM ${table}${where}`;
+        const order = db
+          .query(sql)
+          .columnNames.map((_, index) => index + 1)
+          .join(', ');
+        return [name, db.query(`${sql} ORDER BY ${order}`).all()];
+      })
+  );
+}
+
+test('worker runs import, reconcile and verify changing only its outcome with exact typed reports', async () => {
   const f = await fixture(1001);
   expect(await f.writer.jobReport()).toBeNull(); // boot starts no bulk work
   const started = await f.writer.startJob('import');
@@ -88,21 +108,27 @@ test('worker runs import, reconcile and read-only verify with exact typed report
       report: { mode: 'reconcile', inserted: 1, lastId: 1002, verification: { exact: true } },
     },
   });
-  // Automatic rollup maintenance can replace derived rows while manual verify runs.
-  // The event/provenance cohort and every non-rollup meta value must remain unchanged.
-  const retained = () => ({
-    tables: ['events', 'event_detail', 'dim', 'session', 'import_conflicts', 'ingest_gaps'].map(
-      (table) => f.reader.query(`SELECT * FROM ${table}`).all()
-    ),
-    meta: f.reader.query("SELECT * FROM meta WHERE key NOT LIKE 'rollup:%' ORDER BY key").all(),
-  });
-  const before = retained();
+
+  const before = persistedExceptVerifyOutcome(f.reader);
+  const outcome = () =>
+    f.reader
+      .query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'job-outcome:verify'")
+      .get();
+  expect(outcome()).toBeNull();
+
   await f.writer.startJob('verify');
-  expect(await reportWhen(f.writer, finished)).toMatchObject({
+  const verified = await reportWhen(f.writer, finished);
+  expect(verified).toMatchObject({
     state: 'succeeded',
     result: { report: { mode: 'verify', verification: { read: 1002, exact: true } } },
   });
-  expect(retained()).toEqual(before);
+
+  expect(persistedExceptVerifyOutcome(f.reader)).toEqual(before);
+  expect(JSON.parse(outcome()!.value)).toEqual({
+    lastSuccessAtMs: verified.finishedAtMs,
+    lastFailureAtMs: null,
+  });
+
   expect(f.writer.status.job?.state).toBe('succeeded');
 }, 15_000);
 

@@ -74,7 +74,8 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
     }
     if (kind === 'exporter') {
       void enqueueJob('exporter', () => {
-        if (!exporter || !rates || !aliases || closing) throw new Error('Exporter unavailable');
+        if (!exporter || !rates || !aliases || !jobs || closing)
+          throw new Error('Exporter unavailable');
         const rateState = rates.load();
         const aliasState = aliases.load();
         exporter.refresh(rateState.book);
@@ -85,6 +86,8 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
             ...status,
             exporter: {
               ...exporter.snapshot(aliasState.aliases),
+              jobs: jobs.health(),
+              jobs_outcome_error: jobs.outcomeError,
               rate_book_error: !!rateState.error,
               rate_book_loaded: rateState.book !== null,
               client_alias_error: aliasState.error,

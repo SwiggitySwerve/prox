@@ -6,6 +6,10 @@ import type { BackupReport } from './backup';
 
 export const BULK_JOB_KINDS = ['import', 'reconcile', 'verify', 'backup', 'prune'] as const;
 export type BulkJobKind = (typeof BULK_JOB_KINDS)[number];
+export type BulkJobHealth = Record<
+  BulkJobKind,
+  { last_success_seconds: number | null; last_failure_seconds: number | null }
+>;
 export function isBulkJobKind(value: unknown): value is BulkJobKind {
   return typeof value === 'string' && BULK_JOB_KINDS.some((kind) => kind === value);
 }
@@ -77,6 +81,8 @@ export interface ExporterConfig {
 }
 export interface WriterStatus {
   exporter?: ExporterSnapshot & {
+    jobs: BulkJobHealth;
+    jobs_outcome_error: boolean;
     rate_book_error: boolean;
     client_alias_error: boolean;
     rate_book_loaded: boolean;
