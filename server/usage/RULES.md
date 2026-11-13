@@ -327,13 +327,21 @@ the measured interval. Tests inject PSI, the clock and byte counters.
   hours as of the job's captured wall clock (`nowMs` can be injected), schema 1,
   the same active revision, ready/catching-up state without an error, and buckets
   within the recorded range. The covered event ID must reach that hour's greatest
-  source ID and must not exceed the source maximum captured by this job. Using
-  IDs rather than a timestamp watermark handles late arrivals into older hours.
-  Deleted-raw archive markers also make an hour uncovered: a rebuilt cache can
-  include retained history no longer in the raw source table.
+  source ID. Using IDs rather than a timestamp watermark handles late arrivals into
+  older hours. Deleted-raw archive markers also make an hour uncovered: a rebuilt
+  cache can include retained history no longer in the raw source table.
+- CPAMP keeps ingesting during the dual run, so its global coverage marker is
+  normally ahead of this job's verified maximum; that alone never skips an hour.
+  An hour is compared unless a CPAMP event with an ID above the verified maximum
+  falls in it (reason `hour-has-unverified-events`), because the rollup may already
+  include events this job did not verify. The check reads that small tail once with
+  one rowid-range query and re-reads it only if `max(id)` changes inside an hour's
+  snapshot, so no per-hour scan of `usage_events` occurs. Hours that stay uncovered
+  mean the check is not yet complete; rerun it after the tail closes or CPAMP stops.
 - `verification.rollups` reports `hours`, `mismatches` and `uncovered` separately,
   with a reason for each uncovered hour (missing tables/state, rebuild/error,
-  revision changes, lag/ahead, open or archived hours and limited source passes).
+  revision changes, rollup lag, newer unverified events, open or archived hours and
+  limited source passes).
   A rollup mismatch makes overall `verification.exact` false. Uncovered hours
   are not mismatches; `rollups.complete` means all candidate hours were covered,
   and accepting the independent check requires both complete coverage and no

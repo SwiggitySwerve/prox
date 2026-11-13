@@ -364,6 +364,79 @@ describe('CPAMP migration jobs', () => {
     ]);
   });
 
+  // CPAMP keeps ingesting during the dual run: after this job captures its source maximum, a
+  // newer event lands in the second hour and CPAMP's global rollup marker moves past it.
+  function liveIngestFixture(overrides: { totalTokens?: number } = {}) {
+    const f = fixture(0);
+    const hour = (offset: number) => ROLLUP_HOUR + offset * 3_600_000;
+    for (const id of [1, 2, 3]) f.writableSource.add(cpampRow(id, { timestamp_ms: hour(id - 1) }));
+    const add = createCpampRollups(f.writableSource.db, {
+      coverage_event_id: 3,
+      max_bucket_ms: hour(2),
+    });
+    add({ bucket_ms: hour(0), total_tokens: overrides.totalTokens ?? 1150 });
+    add({ bucket_ms: hour(1), calls: 2, total_tokens: 2300 });
+    add({ bucket_ms: hour(2) });
+    let ingested = false;
+    const onProgress = (progress: { phase: string }) => {
+      if (progress.phase !== 'verify' || ingested) return;
+      ingested = true;
+      f.writableSource.add(cpampRow(4, { timestamp_ms: hour(1) }));
+      f.writableSource.db.exec('UPDATE usage_pricing_rollup_state SET coverage_event_id = 4');
+    };
+    return { f, hour, onProgress };
+  }
+
+  test('compares closed hours while CPAMP ingests; only the hour with newer events is uncovered', async () => {
+    const { f, hour, onProgress } = liveIngestFixture();
+    const report = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+      onProgress,
+    });
+    expect(report.verification.exact).toBe(true);
+    expect(report.verification.rollups).toMatchObject({
+      complete: false,
+      mismatches: [],
+      uncovered: [{ hourMs: hour(1), reason: 'hour-has-unverified-events' }],
+    });
+    expect(report.verification.rollups.hours.map((row) => row.hourMs)).toEqual([hour(0), hour(2)]);
+  });
+
+  test('a real difference in a compared hour is still a mismatch while CPAMP ingests', async () => {
+    const { f, hour, onProgress } = liveIngestFixture({ totalTokens: 1151 });
+    const report = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+      onProgress,
+    });
+    expect(report.verification.exact).toBe(false);
+    expect(report.verification.rollups.uncovered).toEqual([
+      { hourMs: hour(1), reason: 'hour-has-unverified-events' },
+    ]);
+    expect(report.verification.rollups.mismatches).toHaveLength(1);
+    expect(report.verification.rollups.mismatches[0]).toMatchObject({
+      hourMs: hour(0),
+      cpamp: { total: '1151' },
+      prox: { total: '1150' },
+    });
+  });
+
+  test('a marker ahead of the verified range still compares an hour with no newer events', async () => {
+    const f = fixture(1);
+    createCpampRollups(f.writableSource.db, { coverage_event_id: 2 })();
+    const report = await runCpampJob(f.store, f.source, {
+      mode: 'import',
+      governor: fakeIo().governor,
+    });
+    expect(report.verification.rollups).toMatchObject({
+      complete: true,
+      mismatches: [],
+      uncovered: [],
+    });
+    expect(report.verification.rollups.hours).toHaveLength(1);
+  });
+
   test('checks rollup-only hours missing from both event stores', async () => {
     const f = fixture(1);
     const add = createCpampRollups(f.writableSource.db, { max_bucket_ms: ROLLUP_HOUR + 3_600_000 });
@@ -383,7 +456,6 @@ describe('CPAMP migration jobs', () => {
 
   test.each([
     [{ status: 'rebuilding' }, {}, 'rollup-not-ready'],
-    [{ coverage_event_id: 2 }, {}, 'rollup-ahead-of-source'],
     [{ schema_version: 2 }, {}, 'rollup-state-unavailable'],
     [{ min_bucket_ms: ROLLUP_HOUR + 3_600_000 }, {}, 'outside-rollup-range'],
     [{}, { nowMs: ROLLUP_HOUR + 1000 }, 'open-hour'],
