@@ -272,7 +272,7 @@ export async function runParity(
             // CPAMP's own database says which events its search document alone matches.
             cpampReader ??= await gate.run(() => openParityReader(options.cpampDb));
             const reader = cpampReader;
-            const executions = await gate.run(() => cpampOnlySearchExecutions(reader, pq, options.cpampProjectionCoverage), true);
+            const executions = await gate.run(() => cpampOnlySearchExecutions(reader, pq), true);
             const seqs = executions ? await gate.run(() => targetSeqs(db, executions), true) : null;
             if (seqs) {
               // Search as CPAMP's document does, plus exactly those events. The replay's own

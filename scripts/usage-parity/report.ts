@@ -19,8 +19,6 @@ export interface ParityOptions {
   toMs: number;
   level: 'both' | 'events' | 'responses';
   cpampDb: string;
-  /** Reproduce older CPAMP responses: the projection coverage they had. Default: read it now. */
-  cpampProjectionCoverage?: number;
   proxDb: string;
   cpampUrl: string;
   proxUrl: string;

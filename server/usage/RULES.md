@@ -604,26 +604,24 @@ separate nightly chain below serializes maintenance before invoking parity.
   additionally try indexed exact execution/request/session matches. Substring
   fallback remains, including CPAMP's SQL LIKE wildcards, ASCII SQL lower(), and
   Unicode-lowercased query. It adds no search index or persisted projection.
-  **Deliberate product difference:** CPAMP matches a search term against one document of
-  fields joined by a separator; Prox matches stored fields one by one. A user therefore
-  cannot find an event here by (1) failure text (`fail_summary`: "context canceled", TLS
-  errors, upstream HTML), (2) CPAMP's `header_trace_id` (a response-header value),
-  (3) the credential file name (`auth_file_snapshot`), or (4) CPAMP's internal
-  `event_hash`; nor by a `%` or `_` wildcard that spans two fields (CPAMP bridges
-  fields only for events its projection covers). The reverse also
-  holds: Prox searches execution, session, parent-session and trace IDs by substring,
-  and CPAMP's document holds none of them, so a hex-like or wildcard term returns
-  events here that CPAMP does not. Fail bodies,
-  response headers and credential files are never stored (Stored and returned fields
-  are an allowlist, above), and the event hash is not an event field at all. The parity
-  rule `search-cpamp-only` accepts the difference only for those four fields, a closed
-  list in `searchCpampOnly.ts` that changes only with code and a test, and for bridging
-  only when no single Prox-searchable field of the event matches the term. Even then
-  each pair needs proof: CPAMP's own database lists the events, they map to Prox by
-  execution ID, and a replay of the Prox query that searches as CPAMP's document does
-  (request ID, not the other identifiers) with exactly those events added must
-  reproduce CPAMP's response value for value. A sanitized, searchable failure summary
-  is a product decision, not a parity fix.
+  **Deliberate product difference:** CPAMP keeps one search document per event (fields
+  joined by a separator) and matches a term one field at a time; Prox matches its stored
+  fields. A user therefore cannot find an event here by (1) failure text (`fail_summary`:
+  "context canceled", TLS errors, upstream HTML), (2) CPAMP's `header_trace_id` (a
+  response-header value), (3) the credential file name (`auth_file_snapshot`), or
+  (4) CPAMP's internal `event_hash`. The reverse also holds: Prox searches execution,
+  session, parent-session and trace IDs by substring, and CPAMP's document holds none of
+  them, so a hex-like or wildcard term returns events here that CPAMP does not. Fail
+  bodies, response headers and credential files are never stored (Stored and returned
+  fields are an allowlist, above), and the event hash is not an event field at all. The
+  parity rule `search-cpamp-only` accepts the difference only for those four fields, a
+  closed list in `searchCpampOnly.ts` that changes only with code and a test, and only
+  when no single Prox-searchable field of the event matches the term. Even then each pair
+  needs proof: CPAMP's own database lists the events, they map to Prox by execution ID,
+  and a replay of the Prox query that searches as CPAMP's document does (request ID, not
+  the other identifiers) with exactly those events added must reproduce CPAMP's response
+  value for value, while Prox's served response must equal its own plain replay. A
+  sanitized, searchable failure summary is a product decision, not a parity fix.
 - The inspector is an explicit allowlist. Token zero is visible only when its
   presence/component flags report it; positive counters stay visible. User agents
   pass `credentialText.ts`, a port of CPAMP's credential-text scrubber; path queries

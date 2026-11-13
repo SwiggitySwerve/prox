@@ -6,7 +6,6 @@ import {
   cpampOnlySearchExecutions,
   CPAMP_ONLY_SEGMENTS,
   likePattern,
-  projectionCoverage,
   SEARCH_SEGMENTS,
 } from '../scripts/usage-parity/searchCpampOnly';
 import { analyticsStore, BASE, event, query, rateState } from './helpers/usageAnalytics';
@@ -252,51 +251,18 @@ describe('CPAMP events that only CPAMP can match', () => {
     ]);
   });
 
-  test('a wildcard that bridges two fields counts only when no single stored field matches', () => {
+  test('a wildcard never bridges two fields: CPAMP matches one field at a time', () => {
     const db = cpampDatabase([
-      // "a_b" matches "...a" + separator + "b...": only the bridge, so Prox cannot match it.
+      // "a_b" would match "...a" + separator + "b...", but CPAMP does not match across fields.
       { id: 1, ts: 1500, text: document({ 2: 'claude-opus-a', 3: 'b-model' }) },
-      // The same bridge, plus a stored field that matches on its own: Prox must match it.
-      { id: 2, ts: 1500, text: document({ 2: 'claude-opus-a', 3: 'b-model', 5: 'a-b' }) },
-      // No bridge: stored fields match on their own.
-      { id: 3, ts: 1500, text: document({ 2: 'axb' }) },
+      // A CPAMP-only field matches on its own and no stored field does: claimed.
+      { id: 2, ts: 1500, text: document({ fail_summary: 'a-b' }) },
+      // The same plus a stored field that matches: Prox must match it, so not claimed.
+      { id: 3, ts: 1500, text: document({ fail_summary: 'a-b', 5: 'a-b' }) },
+      // Stored fields match on their own.
+      { id: 4, ts: 1500, text: document({ 2: 'axb' }) },
     ]);
-    expect(cpampOnlySearchExecutions(db, { ...range, search: 'a_b' }, 10)).toEqual([
-      'execution-1',
-    ]);
-  });
-
-  test('CPAMP bridges fields only for events its projection covers', () => {
-    const db = cpampDatabase([
-      { id: 5, ts: 1500, text: document({ 2: 'claude-opus-a', 3: 'b-model' }) },
-      { id: 6, ts: 1500, text: document({ 2: 'claude-opus-a', 3: 'b-model' }) },
-      { id: 7, ts: 1500, text: document({ fail_summary: 'a-b' }) },
-    ]);
-    // Covered up to 5: only event 5 matches through the document; 6 is matched field by field.
-    expect(cpampOnlySearchExecutions(db, { ...range, search: 'a_b' }, 5)).toEqual([
-      'execution-5',
-      'execution-7',
-    ]);
-    expect(cpampOnlySearchExecutions(db, { ...range, search: 'a_b' }, 0)).toEqual(['execution-7']);
-    expect(cpampOnlySearchExecutions(db, { ...range, search: 'a_b' }, 7)).toEqual([
-      'execution-5',
-      'execution-6',
-      'execution-7',
-    ]);
-  });
-
-  test('the coverage is the projection state: ready or catching up, never clearing', () => {
-    const db = cpampDatabase([{ id: 5, ts: 1500, text: document({ 2: 'a', 3: 'b' }) }]);
-    // No state table, as in an older database: nothing is covered.
-    expect(projectionCoverage(db)).toBe(0);
-    db.exec(`CREATE TABLE usage_monitoring_rollup_state (rollup_name TEXT, schema_version INTEGER,
-      status TEXT, coverage_event_id INTEGER);
-      INSERT INTO usage_monitoring_rollup_state VALUES
-        ('projection_v1', 1, 'ready', 900), ('projection_v1', 1, 'clearing', 950),
-        ('projection_v1', 2, 'ready', 960), ('stats_v1', 1, 'ready', 970);`);
-    expect(projectionCoverage(db)).toBe(900);
-    // The default covers event 5 through the document, so the bridge is claimed.
-    expect(cpampOnlySearchExecutions(db, { ...range, search: 'a_b' })).toEqual(['execution-5']);
+    expect(cpampOnlySearchExecutions(db, { ...range, search: 'a_b' })).toEqual(['execution-2']);
   });
 
   test('a stored field that matches is never claimed, so a Prox miss there stays a failure', () => {

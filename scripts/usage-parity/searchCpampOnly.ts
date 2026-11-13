@@ -1,10 +1,9 @@
 // Evidence for the search-cpamp-only rule: which CPAMP events match a search term only through
-// search-document structure that Prox does not have. Prox searches stored fields one by one;
-// CPAMP searches one document of fields joined by char(31) for events its monitoring projection
-// covers (event ID up to the projection's coverage), and the fields one by one for newer events
-// (usageevent/analytics.go projectedSearchCondition). The difference has two sources: fields
-// Prox never stores, and, for covered events, a `%` or `_` wildcard bridging two fields.
-// Read-only; the CPAMP handle comes from openParityReader.
+// fields that Prox does not store. CPAMP keeps one search document per event (fields joined by
+// char(31)); a term without wildcards is in the document exactly when it is in one field, and a
+// term with `%` or `_` is matched field by field (usageevent/analytics.go, and usagemonitoring
+// filter.go, which exclude "%_\x1f" from the document path), so a wildcard never bridges two
+// fields. Read-only; the CPAMP handle comes from openParityReader.
 import type { Database } from 'bun:sqlite';
 import type { UsageAnalyticsQuery } from '../../server/usage/validate';
 
@@ -64,36 +63,14 @@ function documents(cpamp: Database, from: number, to: number): Candidate[] {
 }
 const identities = new WeakMap<Database, Map<number, string>>();
 /**
- * The highest event ID the CPAMP projection covers right now. Without the table (an older or
- * synthetic database) nothing is covered and every event is matched field by field.
- */
-export function projectionCoverage(cpamp: Database): number {
-  try {
-    return Number(
-      cpamp
-        .query<{ covered: number | null }, []>(
-          `SELECT max(coverage_event_id) AS covered FROM usage_monitoring_rollup_state
-           WHERE rollup_name = 'projection_v1' AND schema_version = 1 AND status <> 'clearing'`
-        )
-        .get()?.covered ?? 0
-    );
-  } catch {
-    return 0;
-  }
-}
-/**
- * Execution IDs of the events in [from_ms, to_ms) that CPAMP matches while none of the fields
- * Prox can search matches the term on its own. CPAMP matches an event covered by its projection
- * through the whole document and a newer one field by field, so a wildcard bridging two fields
- * counts only for a covered event. `covered` defaults to the projection's current coverage; a
- * run that reproduces older responses passes the coverage those responses had. Returns null
+ * Execution IDs of the events in [from_ms, to_ms) that CPAMP matches through a field of the
+ * closed CPAMP-only list while none of the fields Prox can search matches the term. Returns null
  * when the proof is not available: an unexpected document layout or an event without an
  * execution ID.
  */
 export function cpampOnlySearchExecutions(
   cpamp: Database,
-  q: Pick<UsageAnalyticsQuery, 'from_ms' | 'to_ms' | 'search'>,
-  covered = projectionCoverage(cpamp)
+  q: Pick<UsageAnalyticsQuery, 'from_ms' | 'to_ms' | 'search'>
 ): string[] | null {
   const term = q.search?.trim().toLowerCase();
   if (!term) return [];
@@ -102,10 +79,8 @@ export function cpampOnlySearchExecutions(
   for (const row of documents(cpamp, q.from_ms, q.to_ms)) {
     const segments = row.text.split('\x1f');
     if (segments.length !== SEARCH_SEGMENTS) return null;
-    // A covered event matches through the whole document, a newer one through a single field.
-    const matched =
-      row.id <= covered ? pattern.test(row.text) : segments.some((segment) => pattern.test(segment));
-    if (!matched) continue;
+    // CPAMP matches a single field. Claim the event when only the CPAMP-only ones match.
+    if (!segments.some((segment) => pattern.test(segment))) continue;
     if (!segments.some((segment, i) => !CPAMP_ONLY_SEGMENTS.has(i) && pattern.test(segment)))
       only.push(row.id);
   }
