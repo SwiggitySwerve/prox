@@ -67,6 +67,18 @@ async function rejection(promise: Promise<unknown>): Promise<string> {
   throw new Error('Expected RPC rejection');
 }
 const finished = (report: BulkJobReport) => report.finishedAtMs !== null;
+/** Rollup backfill reserves bulk admission; wait it out rather than race it. */
+async function startWhenIdle(writer: UsageWriter, kind: 'import' | 'reconcile' | 'verify') {
+  for (let i = 0; i < 1000; i += 1) {
+    try {
+      return await writer.startJob(kind);
+    } catch (error) {
+      if (!String(error).includes('Rollup backfill in progress')) throw error;
+      await Bun.sleep(20);
+    }
+  }
+  throw new Error(`Timed out waiting for backfill before ${kind}`);
+}
 
 function persistedExceptVerifyOutcome(db: Database) {
   return Object.fromEntries(
@@ -89,7 +101,8 @@ function persistedExceptVerifyOutcome(db: Database) {
 }
 
 test('worker runs import, reconcile and verify changing only its outcome with exact typed reports', async () => {
-  const f = await fixture(1001);
+  // Unthrottled bytes let hourly maintenance rebuild, so the snapshot below covers populated rollups.
+  const f = await fixture(1001, 0, { bytesPerSecond: 1e15 });
   expect(await f.writer.jobReport()).toBeNull(); // boot starts no bulk work
   const started = await f.writer.startJob('import');
   expect(started).toMatchObject({ kind: 'import', state: 'running', finishedAtMs: null });
@@ -100,7 +113,7 @@ test('worker runs import, reconcile and verify changing only its outcome with ex
     result: { kind: 'cpamp', report: { inserted: 1001, verification: { exact: true } } },
   });
   f.source.add(cpampRow(1002));
-  await f.writer.startJob('reconcile');
+  await startWhenIdle(f.writer, 'reconcile');
   const reconciled = await reportWhen(f.writer, finished);
   expect(reconciled).toMatchObject({
     id: started.id + 1,
@@ -109,6 +122,20 @@ test('worker runs import, reconcile and verify changing only its outcome with ex
     },
   });
 
+  // Wait for maintenance to drain every dirty hour and finish discovery (cursor past the last
+  // fixture hour, 03:00), so no rebuild or cursor write can race the snapshot.
+  const count = (table: string) =>
+    f.reader.query<{ n: number }, []>(`SELECT count(*) AS n FROM ${table}`).get()!.n;
+  const drained = () =>
+    count('usage_hour_state WHERE dirty = 1') === 0 &&
+    count(
+      `meta WHERE key = 'rollup:discovery_ms' AND CAST(value AS INTEGER) >= ${Date.UTC(2026, 10, 1, 3)}`
+    ) === 1;
+  for (let i = 0; i < 1000 && !drained(); i += 1) await Bun.sleep(20);
+  expect(drained()).toBe(true);
+  expect(count('usage_hour_rollup')).toBeGreaterThan(0);
+  expect(count('usage_hour_coverage')).toBeGreaterThan(0);
+
   const before = persistedExceptVerifyOutcome(f.reader);
   const outcome = () =>
     f.reader
@@ -116,7 +143,7 @@ test('worker runs import, reconcile and verify changing only its outcome with ex
       .get();
   expect(outcome()).toBeNull();
 
-  await f.writer.startJob('verify');
+  await startWhenIdle(f.writer, 'verify');
   const verified = await reportWhen(f.writer, finished);
   expect(verified).toMatchObject({
     state: 'succeeded',
@@ -130,7 +157,7 @@ test('worker runs import, reconcile and verify changing only its outcome with ex
   });
 
   expect(f.writer.status.job?.state).toBe('succeeded');
-}, 15_000);
+}, 30_000);
 
 test('live commits and flush complete during PSI wait; busy/stale cancels are nonfatal', async () => {
   const f = await fixture(1, 5);
