@@ -106,23 +106,34 @@ before deployment reload, tested against a synthetic enabled installation and
 missing-unit/manager-error cases. No live retirement was performed. Job submits
 use an independent 15-second timeout so in-flight accepted responses survive a
 cutoff/interrupt. A broken response triggers a bounded status read and cancels
-only the running same-kind ID started at/after submission; older/different/terminal
-jobs and HTTP 409 are excluded. Real streamed-response tests cover noon,
+only a running job echoing the exact per-submission UUID `clientToken`. The token
+travels through HTTP, writer RPC and job status; the worker refuses mismatched
+cancellation tokens. No kind/time heuristic remains. Regressions show that a
+same-kind operator job started 500 ms later, without a token or with another
+token, is never cancelled. A matching chain token is recovered and cancelled;
+terminal jobs and HTTP 409 are excluded. Optional manual tokens are strictly
+validated (1–64 ASCII letters/digits/underscore/hyphen), with boundary and invalid
+type/character tests through the HTTP-to-worker path. Real streamed-response tests cover noon,
 interruption and a broken body, including ownership recovery.
 
 ## Verification after the final review fixes
 
 `origin/main` (including replay PR #78) was merged before these fixes.
 
-- Harness, nightly, service and job suites: **96 passed**, 0 failed, 6,731
+- Harness, nightly, service and job suites: **97 passed**, 0 failed, 6,781
   assertions, ten files. Synthetic databases and credentials lived in `/dev/shm`
   and were removed by fixture cleanup. Fake jobs test terminal cleanup, ordering,
   failure stop, noon/forbidden cutoffs, cancellation, delayed starts and parity
   exit 2; port guards prove no live fixture endpoint is used.
-- One new `bun run verify` under `ionice -c3 nice -n10`: **3,188 tests passed**,
-  0 failed, 36,431 assertions; lint passed with six existing warnings and all
+- Final `bun run verify` under `ionice -c3 nice -n10`: **3,189 tests passed**,
+  0 failed, 36,481 assertions; lint passed with six existing warnings and all
   frontend/server/usage builds passed.
-- Standalone strict TypeScript passed, including the nightly script and guard.
+- Production server TypeScript and standalone parity/nightly TypeScript passed.
+  Verification was rerun after correcting two compiler constraints (ES2020
+  `hasOwnProperty` and worker-union narrowing). An additional expanded test-source
+  check including job tests reports the existing unchanged
+  `tests/helpers/usageFakeProxy.ts:135` string/buffer union error; that helper is
+  outside this fix.
 - Original live run: complete, **exit 1 intentionally preserved**. The follow-up
   bounded TTFT classification confirms **52 unavailable, 0 measured**; 2 missing
   events remain unexplained awaiting reconcile. No full matrix, live import or

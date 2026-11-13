@@ -396,10 +396,12 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   never accepts file paths, budget overrides or backup credentials.
 - Nothing starts a bulk job at boot. Deployment copies optional timers without enabling them. On the existing listener at
   `127.0.0.1:18320`, the coordinator explicitly calls:
-  - `POST /v1/jobs` with exactly `{"kind":"import"}` (or `reconcile`, `verify`,
+  - `POST /v1/jobs` with `{"kind":"import"}` (or `reconcile`, `verify`,
     `backup`, `prune`): 202 with the running report, 409 if a job is already active.
-  - `POST /v1/jobs/cancel` with exactly `{"jobId":1}`: 202; stale IDs return 409.
-    Cancellation is idempotent for the latest finished job. Poll until settled.
+  - `POST /v1/jobs/cancel` with `{"jobId":1}`: 202; stale IDs return 409.
+    Cancellation is idempotent for the latest finished job. Both commands accept
+    optional `clientToken`; accepted tokens are echoed in the report and cancellation
+    checks supplied tokens atomically (ownership contract below). Poll until settled.
   - `GET /v1/jobs`: latest report or null. `GET /v1/status` includes the same
     progress under `writer.job`. Both reads refresh the report through worker RPC.
   These routes use `server/http/auth.ts`'s same bearer check as `/v1/status`;
@@ -596,8 +598,16 @@ At cutoff/interruption the chain requests cancellation of its active job and
 starts no further step; cancellation request success is not a terminal-success
 claim. Submit POSTs use an independent 15-second timeout so cutoff/interruption
 does not lose the accepted ID. Ambiguous response failures trigger a bounded
-status read; only a running same-kind job started at/after submission can grant
-cancellation ownership. HTTP rejection (especially 409) never does.
+status read; only a running same-kind job echoing the submission's unique
+`clientToken` grants cancellation ownership. Kind/time matching never does.
+The token is generated before each POST, carried through writer RPC and retained
+in the job report. POST `/v1/jobs` accepts optional `clientToken` (1–64 ASCII
+letters/digits/underscore/hyphen); malformed values are 400. Cancellation carries
+the same token and the worker atomically refuses mismatches with 409. Existing
+manual commands without a token retain their behavior; the token supplements,
+and never replaces, bearer authentication. Recovery without an exact match
+starts/cancels nothing else and reports `no-owned-job`. HTTP rejection
+(especially 409) never grants ownership.
 The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
 absolute noon deadline. The standalone parity service keeps `RuntimeMaxSec=5h30min`.
 The old independent prune/reconcile/backup/parity timers are removed from shipping;

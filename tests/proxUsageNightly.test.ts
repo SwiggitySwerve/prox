@@ -28,11 +28,13 @@ function fixture(
   writeFileSync(keyFile, 'synthetic-nightly-key');
   let now = options.at ?? Date.UTC(2026, 10, 13, 4, 20);
   const calls: string[] = [];
+  const tokens: string[] = [];
   let job: {
     id: number;
     kind: string;
     state: string;
     startedAtMs: number;
+    clientToken?: string;
     finishedAtMs: number | null;
   } | null = null;
   let polls = 0;
@@ -43,17 +45,23 @@ function fixture(
       expect(request.headers.get('authorization')).toBe('Bearer synthetic-nightly-key');
       const path = new URL(request.url).pathname;
       if (path === '/v1/jobs/cancel') {
+        expect(await request.json()).toEqual({ jobId: job?.id, clientToken: job?.clientToken });
         calls.push('cancel');
         return Response.json({ job });
       }
       if (request.method === 'POST') {
-        const { kind } = (await request.json()) as { kind: string };
+        const { kind, clientToken } = (await request.json()) as {
+          kind: string;
+          clientToken: string;
+        };
+        tokens.push(clientToken);
         calls.push(`start-${kind}`);
         expect(job === null || job.finishedAtMs !== null).toBe(true);
         job = {
           id: (job?.id ?? 0) + 1,
           kind,
           state: 'running',
+          clientToken,
           startedAtMs: now,
           finishedAtMs: null,
         };
@@ -95,7 +103,7 @@ function fixture(
         },
       }
     );
-  return { run, calls };
+  return { run, calls, tokens };
 }
 test('nightly chain waits for terminal success and cleanup before every subsequent step', async () => {
   const f = fixture({ backup: true, unfinishedSuccess: true });
@@ -103,6 +111,8 @@ test('nightly chain waits for terminal success and cleanup before every subseque
     status: 'succeeded',
     completed: ['prune', 'reconcile', 'backup', 'parity'],
   });
+  expect(new Set(f.tokens).size).toBe(f.tokens.length);
+  expect(f.tokens.every((token) => /^[a-f0-9-]{36}$/.test(token))).toBe(true);
   expect(f.calls).toEqual([
     'start-prune',
     'poll-prune',
@@ -225,7 +235,14 @@ for (const stop of ['noon', 'interrupt', 'broken-response'] as const) {
     const controller = new AbortController();
     let now =
       stop === 'noon' ? Date.UTC(2026, 10, 13, 11, 59, 59, 990) : Date.UTC(2026, 10, 13, 4, 20);
-    const job = { id: 71, kind: 'prune', state: 'running', startedAtMs: now, finishedAtMs: null };
+    const job = {
+      id: 71,
+      kind: 'prune',
+      state: 'running',
+      startedAtMs: now,
+      finishedAtMs: null,
+      clientToken: undefined as string | undefined,
+    };
     const calls: string[] = [];
     let broken = false;
     const server = Bun.serve({
@@ -235,7 +252,7 @@ for (const stop of ['noon', 'interrupt', 'broken-response'] as const) {
         expect(request.headers.get('authorization')).toBe('Bearer synthetic-key');
         const path = new URL(request.url).pathname;
         if (path === '/v1/jobs/cancel') {
-          expect(await request.json()).toEqual({ jobId: 71 });
+          expect(await request.json()).toEqual({ jobId: 71, clientToken: job.clientToken });
           calls.push('cancel');
           return Response.json({ job });
         }
@@ -244,6 +261,7 @@ for (const stop of ['noon', 'interrupt', 'broken-response'] as const) {
           return Response.json({ job });
         }
         calls.push('submit');
+        job.clientToken = ((await request.json()) as { clientToken: string }).clientToken;
         return new Response(
           new ReadableStream({
             start(stream) {
@@ -288,35 +306,52 @@ for (const stop of ['noon', 'interrupt', 'broken-response'] as const) {
       stop === 'broken-response' ? ['submit', 'recover', 'cancel'] : ['submit', 'cancel']
     );
     expect(broken).toBe(stop === 'broken-response');
+    if (stop === 'broken-response') expect(report.recovery).toBe('owned-job');
   });
 }
 
-test('ambiguous submission recovery never cancels older, different-kind or terminal jobs', async () => {
-  for (const variant of ['older', 'different-kind', 'terminal', '409'] as const) {
+test('ambiguous recovery never cancels newer operator jobs without the exact token or terminal jobs', async () => {
+  for (const variant of [
+    'operator-no-token',
+    'operator-other-token',
+    'no-job',
+    'different-kind',
+    'terminal',
+    '409',
+  ] as const) {
     const root = mkdtempSync('/dev/shm/prox-nightly-recovery-');
     cleanups.push(() => rmSync(root, { recursive: true, force: true }));
     const keyFile = join(root, 'key');
     writeFileSync(keyFile, 'synthetic-key');
     const now = Date.UTC(2026, 10, 13, 4, 20);
     const calls: string[] = [];
+    let submittedToken = '';
     const server = Bun.serve({
       hostname: '127.0.0.1',
       port: 0,
-      fetch(request) {
+      async fetch(request) {
         if (new URL(request.url).pathname.endsWith('/cancel')) {
           calls.push('cancel');
           return Response.json({});
         }
         if (request.method === 'POST') {
           calls.push('submit');
+          submittedToken = ((await request.json()) as { clientToken: string }).clientToken;
           return variant === '409' ? new Response(null, { status: 409 }) : new Response('{"job":');
         }
         calls.push('recover');
+        if (variant === 'no-job') return Response.json({ job: null });
         return Response.json({
           job: {
-            id: 81,
+            id: 99,
+            clientToken:
+              variant === 'operator-other-token'
+                ? 'operator-token'
+                : variant === 'operator-no-token'
+                  ? undefined
+                  : submittedToken,
             kind: variant === 'different-kind' ? 'backup' : 'prune',
-            startedAtMs: variant === 'older' ? now - 1 : now,
+            startedAtMs: now + 500,
             state: variant === 'terminal' ? 'succeeded' : 'running',
             finishedAtMs: variant === 'terminal' ? now : null,
           },
@@ -325,18 +360,19 @@ test('ambiguous submission recovery never cancels older, different-kind or termi
     });
     cleanups.push(() => server.stop(true));
     const signal = new AbortController().signal;
-    expect(
-      (
-        await runNightly(
-          { url: `http://127.0.0.1:${server.port}`, keyFile, backupEnabled: false, pollMs: 1 },
-          {
-            signal,
-            now: () => now,
-            gate: quietGate(signal),
-          }
-        )
-      ).status
-    ).toBe('failed');
+    const report = await runNightly(
+      { url: `http://127.0.0.1:${server.port}`, keyFile, backupEnabled: false, pollMs: 1 },
+      { signal, now: () => now, gate: quietGate(signal) }
+    );
+    expect(report.status).toBe('failed');
+    if (
+      variant === 'operator-no-token' ||
+      variant === 'operator-other-token' ||
+      variant === 'no-job'
+    ) {
+      expect(report.recovery).toBe('no-owned-job');
+      expect(report.error).toContain('no job with the submission token');
+    }
     expect(calls).toEqual(variant === '409' ? ['submit'] : ['submit', 'recover']);
   }
 });

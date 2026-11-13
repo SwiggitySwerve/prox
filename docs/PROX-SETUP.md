@@ -293,8 +293,12 @@ and stops on job/API/parity failure. It enforces today's absolute **12:00 UTC**
 cutoff and the 01:00–04:00 / 12:20–12:50 forbidden windows on every admission and
 wait; at cutoff/interruption it requests active-job cancellation. A submit POST has its own 15-second timeout so a cutoff
 cannot discard its accepted job ID. On an ambiguous response failure, a bounded
-status read recovers only a running same-kind job started at/after submission
-before cancelling that exact ID; HTTP rejections, including 409, grant no ownership.
+status read recovers only a running job echoing the exact unique `clientToken`
+sent before that submission. Cancellation carries that token and the server
+refuses mismatches. A newer same-kind operator job is never sufficient proof;
+no match stops the chain with `recovery=no-owned-job`. HTTP rejections, including
+409, grant no ownership. Manual job commands may omit the optional token;
+provided tokens must contain 1–64 ASCII letters/digits/underscore/hyphen.
 Incomplete
 parity exits 2 and cannot pass the chain. Parity has a 5h30min runtime cap; the
 whole oneshot has a 7h40min start timeout as a backstop.

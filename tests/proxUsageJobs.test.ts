@@ -3,6 +3,7 @@ import { Database } from 'bun:sqlite';
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageWriter } from '../server/usage/writer';
+import { createUsageStatusHandler } from '../server/usage/status';
 import type { BulkJobConfig, BulkJobReport } from '../server/usage/writerProtocol';
 import { openUsageReader } from '../server/usage/store';
 import { createCpamp, cpampRow, createCpampRollups } from './fixtures/cpampUsage';
@@ -488,4 +489,58 @@ test('raw prune transaction failure is nonfatal and can be retried', async () =>
     state: 'succeeded',
     result: { report: { deleted: 2 } }, // includes the old-timestamp live payload; its event stays
   });
+});
+
+test('job ownership token travels through HTTP and worker reports; mismatched cancellation is refused', async () => {
+  const f = await fixture(0, 5);
+  const keyFile = join(f.root, 'management-key');
+  writeFileSync(keyFile, 'synthetic-owner-key');
+  const handler = createUsageStatusHandler({
+    keyFile,
+    healthy: () => true,
+    sources: () => [],
+    writer: () => f.writer.status,
+    jobs: f.writer,
+  });
+  const request = (path: string, body?: unknown) =>
+    handler(
+      new Request(`http://127.0.0.1${path}`, {
+        method: body === undefined ? 'GET' : 'POST',
+        headers: {
+          authorization: 'Bearer synthetic-owner-key',
+          'content-type': 'application/json',
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      })
+    );
+  for (const clientToken of [
+    '',
+    'x'.repeat(65),
+    'space token',
+    'line\n',
+    'slash/',
+    'é',
+    null,
+    1,
+    {},
+    [],
+  ]) {
+    expect((await request('/v1/jobs', { kind: 'prune', clientToken })).status).toBe(400);
+    expect((await request('/v1/jobs/cancel', { jobId: 1, clientToken })).status).toBe(400);
+  }
+  for (const clientToken of ['x', 'A_9-'.repeat(16)]) {
+    const response = await request('/v1/jobs', { kind: 'prune', clientToken });
+    expect(response.status).toBe(202);
+    const { job } = (await response.json()) as { job: BulkJobReport };
+    expect(job.clientToken).toBe(clientToken);
+    expect(await (await request('/v1/jobs')).json()).toMatchObject({
+      job: { id: job.id, clientToken, state: 'running' },
+    });
+    expect(
+      (await request('/v1/jobs/cancel', { jobId: job.id, clientToken: 'someone-else' })).status
+    ).toBe(409);
+    expect((await f.writer.jobReport())?.state).toBe('running');
+    expect((await request('/v1/jobs/cancel', { jobId: job.id, clientToken })).status).toBe(202);
+    expect(await reportWhen(f.writer, finished)).toMatchObject({ state: 'cancelled', clientToken });
+  }
 });

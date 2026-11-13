@@ -10,6 +10,7 @@ import { ExecutionWindow, IncompleteRun, parseDeadline } from './usage-parity/wi
 type JobKind = 'prune' | 'reconcile' | 'backup';
 interface Job {
   id: number;
+  clientToken?: string;
   kind: JobKind;
   state: 'running' | 'cancelling' | 'cancelled' | 'succeeded' | 'failed';
   startedAtMs: number;
@@ -27,6 +28,7 @@ export interface NightlyReport {
   completed: string[];
   backup: 'skipped' | 'pending' | 'completed';
   cancellation?: 'requested' | 'unconfirmed';
+  recovery?: 'owned-job' | 'no-owned-job' | 'unavailable';
   error?: string;
 }
 interface Dependencies {
@@ -36,7 +38,7 @@ interface Dependencies {
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
   parity?: (deadlineMs: number, signal: AbortSignal) => Promise<number>;
 }
-function jobFrom(value: unknown, kind: JobKind, id?: number): Job {
+function jobFrom(value: unknown, kind: JobKind, id?: number, clientToken?: string): Job {
   const job = (value as { job?: Job } | null)?.job;
   if (
     !job ||
@@ -46,6 +48,7 @@ function jobFrom(value: unknown, kind: JobKind, id?: number): Job {
     job.startedAtMs < 0 ||
     job.kind !== kind ||
     (id !== undefined && job.id !== id) ||
+    (clientToken !== undefined && job.clientToken !== clientToken) ||
     !['running', 'cancelling', 'cancelled', 'succeeded', 'failed'].includes(job.state) ||
     (job.finishedAtMs !== null && !Number.isSafeInteger(job.finishedAtMs))
   )
@@ -142,23 +145,32 @@ export async function runNightly(
     ] as JobKind[]) {
       window.check();
       await gate.run(async () => {
-        const submittedAt = now();
+        const clientToken = crypto.randomUUID();
         try {
-          active = jobFrom(await request('/v1/jobs', { kind }, 'submit'), kind);
+          active = jobFrom(
+            await request('/v1/jobs', { kind, clientToken }, 'submit'),
+            kind,
+            undefined,
+            clientToken
+          );
         } catch (error) {
-          // A lost response can leave an accepted job running. Recover only our new,
-          // same-kind job; an HTTP rejection (especially 409) never grants ownership.
+          // Only the server-echoed token proves ownership after a lost response.
+          // A newer same-kind operator job and HTTP 409 never grant ownership.
           if (!(error instanceof JobHttpFailure)) {
             try {
-              const candidate = jobFrom(await request('/v1/jobs', undefined, 'cleanup'), kind);
+              const value = await request('/v1/jobs', undefined, 'cleanup');
+              report.recovery = 'no-owned-job';
+              const candidate = jobFrom(value, kind);
               if (
-                candidate.startedAtMs >= submittedAt &&
+                candidate.clientToken === clientToken &&
                 candidate.state === 'running' &&
                 candidate.finishedAtMs === null
-              )
+              ) {
                 active = candidate;
+                report.recovery = 'owned-job';
+              } else report.recovery = 'no-owned-job';
             } catch {
-              report.cancellation = 'unconfirmed';
+              report.recovery ??= 'unavailable';
             }
           }
           throw error;
@@ -178,7 +190,7 @@ export async function runNightly(
         await wait(Math.min(options.pollMs, window.remainingMs()), window.signal);
         window.check();
         const id = active.id;
-        active = jobFrom(await gate.run(() => request('/v1/jobs')), kind, id);
+        active = jobFrom(await gate.run(() => request('/v1/jobs')), kind, id, active.clientToken);
       }
       report.completed.push(kind);
       if (kind === 'backup') report.backup = 'completed';
@@ -201,10 +213,16 @@ export async function runNightly(
       report.status === 'incomplete'
         ? 'UTC cutoff or forbidden window; chain incomplete'
         : 'Nightly chain stopped; a step failed, was interrupted or could not be verified';
+    if (report.recovery === 'no-owned-job')
+      report.error += '; no job with the submission token was recovered';
     if (active && active.finishedAtMs === null) {
       // Cancellation is control traffic, admitted even at the stop boundary. Never start more work.
       try {
-        await request('/v1/jobs/cancel', { jobId: active.id }, 'cleanup');
+        await request(
+          '/v1/jobs/cancel',
+          { jobId: active.id, clientToken: active.clientToken },
+          'cleanup'
+        );
         report.cancellation = 'requested';
       } catch {
         report.cancellation = 'unconfirmed';
