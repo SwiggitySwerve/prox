@@ -1,7 +1,7 @@
 [Unit]
 Description=Remove orphaned CLI-Proxy auth lock files
-# No start limit: a bulk delete changes the directory many times, and a tripped limit would put
-# the path unit into a failed state and stop it watching. Each run is cheap and idempotent.
+# No start limit: a tripped limit would leave the unit failed and skip cleanups. Each run is cheap
+# and idempotent; only the 10-minute timer starts it.
 StartLimitIntervalSec=0
 
 [Service]
