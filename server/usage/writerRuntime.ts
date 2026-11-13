@@ -7,6 +7,7 @@ import { normalizeUsagePayload } from './normalize';
 import { WriterQueue } from './writerQueue';
 import {
   isBulkJobKind,
+  bulkJobFailureMessage,
   type UsagePayload,
   type WriterRequest,
   type WriterStatus,
@@ -39,8 +40,12 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
   self.onmessage = (event: MessageEvent<WriterRequest>) => {
     const { id, kind, body } = event.data;
     const bulk = isBulkJobKind(kind) || kind === 'cancel' || kind === 'job-status';
+    const snapshot = () => ({
+      ...status,
+      ...(jobs ? { rollup: { backfill: jobs.backfillReport() } } : {}),
+    });
     const reply = () =>
-      self.postMessage({ id, ok: true, body: { ...status, job: jobs?.report() ?? null } });
+      self.postMessage({ id, ok: true, body: { ...snapshot(), job: jobs?.report() ?? null } });
     if (bulk) {
       try {
         if (!jobs || closing) throw new Error('Writer unavailable');
@@ -48,11 +53,11 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
         else if (isBulkJobKind(kind))
           jobs.start(kind, body && 'clientToken' in body ? body.clientToken : undefined);
         reply();
-      } catch {
+      } catch (error) {
         self.postMessage({
           id,
           ok: false,
-          body: { error: 'Bulk job unavailable or ID differs', fatal: false },
+          body: { error: bulkJobFailureMessage(error), fatal: false },
         });
       }
       return;
@@ -83,7 +88,7 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
           id,
           ok: true,
           body: {
-            ...status,
+            ...snapshot(),
             exporter: {
               ...exporter.snapshot(aliasState.aliases),
               jobs: jobs.health(),
@@ -193,7 +198,7 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
             id,
             ok: true,
             body: {
-              ...status,
+              ...snapshot(),
               resume: {
                 cursor: store.getCursor(body.instance),
                 ...(cursorAt === null ? {} : { cursorAtMs: Number(cursorAt) }),

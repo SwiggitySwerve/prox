@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+export type IoPauseReason = 'io-pressure' | 'io-pacing';
+
 export interface IoClock {
   now(): number;
   sleep(ms: number): Promise<void>;
@@ -128,6 +130,11 @@ export class IoGovernor {
       await this.clock.sleep(Math.min(1000, this.pacingDeadlineMs - this.clock.now()));
     }
     this.pacingDeadlineMs = 0;
+  }
+
+  get pauseReason(): IoPauseReason | null {
+    if (this.clock.now() < this.pacingDeadlineMs) return 'io-pacing';
+    return this.pausedAtMs === null ? null : 'io-pressure';
   }
 
   get counters() {

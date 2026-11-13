@@ -20,14 +20,16 @@ export function startHourlyRollups(store: UsageStore, jobs: UsageBulkJobs, path?
   };
   const run = async () => {
     try {
-      await jobs.runRollupChunk(() => {
+      await jobs.runRollupChunk((onHour) => {
         const book = loader.load().book ?? { version: 1 as const, models: {} };
-        return store.rebuildNextHour(book);
+        return store.rebuildNextHour(book, undefined, onHour);
       }, controller.signal);
     } catch {
       // Replacement is transactional. Failed hours stay raw and retry after an event-loop yield.
       if (!controller.signal.aborted)
-        console.error('Usage hourly rollup rebuild failed; raw events retained');
+        console.error(
+          jobs.backfillReport().lastFailure?.error ?? 'Usage hourly rollup maintenance unavailable'
+        );
     }
   };
   schedule();

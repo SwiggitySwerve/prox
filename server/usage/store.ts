@@ -316,8 +316,8 @@ export class UsageStore {
   }
 
   /** One bounded maintenance job; imports use insert(), so their hours invalidate atomically. */
-  rebuildNextHour(book: RateBook, nowMs = this.now()) {
-    return rebuildNextHour(this.db, book, nowMs);
+  rebuildNextHour(book: RateBook, nowMs = this.now(), onHour?: (hour: number) => void) {
+    return rebuildNextHour(this.db, book, nowMs, onHour);
   }
 
   /** Keep what can be kept of a payload that did not become an event. */

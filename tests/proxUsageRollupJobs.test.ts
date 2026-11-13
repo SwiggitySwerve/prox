@@ -95,6 +95,7 @@ test('bulk HTTP admission is 409 during a rollup wait and between hours until ba
   for (const kind of ['import', 'reconcile', 'prune'])
     expect((await f.submit(kind)).status).toBe(409);
   expect(f.jobs.report()).toBeNull(); // No rejected submission acquires a client token or ID.
+  expect(f.db.query("SELECT key FROM meta WHERE key LIKE 'job-outcome:%'").all()).toEqual([]);
   f.pressure(0);
   await first;
   expect(f.db.query('SELECT count(*) AS n FROM usage_hour_state WHERE dirty = 1').get()).toEqual({
@@ -102,6 +103,7 @@ test('bulk HTTP admission is 409 during a rollup wait and between hours until ba
   });
   expect((await f.submit('prune')).status).toBe(409); // Between chunks, not just synchronous IO.
   await f.drain();
+  expect(f.db.query("SELECT key FROM meta WHERE key LIKE 'job-outcome:%'").all()).toEqual([]);
   const admitted = await f.submit('prune');
   expect(admitted.status).toBe(202);
   expect(await admitted.json()).toMatchObject({

@@ -97,7 +97,8 @@ export function rebuildHour(
 export function rebuildNextHour(
   db: Database,
   book: RateBook,
-  nowMs: number
+  nowMs: number,
+  onHour?: (hour: number) => void
 ): RollupWriteResult | null {
   const closed = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
   const dirty = db
@@ -108,7 +109,10 @@ export function rebuildNextHour(
   `
     )
     .get(closed, bandLayout(book));
-  if (dirty) return rebuildHour(db, dirty.hour_ms, book, nowMs);
+  if (dirty) {
+    onHour?.(dirty.hour_ms);
+    return rebuildHour(db, dirty.hour_ms, book, nowMs);
+  }
   const cursor = Number(
     db
       .query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'rollup:discovery_ms'")
@@ -121,6 +125,7 @@ export function rebuildNextHour(
     .get(cursor, closed);
   if (!next) return null;
   const hour = Math.floor(next.ts_ms / HOUR_MS) * HOUR_MS;
+  onHour?.(hour);
   // Advance only after a successful replacement; a crash can safely repeat an hour.
   const state = db
     .query<{ dirty: number; layout: string }, [number]>(
