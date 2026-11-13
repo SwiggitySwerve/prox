@@ -35,6 +35,20 @@ install -D -m 644 deploy/prox.container "$HOME/.config/containers/systemd/prox.c
 install -D -m 755 deploy/prox-auth-janitor.sh "$HOME/.local/share/prox/prox-auth-janitor.sh"
 install -D -m 644 deploy/prox-auth-janitor.service "$HOME/.config/systemd/user/prox-auth-janitor.service"
 install -D -m 644 deploy/prox-auth-janitor.timer "$HOME/.config/systemd/user/prox-auth-janitor.timer"
+# Install the self-contained usage job bundles that `bun run verify` just built from this commit.
+# Each file is written beside its target and renamed, so a deploy during a run never leaves a
+# half-written script. The nightly job spawns parity, so parity is replaced first.
+usage_jobs_dir="$HOME/.local/share/prox/usage-jobs"
+install -d -m 755 "$usage_jobs_dir"
+for bundle in usage-parity.js usage-nightly.js; do
+  bundle_tmp=$(mktemp "$usage_jobs_dir/.$bundle.XXXXXX")
+  trap 'rm -f -- "$bundle_tmp"' EXIT
+  install -m 644 "dist/usage-jobs/$bundle" "$bundle_tmp"
+  mv -f -- "$bundle_tmp" "$usage_jobs_dir/$bundle"
+  trap - EXIT
+done
+# Fail the deploy now, not at 04:20, if the installed nightly cannot start its sibling parity.
+bun "$usage_jobs_dir/usage-nightly.js" --check-install
 # Ship job schedules disabled. The operator enables them after the migration gates.
 install -D -m 755 deploy/prox-usage-job.sh "$HOME/.local/share/prox/prox-usage-job.sh"
 install -D -m 644 deploy/prox-usage-job@.service "$HOME/.config/systemd/user/prox-usage-job@.service"

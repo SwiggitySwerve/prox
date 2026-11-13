@@ -201,8 +201,9 @@ cutoff. `TimeoutStartSec=7h40min` backs the whole oneshot chain. The previous
 prune/reconcile/backup/parity timers are no longer shipped. The deploy script
 copies the sole timer disabled and retires legacy timers on upgrades: disable/stop,
 remove unit/enable link, then daemon-reload. Missing units are tolerated; manager
-errors stop deployment. Per-job manual units remain available. Templates assume
-`%h/src/prox` and require path review. This work installs or enables nothing.
+errors stop deployment. Per-job manual units remain available. The units run the
+bundles deploy installs in `~/.local/share/prox/usage-jobs/` (see `docs/PROX-SETUP.md`), with
+evidence written to `~/.local/share/prox/usage-evidence/`. This work enables nothing.
 
 A read-only `GET /v1/jobs` observation before event comparison reports whether the
 latest retained job confirms completed exact import/reconcile covering this window's
