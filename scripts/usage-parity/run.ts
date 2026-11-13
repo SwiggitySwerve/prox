@@ -239,7 +239,7 @@ export async function runParity(
         };
         report.responses.push(result);
         report.matrix.pairs_completed++;
-        let replayMore: boolean | undefined;
+        let replayMore: { cpamp: boolean; prox: boolean } | undefined;
         const d5 = needsD5Witness(differences);
         const search =
           !!pq.search?.trim() && differences.some((difference) => difference.class === 'unexplained');
@@ -260,15 +260,14 @@ export async function runParity(
                   if (performance.now() >= deadline) throw new Error('D5 replay deadline exceeded');
                 },
               });
-              if (cpampSearch) report.matrix.search_replays++;
+              if (cpampSearch || !d5) report.matrix.search_replays++;
               else report.matrix.d5_replays++;
               return response;
             }, true);
           const witness: D5Witness = {};
-          if (d5) {
-            witness.priced = await replay(books.priced, pq);
-            witness.unpriced = await replay(books.unpriced, pq);
-          }
+          // The plain replay is Prox's expected value for both the D5 and the search rules.
+          witness.priced = await replay(books.priced, pq);
+          if (d5) witness.unpriced = await replay(books.unpriced, pq);
           if (search) {
             // CPAMP's own database says which events its search document alone matches.
             cpampReader ??= await gate.run(() => openParityReader(options.cpampDb));
@@ -283,7 +282,10 @@ export async function runParity(
                 page === 2 ? nextQuery(item.query, await replay(books.priced, item.query, as)) : null;
               const wq = page === 2 ? (next ?? pq) : pq;
               witness.matched = await replay(books.priced, wq, as);
-              replayMore = witness.matched.requests.has_more;
+              replayMore = {
+                cpamp: witness.matched.requests.has_more,
+                prox: witness.priced.requests.has_more,
+              };
               if (d5) witness.unpricedMatched = await replay(books.unpriced, wq, as);
             }
           }
@@ -300,7 +302,9 @@ export async function runParity(
           pq = nextQuery(item.query, first.prox);
         if (Boolean(cq) !== Boolean(pq)) {
           // A search replay that searches as CPAMP does says whether CPAMP had a second page.
-          const explained = first.replayMore !== undefined && Boolean(cq) === first.replayMore;
+          const more = first.replayMore;
+          const explained =
+            more !== undefined && Boolean(cq) === more.cpamp && Boolean(pq) === more.prox;
           const mismatch: Difference = {
             class: explained ? 'search-cpamp-only' : 'unexplained',
             path: '$.requests.second_page',

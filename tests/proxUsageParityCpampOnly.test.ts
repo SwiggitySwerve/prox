@@ -58,7 +58,7 @@ describe('search-cpamp-only comparison rule', () => {
     const unexplained = compareResponses(cpamp, prox);
     expect(unexplained.length).toBeGreaterThan(5);
     expect(unexplained.every((d) => d.class === 'unexplained')).toBe(true);
-    const known = compareResponses(cpamp, prox, { matched: cpamp });
+    const known = compareResponses(cpamp, prox, { matched: cpamp, priced: prox });
     expect(known.map((d) => d.path)).toEqual(unexplained.map((d) => d.path));
     expect(known.every((d) => d.class === 'search-cpamp-only')).toBe(true);
     // Covers the counters, both breakdown arrays, the selector lists and the request page.
@@ -81,11 +81,11 @@ describe('search-cpamp-only comparison rule', () => {
     reordered.models[1] = Object.fromEntries(
       Object.entries(bucket).reverse()
     ) as unknown as (typeof reordered.models)[number];
-    const known = compareResponses(reordered, prox, { matched: cpamp });
+    const known = compareResponses(reordered, prox, { matched: cpamp, priced: prox });
     expect(known.some((d) => d.path === '$.models[1]')).toBe(true);
     expect(known.every((d) => d.class === 'search-cpamp-only')).toBe(true);
     reordered.models[1].calls += 1;
-    const open = compareResponses(reordered, prox, { matched: cpamp }).filter(
+    const open = compareResponses(reordered, prox, { matched: cpamp, priced: prox }).filter(
       (d) => d.class === 'unexplained'
     );
     expect(open.map((d) => d.path)).toEqual(['$.models[1]']);
@@ -96,12 +96,12 @@ describe('search-cpamp-only comparison rule', () => {
     const real = structuredClone(cpamp);
     real.requests.items[1].trace_id = 'a59914ce6aa7e761-DEN';
     real.requests.items[1].provider = 'other';
-    const result = compareResponses(real, prox, { matched: cpamp });
+    const result = compareResponses(real, prox, { matched: cpamp, priced: prox });
     expect(result.find((d) => d.path === '$.requests.items[1]')!.class).toBe('search-cpamp-only');
     // A changed leaf elsewhere in that item is a real difference.
     real.requests.items[1].latency_ms = 123456;
     expect(
-      compareResponses(real, prox, { matched: cpamp }).find((d) => d.path === '$.requests.items[1]')!
+      compareResponses(real, prox, { matched: cpamp, priced: prox }).find((d) => d.path === '$.requests.items[1]')!
         .class
     ).toBe('unexplained');
   });
@@ -127,25 +127,40 @@ describe('search-cpamp-only comparison rule', () => {
     ]) {
       const real = structuredClone(cpamp);
       change(real);
-      const result = compareResponses(real, prox, { matched: cpamp });
+      const result = compareResponses(real, prox, { matched: cpamp, priced: prox });
       const open = result.filter((d) => d.class === 'unexplained');
       expect(open.length).toBeGreaterThan(0);
       expect(open.length).toBeLessThan(result.length);
     }
   });
 
+  test('a Prox value that its own plain replay does not predict is never excused', () => {
+    const { prox, cpamp } = setup();
+    // Prox's served response drifted from what Prox itself computes for the query.
+    const served = structuredClone(prox);
+    served.summary.input_tokens += 1;
+    served.models[0].calls += 1;
+    const result = compareResponses(cpamp, served, { matched: cpamp, priced: prox });
+    const open = result.filter((d) => d.class === 'unexplained').map((d) => d.path);
+    expect(open).toEqual(['$.summary.input_tokens', '$.models[0].calls']);
+    // Without the independent plain replay nothing can be proved.
+    expect(
+      compareResponses(cpamp, prox, { matched: cpamp }).every((d) => d.class === 'unexplained')
+    ).toBe(true);
+  });
+
   test('a replay that does not reproduce CPAMP value for value explains nothing', () => {
     const { prox, cpamp } = setup();
     const replay = structuredClone(cpamp);
     replay.summary.calls = 5;
-    const result = compareResponses(cpamp, prox, { matched: replay });
+    const result = compareResponses(cpamp, prox, { matched: replay, priced: prox });
     expect(result.find((d) => d.path === '$.summary.calls')!.class).toBe('unexplained');
     expect(result.find((d) => d.path === '$.summary.failure_calls')!.class).toBe(
       'search-cpamp-only'
     );
     // And a witness for an unrelated response proves nothing about this one.
     expect(
-      compareResponses(cpamp, prox, { matched: prox }).every((d) => d.class === 'unexplained')
+      compareResponses(cpamp, prox, { matched: prox, priced: prox }).every((d) => d.class === 'unexplained')
     ).toBe(true);
   });
 });

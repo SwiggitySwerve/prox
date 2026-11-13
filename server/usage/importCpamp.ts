@@ -439,8 +439,8 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
 /**
  * An exact, full import or reconcile pass accounts for every source event up to `verifyMax`.
  * A gap is filled only when its whole interval lies between the first and a later UTC hour
- * of those source events, and no source event inside it has a higher ID: the pass then
- * cannot have missed a CPAMP row there. Open (provisional) gaps are never filled. Verify
+ * of those source events, and no source event that started or completed inside it has a
+ * higher ID: the pass then cannot have missed a CPAMP row there. Open (provisional) gaps are never filled. Verify
  * writes nothing, so it never calls this.
  */
 function fillCoveredGaps(
@@ -454,8 +454,13 @@ function fillCoveredGaps(
   if (!hours.length) return [];
   const first = Math.min(...hours);
   const last = Math.max(...hours);
-  const later = source.query<{ found: number }, [number, number, number]>(
-    'SELECT 1 AS found FROM usage_events WHERE timestamp_ms >= ? AND timestamp_ms < ? AND id > ? LIMIT 1'
+  // A collection gap holds the events that completed in it, so an unverified event counts when
+  // it started or completed inside the interval. Only IDs above the verified maximum are read.
+  const later = source.query<{ found: number }, [number, number, number, number, number]>(
+    `SELECT 1 AS found FROM usage_events WHERE id > ?
+       AND ((timestamp_ms >= ? AND timestamp_ms < ?)
+         OR (latency_ms > 0 AND timestamp_ms + latency_ms >= ? AND timestamp_ms + latency_ms < ?))
+     LIMIT 1`
   );
   const hour = (ms: number) => Math.floor(ms / 3_600_000) * 3_600_000;
   const covered = store
@@ -466,7 +471,7 @@ function fillCoveredGaps(
         gap.from_ms < gap.to_ms &&
         hour(gap.from_ms) >= first &&
         hour(gap.to_ms - 1) < last &&
-        !later.get(gap.from_ms, gap.to_ms, verifyMax)
+        !later.get(verifyMax, gap.from_ms, gap.to_ms, gap.from_ms, gap.to_ms)
     )
     .map((gap) => gap.id);
   store.markGapsFilled(covered, mode, Date.now());

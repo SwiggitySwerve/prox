@@ -302,8 +302,8 @@ the measured interval. Tests inject PSI, the clock and byte counters.
   A full (no `maxRows`) import or reconcile pass whose verification is exact also marks
   open `ingest_gaps` filled (`filled_at_ms`, `filled_by` = job kind). A gap qualifies
   only if it is not a provisional recovery row, its interval lies between the first
-  and a later UTC hour of the verified source events, and CPAMP has no event inside
-  it with an ID above the verified maximum. Limited, inexact and verify passes fill
+  and a later UTC hour of the verified source events, and CPAMP has no event that
+  started or completed inside it with an ID above the verified maximum. Limited, inexact and verify passes fill
   nothing; verify still writes nothing. Filled gaps stay listed (events-level parity
   reads every gap) but no longer make `raw_complete` false. This assumes CPAMP was
   collecting through the gap; an interval CPAMP missed too needs a recorded outage.

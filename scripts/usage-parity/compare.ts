@@ -121,8 +121,10 @@ export interface D5Witness {
   unpriced?: AnalyticsResponse;
   // search-cpamp-only: the same query replayed with exactly the events that CPAMP's search
   // document matches only through fields or field-bridging wildcards that Prox does not have
-  // (see searchCpampOnly.ts). Prox matched them in the replay and nowhere else. `matched` uses the approved book;
-  // `unpricedMatched` also drops the D5 models, for a path that both rules touch.
+  // (see searchCpampOnly.ts), searching as CPAMP's document does. `matched` uses the approved
+  // book; `unpricedMatched` also drops the D5 models, for a path that both rules touch. Prox's
+  // own value must equal the independent plain replay in `priced`, so a difference the replays
+  // do not predict on the Prox side stays unexplained too.
   matched?: AnalyticsResponse;
   unpricedMatched?: AnalyticsResponse;
 }
@@ -170,9 +172,12 @@ export function compareResponses(
   const d5 = witness?.priced && witness.unpriced
     ? permittedDifferences(witness.unpriced, normalizeResponse(witness.priced), COST_PATH)
     : new Map<string, Difference>();
-  // Search: CPAMP's expected value is the replay with the extra matches; Prox's is its own.
-  const search = permittedDifferences(witness?.matched, b);
-  const both = permittedDifferences(witness?.unpricedMatched, b, COST_PATH);
+  // Search: CPAMP's expected value is the CPAMP-document replay, Prox's the plain replay.
+  const plain = witness?.priced ? normalizeResponse(witness.priced) : undefined;
+  const search = plain ? permittedDifferences(witness?.matched, plain) : new Map<string, Difference>();
+  const both = plain
+    ? permittedDifferences(witness?.unpricedMatched, plain, COST_PATH)
+    : new Map<string, Difference>();
   const coverage = coverageDifference(cpamp, prox);
   const differences = diffValues(a, b).filter(
     (d) => !/^\$\.coverage\.limitations(?:\[|\.|$)/.test(d.path)

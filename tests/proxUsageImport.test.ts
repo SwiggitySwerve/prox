@@ -316,6 +316,25 @@ describe('CPAMP migration jobs', () => {
       expect(f.reader.serialize()).toEqual(before);
     });
 
+    test('a source row that completes inside the gap after the verified maximum keeps it open', async () => {
+      const f = fixture();
+      f.store.recordGap(gap(1, 10, 30));
+      let calls = 0;
+      const report = await runCpampJob(f.store, f.source, {
+        mode: 'import',
+        governor: fakeIo().governor,
+        betweenChunks: async () => {
+          // Starts at 01:00:05, before the gap, and completes at 01:00:20, inside it.
+          if (++calls === 2)
+            f.writableSource.add(cpampRow(4, { timestamp_ms: at(1, 5), latency_ms: 15000 }));
+        },
+      });
+      expect(report.maxId).toBe(3);
+      expect(report.verification.exact).toBe(true);
+      expect(report.filledGaps).toEqual([]);
+      expect(filled(f)).toEqual([{ id: 1, filled: 0, filled_by: null }]);
+    });
+
     test('a source row inside the gap that arrived after the verified maximum keeps it open', async () => {
       const f = fixture();
       f.store.recordGap(gap(1, 10, 20));

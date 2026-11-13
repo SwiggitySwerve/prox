@@ -248,6 +248,32 @@ test('a real difference beside the CPAMP-only matches still fails the run', asyn
     f.close();
   }
 });
+test('a missing Prox second page is not excused by a CPAMP-only replay', async () => {
+  const f = parityServers({
+    cpampOnly: true,
+    mutate: (r, backend) => {
+      // Prox's four "needle" matches need a second page at limit 3; drop it.
+      if (backend === 'prox' && r.summary.calls === 4 && r.requests.has_more) {
+        r.requests.has_more = false;
+        r.requests.next_before_ms = null;
+        r.requests.next_before_id = null;
+      }
+    },
+  });
+  try {
+    const signal = new AbortController().signal;
+    const report = await runParity(f.options, signal, { gate: quietGate(signal), nowMs: f.nowMs });
+    expect(report.status).toBe('failed');
+    expect(report.matrix.paging_mismatches).toBeGreaterThan(0);
+    const paging = report.responses
+      .filter((r) => r.prox_query.search === 'needle')
+      .flatMap((r) => r.differences.filter((d) => d.path === '$.requests.second_page'));
+    expect(paging.length).toBeGreaterThan(0);
+    expect(paging.every((d) => d.class === 'unexplained')).toBe(true);
+  } finally {
+    f.close();
+  }
+});
 test('a CPAMP match through a field Prox stores is never excused, even with a Prox replay', async () => {
   const f = parityServers({ cpampOnly: true, storedField: true });
   try {

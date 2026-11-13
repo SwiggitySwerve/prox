@@ -152,7 +152,9 @@ Explicit counted rules:
   identifiers only the request ID) with exactly those events added to the match
   (provider, model and outcome filters still apply; page 2 starts at the replay's own
   cursor; a one-sided second page counts as known only if the replay agrees on it). A difference is known only if CPAMP's value equals the
-  replay's and Prox's value equals Prox's own; objects compare irrespective of key
+  replay's and Prox's served value equals an independent plain replay of the same
+  query (so drift on the Prox side is never excused); a one-sided second page needs
+  both backends' availability to match their replays; objects compare irrespective of key
   order, with `provider` and `trace_id` of a whole request item left to their own
   rules. Any other difference in the pair stays unexplained, and an event that
   matches through a stored field is never claimed, so a Prox miss there stays a
