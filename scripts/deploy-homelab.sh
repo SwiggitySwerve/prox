@@ -6,10 +6,6 @@ cd "$repo"
 # node, npm and bun live in ~/.local/bin, which only login shells add to PATH;
 # `systemd-run --user` starts with a bare PATH and fails with `node: command not found`.
 export PATH="$HOME/.local/bin:$PATH"
-if [[ ! -s "$HOME/.config/prox/cpa-admin-key" ]]; then
-  echo 'Missing private CPA admin credential: see Analytics in docs/PROX-SETUP.md.' >&2
-  exit 1
-fi
 if [[ ! -r "$HOME/.config/cli-proxy-rerank/management-key" ]] || \
    [[ ! -s "$HOME/.config/cli-proxy-rerank/management-key" ]]; then
   echo 'Missing readable, non-empty proxy management key.' >&2

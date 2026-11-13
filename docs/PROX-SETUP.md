@@ -216,24 +216,36 @@ local checks. Inference and CPA-Manager-Plus container start timestamps remain
 unchanged from before the Prox work.
 # Analytics
 
-The Observe sidebar's **Analytics** page reads retained request events from CPA
-Manager. It includes Overview, Tokens & Cache, Cost, Performance, Requests and
+The Observe sidebar's **Analytics** page reads retained request events from
+prox-usage. It includes Overview, Tokens & Cache, Cost, Performance, Requests and
 Model Rates. Filters and chart drilldowns share the same server-side query; request
 pages use stable timestamp/ID cursors. The request inspector shows an allowlisted
 projection, never raw request bodies, headers or credential files.
 
 `deploy/provider-sources.json` explicitly grants the history management key access
-to the complete `homelab` CPA dataset. The `analytics` entry fixes the CPA origin
-and references `/run/secrets/cpa-admin-key`. Install the existing CPA admin key
-privately at `~/.config/prox/cpa-admin-key` with mode 0600; the history container
-mounts it read-only. This credential is separate from proxy management and client
-inference keys and is never sent to the browser. This grant is for the trusted
-homelab administrator, not for tenants with different data permissions.
+to the complete `homelab` usage dataset. The `analytics` entry fixes the prox-usage
+origin (`http://127.0.0.1:18320`, loopback only; `prox-history` reaches it over
+`Network=host`, as it reached CPA-Manager-Plus on 18317) and references
+`/run/secrets/proxy-management-key`, the management key the container already
+mounts for `history`. prox-usage checks the same key, so no second secret is
+mounted and nothing new is exposed. The key is never sent to the browser. This grant
+is for the trusted homelab administrator, not for tenants with different data
+permissions.
 
 The existing `/v8/management/prox/analytics` route reaches the authenticated Prox
-server, which calls CPA's dedicated `/v0/management/monitoring/prox-analytics`
-endpoint. This is the CPA server's contract, not a fallback to an older proxy API.
-The inference instances remain on v8. CPA remains the sole usage queue consumer.
+server, which calls prox-usage's `/v0/management/monitoring/prox-analytics`, an
+alias of its `/v1/analytics` kept for this switch and removed in plan P10. The
+response contract is unchanged. The inference instances remain on v8. prox-usage
+and CPA-Manager-Plus both consume the usage queue until CPA-Manager-Plus is stopped.
+
+**Rollback:** `git revert` the P7 merge and run `scripts/deploy-homelab.sh`. That
+restores the old `analytics` values (`"upstreamOrigin": "http://127.0.0.1:18317"`,
+`"adminKeyFile": "/run/secrets/cpa-admin-key"`) and the key mount line
+`Volume=%h/.config/prox/cpa-admin-key:/run/secrets/cpa-admin-key:ro` in
+`deploy/prox-history.container`. `~/.config/prox/cpa-admin-key` stays on the host:
+the nightly and parity jobs read it for the CPAMP guard and comparison until
+CPA-Manager-Plus is retired, so rollback needs no new secret.
+
 Registered model lists are read independently from every configured source using
 that source's client key. Source failures remain visible in the rate table.
 
