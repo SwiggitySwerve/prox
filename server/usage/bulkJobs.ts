@@ -3,7 +3,12 @@ import { loadBackupConfig, UsageBackup } from './backup';
 import { runCpampJob } from './importCpamp';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoGovernorOptions } from './ioGovernor';
 import { openUsageReader, type RawPruneCursor, type UsageStore } from './store';
-import type { BulkJobConfig, BulkJobKind, BulkJobReport } from './writerProtocol';
+import {
+  isBulkJobClientToken,
+  type BulkJobConfig,
+  type BulkJobKind,
+  type BulkJobReport,
+} from './writerProtocol';
 
 export class UsageBulkJobs {
   private governor: IoGovernor | null = null;
@@ -29,10 +34,13 @@ export class UsageBulkJobs {
     };
   }
 
-  start(kind: BulkJobKind): BulkJobReport {
+  start(kind: BulkJobKind, clientToken?: string): BulkJobReport {
+    if (clientToken !== undefined && !isBulkJobClientToken(clientToken))
+      throw new Error('Invalid client token');
     if (this.closing || this.active) throw new Error('Bulk job unavailable');
     this.latest = {
       id: ++this.nextId,
+      ...(clientToken === undefined ? {} : { clientToken }),
       kind,
       state: 'running',
       startedAtMs: Date.now(),
@@ -47,8 +55,13 @@ export class UsageBulkJobs {
     return this.report()!;
   }
 
-  cancel(jobId: number): BulkJobReport {
+  cancel(jobId: number, clientToken?: string): BulkJobReport {
     if (!this.latest || this.latest.id !== jobId) throw new Error('Bulk job ID differs');
+    if (
+      clientToken !== undefined &&
+      (!isBulkJobClientToken(clientToken) || this.latest.clientToken !== clientToken)
+    )
+      throw new Error('Bulk job client token differs');
     if (this.active) {
       this.latest.state = 'cancelling';
       this.active.controller.abort();

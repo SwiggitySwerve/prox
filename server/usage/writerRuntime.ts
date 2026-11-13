@@ -42,8 +42,9 @@ export function startUsageWriterWorker(governorOptions: IoGovernorOptions = {}):
     if (bulk) {
       try {
         if (!jobs || closing) throw new Error('Writer unavailable');
-        if (kind === 'cancel') jobs.cancel(body.jobId);
-        else if (isBulkJobKind(kind)) jobs.start(kind);
+        if (kind === 'cancel') jobs.cancel(body.jobId, body.clientToken);
+        else if (isBulkJobKind(kind))
+          jobs.start(kind, body && 'clientToken' in body ? body.clientToken : undefined);
         reply();
       } catch {
         self.postMessage({

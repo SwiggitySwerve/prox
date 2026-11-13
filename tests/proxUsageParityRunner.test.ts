@@ -158,15 +158,16 @@ test('CLI uses fixed UTC windows, validates controls, and preserves nightly sett
   expect(() => parseArgs(['--previous-utc-day', '--from', '2026-11-12T00:00:00Z'], now)).toThrow();
   expect(() => parseArgs(['--from', '2026-11-12', '--to', '2026-11-13'], now)).toThrow();
   const service = readFileSync('deploy/prox-usage-parity.service', 'utf8');
-  const timer = readFileSync('deploy/prox-usage-parity.timer', 'utf8');
+  const timer = readFileSync('deploy/prox-usage-nightly.timer', 'utf8');
   expect(service).toContain('/usr/bin/ionice -c3 /usr/bin/nice -n10');
   expect(service).toContain('--previous-utc-day --matrix quick --level both --deadline 12:00Z');
   expect(service).toContain('Type=exec');
-  expect(service).toContain('RuntimeMaxSec=7h30min');
+  expect(service).toContain('RuntimeMaxSec=5h30min');
+  expect(service).not.toMatch(/^(After|Requires|Wants)=.*prox-usage-job@reconcile/m);
   expect(parseArgs(['--previous-utc-day', '--deadline', '12:00Z'], now).deadlineMs).toBe(
     Date.UTC(2026, 10, 13, 12)
   );
-  expect(timer).toContain('OnCalendar=*-*-* 04:30:00 UTC');
+  expect(timer).toContain('OnCalendar=*-*-* 04:20:00 UTC');
   expect(timer).toContain('Persistent=false');
 });
 

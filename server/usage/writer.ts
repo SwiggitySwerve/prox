@@ -139,11 +139,13 @@ export class UsageWriter implements CollectorWriter {
     return (await this.send({ kind: 'exporter', body: null }, 0, false)).exporter!;
   }
 
-  async startJob(kind: BulkJobKind): Promise<BulkJobReport> {
-    return (await this.send({ kind, body: null }, 0, false)).job!;
+  async startJob(kind: BulkJobKind, clientToken?: string): Promise<BulkJobReport> {
+    return (
+      await this.send({ kind, body: clientToken === undefined ? null : { clientToken } }, 0, false)
+    ).job!;
   }
-  async cancelJob(jobId: number): Promise<BulkJobReport> {
-    return (await this.send({ kind: 'cancel', body: { jobId } }, 0, false)).job!;
+  async cancelJob(jobId: number, clientToken?: string): Promise<BulkJobReport> {
+    return (await this.send({ kind: 'cancel', body: { jobId, clientToken } }, 0, false)).job!;
   }
   async jobReport(): Promise<BulkJobReport | null> {
     return (await this.send({ kind: 'job-status', body: null }, 0, false)).job ?? null;

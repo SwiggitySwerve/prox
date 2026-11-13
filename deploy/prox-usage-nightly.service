@@ -1,0 +1,18 @@
+# Template only. Installed disabled; coordinator reviews paths and readiness before enabling.
+[Unit]
+Description=Serial Prox usage prune, reconcile, optional backup and parity
+After=prox-usage.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/prox
+Environment=PATH=%h/.local/bin:%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+# Keep off until the paced snapshot and restore gate land.
+Environment=PROX_USAGE_ENABLE_PACED_BACKUP=0
+ExecStart=/usr/bin/ionice -c3 /usr/bin/nice -n10 bun scripts/usage-nightly.ts
+# From 04:20 to noon. The script also enforces today's absolute noon deadline.
+TimeoutStartSec=7h40min
+KillSignal=SIGINT
+TimeoutStopSec=45
+NoNewPrivileges=yes
+UMask=0077

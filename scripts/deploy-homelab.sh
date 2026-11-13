@@ -39,8 +39,20 @@ install -D -m 644 deploy/prox-auth-janitor.timer "$HOME/.config/systemd/user/pro
 # Ship job schedules disabled. The operator enables them after the migration gates.
 install -D -m 755 deploy/prox-usage-job.sh "$HOME/.local/share/prox/prox-usage-job.sh"
 install -D -m 644 deploy/prox-usage-job@.service "$HOME/.config/systemd/user/prox-usage-job@.service"
-for job in prune reconcile backup; do
-  install -D -m 644 "deploy/prox-usage-$job.timer" "$HOME/.config/systemd/user/prox-usage-$job.timer"
+install -D -m 644 deploy/prox-usage-nightly.service "$HOME/.config/systemd/user/prox-usage-nightly.service"
+install -D -m 644 deploy/prox-usage-nightly.timer "$HOME/.config/systemd/user/prox-usage-nightly.timer"
+install -D -m 644 deploy/prox-usage-parity.service "$HOME/.config/systemd/user/prox-usage-parity.service"
+# Retire independent usage timers on upgrades before reloading the unit graph.
+for retired in prune reconcile backup parity; do
+  timer="prox-usage-$retired.timer"
+  if ! retirement_error=$(LC_ALL=C systemctl --user disable --now "$timer" 2>&1); then
+    case "$retirement_error" in
+      *"not loaded"*|*"does not exist"*|*"not found"*) ;;
+      *) printf '%s\n' "$retirement_error" >&2; exit 1 ;;
+    esac
+  fi
+  rm -f -- "$HOME/.config/systemd/user/$timer" \
+    "$HOME/.config/systemd/user/timers.target.wants/$timer"
 done
 systemctl --user daemon-reload
 systemctl --user enable --now prox-auth-janitor.path prox-auth-janitor.timer

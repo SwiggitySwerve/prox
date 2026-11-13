@@ -2,6 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { UsageAnalyticsQuery } from '../../server/usage/validate';
+import type { ReconcileNote } from './reconcile';
 import type { EventReport, Interval } from './events';
 import { KNOWN_RESPONSE_RULES, type Difference } from './compare';
 import {
@@ -72,6 +73,7 @@ export interface ParityReport {
     known_by_rule: Record<(typeof KNOWN_RESPONSE_RULES)[number], number>;
   };
   events?: EventReport;
+  reconcile?: ReconcileNote;
   responses: ResponseResult[];
   event_differences: Difference[];
   counts: Record<Difference['class'], number>;
@@ -131,10 +133,14 @@ export function writeReport(report: ParityReport, prefix: string) {
     '',
     ...(report.events
       ? [
-          `Events: ${report.events.matched} matched; ${report.events.cpamp_rows} CPAMP / ` +
+          `Events: ${report.events.matched} matched (${report.events.exact_matched} exact); ${report.events.cpamp_rows} CPAMP / ` +
             `${report.events.prox_rows} Prox; ${report.events.gaps.length} recorded gap intervals; complete=${report.events.complete}.`,
+          `Matched by ingest: ${JSON.stringify(report.events.matched_by_ingest)}. Reverse-only rows outside the subscribed cohort: ${JSON.stringify(report.events.reverse_only_omitted_by_ingest)}.`,
           '',
         ]
+      : []),
+    ...(report.reconcile
+      ? [`Reconcile before comparison: ${report.reconcile.status}. ${report.reconcile.message}`, '']
       : []),
     ...Object.entries(report.counts).map(([kind, count]) => `- ${kind}: ${count}`),
     '',
@@ -190,6 +196,7 @@ export function createReport(options: ParityOptions, nowMs: number): ParityRepor
       'coverage-limitations': 0,
       'drained-during-cpamp-outage': 0,
       'ingest-gap': 0,
+      'ttft-zero-null': 0,
     },
   };
 }

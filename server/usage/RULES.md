@@ -427,10 +427,12 @@ drill. This PR does not contact MinIO, run a real backup or perform a restore dr
   never accepts file paths, budget overrides or backup credentials.
 - Nothing starts a bulk job at boot. Deployment copies optional timers without enabling them. On the existing listener at
   `127.0.0.1:18320`, the coordinator explicitly calls:
-  - `POST /v1/jobs` with exactly `{"kind":"import"}` (or `reconcile`, `verify`,
+  - `POST /v1/jobs` with `{"kind":"import"}` (or `reconcile`, `verify`,
     `backup`, `prune`): 202 with the running report, 409 if a job is already active.
-  - `POST /v1/jobs/cancel` with exactly `{"jobId":1}`: 202; stale IDs return 409.
-    Cancellation is idempotent for the latest finished job. Poll until settled.
+  - `POST /v1/jobs/cancel` with `{"jobId":1}`: 202; stale IDs return 409.
+    Cancellation is idempotent for the latest finished job. Both commands accept
+    optional `clientToken`; accepted tokens are echoed in the report and cancellation
+    checks supplied tokens atomically (ownership contract below). Poll until settled.
   - `GET /v1/jobs`: latest report or null. `GET /v1/status` includes the same
     progress under `writer.job`. Both reads refresh the report through worker RPC.
   These routes use `server/http/auth.ts`'s same bearer check as `/v1/status`;
@@ -467,9 +469,9 @@ models, provider, tier, failure, status, flags and record kind, plus exporter
 account, account-label and client-key-hash dimensions. The import owner's account
 SQL fallback (`nullif(snapshot,'')`, then nullable label, then credential index)
 is applied to persisted fields, preserving empty labels, whitespace and key-hash
-case. No label snapshot timing exception is authorized by this harness. A missing Prox event is
-explained only by a matching instance/time in `ingest_gaps`; a Prox-only drained
-event needs an explicit, documented CPAMP outage interval. Subscribed extras fail.
+case. No label snapshot timing exception is authorized by this harness. Missing
+Prox events require recorded gap evidence as defined below. Subscribed extras fail;
+optional outage provenance for reverse-only drained rows is counted separately.
 
 All operations share the existing IO governor and one serial query gate, with a
 2-second default minimum gap after completion, cancellable PSI waits, measured
@@ -493,7 +495,7 @@ never rolls the cutoff into tomorrow. The earliest deadline/forbidden boundary
 aborts fetches and PSI/pacing waits, and is rechecked at synchronous boundaries.
 An incomplete run writes `complete=false`, its termination reason and partial
 counts, then exits 2 (unexplained differences exit 1; SIGINT exits 130). The user
-unit passes `--deadline 12:00Z` and uses `Type=exec` plus `RuntimeMaxSec=7h30min`
+unit passes `--deadline 12:00Z` and uses `Type=exec` plus `RuntimeMaxSec=5h30min`
 as a backstop. None of these templates is installed or enabled by this work.
 
 The matrix is ported from CPAMP commit `52b12b45e010a766bd69ff55a55e566263d8bede`.
@@ -501,9 +503,27 @@ Its current source has 672 quick / 5,904 full base queries, with coupled view
 rotation rather than extra time-zone/granularity factors. All view slots are kept
 and mapped to UTC. Each backend supplies its own second-page cursor. Reports
 reconcile the stale plan counts, expose each axis and window clipping, and retain
-both values for every difference. The disabled user timer template runs quick
-plus events for the previous UTC day at 04:30 UTC; installation and the two-night
-cutover decision belong to the coordinator.
+both values for every difference. The disabled nightly chain runs quick plus
+events for the previous UTC day only after maintenance succeeds; installation
+and the two-night cutover decision belong to the coordinator.
+
+Forward CPAMP→Prox event parity compares full fields across every ingest kind;
+reverse parity requires only subscribed (`ingest=0`) rows. Accepted matches and
+reverse-only rows outside that cohort are counted separately by ingest kind.
+Only CPAMP persisted TTFT zero → Prox null with CPAMP metadata decoding to
+unknown/unavailable instrumentation is accepted under `ttft-zero-null`.
+Measured zeros (first-byte, substantive-content, fallback-packet), latency and
+reverse null → zero stay strict. A missing row can use a recorded same-instance
+gap only when its positive persisted latency places completion inside the exact
+half-open interval, with zero tolerance; either outside bound fails.
+No restart implies an unrecorded gap. Gap metadata reads may extend past the
+start-time window; CPAMP event scans do not.
+
+A read-only job-status observation notes whether the latest retained successful,
+exact import/reconcile completed for the observed window's source IDs. Unknown or
+unavailable history is stated as such. It is informational in the read-only parity command: it starts no reconcile,
+and missing events remain unexplained until they exist and compare equal. The
+separate nightly chain below serializes maintenance before invoking parity.
 
 ## Analytics queries
 
@@ -596,17 +616,41 @@ keep a bounded 1,000-id scan, including fresh rows, without a startup index buil
 pruned. Each page uses the shared 4 MB/s read-plus-write governor and yields to live
 batches. A failed raw transaction fails only the bulk job; collection continues.
 
-`deploy/prox-usage-job@.service` submits a bearer-protected POST; the key is read
-by its installed shell script and piped as a header, never placed in curl's argv or logs. Timers
-run prune at 04:20 UTC, reconcile at 04:40 UTC and backup at 05:10 UTC. They are
-nonpersistent, so a missed run cannot catch up during the 01:00–04:00 or 12:30 IO
-windows. The deployment script copies units only; fresh installs stay disabled.
-Manual enablement is an operator migration step. A running job rejects overlapping
-starts with 409; inspect its report and retry manually rather than queueing bulk IO.
+`deploy/prox-usage-job@.service` remains a manual bearer-protected submission
+unit; its shell script reads the key and pipes the header, never using curl argv.
+The sole shipped nightly timer is `prox-usage-nightly.timer`, nonpersistent at
+04:20 UTC, installed disabled. Its oneshot calls `scripts/usage-nightly.ts` under
+ionice/nice: prune → reconcile → optional backup → parity. Each job is polled
+through GET `/v1/jobs` until `succeeded` AND `finishedAtMs` is present, so source
+cleanup releases the bulk slot before the next start. A failure, replaced job,
+HTTP error or nonzero parity stops the chain; incomplete parity remains exit 2.
+Every admission and wait uses the same PSI/UTC gates and today's noon cutoff.
+At cutoff/interruption the chain requests cancellation of its active job and
+starts no further step; cancellation request success is not a terminal-success
+claim. Submit POSTs use an independent 15-second timeout so cutoff/interruption
+does not lose the accepted ID. Ambiguous response failures trigger a bounded
+status read; only a running same-kind job echoing the submission's unique
+`clientToken` grants cancellation ownership. Kind/time matching never does.
+The token is generated before each POST, carried through writer RPC and retained
+in the job report. POST `/v1/jobs` accepts optional `clientToken` (1–64 ASCII
+letters/digits/underscore/hyphen); malformed values are 400. Cancellation carries
+the same token and the worker atomically refuses mismatches with 409. Existing
+manual commands without a token retain their behavior; the token supplements,
+and never replaces, bearer authentication. Recovery without an exact match
+starts/cancels nothing else and reports `no-owned-job`. HTTP rejection
+(especially 409) never grants ownership.
+The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
+absolute noon deadline. The standalone parity service keeps `RuntimeMaxSec=5h30min`.
+The old independent prune/reconcile/backup/parity timers are removed from shipping;
+deployment disables/stops each old timer and removes its unit/enable link before
+daemon-reload, tolerating missing units but failing on manager errors. The new
+chain timer stays disabled until operator enablement.
+No live unit is installed, enabled or disabled by this work.
 
-**Backup timer gate:** keep it disabled until the tracked paced backup snapshot
-follow-up replaces the indivisible VACUUM snapshot. Upload pacing alone does not
-make the snapshot bounded. No timer enablement or live install is part of this work.
+**Backup chain gate:** `PROX_USAGE_ENABLE_PACED_BACKUP` defaults to `0`, so the
+step is explicitly skipped until the paced snapshot and restore gates land.
+Only then may the operator set `1` through the nightly service override. Upload
+pacing alone does not make the current VACUUM snapshot bounded.
 
 
 ## Exporter lifetime counters and client names

@@ -16,7 +16,8 @@ export type DifferenceClass =
   | 'detail-trace'
   | 'coverage-limitations'
   | 'drained-during-cpamp-outage'
-  | 'ingest-gap';
+  | 'ingest-gap'
+  | 'ttft-zero-null';
 export interface Difference {
   class: DifferenceClass;
   path: string;

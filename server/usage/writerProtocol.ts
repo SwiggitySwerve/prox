@@ -9,6 +9,15 @@ export type BulkJobKind = (typeof BULK_JOB_KINDS)[number];
 export function isBulkJobKind(value: unknown): value is BulkJobKind {
   return typeof value === 'string' && BULK_JOB_KINDS.some((kind) => kind === value);
 }
+/** Optional caller ownership marker, not a substitute for management authentication. */
+export function isBulkJobClientToken(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length >= 1 &&
+    value.length <= 64 &&
+    !/[^A-Za-z0-9_-]/.test(value)
+  );
+}
 export interface BulkJobConfig {
   cpampPath?: string;
   backupConfigPath?: string;
@@ -16,6 +25,7 @@ export interface BulkJobConfig {
 }
 export interface BulkJobReport {
   id: number;
+  clientToken?: string;
   kind: BulkJobKind;
   state: 'running' | 'cancelling' | 'cancelled' | 'succeeded' | 'failed';
   startedAtMs: number;
@@ -125,8 +135,8 @@ export type WriterRequest =
   | { id: number; kind: 'recovery'; body: { gap: IngestGap; requireAnchor: boolean } }
   | { id: number; kind: 'gap'; body: IngestGap }
   | { id: number; kind: 'heartbeat'; body: { instance: string; atMs: number } }
-  | { id: number; kind: BulkJobKind; body: null }
-  | { id: number; kind: 'cancel'; body: { jobId: number } }
+  | { id: number; kind: BulkJobKind; body: { clientToken?: string } | null }
+  | { id: number; kind: 'cancel'; body: { jobId: number; clientToken?: string } }
   | { id: number; kind: 'job-status' | 'exporter'; body: null }
   | { id: number; kind: 'flush' | 'close'; body: null };
 export type WriterReply =

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   compareEvents,
@@ -17,6 +17,8 @@ import {
 import { queryAnalytics } from '../server/usage/analytics';
 import { query, rateState } from './helpers/usageAnalytics';
 import { usagePayloadNumber } from './fixtures/usagePayloads';
+import { parseArgs } from '../scripts/usage-parity';
+import { runParity } from '../scripts/usage-parity/run';
 import { UsageStore } from '../server/usage/store';
 import type { NormalizedEvent } from '../server/usage/types';
 import type { Difference } from '../scripts/usage-parity/compare';
@@ -121,17 +123,18 @@ describe('read-only event parity', () => {
     f.insert({ ...f.events[0], executionId: 'target-only-imported' }, 2);
     const report = await f.run();
     expect(report.matched).toBe(1);
-    expect(report.excluded_imported_or_replayed).toBe(1);
+    expect(report.reverse_only_omitted_by_ingest.imported).toBe(1);
     expect(f.differences).toHaveLength(2);
     expect(f.differences.every((d) => d.class === 'unexplained')).toBe(true);
   });
-  test('drained exceptions require a matching instance/time and documented CPAMP outage', async () => {
+  test('reverse-only drained rows are counted outside the subscribed cohort, with optional outage provenance', async () => {
     const f = fixture();
     f.insert(f.events[0]);
     const drained = { ...f.events[0], executionId: 'drained-extra' };
     f.insert(drained, 1);
-    await f.run();
-    expect(f.differences[0].class).toBe('unexplained');
+    const report = await f.run();
+    expect(f.differences).toEqual([]);
+    expect(report.reverse_only_omitted_by_ingest.drained).toBe(1);
     f.differences.length = 0;
     const outage = {
       from_ms: START,
@@ -146,14 +149,14 @@ describe('read-only event parity', () => {
     });
     f.differences.length = 0;
     await f.run([{ ...outage, instance: 'other-instance' }]);
-    expect(f.differences[0].class).toBe('unexplained');
+    expect(f.differences).toEqual([]);
   });
   test('ingest gaps explain missing events only in the same instance and interval', async () => {
     const f = fixture();
     f.store.recordGap({
       instance: f.events[0].instance!,
       fromMs: START,
-      toMs: START + 100,
+      toMs: START + 2000,
       reason: 'subscription-dropped',
     });
     const report = await f.run();
@@ -163,7 +166,7 @@ describe('read-only event parity', () => {
     other.store.recordGap({
       instance: 'unrelated',
       fromMs: START,
-      toMs: START + 100,
+      toMs: START + 2000,
       reason: 'subscription-dropped',
     });
     await other.run();
@@ -408,4 +411,264 @@ test('a later valid duplicate cannot overwrite a rejected metadata event', async
       (d) => (d.cpamp as { error?: string })?.error === 'non-canonical CPAMP metadata encoding'
     )
   ).toBe(true);
+});
+
+test('TTFT zero-to-null is counted as equivalent only in the CPAMP-to-Prox direction', async () => {
+  const f = fixture();
+  f.cpamp.db.exec(
+    `UPDATE usage_events SET ttft_ms=0,raw_json=json_set(raw_json,'$.ttft_method','unavailable')`
+  );
+  f.insert({ ...f.events[0], ttftMs: null });
+  const report = await f.run();
+  expect(report).toMatchObject({
+    matched: 1,
+    exact_matched: 0,
+    matched_by_ingest: { subscribed: 1 },
+  });
+  expect(f.differences).toContainEqual({
+    class: 'ttft-zero-null',
+    path: `events.${f.events[0].executionId}.ttft_ms`,
+    cpamp: 0,
+    prox: null,
+  });
+  for (const [source, target] of [
+    [null, 0],
+    [1, null],
+    [-1, null],
+  ] as const) {
+    const other = fixture();
+    other.cpamp.db.query('UPDATE usage_events SET ttft_ms=?').run(source);
+    other.insert({ ...other.events[0], ttftMs: target });
+    expect((await other.run()).matched).toBe(0);
+    expect(other.differences.some((d) => d.class === 'unexplained')).toBe(true);
+  }
+  const latency = fixture();
+  latency.cpamp.db.exec('UPDATE usage_events SET latency_ms=0');
+  latency.insert({ ...latency.events[0], latencyMs: null });
+  expect((await latency.run()).matched).toBe(0);
+  expect(latency.differences[0].class).toBe('unexplained');
+});
+test('forward matches compare every ingest kind, including imported/reconciled and replayed rows', async () => {
+  for (const [ingest, name] of [
+    [0, 'subscribed'],
+    [1, 'drained'],
+    [2, 'imported'],
+    [3, 'replayed'],
+  ] as const) {
+    const f = fixture();
+    f.insert(f.events[0], ingest);
+    const report = await f.run();
+    expect(report.matched).toBe(1);
+    expect(report.exact_matched).toBe(1);
+    expect(report.matched_by_ingest[name]).toBe(1);
+    expect(f.differences).toEqual([]);
+    const drift = fixture();
+    drift.insert(
+      { ...drift.events[0], tokens: { ...drift.events[0].tokens, total: 99999 } },
+      ingest
+    );
+    expect((await drift.run()).matched).toBe(0);
+    expect(drift.differences.some((d) => d.class === 'unexplained')).toBe(true);
+  }
+});
+test('reverse-only rows outside the subscribed cohort are counted separately from forward matches', async () => {
+  const f = fixture();
+  f.insert(f.events[0], 2);
+  for (const ingest of [0, 1, 2, 3] as const)
+    f.insert({ ...f.events[0], executionId: `extra-${ingest}` }, ingest);
+  const report = await f.run();
+  expect(report.matched_by_ingest.imported).toBe(1);
+  expect(report.reverse_only_omitted_by_ingest).toEqual({
+    subscribed: 0,
+    drained: 1,
+    imported: 1,
+    replayed: 1,
+  });
+  expect(f.differences).toHaveLength(1);
+  expect(f.differences[0].path).toBe('events.extra-0');
+});
+test('missing events use persisted completion times strictly inside recorded instance gaps', async () => {
+  const f = fixture(0),
+    restart = START + 60000;
+  for (const [i, instance, startOffset, latency] of [
+    [1, 'codex-primary', -20181, 20345],
+    [2, 'claude-primary', -13692, 14118],
+  ] as const) {
+    f.cpamp.add(
+      cpampRow(i, {
+        timestamp_ms: restart + startOffset,
+        latency_ms: latency,
+        raw_json: JSON.stringify(usagePayloadNumber(i, { instance_id: instance })),
+      })
+    );
+    f.store.recordGap({
+      instance,
+      fromMs: restart,
+      toMs: restart + 1000,
+      reason: 'subscription-dropped',
+    });
+  }
+  expect((await f.run()).matched).toBe(0);
+  expect(f.differences).toHaveLength(2);
+  expect(f.differences.every((d) => d.class === 'ingest-gap')).toBe(true);
+  expect(f.differences.map((d) => (d.prox as { completed_ms: number }).completed_ms)).toEqual([
+    restart + 164,
+    restart + 426,
+  ]);
+  const absent = fixture(0);
+  absent.cpamp.add(cpampRow(1, { timestamp_ms: restart - 20181, latency_ms: 20345 }));
+  await absent.run();
+  expect(absent.differences[0].class).toBe('unexplained');
+});
+test('completion gap checks reject start-only matches, invalid latency and both outside bounds', async () => {
+  for (const [latency, gapFrom, gapTo] of [
+    [10000, START, START + 100],
+    [null, START, START + 100],
+    [0, START, START + 100],
+    [-1, START, START + 100],
+    [3000, START, START + 1000],
+    [1000, START + 1001, START + 2000],
+    [1000, START, START + 1000],
+    [1000, START, START + 999],
+  ] as const) {
+    const f = fixture();
+    f.cpamp.db.query('UPDATE usage_events SET timestamp_ms=?,latency_ms=?').run(START, latency);
+    f.store.recordGap({
+      instance: f.events[0].instance!,
+      fromMs: gapFrom,
+      toMs: gapTo,
+      reason: 'subscription-dropped',
+    });
+    await f.run();
+    expect(f.differences[0].class).toBe('unexplained');
+  }
+  const edge = fixture();
+  edge.cpamp.db.exec(`UPDATE usage_events SET timestamp_ms=${START},latency_ms=1000`);
+  edge.store.recordGap({
+    instance: edge.events[0].instance!,
+    fromMs: START + 1000,
+    toMs: START + 1001,
+    reason: 'subscription-dropped',
+  });
+  await edge.run();
+  expect(edge.differences[0].class).toBe('ingest-gap');
+});
+test('completion gap metadata is looked up beyond the event start-time window', async () => {
+  const f = fixture();
+  f.cpamp.db.exec('UPDATE usage_events SET latency_ms=600000');
+  f.store.recordGap({
+    instance: f.events[0].instance!,
+    fromMs: START + 600000,
+    toMs: START + 601000,
+    reason: 'subscription-dropped',
+  });
+  await f.run();
+  expect(f.differences[0].class).toBe('ingest-gap');
+});
+
+test('unavailable reconcile status does not block an event comparison or imported matches', async () => {
+  const f = fixture();
+  f.insert(f.events[0], 2);
+  const keyPath = join(f.root, 'key');
+  writeFileSync(keyPath, 'synthetic-key');
+  let method = '';
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: (request) => {
+      method = request.method;
+      return new Response('private server body', { status: 503 });
+    },
+  });
+  try {
+    const now = START + 86400000;
+    const options = parseArgs(
+      [
+        '--from',
+        new Date(START).toISOString(),
+        '--to',
+        new Date(START + 300000).toISOString(),
+        '--level',
+        'events',
+        '--cpamp-db',
+        join(f.root, 'cpamp.sqlite'),
+        '--prox-db',
+        join(f.root, 'prox.sqlite'),
+        '--prox-url',
+        `http://127.0.0.1:${server.port}/v1/analytics`,
+        '--prox-key-file',
+        keyPath,
+        '--output',
+        join(f.root, 'report'),
+      ],
+      now
+    );
+    const signal = new AbortController().signal;
+    const report = await runParity(options, signal, { gate: quietGate(signal), nowMs: now });
+    expect(method).toBe('GET');
+    expect(report.status).toBe('passed');
+    expect(report.events?.matched_by_ingest.imported).toBe(1);
+    expect(report.reconcile?.status).toBe('unavailable');
+    expect(JSON.stringify(report)).not.toContain('private server body');
+  } finally {
+    server.stop(true);
+  }
+});
+
+test('both restart losses remain unexplained without a gap until reconciled rows compare equal', async () => {
+  const f = fixture(0),
+    restart = START + 60000;
+  for (const [id, instance, offset, latency] of [
+    [1, 'codex-primary', -20181, 20345],
+    [2, 'claude-primary', -13692, 14118],
+  ] as const) {
+    f.cpamp.add(
+      cpampRow(id, {
+        timestamp_ms: restart + offset,
+        latency_ms: latency,
+        raw_json: JSON.stringify(usagePayloadNumber(id, { instance_id: instance })),
+      })
+    );
+  }
+  const before = await f.run();
+  expect(before.gaps).toEqual([]);
+  expect(before.matched).toBe(0);
+  expect(f.differences).toHaveLength(2);
+  expect(f.differences.every((difference) => difference.class === 'unexplained')).toBe(true);
+  for (const row of f.source
+    .query<CpampSourceRow, []>(`SELECT ${CPAMP_EVENT_COLUMNS} FROM usage_events`)
+    .all()) {
+    f.insert(mapCpampRow(row, cpampPreconditions(), new Set())!, 2);
+  }
+  f.differences.length = 0;
+  const after = await f.run();
+  expect(after.matched_by_ingest.imported).toBe(2);
+  expect(after.exact_matched).toBe(2);
+  expect(f.differences).toEqual([]);
+});
+
+test('measured CPAMP TTFT zeros are never accepted as unreported', async () => {
+  for (const method of ['first-byte', 'substantive-content', 'fallback-packet']) {
+    const f = fixture();
+    f.cpamp.db
+      .query("UPDATE usage_events SET ttft_ms=0,raw_json=json_set(raw_json,'$.ttft_method',?)")
+      .run(method);
+    f.insert({ ...f.events[0], ttftMs: null });
+    expect((await f.run()).matched).toBe(0);
+    expect(f.differences).toContainEqual({
+      class: 'unexplained',
+      path: `events.${f.events[0].executionId}.ttft_ms`,
+      cpamp: 0,
+      prox: null,
+    });
+  }
+  for (const method of ['unknown', 'unavailable', '', 'unsupported']) {
+    const f = fixture();
+    f.cpamp.db
+      .query("UPDATE usage_events SET ttft_ms=0,raw_json=json_set(raw_json,'$.ttft_method',?)")
+      .run(method);
+    f.insert({ ...f.events[0], ttftMs: null });
+    expect((await f.run()).matched).toBe(1);
+    expect(f.differences[0].class).toBe('ttft-zero-null');
+  }
 });

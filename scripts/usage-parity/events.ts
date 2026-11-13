@@ -7,8 +7,10 @@ import {
   cpampReference,
   CPAMP_PARITY_COLUMNS,
   type EventValues,
+  type CpampEventReference,
   type NonCanonicalMetadata,
 } from './cpampReference';
+import { INGEST } from '../../server/usage/types';
 import { DUAL_RUN_START } from './matrix';
 import { diffValues, type Difference } from './compare';
 import type { QueryGate } from './io';
@@ -68,6 +70,27 @@ const TARGET_COLUMNS = `e.seq, e.ingest, d.execution_id, e.ts_ms,
   (SELECT value FROM dim WHERE id=e.tier_id) AS tier,
   e.failed, e.status_code, e.latency_ms, e.ttft_ms, e.input_total, e.input_uncached,
   e.cache_read, e.cache_write, e.output_total, e.reasoning, e.total, e.usage_flags, e.record_kind`;
+type IngestKind = keyof typeof INGEST;
+const INGEST_NAMES = Object.fromEntries(
+  Object.entries(INGEST).map(([kind, code]) => [code, kind])
+) as Record<number, IngestKind>;
+const ingestCounts = () => ({ subscribed: 0, drained: 0, imported: 0, replayed: 0 });
+function completionTime(row: EventValues): number | null {
+  if (row.latency_ms === null || !Number.isSafeInteger(row.latency_ms) || row.latency_ms <= 0)
+    return null;
+  const completed = row.ts_ms + row.latency_ms;
+  return Number.isSafeInteger(completed) ? completed : null;
+}
+function completionOverlaps(row: EventValues, interval: Interval): boolean {
+  const completed = completionTime(row);
+  return (
+    completed !== null &&
+    row.instance === interval.instance &&
+    interval.from_ms < interval.to_ms &&
+    completed >= interval.from_ms &&
+    completed < interval.to_ms
+  );
+}
 const overlaps = (row: EventValues, interval: Interval) =>
   row.instance === interval.instance && row.ts_ms >= interval.from_ms && row.ts_ms < interval.to_ms;
 export interface EventReport {
@@ -76,7 +99,10 @@ export interface EventReport {
   cpamp_rows: number;
   prox_rows: number;
   matched: number;
-  excluded_imported_or_replayed: number;
+  exact_matched: number;
+  matched_by_ingest: Record<IngestKind, number>;
+  reverse_only_omitted_by_ingest: Record<IngestKind, number>;
+  cpamp_max_id: number;
   gaps: Interval[];
   preconditions: ReturnType<typeof cpampPreconditions>;
   windows_completed: number;
@@ -89,7 +115,10 @@ export function createEventReport(fromMs: number, toMs: number): EventReport {
     cpamp_rows: 0,
     prox_rows: 0,
     matched: 0,
-    excluded_imported_or_replayed: 0,
+    exact_matched: 0,
+    matched_by_ingest: ingestCounts(),
+    reverse_only_omitted_by_ingest: ingestCounts(),
+    cpamp_max_id: 0,
     gaps: [],
     preconditions: cpampPreconditions(),
     windows_completed: 0,
@@ -113,17 +142,21 @@ export async function compareEvents(
     result.complete = true;
     return result;
   }
-  result.gaps = await gate.run(
-    () =>
-      target
-        .query<Interval, [number, number]>(
-          `
+  let gapFrom = from;
+  let gapTo = toMs;
+  const loadGaps = () =>
+    gate.run(
+      () =>
+        target
+          .query<Interval, [number, number]>(
+            `
     SELECT instance, from_ms, to_ms, reason FROM ingest_gaps
     WHERE from_ms < ? AND to_ms > ? ORDER BY from_ms, id`
-        )
-        .all(toMs, from),
-    true
-  );
+          )
+          .all(gapTo, gapFrom),
+      true
+    );
+  result.gaps = await loadGaps();
   const readSource = await gate.run(
     () =>
       source.query<CpampSourceRow, [number, number, number, number, number]>(`
@@ -145,7 +178,7 @@ export async function compareEvents(
   const seen = new Set<string>();
   for (let start = from; start < toMs; start += 300_000) {
     const end = Math.min(toMs, start + 300_000);
-    const expected = new Map<string | number, EventValues | NonCanonicalMetadata>();
+    const expected = new Map<string | number, CpampEventReference | NonCanonicalMetadata>();
     const actual = new Map<string, TargetRow>();
     let timestamp = start,
       id = -1;
@@ -153,6 +186,7 @@ export async function compareEvents(
       const rows = await gate.run(() => readSource.all(start, end, timestamp, timestamp, id), true);
       for (const row of rows) {
         result.cpamp_rows++;
+        result.cpamp_max_id = Math.max(result.cpamp_max_id, row.id);
         const event = cpampReference(row, result.preconditions, seen);
         if (!event)
           emit({
@@ -183,6 +217,20 @@ export async function compareEvents(
       timestamp = rows.at(-1)!.ts_ms;
       id = rows.at(-1)!.seq;
     }
+    // Completion can fall outside the requested START-time window. Read gap metadata
+    // there too, without extending any CPAMP event scan or inferring an outage.
+    const completions = [...expected.values()].flatMap((row) => {
+      if ('error' in row || actual.has(row.execution_id)) return [];
+      const point = completionTime(row);
+      return point === null ? [] : [point];
+    });
+    const nextFrom = Math.min(gapFrom, ...completions.map((point) => point));
+    const nextTo = Math.max(gapTo, ...completions.map((point) => point + 1));
+    if (nextFrom !== gapFrom || nextTo !== gapTo) {
+      gapFrom = nextFrom;
+      gapTo = nextTo;
+      result.gaps = await loadGaps();
+    }
     for (const [key, row] of expected) {
       const execution = row.execution_id;
       const found = actual.get(execution);
@@ -197,36 +245,69 @@ export async function compareEvents(
         continue;
       }
       if (!found) {
-        const gap = result.gaps.find((interval) => overlaps(row, interval));
+        const gap = result.gaps.find((interval) => completionOverlaps(row, interval));
         emit({
           class: gap ? 'ingest-gap' : 'unexplained',
           path: `events.${execution}`,
           cpamp: row,
-          prox: gap ? { absent: true, interval: gap } : null,
+          prox: gap
+            ? {
+                absent: true,
+                interval: gap,
+                completed_ms: completionTime(row),
+                tolerance_ms: 0,
+              }
+            : null,
         });
       } else {
         const values: Partial<TargetRow> = { ...found };
         delete values.seq;
         delete values.ingest;
-        const differences = diffValues(row, values, `events.${execution}`);
+        const { ttft_method, ...reference } = row;
+        const differences = diffValues(reference, values, `events.${execution}`).map(
+          (difference): Difference =>
+            difference.path === `events.${execution}.ttft_ms` &&
+            difference.cpamp === 0 &&
+            difference.prox === null &&
+            (ttft_method === 'unknown' || ttft_method === 'unavailable')
+              ? { ...difference, class: 'ttft-zero-null' }
+              : difference
+        );
+        const kind = INGEST_NAMES[found.ingest];
+        if (!kind)
+          differences.push({
+            class: 'unexplained',
+            path: `events.${execution}.ingest`,
+            cpamp: { allowed: Object.values(INGEST) },
+            prox: found.ingest,
+          });
         differences.forEach(emit);
-        if (!differences.length) result.matched++;
+        if (!differences.some((difference) => difference.class === 'unexplained')) {
+          result.matched++;
+          result.matched_by_ingest[kind]++;
+          if (!differences.length) result.exact_matched++;
+        }
         actual.delete(execution);
       }
     }
     for (const [execution, row] of actual) {
-      if (row.ingest === 2 || row.ingest === 3) {
-        result.excluded_imported_or_replayed++;
+      const kind = INGEST_NAMES[row.ingest];
+      if (kind && row.ingest !== INGEST.subscribed) {
+        result.reverse_only_omitted_by_ingest[kind]++;
+        const outage =
+          row.ingest === INGEST.drained
+            ? outages.find((interval) => overlaps(row, interval))
+            : undefined;
+        if (outage)
+          emit({
+            class: 'drained-during-cpamp-outage',
+            path: `events.${execution}`,
+            cpamp: { absent: true, interval: outage },
+            prox: row,
+          });
         continue;
       }
-      const outage =
-        row.ingest === 1 ? outages.find((interval) => overlaps(row, interval)) : undefined;
-      emit({
-        class: outage ? 'drained-during-cpamp-outage' : 'unexplained',
-        path: `events.${execution}`,
-        cpamp: outage ? { absent: true, interval: outage } : null,
-        prox: row,
-      });
+      emit({ class: 'unexplained', path: `events.${execution}`, cpamp: null, prox: row });
     }
     result.windows_completed++;
   }
