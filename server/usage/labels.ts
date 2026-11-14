@@ -42,7 +42,8 @@ export class CredentialLabels {
           const label = text(entry.label);
           // The backend omits account for API keys. Also guard it here: it can be a raw key.
           const account = entry.account_type === 'api_key' ? '' : text(entry.account);
-          if (index) next.set(index, { account: account || label || index, label });
+          // The listing's file name is what CPAMP records as the credential file snapshot.
+          if (index) next.set(index, { account: account || label || index, label, file: text(entry.name) });
         }
         this.labels = next;
       })

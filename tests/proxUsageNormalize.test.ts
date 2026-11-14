@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { normalizeUsagePayload } from '../server/usage/normalize';
 import { RECORD_KIND, USAGE_FLAG, type NormalizedEvent } from '../server/usage/types';
-import { SECRET, usagePayload } from './fixtures/usagePayloads';
+import { FAIL_BODY, SECRET, usagePayload } from './fixtures/usagePayloads';
 
 function normalize(overrides: Record<string, unknown> = {}) {
   return normalizeUsagePayload(JSON.stringify(usagePayload(overrides)));
@@ -344,13 +344,17 @@ describe('usage payload normalization: identity and request fields', () => {
   test('no secret survives normalization, in the event or in the raw payload', () => {
     const result = normalize({
       failed: true,
-      fail: { status_code: 429, body: SECRET.failBody, code: 'rate_limited' },
+      fail: { status_code: 429, body: `${FAIL_BODY} ${SECRET.failKey}`, code: 'rate_limited' },
       endpoint: `POST /v1/messages?key=${SECRET.query}`,
       brand_new_field: SECRET.unknownField,
     });
     const serialized = JSON.stringify(result);
     for (const secret of Object.values(SECRET)) expect(serialized).not.toContain(secret);
+    // The failure text is kept, scrubbed, as the event's summary; the raw buffer never keeps it.
+    expect(serialized.split(FAIL_BODY)).toHaveLength(2);
     if (result.kind !== 'event') throw new Error('expected an event');
+    expect(result.event.failSummary).toBe(`${FAIL_BODY} [redacted]`);
+    expect(result.raw.json).not.toContain(FAIL_BODY);
     expect(result.event.statusCode).toBe(429);
     expect(result.event.failed).toBe(true);
     expect(result.event.path).toBe('/v1/messages');

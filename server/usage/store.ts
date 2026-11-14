@@ -50,7 +50,10 @@ const EVENT_DIMENSIONS: Record<string, DimKind> = {
   requested_tier_id: 'tier',
   effective_tier_id: 'tier',
   auth_index_id: 'auth_index',
+  auth_file_id: 'auth_file',
 };
+/** The only stored fields a later CPAMP pass may fill: they are NULL on rows that predate them. */
+const FILLABLE_FIELDS = ['auth_file_id', 'header_trace_id', 'fail_summary'];
 
 export type ImportValues = Record<string, string | number | null>;
 export interface RawPruneCursor {
@@ -116,6 +119,7 @@ const EVENT_COLUMNS = [
   'effective_tier_id',
   'session_id',
   'auth_index_id',
+  'auth_file_id',
   'ingest',
 ] as const;
 const DETAIL_COLUMNS = [
@@ -127,6 +131,8 @@ const DETAIL_COLUMNS = [
   'session_id',
   'parent_session_id',
   'trace_id',
+  'header_trace_id',
+  'fail_summary',
   'upstream_start_ms',
   'first_response_ms',
   'first_content_ms',
@@ -594,7 +600,7 @@ export class UsageStore {
   importChunk(
     events: readonly NormalizedEvent[],
     lastId: number
-  ): InsertResult & { conflicts: number } {
+  ): InsertResult & { conflicts: number; filled: number } {
     const firstSeq = this.nextSeq;
     let committed: Stored[] = [];
     try {
@@ -609,8 +615,15 @@ export class UsageStore {
           )
         `);
           let conflicts = 0;
+          let filled = 0;
           for (const inspection of inspections) {
             for (const diff of inspection.differences) {
+              // The one update of a stored row: a NULL search field CPAMP has a value for.
+              // A stored value is never replaced; a different one is a conflict like any other.
+              if (FILLABLE_FIELDS.includes(diff.field) && diff.live === null && diff.imported !== null) {
+                filled += this.fillSearchField(inspection.stored!, diff.field, diff.imported);
+                continue;
+              }
               conflicts += conflict.run(
                 diff.executionId,
                 diff.field,
@@ -630,7 +643,12 @@ export class UsageStore {
           );
           committed = stored;
           this.setMeta('import:cpamp:last_id', String(lastId));
-          return { inserted: stored.length, duplicates: events.length - stored.length, conflicts };
+          return {
+            inserted: stored.length,
+            duplicates: events.length - stored.length,
+            conflicts,
+            filled,
+          };
         })
         .immediate();
       this.onCommit?.(committed.map(({ item }) => item.event));
@@ -640,6 +658,17 @@ export class UsageStore {
       this.dims.clear();
       throw error;
     }
+  }
+
+  private fillSearchField(stored: ImportValues, field: string, value: string): number {
+    if (field === 'auth_file_id') {
+      return this.db
+        .query('UPDATE events SET auth_file_id = ? WHERE ts_ms = ? AND seq = ? AND auth_file_id IS NULL')
+        .run(this.dim('auth_file', value), Number(stored.ts_ms), Number(stored.seq)).changes;
+    }
+    return this.db
+      .query(`UPDATE event_detail SET ${field} = ? WHERE seq = ? AND ${field} IS NULL`)
+      .run(value, Number(stored.seq)).changes;
   }
 
   /** Canonical events for the startup/threshold fold; ordinary scrapes use no SQL. */
@@ -780,6 +809,7 @@ export class UsageStore {
         ? this.session(event.session, event.parentSession)
         : (event.session?.uuid ?? null),
       auth_index_id: event.authIndex,
+      auth_file_id: event.authFile,
       ingest,
     };
     if (intern) {
@@ -802,6 +832,8 @@ export class UsageStore {
       session_id: event.session?.uuid ?? null,
       parent_session_id: event.parentSession?.uuid ?? null,
       trace_id: event.traceId,
+      header_trace_id: event.headerTraceId,
+      fail_summary: event.failSummary,
       upstream_start_ms: event.timing?.upstreamStartMs ?? null,
       first_response_ms: event.timing?.firstResponseMs ?? null,
       first_content_ms: event.timing?.firstContentMs ?? null,

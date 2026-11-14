@@ -12,7 +12,9 @@ unit, not part of the history server.
   connection, in the writer worker; every write is a job in its queue. Readers
   are read-only and bounded by the request deadline.
 - An event's identity is its `execution_id`. Inserts are idempotent. Rows are
-  never updated after insertion; a correction is a typed, tested migration.
+  never updated after insertion; a correction is a typed, tested migration. The one
+  exception is the three search fields added by migration 4 (below): an import or
+  reconcile pass fills one that is NULL, once, and never replaces a stored value.
 - Tokens come from the proxy's canonical breakdown. No provider-specific
   inference is added here; a record without a complete breakdown is kept,
   flagged and priced as partial.
@@ -27,9 +29,12 @@ unit, not part of the history server.
   import or reconcile pass has accounted for is marked filled (`filled_at_ms`,
   `filled_by`) and stops counting; the row and its audit record stay.
 - Stored and returned fields are an allowlist. Client keys are stored only as
-  SHA-256; fail bodies, response headers and credential files are never stored.
-  Account labels come from the proxies' credential listing through the
-  management API, never from files on disk.
+  SHA-256. Fail bodies and response headers are never stored as such; three
+  derived values are, because CPAMP search finds events by them: the scrubbed
+  failure text (`fail_summary`), the response trace id (`header_trace_id`) and the
+  credential file name (`auth_file_snapshot`), described under Search. The raw
+  buffer still keeps none of them. Account labels and file names come from the
+  proxies' credential listing through the management API, never from files on disk.
 - Search is bounded by the requested range. A query with a search term never
   occupies the fast lane.
 - A management authentication failure backs off for at least a minute; the
@@ -486,7 +491,11 @@ Nullable timing offsets and unrelated extension keys retain their existing meani
 
 The harness compares the seven token fields and the event identity, timing,
 models, provider, tier, failure, status, flags and record kind, plus exporter
-account, account-label and client-key-hash dimensions. The import owner's account
+account, account-label and client-key-hash dimensions, and the credential file,
+response trace id and failure text (CPAMP's empty string and a NULL are the same
+absence). Those three have no member in CPAMP's Prox-shaped response items, so the
+response comparison drops them from request items on both sides and this event
+comparison is where they are checked. The import owner's account
 SQL fallback (`nullif(snapshot,'')`, then nullable label, then credential index)
 is applied to persisted fields, preserving empty labels, whitespace and key-hash
 case. No label snapshot timing exception is authorized by this harness. Missing
@@ -604,29 +613,59 @@ separate nightly chain below serializes maintenance before invoking parity.
   additionally try indexed exact execution/request/session matches. Substring
   fallback remains, including CPAMP's SQL LIKE wildcards, ASCII SQL lower(), and
   Unicode-lowercased query. It adds no search index or persisted projection.
-  **Deliberate product difference:** CPAMP keeps one search document per event (fields
-  joined by a separator) and matches a term one field at a time; Prox matches its stored
-  fields. A user therefore cannot find an event here by (1) failure text (`fail_summary`:
-  "context canceled", TLS errors, upstream HTML), (2) CPAMP's `header_trace_id` (a
-  response-header value), (3) the credential file name (`auth_file_snapshot`), or
-  (4) CPAMP's internal `event_hash`. The reverse also holds: Prox searches execution,
-  session, parent-session and trace IDs by substring, and CPAMP's document holds none of
-  them, so a hex-like or wildcard term returns events here that CPAMP does not. Fail
-  bodies, response headers and credential files are never stored (Stored and returned
-  fields are an allowlist, above), and the event hash is not an event field at all. The
-  parity rule `search-cpamp-only` accepts the difference only for those four fields, a
-  closed list in `searchCpampOnly.ts` that changes only with code and a test, and only
-  when no single Prox-searchable field of the event matches the term. Even then each pair
-  needs proof: CPAMP's own database lists the events, they map to Prox by execution ID,
-  and a replay of the Prox query that searches as CPAMP's document does (request ID, not
-  the other identifiers) with exactly those events added must reproduce CPAMP's response
-  value for value, while Prox's served response must equal its own plain replay. A
-  sanitized, searchable failure summary is a product decision, not a parity fix.
+  CPAMP keeps one search document per event (fields joined by a separator) and matches a
+  term one field at a time; Prox matches its stored fields. Three of the document's fields
+  that Prox once lacked are stored (migration 4, all nullable, no table rewrite):
+  - `fail_summary` (`event_detail.fail_summary`): CPAMP's FailSummaryFromBody of the
+    proxy record's `fail.body`: the credential scrubber of `credentialText.ts`, e-mail
+    addresses masked to their first character, capped at 4096 bytes
+    (`FAIL_SUMMARY_MAX_BYTES`, the one knob). It is upstream error text with credentials
+    removed, not a request body. Returned items scrub it again.
+  - `header_trace_id` (`event_detail.header_trace_id`): CPAMP's PrimaryTraceID from the
+    record's `response_headers`: the first present of x-oai-request-id, x-request-id,
+    x-oneapi-request-id, x-cloudaicompanion-trace-id, cf-ray, eagleid, x-client-request-id,
+    x-zeabur-request-id, else the trace-id of a valid W3C traceparent; each value scrubbed
+    and capped at 1024 bytes. No other header is read or kept. It is not `trace_id`, the
+    proxy's own, which stays a separate field.
+  - `auth_file_snapshot` (`events.auth_file_id`, dim kind `auth_file`): the credential file
+    that served the request, stored as the listing named it. It is not in the proxy record:
+    CPAMP resolves it from the management credential listing by `auth_index`, as `labels.ts`
+    does for account labels, so a live event carries the name in force at ingestion. Stored
+    as a dictionary id, it is searched with the other dimensions.
+  Search matches them like the other stored fields: a dictionary match for the file name,
+  a substring match in `event_detail` for the other two, bounded by the requested range,
+  with no new index. Measured on a 960,000-row synthetic 30-day store (tmpfs), a miss went
+  from 2.07 s to 2.36 s (about +14%), a common dimension term from 1.50 s to 1.76 s and a
+  long identifier from 2.31 s to 2.98 s; the search lane keeps its own limits.
+  Only `event_hash`, CPAMP's internal identity and not an event field, stays CPAMP-only.
+  The reverse also holds: Prox searches execution, session, parent-session and trace IDs
+  by substring, and CPAMP's document holds none of them, so a hex-like or wildcard term
+  returns events here that CPAMP does not. The parity rule `search-cpamp-only` accepts the
+  difference only for that one field, a closed list in `searchCpampOnly.ts` that changes
+  only with code and a test, and only when no single Prox-searchable field of the event
+  matches the term. Even then each pair needs proof: CPAMP's own database lists the events,
+  they map to Prox by execution ID, and a replay of the Prox query that searches as CPAMP's
+  document does (request ID, failure text, response trace id and credential file, not the
+  other identifiers) with exactly those events added must reproduce CPAMP's response value
+  for value, while Prox's served response must equal its own plain replay.
+  History: reconcile fills the three fields of existing rows. Migration 4 rewinds
+  `import:cpamp:last_id` to 0 when it exists, so the next reconcile pass reads every CPAMP
+  row once through the governed, paced job path. For an event already stored, `importChunk`
+  sets a NULL field to CPAMP's persisted value (the failure text through the scrubber
+  again) and counts it in the report's `filled`; a stored value is never replaced, and a
+  CPAMP value that differs from it is an `import_conflicts` row like any other. The three
+  fields are compared fields: a stored value that differs, or a missing one, makes the
+  event `different` in verification (so `exact` is false and no gap is filled) until the
+  pass has filled it. A live-ingested event whose credential file, trace id or failure text
+  differs from CPAMP's (a file renamed between the two collectors' listings, say) stays a
+  reported difference rather than an excused one.
 - The inspector is an explicit allowlist. Token zero is visible only when its
   presence/component flags report it; positive counters stay visible. User agents
   pass `credentialText.ts`, a port of CPAMP's credential-text scrubber; path queries
-  are removed again at serialization. Error summaries contain only the safe code
-  or `Execution failed`. No key/hash or fail body is returned.
+  are removed again at serialization. `error_summary` contains only the safe code
+  or `Execution failed`. Request items also carry three optional fields, absent when
+  nothing is stored: `fail_summary` (the scrubbed failure text, scrubbed again),
+  `header_trace_id` and `auth_file_snapshot`. No key/hash or raw fail body is returned.
 - `parity.ts` contains exactly the two P10 compatibility oddities: the legacy
   record-kind reason on every nonempty aggregate estimate and source attribution
   based on the current page. Coverage otherwise uses range-wide retention/gaps,

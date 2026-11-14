@@ -50,6 +50,10 @@ export interface EventValues {
   total: number;
   usage_flags: number;
   record_kind: number;
+  /** CPAMP's persisted search fields; null when CPAMP stored nothing (NULL or ''). */
+  auth_file_snapshot: string | null;
+  fail_summary: string | null;
+  header_trace_id: string | null;
 }
 const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -57,6 +61,8 @@ const object = (value: unknown): Record<string, unknown> =>
     : {};
 const string = (value: unknown) => (typeof value === 'string' ? value : '');
 const nullable = (value: unknown) => (typeof value === 'string' ? value : null);
+// CPAMP writes an empty Go string where nothing was recorded; Prox stores that as NULL.
+const emptyAsNull = (value: unknown) => (typeof value === 'string' && value !== '' ? value : null);
 // Go strings.TrimSpace uses Unicode White_Space: it includes NEL and excludes BOM.
 function goTrim(value: string): string {
   const space = /[\t-\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/u;
@@ -277,6 +283,9 @@ export function cpampReference(
       EventValues,
       (typeof counters)[number]
     >),
+    auth_file_snapshot: emptyAsNull(row.auth_file_snapshot),
+    fail_summary: emptyAsNull(row.fail_summary),
+    header_trace_id: emptyAsNull(row.header_trace_id),
     usage_flags: metadataFlags(metadata, checks, row),
     record_kind:
       metadata.record_kind === 'execution'

@@ -104,6 +104,12 @@ export interface AnalyticsRequest extends AnalyticsRequestTokens {
   user_agent?: string;
   account_label?: string;
   error_summary?: string;
+  /** Scrubbed upstream failure text, up to 4096 bytes. Present on events that stored one. */
+  fail_summary?: string;
+  /** Trace id from the response headers; distinct from `trace_id`, the proxy's own. */
+  header_trace_id?: string;
+  /** Credential file that served the request, as the credential listing named it. */
+  auth_file_snapshot?: string;
 }
 
 export interface RegisteredAnalyticsModel {

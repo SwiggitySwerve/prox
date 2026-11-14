@@ -6,11 +6,15 @@ export const SECRET = {
   apiKey: 'SYNTHETIC-CLIENT-KEY-7f3a',
   source: 'SYNTHETIC-SOURCE-ACCOUNT@example.test',
   tokenHash: 'SYNTHETIC-ACCESS-TOKEN-HASH-91c2',
-  failBody: 'SYNTHETIC-FAIL-BODY upstream said no',
-  header: 'SYNTHETIC-RESPONSE-HEADER-VALUE',
+  /** A credential inside an upstream failure body; the text around it is stored, this is not. */
+  failKey: 'sk-SYNTHETICFAILKEY0123456789abcdef',
+  header:'SYNTHETIC-RESPONSE-HEADER-VALUE',
   query: 'SYNTHETIC-QUERY-CREDENTIAL',
   unknownField: 'SYNTHETIC-UNKNOWN-FIELD-VALUE',
 } as const;
+
+/** An upstream failure body. Its scrubbed text is the event's searchable failure summary. */
+export const FAIL_BODY = 'SYNTHETIC-FAIL-BODY upstream said no';
 
 type Payload = Record<string, unknown>;
 

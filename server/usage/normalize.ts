@@ -1,6 +1,7 @@
 // The one pure function from a proxy usage payload (CLIProxyAPI internal/redisqueue/plugin.go,
 // queuedUsageDetail) to a row. No I/O and no SQLite. Rules: server/usage/RULES.md.
 import { createHash } from 'node:crypto';
+import { sanitizeCredentialText } from './credentialText';
 import {
   RECORD_KIND,
   TIMING_METHODS,
@@ -198,7 +199,70 @@ function requestMetadata(value: unknown, maxBytes: number): string | null {
   return orNull(truncateUtf8(cleaned, maxBytes));
 }
 
-const UUID_VERSION = /^[0-9a-f]{8}-[0-9a-f]{4}-([0-9a-f])[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** CPAMP's cap on the failure text (usage/event.go maxFailSummaryBytes). The only knob on how much
+ * upstream error text is kept: lowering it makes imported and live values differ from CPAMP's. */
+export const FAIL_SUMMARY_MAX_BYTES = 4096;
+const HEADER_VALUE_MAX_BYTES = 1024;
+const EMAIL_ADDRESS = /([A-Za-z0-9._%+-])([A-Za-z0-9._%+-]*)(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
+
+/**
+ * CPAMP's FailSummaryFromBody: the credential scrubber, e-mail addresses masked to their first
+ * character, then capped. It is the only way failure text enters the store, for live events and
+ * for CPAMP's persisted value alike; scrubbing a scrubbed value changes nothing.
+ */
+export function failSummaryFromBody(body: string): string | null {
+  const trimmed = body.trim();
+  if (!trimmed) return null;
+  const scrubbed = sanitizeCredentialText(trimmed).replace(EMAIL_ADDRESS, '$1***$3');
+  return orNull(truncateUtf8(scrubbed.trim(), FAIL_SUMMARY_MAX_BYTES));
+}
+
+// CPAMP's trace headers (usage/response_headers.go parseTraceHeaders), in its priority order.
+const TRACE_HEADERS = [
+  'x-oai-request-id',
+  'x-request-id',
+  'x-oneapi-request-id',
+  'x-cloudaicompanion-trace-id',
+  'cf-ray',
+  'eagleid',
+  'x-client-request-id',
+  'x-zeabur-request-id',
+] as const;
+const TRACEPARENT = /^[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
+
+const headerValue = (value: string): string => {
+  const trimmed = value.trim();
+  return trimmed ? truncateUtf8(failSummaryFromBody(trimmed) ?? '', HEADER_VALUE_MAX_BYTES) : '';
+};
+
+/**
+ * The event's `header_trace_id`, derived like CPAMP's PrimaryTraceID: the first present trace
+ * header in a fixed order, else the trace-id of a valid W3C traceparent. Only those nine header
+ * names are read; no other response header is kept.
+ */
+export function headerTraceId(headers: unknown): string | null {
+  if (!isObject(headers)) return null;
+  const byName = new Map<string, string[]>();
+  for (const key of Object.keys(headers).sort()) {
+    const name = key.trim().toLowerCase();
+    const value = headers[key];
+    const values = (Array.isArray(value) ? value : [value])
+      .filter((item): item is string | number => typeof item === 'string' || typeof item === 'number')
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+    if (values.length) byName.set(name, [...(byName.get(name) ?? []), ...values]);
+  }
+  const first = (name: string) => headerValue(byName.get(name)?.[0] ?? '');
+  const parts = TRACEPARENT.exec(first('traceparent').toLowerCase());
+  const traceparentId =
+    parts && !first('traceparent').toLowerCase().startsWith('ff-') && !/^0+$/.test(parts[1]) && !/^0+$/.test(parts[2])
+      ? parts[1]
+      : '';
+  const primary = [...TRACE_HEADERS.map(first), traceparentId].find((value) => value !== '') ?? '';
+  return orNull(sanitizeCredentialText(primary).trim());
+}
+
+const UUID_VERSION =/^[0-9a-f]{8}-[0-9a-f]{4}-([0-9a-f])[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** The proxy projects every id it derives itself to a version 8 UUID (session/identity.go). */
 function eventSession(value: unknown): EventSession | null {
@@ -466,6 +530,9 @@ export function normalizeUsagePayload(
       parentSession: parentSession?.uuid === session?.uuid ? null : parentSession,
       traceId: orNull(text(record.trace_id)),
       timing: eventTiming(record.timing),
+      failSummary: failSummaryFromBody(text(fail.body)),
+      headerTraceId: headerTraceId(record.response_headers),
+      authFile: orNull(text(label?.file)),
     },
   };
 }

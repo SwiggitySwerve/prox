@@ -212,43 +212,32 @@ describe('CPAMP events that only CPAMP can match', () => {
     }).join(separator);
   const range = { from_ms: 1000, to_ms: 2000 };
 
-  test('the unsearchable fields are a closed, explicit list', () => {
-    expect([...CPAMP_ONLY_SEGMENTS.values()]).toEqual([
-      'event_hash',
-      'auth_file_snapshot',
-      'fail_summary',
-      'header_trace_id',
-    ]);
-    expect([...CPAMP_ONLY_SEGMENTS.keys()]).toEqual([1, 18, 24, 28]);
+  test('the unsearchable fields are a closed, explicit list: only the event hash', () => {
+    expect([...CPAMP_ONLY_SEGMENTS.values()]).toEqual(['event_hash']);
+    expect([...CPAMP_ONLY_SEGMENTS.keys()]).toEqual([1]);
   });
 
-  test('lists events matched only through a field Prox does not store, within the range', () => {
+  test('lists events matched only through the event hash, within the range', () => {
     const db = cpampDatabase([
-      { id: 1, ts: 1500, text: document({ fail_summary: 'context canceled' }) },
-      { id: 2, ts: 1500, text: document({ event_hash: '9f2cancel', 2: 'canceled-model' }) },
-      { id: 3, ts: 1500, text: document({ header_trace_id: 'a59914cancel-den' }) },
-      { id: 4, ts: 1500, text: document({ auth_file_snapshot: 'cancel-user.json' }) },
-      { id: 5, ts: 1500, text: document({ fail_summary: 'other failure' }) },
-      { id: 6, ts: 999, text: document({ fail_summary: 'context canceled' }) },
-      { id: 7, ts: 2000, text: document({ fail_summary: 'context canceled' }) },
+      { id: 1, ts: 1500, text: document({ event_hash: '9f2cancel1' }) },
+      { id: 2, ts: 1500, text: document({ event_hash: '9f2cancel2', 2: 'canceled-model' }) },
+      // The failure text, response trace id and credential file are searchable in Prox now.
+      { id: 3, ts: 1500, text: document({ fail_summary: 'context canceled' }) },
+      { id: 4, ts: 1500, text: document({ header_trace_id: 'a59914cancel-den' }) },
+      { id: 5, ts: 1500, text: document({ auth_file_snapshot: 'cancel-user.json' }) },
+      { id: 6, ts: 1500, text: document({ event_hash: 'other-hash' }) },
+      { id: 7, ts: 999, text: document({ event_hash: '9f2cancel7' }) },
+      { id: 8, ts: 2000, text: document({ event_hash: '9f2cancel8' }) },
     ]);
     // Event 2 also matches in a stored model field, so Prox matches it too.
-    expect(cpampOnlySearchExecutions(db, { ...range, search: 'Cancel' })).toEqual([
-      'execution-1',
-      'execution-3',
-      'execution-4',
-    ]);
+    expect(cpampOnlySearchExecutions(db, { ...range, search: 'Cancel' })).toEqual(['execution-1']);
     expect(cpampOnlySearchExecutions(db, { ...range, search: 'nothing' })).toEqual([]);
     expect(cpampOnlySearchExecutions(db, { ...range, search: '  ' })).toEqual([]);
     // LIKE wildcards behave as they do in CPAMP's own query.
-    expect(cpampOnlySearchExecutions(db, { ...range, search: 'c_nceled' })).toEqual([
+    expect(cpampOnlySearchExecutions(db, { ...range, search: '9f2c_ncel1' })).toEqual([
       'execution-1',
     ]);
-    expect(cpampOnlySearchExecutions(db, { ...range, search: 'cance%' })).toEqual([
-      'execution-1',
-      'execution-3',
-      'execution-4',
-    ]);
+    expect(cpampOnlySearchExecutions(db, { ...range, search: '9f2c%1' })).toEqual(['execution-1']);
   });
 
   test('a wildcard never bridges two fields: CPAMP matches one field at a time', () => {
@@ -256,9 +245,11 @@ describe('CPAMP events that only CPAMP can match', () => {
       // "a_b" would match "...a" + separator + "b...", but CPAMP does not match across fields.
       { id: 1, ts: 1500, text: document({ 2: 'claude-opus-a', 3: 'b-model' }) },
       // A CPAMP-only field matches on its own and no stored field does: claimed.
-      { id: 2, ts: 1500, text: document({ fail_summary: 'a-b' }) },
+      { id: 2, ts: 1500, text: document({ event_hash: 'a-b' }) },
       // The same plus a stored field that matches: Prox must match it, so not claimed.
-      { id: 3, ts: 1500, text: document({ fail_summary: 'a-b', 5: 'a-b' }) },
+      { id: 3, ts: 1500, text: document({ event_hash: 'a-b', 5: 'a-b' }) },
+      // A stored field the failure text now lives in: Prox must match it, so not claimed.
+      { id: 5, ts: 1500, text: document({ fail_summary: 'a-b' }) },
       // Stored fields match on their own.
       { id: 4, ts: 1500, text: document({ 2: 'axb' }) },
     ]);
@@ -270,7 +261,7 @@ describe('CPAMP events that only CPAMP can match', () => {
     // and event 2 through a model. If Prox failed to return either, no replay would add it.
     const db = cpampDatabase([
       { id: 1, ts: 1500, text: document({ 6: 'post /v1/needle' }) },
-      { id: 2, ts: 1500, text: document({ 2: 'needle-model', fail_summary: 'needle' }) },
+      { id: 2, ts: 1500, text: document({ 2: 'needle-model', event_hash: 'needle' }) },
     ]);
     expect(cpampOnlySearchExecutions(db, { ...range, search: 'needle' })).toEqual([]);
   });
@@ -279,7 +270,7 @@ describe('CPAMP events that only CPAMP can match', () => {
     const odd = cpampDatabase([{ id: 1, ts: 1500, text: 'too\x1fshort context canceled' }]);
     expect(cpampOnlySearchExecutions(odd, { ...range, search: 'cancel' })).toBeNull();
     const anonymous = cpampDatabase([
-      { id: 1, ts: 1500, text: document({ fail_summary: 'context canceled' }), raw: '{}' },
+      { id: 1, ts: 1500, text: document({ event_hash: 'context canceled' }), raw: '{}' },
     ]);
     expect(cpampOnlySearchExecutions(anonymous, { ...range, search: 'cancel' })).toBeNull();
   });

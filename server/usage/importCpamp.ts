@@ -2,7 +2,7 @@
 import type { Database } from 'bun:sqlite';
 import { checkCpampRollups } from './cpampRollupCheck';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoBytes } from './ioGovernor';
-import { normalizeUsagePayload } from './normalize';
+import { failSummaryFromBody, normalizeUsagePayload } from './normalize';
 import type { ImportValues, UsageStore } from './store';
 import { INGEST, USAGE_FLAG, type NormalizedEvent } from './types';
 
@@ -78,7 +78,8 @@ const metadataSql = `json_extract(
 )`;
 export const CPAMP_EVENT_COLUMNS = `
   id, timestamp_ms, provider, model, requested_model, resolved_model, response_model,
-  auth_index, account_snapshot, auth_label_snapshot, api_key_hash, user_agent, client_ip,
+  auth_index, account_snapshot, auth_label_snapshot, auth_file_snapshot, fail_summary,
+  header_trace_id, api_key_hash, user_agent, client_ip,
   path, method, reasoning_effort, executor_type, request_id, session_id, parent_session_id,
   stream, failed, fail_status_code, latency_ms, ttft_ms,
   normalized_total_input_tokens AS input_total,
@@ -179,6 +180,12 @@ export function mapCpampRow(
   }
   event.authIndex = nonempty(row.auth_index);
   event.accountLabel = nonempty(row.auth_label_snapshot);
+  // CPAMP's persisted search fields. The failure text passes the scrubber again, so a value
+  // that was ever stored unscrubbed upstream cannot reach this store.
+  const failText = nonempty(row.fail_summary);
+  event.failSummary = failText === null ? null : failSummaryFromBody(failText);
+  event.headerTraceId = nonempty(row.header_trace_id);
+  event.authFile = nonempty(row.auth_file_snapshot);
   event.account = nonempty(row.account_snapshot) ?? event.accountLabel ?? event.authIndex;
   // Accept only the persisted SHA-256, never a key or a source identity from raw_json.
   const hash = nonempty(row.api_key_hash);
@@ -275,6 +282,8 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
     inserted: 0,
     duplicates: 0,
     conflicts: 0,
+    /** NULL search fields of existing rows that this pass filled from CPAMP. */
+    filled: 0,
     chunks: 0,
     preconditions: cpampPreconditions(),
   };
@@ -309,6 +318,7 @@ export async function runCpampJob(store: UsageStore, source: Database, options: 
         report.inserted += result.inserted;
         report.duplicates += result.duplicates;
         report.conflicts += result.conflicts;
+        report.filled += result.filled;
         report.chunks += 1;
         options.onProgress?.({
           phase: 'import',

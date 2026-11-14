@@ -8,7 +8,7 @@ import { normalizeUsagePayload } from '../server/usage/normalize';
 import { READER_PRAGMAS_SQL, USAGE_MIGRATIONS, WRITER_PRAGMAS_SQL } from '../server/usage/schema';
 import { migrateUsageDatabase, openUsageReader, UsageStore } from '../server/usage/store';
 import { INGEST, USAGE_FLAG, type IngestItem } from '../server/usage/types';
-import { SECRET, usagePayload, usagePayloadNumber } from './fixtures/usagePayloads';
+import { FAIL_BODY, SECRET, usagePayload, usagePayloadNumber } from './fixtures/usagePayloads';
 
 const NOW = 1_800_000_000_000;
 const cleanups: (() => void)[] = [];
@@ -105,6 +105,7 @@ describe('usage store schema', () => {
       'session_id INTEGER',
       'auth_index_id INTEGER',
       'ingest INTEGER NOT NULL',
+      'auth_file_id INTEGER', // migration 4 appends it
     ]);
     expect(columns('event_detail')).toEqual([
       'seq INTEGER PK1',
@@ -120,6 +121,8 @@ describe('usage store schema', () => {
       'first_content_ms INTEGER',
       'recorded_ms INTEGER',
       'ingested_at_ms INTEGER NOT NULL',
+      'header_trace_id TEXT', // migration 4
+      'fail_summary TEXT',
     ]);
     expect(columns('ingest_gaps')).toEqual([
       'id INTEGER PK1',
@@ -224,7 +227,9 @@ describe('usage store schema', () => {
     const first = open();
     first.store.setMeta('schema_version', String(USAGE_MIGRATIONS.length + 1));
     first.close();
-    expect(() => open({ root: first.root })).toThrow(/schema version 4/);
+    expect(() => open({ root: first.root })).toThrow(
+      new RegExp(`schema version ${USAGE_MIGRATIONS.length + 1}`)
+    );
   });
 });
 
@@ -613,7 +618,7 @@ describe('usage store migrations', () => {
     const db = database();
     migrateUsageDatabase(db);
     expect(version(db)).toBe(String(USAGE_MIGRATIONS.length));
-    expect(USAGE_MIGRATIONS).toHaveLength(3);
+    expect(USAGE_MIGRATIONS).toHaveLength(4);
     const before = tables(db);
     expect(before).toContain('events');
     // Migration 1 is plain CREATE TABLE: a second run of it would fail, so it did not run.
@@ -652,7 +657,9 @@ describe('usage store migrations', () => {
     const db = database();
     migrateUsageDatabase(db, [...USAGE_MIGRATIONS, SECOND]);
     const before = tables(db);
-    expect(() => migrateUsageDatabase(db)).toThrow(/schema version 4/);
+    expect(() => migrateUsageDatabase(db)).toThrow(
+      new RegExp(`schema version ${USAGE_MIGRATIONS.length + 1}`)
+    );
     expect(tables(db)).toEqual(before);
     expect(version(db)).toBe(String(USAGE_MIGRATIONS.length + 1));
   });
@@ -671,7 +678,7 @@ describe('usage store secrets and the raw buffer', () => {
   const hostile = () =>
     usagePayload({
       failed: true,
-      fail: { status_code: 502, body: SECRET.failBody, code: 'upstream_error' },
+      fail: { status_code: 502, body: `${FAIL_BODY} ${SECRET.failKey}`, code: 'upstream_error' },
       endpoint: `POST /v1/messages?key=${SECRET.query}`,
       brand_new_field: SECRET.unknownField,
     });

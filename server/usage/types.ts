@@ -17,6 +17,7 @@ export const DIM_KINDS = [
   'effort',
   'executor',
   'timing',
+  'auth_file',
 ] as const;
 export type DimKind = (typeof DIM_KINDS)[number];
 
@@ -138,12 +139,20 @@ export interface NormalizedEvent {
   parentSession: EventSession | null;
   traceId: string | null;
   timing: EventTiming | null;
+  /** The scrubbed, capped failure text (CPAMP `fail_summary`); null without a failure body. */
+  failSummary: string | null;
+  /** The trace id from the response headers (CPAMP `header_trace_id`), not the proxy's `trace_id`. */
+  headerTraceId: string | null;
+  /** The credential file that served the request, as the listing named it (CPAMP `auth_file_snapshot`). */
+  authFile: string | null;
 }
 
 /** The label of a credential in force at ingestion, from the proxy's credential listing. */
 export interface AccountLabel {
   account: string;
   label: string;
+  /** The listing's file name for the credential; absent when the listing has none. */
+  file?: string;
 }
 export type AccountLabelLookup = (authIndex: string) => AccountLabel | undefined;
 

@@ -17,7 +17,7 @@ export function parityServers(
     status?: number;
     delayMs?: number;
     d5?: boolean;
-    /** Event 3 fails, and CPAMP's search for "needle" matches it only through its failure text. */
+    /** Event 3 fails, and CPAMP's search for "needle" matches it only through its event hash. */
     cpampOnly?: boolean;
     /** With cpampOnly: the term sits in a field Prox stores (model), so Prox's miss is a bug. */
     storedField?: boolean;
@@ -63,13 +63,13 @@ export function parityServers(
         .get(failedEvent.executionId)!.seq
     : 0;
   if (settings.cpampOnly) {
-    // CPAMP's projection, in the 29-segment layout, with the term only in the failure text.
+    // CPAMP's projection, in the 29-segment layout, with the term only in the event hash.
     const cpampPath = join(directory, 'cpamp.sqlite');
     const db = new Database(cpampPath, { create: true });
     db.exec(`CREATE TABLE usage_events (id INTEGER PRIMARY KEY, raw_json TEXT);
       CREATE TABLE usage_monitoring_event_projection_v1 (event_id INTEGER PRIMARY KEY,
         timestamp_ms INTEGER NOT NULL, search_text TEXT NOT NULL);`);
-    const text = Array.from({ length: 29 }, (_, i) => (i === (settings.storedField ? 2 : 24) ? documentText : '')).join(
+    const text = Array.from({ length: 29 }, (_, i) => (i === (settings.storedField ? 2 : 1) ? documentText : '')).join(
       '\x1f'
     );
     db.query('INSERT INTO usage_events VALUES (1, ?)').run(

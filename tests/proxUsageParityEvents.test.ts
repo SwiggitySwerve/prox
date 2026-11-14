@@ -203,6 +203,9 @@ test('persisted values are not trimmed, recased, clamped or replaced by the Prox
     ['provider', '', { provider: 'unknown' }, 'provider', ''],
     ['account_snapshot', ' snapshot@example.test ', {}, 'account', ' snapshot@example.test '],
     ['auth_label_snapshot', ' Synthetic account ', {}, 'account_label', ' Synthetic account '],
+    ['auth_file_snapshot', 'other.json', {}, 'auth_file_snapshot', 'other.json'],
+    ['header_trace_id', 'other-trace', {}, 'header_trace_id', 'other-trace'],
+    ['fail_summary', 'other failure', {}, 'fail_summary', 'other failure'],
     ['api_key_hash', 'A'.repeat(64), {}, 'api_key_hash', 'A'.repeat(64)],
     ['requested_model', ' client-claude ', {}, 'requested_model', ' client-claude '],
     ['resolved_model', ' claude-test-4 ', {}, 'billing_model', ' claude-test-4 '],
@@ -222,6 +225,22 @@ test('persisted values are not trimmed, recased, clamped or replaced by the Prox
       cpamp: expected,
     });
   }
+});
+test('the failure text, response trace id and credential file are compared like any other field', async () => {
+  const f = fixture(2);
+  f.events.forEach((event) => f.insert(event));
+  const exact = await f.run();
+  expect(exact).toMatchObject({ matched: 2, exact_matched: 2 });
+  expect(f.differences).toEqual([]);
+  // CPAMP's empty string and Prox's NULL are the same absence; a missing Prox value is not.
+  expect(f.events[1].failSummary).toBeNull();
+  f.cpamp.db.exec(`UPDATE usage_events SET header_trace_id='', fail_summary=NULL WHERE id = 2`);
+  f.differences.length = 0;
+  await f.run();
+  expect(f.differences.map((d) => d.path)).toEqual([
+    `events.${f.events[1].executionId}.header_trace_id`,
+  ]);
+  expect(f.differences[0]).toMatchObject({ class: 'unexplained', cpamp: null, prox: 'trace-header-2' });
 });
 test('all seven persisted counters and timestamp stay independent of the raw envelope', async () => {
   for (const [column, field] of [

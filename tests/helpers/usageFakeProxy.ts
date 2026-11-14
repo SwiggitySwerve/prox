@@ -21,7 +21,14 @@ export async function fakeUsageProxy() {
     authFailures: 0,
     httpAuthFailures: 0,
     credentials: {
-      files: [{ auth_index: '3', label: 'Test account', account: 'test@example.test' }],
+      files: [
+        {
+          auth_index: '3',
+          label: 'Test account',
+          account: 'test@example.test',
+          name: 'test-account.json',
+        },
+      ],
     },
     queued: [] as unknown[],
     bootId: '00000000-0000-4000-8000-000000000001',

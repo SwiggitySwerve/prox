@@ -1,5 +1,5 @@
 // Evidence for the search-cpamp-only rule: which CPAMP events match a search term only through
-// fields that Prox does not store. CPAMP keeps one search document per event (fields joined by
+// the field that Prox does not store (the event hash). CPAMP keeps one search document per event (fields joined by
 // char(31)); a term without wildcards is in the document exactly when it is in one field, and a
 // term with `%` or `_` is matched field by field (usageevent/analytics.go, and usagemonitoring
 // filter.go, which exclude "%_\x1f" from the document path), so a wildcard never bridges two
@@ -14,16 +14,11 @@ import type { UsageAnalyticsQuery } from '../../server/usage/validate';
  */
 export const SEARCH_SEGMENTS = 29;
 /**
- * Fields in that document that Prox deliberately does not store (server/usage/RULES.md: fail
- * bodies, response headers and credential files; the event hash is CPAMP's own identity).
- * Every other field has a stored counterpart, so a match there that Prox misses stays a failure.
+ * Fields in that document that Prox does not store: only the event hash, CPAMP's own internal
+ * identity. The failure text (24), credential file (18) and response trace id (28) have stored,
+ * searchable counterparts, so a match there that Prox misses stays a failure.
  */
-export const CPAMP_ONLY_SEGMENTS: ReadonlyMap<number, string> = new Map([
-  [1, 'event_hash'],
-  [18, 'auth_file_snapshot'],
-  [24, 'fail_summary'],
-  [28, 'header_trace_id'],
-]);
+export const CPAMP_ONLY_SEGMENTS: ReadonlyMap<number, string> = new Map([[1, 'event_hash']]);
 
 /** SQLite's LIKE without ESCAPE: `%` any run, `_` one character, everything else literal. */
 export function likePattern(pattern: string): RegExp {

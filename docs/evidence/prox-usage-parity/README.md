@@ -129,21 +129,22 @@ Explicit counted rules:
   that contain a newly priced model. Replays also pass through the IO gate.
 - `search-cpamp-only`: a deliberate product difference. CPAMP keeps one search document
   of 29 fields per event; a term matches one field at a time (a `%`/`_` wildcard never
-  bridges two fields). Prox matches its stored fields. A user cannot find an event in
-  Prox by failure text, a response-header trace id, a credential file name or CPAMP's
-  internal event hash. Conversely Prox also searches execution, session, parent-session
+  bridges two fields). Prox matches its stored fields, which now include the failure
+  text, the response-header trace id and the credential file name (`server/usage/RULES.md`,
+  Search). A user still cannot find an event in Prox by CPAMP's internal event hash.
+  Conversely Prox also searches execution, session, parent-session
   and trace IDs by substring, which CPAMP's document lacks, so a hex-like or wildcard
-  term returns events in Prox that CPAMP does not. The four unsearchable fields are a
-  closed list in `scripts/usage-parity/searchCpampOnly.ts`: `fail_summary`,
-  `header_trace_id` and `auth_file_snapshot` are never stored (`server/usage/RULES.md`,
-  stored and returned fields are an allowlist), `event_hash` is CPAMP's own. Adding a
+  term returns events in Prox that CPAMP does not. The one unsearchable field is a
+  closed list in `scripts/usage-parity/searchCpampOnly.ts`: `event_hash`, CPAMP's own.
+  Adding a
   field needs a code change and a test. A search pair with unexplained differences is
   checked in three steps, all read-only. (1) CPAMP's own database lists the events in
   the range that CPAMP matches through one of those fields while no other field matches
   the term; an unexpected document layout or an event without an execution ID proves
   nothing. (2) Those events map to Prox by execution ID; any one missing from Prox
   proves nothing. (3) The same Prox query is replayed searching as CPAMP's document does
-  (among identifiers only the request ID) with exactly those events added to the match
+  (among identifiers only the request ID, failure text and response trace id, plus the
+  credential file dimension) with exactly those events added to the match
   (provider, model and outcome filters still apply; page 2 starts at the replay's own
   cursor). A difference is known only if CPAMP's value equals the replay's and Prox's
   served value equals an independent plain replay of the same query (so drift on the
@@ -155,7 +156,9 @@ Explicit counted rules:
   read-only.
 
 Response normalization removes only `generated_at_ms`, `coverage.price_revision`,
-request item `id`, and `requests.next_before_id`; permits item reordering only
+request item `id`, and `requests.next_before_id`, and the request item members
+`fail_summary`, `header_trace_id` and `auth_file_snapshot` (CPAMP's Prox-shaped response
+has none; the event comparison checks those stored values); permits item reordering only
 inside equal-timestamp groups; and allows relative error only at `cost.usd` (1e-9)
 and `average_latency_ms` (1e-12), with no absolute epsilon at zero. Prox's mean is the
 correctly rounded quotient of integer sums; CPAMP's is occasionally one ulp (about
