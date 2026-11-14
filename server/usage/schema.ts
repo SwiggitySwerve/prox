@@ -142,10 +142,22 @@ const MIGRATION_3_SQL = `
   ALTER TABLE ingest_gaps ADD COLUMN filled_at_ms INTEGER;
   ALTER TABLE ingest_gaps ADD COLUMN filled_by TEXT;  -- the job kind: import or reconcile
 `;
+const MIGRATION_4_SQL = `
+  -- Three searchable fields CPAMP keeps: the credential file (a dictionary id, like every
+  -- repeated string), the response trace id and the scrubbed failure text. Nullable, no table
+  -- rewrite: existing rows read NULL until an exact CPAMP reconcile pass fills them.
+  ALTER TABLE events ADD COLUMN auth_file_id INTEGER;
+  ALTER TABLE event_detail ADD COLUMN header_trace_id TEXT;
+  ALTER TABLE event_detail ADD COLUMN fail_summary TEXT;
+  -- The reconcile cursor restarts so that pass reads every CPAMP row once, with the same
+  -- governed, paced chunks as any other pass. Duplicates write nothing but those NULL fields.
+  UPDATE meta SET value = '0' WHERE key = 'import:cpamp:last_id';
+`;
 export const USAGE_MIGRATIONS: readonly string[] = [
   MIGRATION_1_SQL,
   MIGRATION_2_SQL,
   MIGRATION_3_SQL,
+  MIGRATION_4_SQL,
 ];
 
 /** usage-raw.sqlite: a 30-day buffer for re-deriving events. Analytics never reads it. It has

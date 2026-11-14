@@ -53,6 +53,7 @@ export function equalValue(a: unknown, b: unknown, path: string): boolean {
     Math.abs(a - b) <= rule[1] * Math.max(Math.abs(a), Math.abs(b))
   );
 }
+const SEARCH_FIELD_ITEM_KEYS = ['fail_summary', 'header_trace_id', 'auth_file_snapshot'] as const;
 export function normalizeResponse(response: AnalyticsResponse): JsonObject {
   const value = structuredClone(response) as unknown as JsonObject;
   delete value.generated_at_ms;
@@ -61,7 +62,12 @@ export function normalizeResponse(response: AnalyticsResponse): JsonObject {
   const requests = value.requests as JsonObject;
   delete requests.next_before_id;
   const items = requests.items as JsonObject[];
-  items.forEach((item) => delete item.id);
+  items.forEach((item) => {
+    delete item.id;
+    // CPAMP's Prox-shaped response has no members for these three, so a response comparison has
+    // nothing to compare; the event comparison (events.ts) compares the stored values.
+    for (const key of SEARCH_FIELD_ITEM_KEYS) delete item[key];
+  });
   // Only reorder within an equal-timestamp run. Keep every other array/order significant.
   for (let first = 0; first < items.length;) {
     let end = first + 1;

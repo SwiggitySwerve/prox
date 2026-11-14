@@ -74,7 +74,11 @@ describe('usage collector with an in-process proxy', () => {
     expect(env.proxy.log.indexOf('SUBSCRIBE')).toBeLessThan(env.proxy.log.indexOf('replay'));
     expect(env.items).toHaveLength(1);
     expect(env.items[0].ingest).toBe(3);
-    expect(env.items[0].label).toEqual({ label: 'Test account', account: 'test@example.test' });
+    expect(env.items[0].label).toEqual({
+      label: 'Test account',
+      account: 'test@example.test',
+      file: 'test-account.json',
+    });
     env.proxy.emit(usagePayload({ execution_id: 'live-event' }));
     await eventually(() => env.items.length === 2);
     expect(env.items[1].ingest).toBe(0);

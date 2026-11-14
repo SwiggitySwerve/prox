@@ -3,7 +3,7 @@ import type { Database } from 'bun:sqlite';
 import type { AnalyticsRequest } from '../../src/domain/analytics/types';
 import { sanitizeCredentialText } from './credentialText';
 import { estimateRequestCost } from './pricing';
-import { analyticsModel } from './normalize';
+import { analyticsModel, failSummaryFromBody, scrubTraceId } from './normalize';
 import type { RateBook } from './rates';
 import { RECORD_KIND, USAGE_FLAG, type EventTokens, type RecordKindCode } from './types';
 import type { UsageAnalyticsQuery } from './validate';
@@ -36,10 +36,20 @@ const SEARCH_DIMS = [
   'effective_tier_id',
   'effort_id',
   'executor_id',
+  'auth_file_id',
 ];
-const SEARCH_IDS = ['execution_id', 'request_id', 'session_id', 'parent_session_id', 'trace_id'];
-/** Parity replay only: the identifier CPAMP's search document holds. It has none of the others. */
-const CPAMP_SEARCH_IDS = ['request_id'];
+/** Fields CPAMP's search document holds that Prox keeps as event_detail text. */
+const DOCUMENT_TEXT = ['header_trace_id', 'fail_summary'];
+const SEARCH_IDS = [
+  'execution_id',
+  'request_id',
+  'session_id',
+  'parent_session_id',
+  'trace_id',
+  ...DOCUMENT_TEXT,
+];
+/** Parity replay only: the identifiers CPAMP's search document holds. It has none of the others. */
+const CPAMP_SEARCH_IDS = ['request_id', ...DOCUMENT_TEXT];
 /** Parity replay only: search as CPAMP's document does, plus the events its document alone matches. */
 export interface CpampSearchReplay {
   alsoMatchSeqs: readonly number[];
@@ -106,7 +116,10 @@ export function queryFilter(
       clauses.push(`e.seq IN (${replay.alsoMatchSeqs.join(',')})`);
     }
     clauses.push(
-      `EXISTS (SELECT 1 FROM event_detail sd WHERE sd.seq = e.seq AND (${(replay ? CPAMP_SEARCH_IDS : SEARCH_IDS).map((key) => `lower(coalesce(sd.${key}, '')) LIKE ?`).join(' OR ')}))`
+      // LIKE already folds ASCII case and the term is lowercased, so the newer text columns skip
+      // lower(): it would copy up to 4 KB of failure text per event of the range, and NULL
+      // simply does not match.
+      `EXISTS (SELECT 1 FROM event_detail sd WHERE sd.seq = e.seq AND (${(replay ? CPAMP_SEARCH_IDS : SEARCH_IDS).map((key) => (DOCUMENT_TEXT.includes(key) ? `sd.${key} LIKE ?` : `lower(coalesce(sd.${key}, '')) LIKE ?`)).join(' OR ')}))`
     );
     args.push(...(replay ? CPAMP_SEARCH_IDS : SEARCH_IDS).map(() => `%${term}%`));
     conditions.push(`(${clauses.join(' OR ')})`);
@@ -260,6 +273,7 @@ export function requestPage(
       client_ip: 'client_ip_id',
       user_agent: 'user_agent_id',
       account_label: 'account_label_id',
+      auth_file_snapshot: 'auth_file_id',
     } as const;
     for (const [key, column] of Object.entries(optionalDims)) {
       let value = dim(column);
@@ -275,6 +289,12 @@ export function requestPage(
       'trace_id',
     ] as const)
       if (row[key]) result[key] = String(row[key]);
+    // The stored text is already scrubbed and capped; the same helpers again keep a stored leak
+    // from being served and keep the served value within the cap.
+    const headerTrace = row.header_trace_id ? scrubTraceId(String(row.header_trace_id)) : null;
+    if (headerTrace) result.header_trace_id = headerTrace;
+    const failSummary = row.fail_summary ? failSummaryFromBody(String(row.fail_summary)) : null;
+    if (failSummary) result.fail_summary = failSummary;
     if (row.status_code !== null) result.status_code = Number(row.status_code);
     if (row.stream !== null) result.stream = !!row.stream;
     if (row.failed)
