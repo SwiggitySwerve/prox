@@ -219,7 +219,8 @@ export function redactSecretCollections(value: string): string {
     const quoted = match[1] || match[2];
     if (match.index < last || !(quoted ? secret(quoted) : unquotedSecret(match[3]))) continue;
     const open = match.index + match[0].length;
-    out += `${value.slice(last, open)}"[redacted]"`;
+    // No quotes: a quote here would end an enclosing quoted value early and expose its rest.
+    out += `${value.slice(last, open)}[redacted]`;
     last = collectionEnd(value, open);
   }
   return out + value.slice(last);
