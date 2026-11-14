@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -295,6 +295,21 @@ describe('provider source configuration loading', () => {
     expect(loaded.revision).toBe(
       createHash('sha256').update(JSON.stringify(loaded.manifest)).digest('hex')
     );
+  });
+
+  test('reads analytics from loopback prox-usage with a key the history container mounts', () => {
+    const path = fileURLToPath(new URL('../deploy/provider-sources.json', import.meta.url));
+    const unit = readFileSync(
+      fileURLToPath(new URL('../deploy/prox-history.container', import.meta.url)),
+      'utf8'
+    );
+    const { analytics, history } = loadSourceManifest(path).manifest;
+    expect(analytics?.upstreamOrigin).toBe('http://127.0.0.1:18320');
+    // prox-usage checks the management key, which history already mounts.
+    expect(analytics?.adminKeyFile).toBe(history.managementKeyFile);
+    expect(unit).toContain(`:${history.managementKeyFile}:ro`);
+    expect(unit).toContain('Network=host');
+    expect(unit).not.toContain('cpa-admin-key');
   });
 
   test('hashes validated content consistently and surfaces file, JSON, and validation errors', () => {

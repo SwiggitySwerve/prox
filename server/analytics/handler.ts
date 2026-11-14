@@ -30,7 +30,7 @@ function json(value: unknown, status = 200) {
   });
 }
 
-/** Fixed authenticated bridge. CPA owns query validation, accounting and safe projections. */
+/** Fixed authenticated bridge. prox-usage owns query validation, accounting and safe projections. */
 export function createAnalyticsHandler(
   manifest: SourceManifest,
   fetcher: Fetcher = fetch,

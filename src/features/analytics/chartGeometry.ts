@@ -77,7 +77,7 @@ export function timeTicks(from: number, to: number, interval: number, maxTicks: 
 }
 
 /**
- * Every UTC bucket in the range, marking which ones the server returned. CPA only returns
+ * Every UTC bucket in the range, marking which ones the server returned. The service only returns
  * buckets that hold events, so an absent bucket in fully retained data had no traffic.
  */
 export function bucketTimeline(present: number[], from: number, to: number, interval: number) {

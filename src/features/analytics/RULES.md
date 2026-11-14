@@ -1,11 +1,11 @@
 # Analytics presentation
 
-CPA owns token accounting, cost, coverage, rate resolution and performance metrics through
+prox-usage owns token accounting, cost, coverage, rate resolution and performance metrics through
 `src/domain/analytics/types.ts`. This feature renders those values; it must not calculate
 prices, token relationships, ratios or aggregate metrics from request pages.
 
 The UI owns UTC range selection, cursor navigation, formatting and chart geometry. Timeline
-lines use actual bucket timestamps and never connect missing measurements. CPA returns only
+lines use actual bucket timestamps and never connect missing measurements. prox-usage returns only
 buckets that hold events, so when coverage is `raw_complete` an absent bucket is a quiet period:
 sums (events, tokens, cost) draw it as zero; durations and TTFT still break the line. With
 partial coverage every absent bucket stays a gap. A chart drilldown

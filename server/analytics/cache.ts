@@ -17,14 +17,14 @@ const HOT_FOR = 15 * MINUTE;
 // once nobody is using the page), so a remembered filter or provider opens warm too.
 const KEEP_FOR = 24 * 60 * MINUTE;
 // While nobody has asked for anything, the default views refresh only this often (about 1%
-// of CPA's time, against about 25% when active), so a first visit finds a recent snapshot.
+// of the query service's time, against about 25% when active), so a first visit finds a recent snapshot.
 const IDLE_REFRESH = 30 * MINUTE;
 // A healthy kept view is never much older than IDLE_REFRESH. Older means its refreshes are
 // failing, and the dashboard (which never shows snapshot age) would draw old data as current.
 const MAX_STALE = 3 * IDLE_REFRESH;
 // Responses run up to about 400 KB, so this bounds the cache near 25 MB.
 const MAX_ENTRIES = 64;
-// CPA admits two general queries at once; the warmer never takes more than that.
+// The warmer never runs more than two queries at once, so it cannot crowd out a visitor.
 const WARM_CONCURRENCY = 2;
 
 interface Entry {
@@ -83,7 +83,7 @@ function rebase(query: Query, now: number): Query {
 }
 
 /**
- * Serves the last good snapshot of each view at once and recomputes behind it. Slow CPA
+ * Serves the last good snapshot of each view at once and recomputes behind it. Slow
  * queries (seconds for 30 days) never sit on the page's critical path once a view is warm.
  */
 export function createSnapshotCache(
@@ -231,7 +231,7 @@ export function createSnapshotCache(
           const fresh = entry.ready && !entry.degraded && now - entry.at < every;
           // A failing view is retried on its own cadence (30 s to 5 min), not on every tick.
           const backingOff = now - entry.tried < Math.min(every, MAX_REFRESH);
-          // A view evicted while it waited in the queue is not worth a CPA query.
+          // A view evicted while it waited in the queue is not worth a query.
           if (entries.get(key) === entry && kept(entry, now) && !fresh && !backingOff)
             await refresh(key, entry, entry.live ? rebase(entry.query, now) : entry.query);
           return next();

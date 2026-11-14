@@ -31,7 +31,7 @@ const server = Bun.serve({
 });
 collector.start();
 startEventLoopLagProbe();
-// Keep the default analytics views warm so page loads never wait on CPA's slow scans.
+// Keep the default analytics views warm so page loads never wait on slow scans.
 void analyticsHandler.warm();
 const analyticsWarmer = setInterval(() => void analyticsHandler.warm(), 15_000);
 console.log('Prox quota history listening on loopback port 18319');
