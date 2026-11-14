@@ -183,6 +183,35 @@ function assignments(
     return prefix + quote + '[redacted]' + trailing;
   });
 }
+const keyBeforeCollectionRegex = new RegExp(
+  '(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\')\\s*[:=]\\s*(?=[\\[{])',
+  'g'
+);
+/** The index just past the array or object that opens at `open`; the end of the text if unclosed. */
+function collectionEnd(value: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < value.length; i++) {
+    if (value[i] === '[' || value[i] === '{') depth += 1;
+    else if ((value[i] === ']' || value[i] === '}') && --depth === 0) return i + 1;
+  }
+  return value.length;
+}
+/**
+ * The scrubber above redacts scalar values only, so `"Cookie": ["sid=..."]` keeps its secret. This
+ * replaces a whole array or object value held by a secret-named key. Prox-only hardening: used
+ * where upstream text is stored (failure text, header values), not by the CPAMP-ported scrubber.
+ */
+export function redactSecretCollections(value: string): string {
+  let out = '';
+  let last = 0;
+  for (const match of value.matchAll(keyBeforeCollectionRegex)) {
+    if (match.index < last || !secret(match[1] || match[2])) continue;
+    const open = match.index + match[0].length;
+    out += `${value.slice(last, open)}"[redacted]"`;
+    last = collectionEnd(value, open);
+  }
+  return out + value.slice(last);
+}
 export function sanitizeCredentialText(value: string): string {
   let result = value;
   for (const pattern of [

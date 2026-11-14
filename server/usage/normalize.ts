@@ -1,7 +1,7 @@
 // The one pure function from a proxy usage payload (CLIProxyAPI internal/redisqueue/plugin.go,
 // queuedUsageDetail) to a row. No I/O and no SQLite. Rules: server/usage/RULES.md.
 import { createHash } from 'node:crypto';
-import { sanitizeCredentialText } from './credentialText';
+import { redactSecretCollections, sanitizeCredentialText } from './credentialText';
 import {
   RECORD_KIND,
   TIMING_METHODS,
@@ -203,17 +203,57 @@ function requestMetadata(value: unknown, maxBytes: number): string | null {
  * upstream error text is kept: lowering it makes imported and live values differ from CPAMP's. */
 export const FAIL_SUMMARY_MAX_BYTES = 4096;
 const HEADER_VALUE_MAX_BYTES = 1024;
-const EMAIL_ADDRESS = /([A-Za-z0-9._%+-])([A-Za-z0-9._%+-]*)(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
+/**
+ * Several patterns of the CPAMP-ported scrubber backtrack badly in JavaScript (Go's RE2 does not):
+ * an unquoted key may run over a long word, and every '.' or '-' in it is a word boundary, so
+ * 10,000 characters of "a." take seconds on the sole writer thread. Upstream text is not trusted,
+ * so the scrubber only sees the first 16 KiB, and a run of word characters longer than 64 (no key
+ * name is) is cut to 64. The stored text is capped at 4096 bytes anyway, so this only changes
+ * pathological input; the cut text is still scrubbed.
+ */
+const SCRUB_INPUT_MAX_CHARS = 16384;
+const SCRUB_RUN_MAX_CHARS = 64;
+const boundedForScrubbing = (text: string): string =>
+  text
+    .slice(0, SCRUB_INPUT_MAX_CHARS)
+    .replace(new RegExp(`[A-Za-z0-9_.-]{${SCRUB_RUN_MAX_CHARS + 1},}`, 'g'), (run) =>
+      run.slice(0, SCRUB_RUN_MAX_CHARS)
+    );
+
+const EMAIL_LOCAL =/[A-Za-z0-9._%+-]/;
+const EMAIL_DOMAIN = /@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/y;
+
+/**
+ * CPAMP masks e-mail addresses with `([A-Za-z0-9._%+-])([A-Za-z0-9._%+-]*)(@domain)` -> `$1***$3`.
+ * Go's regexp is linear; this regex is quadratic in JavaScript on a long local part, so the same
+ * leftmost match is found by walking back from each '@' instead.
+ */
+function maskEmailAddresses(text: string): string {
+  let out = '';
+  let last = 0;
+  for (let at = text.indexOf('@'); at !== -1; at = text.indexOf('@', Math.max(at + 1, last))) {
+    let start = at;
+    while (start > last && EMAIL_LOCAL.test(text[start - 1])) start -= 1;
+    if (start === at) continue;
+    EMAIL_DOMAIN.lastIndex = at;
+    const domain = EMAIL_DOMAIN.exec(text);
+    if (!domain) continue;
+    out += `${text.slice(last, start)}${text[start]}***${domain[0]}`;
+    last = at + domain[0].length;
+  }
+  return out + text.slice(last);
+}
 
 /**
  * CPAMP's FailSummaryFromBody: the credential scrubber, e-mail addresses masked to their first
  * character, then capped. It is the only way failure text enters the store, for live events and
- * for CPAMP's persisted value alike; scrubbing a scrubbed value changes nothing.
+ * for CPAMP's persisted value alike, and again when it is served; scrubbing a scrubbed value
+ * changes nothing. Arrays and objects under secret-named keys are redacted whole (Prox-only).
  */
 export function failSummaryFromBody(body: string): string | null {
-  const trimmed = body.trim();
+  const trimmed = boundedForScrubbing(body.trim());
   if (!trimmed) return null;
-  const scrubbed = sanitizeCredentialText(trimmed).replace(EMAIL_ADDRESS, '$1***$3');
+  const scrubbed = maskEmailAddresses(sanitizeCredentialText(redactSecretCollections(trimmed)));
   return orNull(truncateUtf8(scrubbed.trim(), FAIL_SUMMARY_MAX_BYTES));
 }
 
@@ -259,7 +299,13 @@ export function headerTraceId(headers: unknown): string | null {
       ? parts[1]
       : '';
   const primary = [...TRACE_HEADERS.map(first), traceparentId].find((value) => value !== '') ?? '';
-  return orNull(sanitizeCredentialText(primary).trim());
+  return scrubTraceId(primary);
+}
+
+/** One trace id value as stored: scrubbed and capped, whether it came from a live header or
+ * from CPAMP's persisted column, and again when served. */
+export function scrubTraceId(value: string): string | null {
+  return orNull(sanitizeCredentialText(headerValue(value)).trim());
 }
 
 const UUID_VERSION =/^[0-9a-f]{8}-[0-9a-f]{4}-([0-9a-f])[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/;

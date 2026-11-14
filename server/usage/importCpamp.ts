@@ -2,7 +2,7 @@
 import type { Database } from 'bun:sqlite';
 import { checkCpampRollups } from './cpampRollupCheck';
 import { IoGovernor, runIoChunk, type ChunkScheduler, type IoBytes } from './ioGovernor';
-import { failSummaryFromBody, normalizeUsagePayload } from './normalize';
+import { failSummaryFromBody, normalizeUsagePayload, scrubTraceId } from './normalize';
 import type { ImportValues, UsageStore } from './store';
 import { INGEST, USAGE_FLAG, type NormalizedEvent } from './types';
 
@@ -180,11 +180,12 @@ export function mapCpampRow(
   }
   event.authIndex = nonempty(row.auth_index);
   event.accountLabel = nonempty(row.auth_label_snapshot);
-  // CPAMP's persisted search fields. The failure text passes the scrubber again, so a value
-  // that was ever stored unscrubbed upstream cannot reach this store.
+  // CPAMP's persisted search fields. The failure text and trace id pass the scrubbers again, so
+  // a value that was ever stored unscrubbed upstream cannot reach this store.
   const failText = nonempty(row.fail_summary);
   event.failSummary = failText === null ? null : failSummaryFromBody(failText);
-  event.headerTraceId = nonempty(row.header_trace_id);
+  const traceText = nonempty(row.header_trace_id);
+  event.headerTraceId = traceText === null ? null : scrubTraceId(traceText);
   event.authFile = nonempty(row.auth_file_snapshot);
   event.account = nonempty(row.account_snapshot) ?? event.accountLabel ?? event.authIndex;
   // Accept only the persisted SHA-256, never a key or a source identity from raw_json.

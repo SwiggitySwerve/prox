@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { compareResponses } from '../scripts/usage-parity/compare';
 import { queryAnalytics } from '../server/usage/analytics';
 import { runCpampJob } from '../server/usage/importCpamp';
-import { normalizeUsagePayload } from '../server/usage/normalize';
+import { failSummaryFromBody, normalizeUsagePayload, scrubTraceId } from '../server/usage/normalize';
 import { USAGE_MIGRATIONS } from '../server/usage/schema';
 import { migrateUsageDatabase, openUsageReader, UsageStore } from '../server/usage/store';
 import { INGEST, type AccountLabel, type NormalizedEvent } from '../server/usage/types';
@@ -51,6 +51,41 @@ describe('normalizer: failure text', () => {
     // The raw buffer still never keeps the body.
     expect(raw.json).not.toContain('quota exceeded');
   });
+  test('secrets held in an array or object value are redacted whole', () => {
+    const body = JSON.stringify({
+      headers: { Cookie: ['sid=SECRETCOOKIE'], 'X-Api-Key': ['SECRETAPIKEY'], Accept: ['text/html'] },
+      auth: { token: { nested: 'SECRETNESTED' } },
+    });
+    const { event: e } = normalized({ failed: true, fail: { status_code: 401, body } });
+    for (const leaked of ['SECRETCOOKIE', 'SECRETAPIKEY', 'SECRETNESTED'])
+      expect(e.failSummary).not.toContain(leaked);
+    expect(e.failSummary).toContain('text/html');
+    expect(failSummaryFromBody(e.failSummary!)).toBe(e.failSummary);
+  });
+  test('masks e-mail addresses exactly like CPAMP and in linear time', () => {
+    const cpamp = (s: string) => s.replace(/([A-Za-z0-9._%+-])([A-Za-z0-9._%+-]*)(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, '$1***$3');
+    for (const s of [
+      'ops@example.test',
+      'a.b+c@x.y.example.co, d@e.fg and not@valid',
+      '@x.org a@b a@@x.org -x@y.zz _@a.bc',
+      'a@b.cc@d.ee',
+      'mail: first.last@sub.domain.example; then z@z.zz.',
+      'a.b@c.de-f.gh',
+    ])
+      expect(failSummaryFromBody(s)).toBe(cpamp(s));
+    // Hostile upstream text: the scrubber's own patterns backtrack on long dotted words, and the
+    // e-mail pattern on a long local part, so each stays bounded.
+    for (const text of [
+      'a'.repeat(100000),
+      'a.'.repeat(50000) + '@',
+      'a@'.repeat(50000),
+      ('a.b-'.repeat(60) + ' ').repeat(300),
+    ]) {
+      const start = performance.now();
+      failSummaryFromBody(text);
+      expect(performance.now() - start).toBeLessThan(500);
+    }
+  });
   test('is capped at 4096 bytes on a character boundary, and absent when there is no body', () => {
     const long = normalized({ failed: true, fail: { status_code: 500, body: 'é'.repeat(5000) } });
     expect(Buffer.byteLength(long.event.failSummary!)).toBeLessThanOrEqual(4096);
@@ -77,6 +112,8 @@ describe('normalizer: response trace id', () => {
     expect(headers({ 'Set-Cookie': ['a=b'], Authorization: ['x'], 'Retry-After': ['30'] })).toBeNull();
     expect(normalized().event.headerTraceId).toBeNull();
     expect(headers({ 'X-Request-Id': [KEY] })).not.toContain(KEY);
+    expect(scrubTraceId(`${BEARER} ${'x'.repeat(2000)}`)).not.toContain('abcdef0123456789');
+    expect(Buffer.byteLength(scrubTraceId('y'.repeat(5000))!)).toBeLessThanOrEqual(1024);
     expect(Buffer.byteLength(headers({ 'X-Request-Id': ['x'.repeat(3000)] })!)).toBeLessThanOrEqual(1024);
   });
 });
@@ -266,6 +303,26 @@ describe('CPAMP import, reconcile and backfill', () => {
     f.store.setMeta('import:cpamp:last_id', '0');
     await run(f, 'reconcile');
     expect(Buffer.from(f.reader.serialize()).equals(Buffer.from(before))).toBe(true);
+  });
+
+  test('an imported trace id passes the same scrubber and cap, and is scrubbed again when served', async () => {
+    const f = fixture(1);
+    f.writable.db.exec(`UPDATE usage_events SET header_trace_id = '${BEARER} ${'z'.repeat(2000)}'`);
+    await run(f);
+    const stored = (fields(f.reader) as { header_trace_id: string }[])[0].header_trace_id;
+    expect(stored).not.toContain('abcdef0123456789');
+    expect(Buffer.byteLength(stored)).toBeLessThanOrEqual(1024);
+    // A leak that reached the store some other way is not served.
+    const db = new Database(f.reader.filename);
+    db.query('UPDATE event_detail SET header_trace_id = ?, fail_summary = ?').run(
+      `${BEARER}`,
+      `${'x'.repeat(4078)} api_key=x`
+    );
+    db.close();
+    const item = queryAnalytics(f.reader, query({ from_ms: Date.UTC(2026, 10, 1), to_ms: Date.UTC(2026, 10, 2) }), rateState())
+      .requests.items[0];
+    expect(item.header_trace_id).not.toContain('abcdef0123456789');
+    expect(Buffer.byteLength(item.fail_summary!)).toBeLessThanOrEqual(4096);
   });
 
   test('a value the live path already holds is never overwritten: it is a conflict and a difference', async () => {

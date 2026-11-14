@@ -3,7 +3,7 @@ import type { Database } from 'bun:sqlite';
 import type { AnalyticsRequest } from '../../src/domain/analytics/types';
 import { sanitizeCredentialText } from './credentialText';
 import { estimateRequestCost } from './pricing';
-import { analyticsModel } from './normalize';
+import { analyticsModel, failSummaryFromBody, scrubTraceId } from './normalize';
 import type { RateBook } from './rates';
 import { RECORD_KIND, USAGE_FLAG, type EventTokens, type RecordKindCode } from './types';
 import type { UsageAnalyticsQuery } from './validate';
@@ -287,11 +287,14 @@ export function requestPage(
       'session_id',
       'parent_session_id',
       'trace_id',
-      'header_trace_id',
     ] as const)
       if (row[key]) result[key] = String(row[key]);
-    // The stored text is already scrubbed; scrubbing again keeps a stored leak from being served.
-    if (row.fail_summary) result.fail_summary = sanitizeCredentialText(String(row.fail_summary));
+    // The stored text is already scrubbed and capped; the same helpers again keep a stored leak
+    // from being served and keep the served value within the cap.
+    const headerTrace = row.header_trace_id ? scrubTraceId(String(row.header_trace_id)) : null;
+    if (headerTrace) result.header_trace_id = headerTrace;
+    const failSummary = row.fail_summary ? failSummaryFromBody(String(row.fail_summary)) : null;
+    if (failSummary) result.fail_summary = failSummary;
     if (row.status_code !== null) result.status_code = Number(row.status_code);
     if (row.stream !== null) result.stream = !!row.stream;
     if (row.failed)
