@@ -25,6 +25,8 @@ export class UsageBulkJobs {
   readonly outcomeError: boolean = false;
   private readonly outcomes = new Map<BulkJobKind, JobOutcome>();
   private governor: IoGovernor | null = null;
+  /** Governor totals when the running job started; null once its IO is frozen in the report. */
+  private ioBase: BulkJobReport['io'] | null = null;
   private backup: UsageBackup | null = null;
   private latest: BulkJobReport | null = null;
   private active: { controller: AbortController; settled: Promise<void> } | null = null;
@@ -91,8 +93,19 @@ export class UsageBulkJobs {
     if (!this.latest) return null;
     return {
       ...this.latest,
-      io: this.governor?.counters ?? this.latest.io,
+      io: this.ioBase ? this.ioSince(this.ioBase) : this.latest.io,
       lastBackupSuccessAtMs: this.backup?.lastSuccessAtMs ?? null,
+    };
+  }
+
+  /** The governor lives as long as the process and counts every governed chunk. A job reports its own. */
+  private ioSince(base: BulkJobReport['io']): BulkJobReport['io'] {
+    const now = this.governor?.counters ?? base;
+    return {
+      bytesRead: now.bytesRead - base.bytesRead,
+      bytesWritten: now.bytesWritten - base.bytesWritten,
+      pauseSeconds: now.pauseSeconds - base.pauseSeconds,
+      longPauses: now.longPauses - base.longPauses,
     };
   }
 
@@ -101,6 +114,12 @@ export class UsageBulkJobs {
       throw new Error('Invalid client token');
     if (this.closing || this.active) throw new Error('Bulk job unavailable');
     if (this.rollupBackfill) throw new Error(ROLLUP_BACKFILL_BUSY_ERROR);
+    this.ioBase = this.governor?.counters ?? {
+      bytesRead: 0,
+      bytesWritten: 0,
+      pauseSeconds: 0,
+      longPauses: 0,
+    };
     this.latest = {
       id: ++this.nextId,
       ...(clientToken === undefined ? {} : { clientToken }),
@@ -284,6 +303,9 @@ export class UsageBulkJobs {
       if (!signal.aborted)
         report.error = 'Usage bulk job failed; check job configuration and source';
     } finally {
+      // Later governed chunks (rollup backfill, the next job) must not change a finished report.
+      report.io = this.ioSince(this.ioBase!);
+      this.ioBase = null;
       try {
         if (source) await this.scheduleChunk(kind, () => source!.close());
       } catch {

@@ -427,8 +427,10 @@ test('worker reuse preserves outstanding byte debt after a cancelled job', async
   await Bun.sleep(100);
   const waiting = await f.writer.jobReport();
   expect(waiting?.state).toBe('running');
-  expect(waiting?.io.bytesRead).toBe(pacing.io.bytesRead);
-  expect(waiting?.io.bytesWritten).toBe(pacing.io.bytesWritten);
+  // The debt carries over, but the new job's own report starts at zero bytes.
+  expect(pacing.io.bytesRead).toBeGreaterThan(0);
+  expect(waiting?.io.bytesRead).toBe(0);
+  expect(waiting?.io.bytesWritten).toBe(0);
   f.writer.enqueue(live('during-retained-debt'));
   await f.writer.flush();
   expect(f.writer.status.inserted).toBe(1);
