@@ -27,29 +27,28 @@ const cookieAssignmentRegex = new RegExp(
   'gi'
 );
 const bearerTokenRegex = new RegExp('\\bbearer\\s+[A-Za-z0-9._~+/=-]{8,}', 'gi');
-const pemMarkerRegex = /-----(BEGIN|END) (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----/g;
+const pemBeginRegex = /-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----/g;
+const pemEndRegex = /-----END (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----/g;
 /**
  * Redacts each private-key block: the first BEGIN marker through the first END marker after it,
  * as the lazy pattern `BEGIN.*?END` (flag s) does. That pattern rescans to the end of the text from
- * every BEGIN that has no END, so it is quadratic; this makes one pass over the markers.
- * `unterminated` (Prox-only) also redacts a BEGIN that has no END, through the end of the text.
+ * every BEGIN that has no END, so it is quadratic. Here a BEGIN is searched for outside a block
+ * and an END inside one, so markers that share dashes (an END's trailing dashes starting the next
+ * BEGIN) are found as the pattern finds them; once a BEGIN has no END, no later one has either.
+ * `unterminated` (Prox-only) also redacts that BEGIN through the end of the text.
  */
 export function redactPrivateKeyBlocks(text: string, unterminated = false): string {
   let out = '';
   let last = 0;
-  let begin = -1;
-  for (const marker of text.matchAll(pemMarkerRegex)) {
-    if (marker[1] === 'BEGIN') {
-      if (begin < 0) begin = marker.index;
-    } else if (begin >= 0) {
-      out += `${text.slice(last, begin)}[redacted]`;
-      last = marker.index + marker[0].length;
-      begin = -1;
-    }
-  }
-  if (unterminated && begin >= 0) {
-    out += `${text.slice(last, begin)}[redacted]`;
-    last = text.length;
+  for (;;) {
+    pemBeginRegex.lastIndex = last;
+    const begin = pemBeginRegex.exec(text);
+    if (!begin) break;
+    pemEndRegex.lastIndex = begin.index + begin[0].length;
+    const end = pemEndRegex.exec(text);
+    out += `${text.slice(last, begin.index)}${end || unterminated ? '[redacted]' : text.slice(begin.index)}`;
+    last = end ? end.index + end[0].length : text.length;
+    if (!end) break;
   }
   return out + text.slice(last);
 }
@@ -164,7 +163,12 @@ function normalizeKey(key: string): string {
       result += char.toLowerCase();
     } else result += char === '-' || char === ' ' ? '_' : char;
   }
-  return result.replace(/^_+|_+$/g, '');
+  // Trim underscores by index: the regex `^_+|_+$` rescans a long run of them from each start.
+  let start = 0;
+  let end = result.length;
+  while (start < end && result[start] === '_') start += 1;
+  while (end > start && result[end - 1] === '_') end -= 1;
+  return result.slice(start, end);
 }
 function secret(key: string) {
   const normalized = normalizeKey(key);

@@ -77,6 +77,10 @@ describe('about 1 MB of adversarial text is scrubbed in bounded time', () => {
     collections: '{"token":['.repeat(MB / 10),
     collectionKeys: 'api key=[a] '.repeat(MB / 12),
     longKeyedCollections: `${'x'.repeat(MB / 2)}_token=[1]`,
+    underscoresBeforeSecret: `x${'_'.repeat(MB / 2)}password=SECRETVALUE`,
+    underscoreKey: `"x${'_'.repeat(MB / 2)}": "v" ${'_'.repeat(MB / 4)}`,
+    underscoreCollection: `x${'_'.repeat(MB / 2)}password=[1]`,
+    onlyUnderscores: '_'.repeat(MB),
     spaces: ' '.repeat(MB),
     mixed: ('a.b-'.repeat(30) + ' = [ ').repeat(MB / 130),
   };
@@ -117,8 +121,16 @@ describe('nothing is withheld, cut or left half scrubbed', () => {
     expect(failSummaryFromBody(`invalid token ${jwt}`)).toContain('invalid token');
     expect(scrubTraceId('c'.repeat(200))).toBe('c'.repeat(200));
     // Private-key blocks: the linear scan agrees with the lazy pattern, markers and all.
+    // Markers may share their dashes: an END's trailing dashes begin the next BEGIN.
+    const shared = '-----END PRIVATE KEY-----BEGIN PRIVATE KEY-----SECRETVALUE-----END PRIVATE KEY-----';
+    for (const text of [shared, `x ${shared} y`, `-----BEGIN PRIVATE KEY-----BEGIN PRIVATE KEY-----S-----END PRIVATE KEY-----`]) {
+      expect(sanitizeCredentialText(text)).toBe(legacySanitizeCredentialText(text));
+      expect(sanitizeCredentialText(text)).not.toContain('SECRETVALUE');
+      expect(failSummaryFromBody(text)).not.toContain('SECRETVALUE');
+    }
+    expect(failSummaryFromBody(`x${'_'.repeat(5000)}password=SECRETVALUE`)).not.toContain('SECRETVALUE');
     const next = random(5);
-    const marker = ['-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----', '-----BEGIN RSA PRIVATE KEY-----', '-----END EC PRIVATE KEY-----', 'x', ' ', '\n', 'sk-', '-----BEGIN CERTIFICATE-----'];
+    const marker = ['-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----', '-----BEGIN RSA PRIVATE KEY-----', '-----END EC PRIVATE KEY-----', 'x', ' ', '\n', 'sk-', '-----BEGIN CERTIFICATE-----', '-----', 'BEGIN PRIVATE KEY-----', 'END PRIVATE KEY-----'];
     for (let n = 0; n < 5000; n++) {
       let text = '';
       for (let i = 1 + Math.floor(next() * 10); i > 0; i--) text += marker[Math.floor(next() * marker.length)];
