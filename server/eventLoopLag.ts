@@ -11,7 +11,7 @@ export function eventLoopStall(
   intervalMs = INTERVAL_MS,
   warnAfterMs = WARN_AFTER_MS
 ): number | null {
-  const lag = tickMs - previousTickMs - intervalMs;
+  const lag = eventLoopLagMs(previousTickMs, tickMs, intervalMs);
   return lag > warnAfterMs ? Math.round(lag) : null;
 }
 
