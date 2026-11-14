@@ -622,12 +622,16 @@ separate nightly chain below serializes maintenance before invoking parity.
     (`FAIL_SUMMARY_MAX_BYTES`, the one knob). It is upstream error text with credentials
     removed, not a request body. Returned items scrub it again. Hardening beyond CPAMP:
     private-key blocks (even unterminated, to the end) are redacted first, and arrays and
-    objects under secret-named keys whole; and because the ported patterns backtrack badly
-    in JavaScript, text over 16 KiB or with a run of more than 128 word characters
-    (`[A-Za-z0-9_.-]`, so a JWT or long id) is not stored: the value is
-    `[failure text withheld]` (a trace id is dropped). Nothing is cut, since a cut can
-    remove the context a pattern needs. A CPAMP summary that this rule changes shows as a
-    reported difference in verification.
+    objects under secret-named keys whole. Any body is scrubbed whole, whatever its size or
+    shape, and stored as CPAMP stores it; nothing is cut or withheld.
+    The ported scrubber was quadratic in JavaScript (Go's RE2 is linear): every word boundary
+    inside a long word restarted a match that rescans the word. A match now starts only at the
+    first boundary of a run of word characters (`RUN_START` in `credentialText.ts`), which
+    finds the same leftmost matches because success depends on what follows the run, and the
+    private-key scan is one pass over its markers. `tests/proxUsageScrubLinear.test.ts` proves
+    equal output with the frozen original (`tests/fixtures/credentialTextLegacy.ts`) on the
+    CPAMP fixtures and on generated input, and bounds the time on about 1 MB of adversarial
+    text (measured 40 to 140 ms).
   - `header_trace_id` (`event_detail.header_trace_id`): CPAMP's PrimaryTraceID from the
     record's `response_headers`: the first present of x-oai-request-id, x-request-id,
     x-oneapi-request-id, x-cloudaicompanion-trace-id, cf-ray, eagleid, x-client-request-id,

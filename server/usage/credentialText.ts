@@ -1,29 +1,58 @@
 // CPAMP usage/persistence_security.go diagnostic text scrubber, without persistence helpers.
+// A word-boundary start inside a long word is a retry that rescans the whole word, which made the
+// ported patterns quadratic (Go's RE2 is linear). A match only needs to start at the first
+// boundary of a run of word characters: whether it succeeds depends on what follows the run, not
+// on where inside it the key starts. So this gate admits only a word character that begins the run
+// or follows its leading dots and dashes, which is the first \b of the run. The same leftmost
+// matches result (tests/proxUsageScrubLinear.test.ts checks it against the frozen original).
+const RUN_START = '(?=[A-Za-z0-9_])(?<=(?:^|[^A-Za-z0-9_.-])[.-]*)';
 const authColonHeaderRegex = new RegExp(
-  '\\b((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*authorization)(\\s*:\\s*)[^\\r\\n]+',
+  RUN_START + '((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*authorization)(\\s*:\\s*)[^\\r\\n]+',
   'gi'
 );
 const authSimpleAssignmentRegex = new RegExp(
-  '\\b((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*authorization)(\\s*=\\s*)(?:basic|bearer)\\s+[A-Za-z0-9._~+/=-]+',
+  RUN_START + '((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*authorization)(\\s*=\\s*)(?:basic|bearer)\\s+[A-Za-z0-9._~+/=-]+',
   'gi'
 );
 const authComplexAssignmentRegex = new RegExp(
-  '\\b((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*authorization)(\\s*=\\s*)[a-zA-Z][^\\r\\n]*',
+  RUN_START + '((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*authorization)(\\s*=\\s*)[a-zA-Z][^\\r\\n]*',
   'gi'
 );
 const cookieColonHeaderRegex = new RegExp(
-  '\\b((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*cookie)(\\s*:\\s*)[^\\r\\n]+',
+  RUN_START + '((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*cookie)(\\s*:\\s*)[^\\r\\n]+',
   'gi'
 );
 const cookieAssignmentRegex = new RegExp(
-  '\\b((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*cookie)(\\s*=\\s*)([^"\'\\r\\n][^\\r\\n]*)',
+  RUN_START + '((?:[a-zA-Z0-9_.-]+[ \\t]+)?[a-zA-Z0-9_.-]*cookie)(\\s*=\\s*)([^"\'\\r\\n][^\\r\\n]*)',
   'gi'
 );
 const bearerTokenRegex = new RegExp('\\bbearer\\s+[A-Za-z0-9._~+/=-]{8,}', 'gi');
-const pemPrivateKeyBlockRegex = new RegExp(
-  '-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----.*?-----END (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----',
-  'gs'
-);
+const pemMarkerRegex = /-----(BEGIN|END) (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----/g;
+/**
+ * Redacts each private-key block: the first BEGIN marker through the first END marker after it,
+ * as the lazy pattern `BEGIN.*?END` (flag s) does. That pattern rescans to the end of the text from
+ * every BEGIN that has no END, so it is quadratic; this makes one pass over the markers.
+ * `unterminated` (Prox-only) also redacts a BEGIN that has no END, through the end of the text.
+ */
+export function redactPrivateKeyBlocks(text: string, unterminated = false): string {
+  let out = '';
+  let last = 0;
+  let begin = -1;
+  for (const marker of text.matchAll(pemMarkerRegex)) {
+    if (marker[1] === 'BEGIN') {
+      if (begin < 0) begin = marker.index;
+    } else if (begin >= 0) {
+      out += `${text.slice(last, begin)}[redacted]`;
+      last = marker.index + marker[0].length;
+      begin = -1;
+    }
+  }
+  if (unterminated && begin >= 0) {
+    out += `${text.slice(last, begin)}[redacted]`;
+    last = text.length;
+  }
+  return out + text.slice(last);
+}
 const quotedKeyDoubleQuotedRegex = new RegExp(
   '(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\')(\\s*[:=]\\s*)"((?:[^"\\\\]|\\\\.)*)"',
   'gi'
@@ -45,27 +74,27 @@ const quotedKeyUnquotedRegex = new RegExp(
   'gi'
 );
 const unquotedKeyDoubleQuotedRegex = new RegExp(
-  '\\b([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*[:=]\\s*)"((?:[^"\\\\]|\\\\.)*)"',
+  RUN_START + '([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*[:=]\\s*)"((?:[^"\\\\]|\\\\.)*)"',
   'gi'
 );
 const unquotedKeySingleQuotedRegex = new RegExp(
-  "\\b([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*[:=]\\s*)'((?:[^'\\\\]|\\\\.)*)'",
+  RUN_START + "([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*[:=]\\s*)'((?:[^'\\\\]|\\\\.)*)'",
   'gi'
 );
 const unquotedKeyUnterminatedDoubleRegex = new RegExp(
-  '\\b([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*[:=]\\s*)"((?:[^"\\\\\\r\\n]|\\\\.)*\\\\?)(\\r?\\n|$)',
+  RUN_START + '([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*[:=]\\s*)"((?:[^"\\\\\\r\\n]|\\\\.)*\\\\?)(\\r?\\n|$)',
   'gi'
 );
 const unquotedKeyUnterminatedSingleRegex = new RegExp(
-  "\\b([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*[:=]\\s*)'((?:[^'\\\\\\r\\n]|\\\\.)*\\\\?)(\\r?\\n|$)",
+  RUN_START + "([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*[:=]\\s*)'((?:[^'\\\\\\r\\n]|\\\\.)*\\\\?)(\\r?\\n|$)",
   'gi'
 );
 const unquotedKeyUnquotedEqualsRegex = new RegExp(
-  '\\b([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*=\\s*)(\\[redacted\\]|[^"\',\\s&}\\]\\r\\n]+)',
+  RUN_START + '([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*=\\s*)(\\[redacted\\]|[^"\',\\s&}\\]\\r\\n]+)',
   'gi'
 );
 const unquotedKeyUnquotedColonRegex = new RegExp(
-  '\\b([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*:\\s*)(\\[redacted\\]|[^"\',\\s&}\\]\\r\\n]+)',
+  RUN_START + '([a-zA-Z0-9_.-]+(?:[ \\t]+[a-zA-Z0-9_.-]+){0,2})\\b(\\s*:\\s*)(\\[redacted\\]|[^"\',\\s&}\\]\\r\\n]+)',
   'gi'
 );
 const strongTokenRegex = new RegExp(
@@ -183,10 +212,12 @@ function assignments(
     return prefix + quote + '[redacted]' + trailing;
   });
 }
-// A key (quoted, or one to three words of at most 128 characters, as the scalar patterns accept)
-// followed by a separator and `[` or `{`.
+// A key (quoted, or one to three words, as the scalar patterns accept) followed by a separator and
+// `[` or `{`. The unquoted form starts at the first boundary of a run, like the patterns above.
 const keyBeforeCollectionRegex = new RegExp(
-  '(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\'|\\b([A-Za-z0-9_.-]{1,128}(?:[ \\t]+[A-Za-z0-9_.-]{1,128}){0,2})\\b)\\s*[:=]\\s*(?=[\\[{])',
+  '(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\'|' +
+    RUN_START +
+    '([A-Za-z0-9_.-]+(?:[ \\t]+[A-Za-z0-9_.-]+){0,2})\\b)\\s*[:=]\\s*(?=[\\[{])',
   'g'
 );
 /**
@@ -235,9 +266,7 @@ export function sanitizeCredentialText(value: string): string {
     result = header(result, pattern, 'authorization');
   for (const pattern of [cookieColonHeaderRegex, cookieAssignmentRegex])
     result = header(result, pattern, 'cookie');
-  result = result
-    .replace(pemPrivateKeyBlockRegex, '[redacted]')
-    .replace(bearerTokenRegex, 'Bearer [redacted]');
+  result = redactPrivateKeyBlocks(result).replace(bearerTokenRegex, 'Bearer [redacted]');
   for (const [quoted, patterns] of [
     [
       true,

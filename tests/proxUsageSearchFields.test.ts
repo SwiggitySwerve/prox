@@ -7,12 +7,7 @@ import { join } from 'node:path';
 import { compareResponses } from '../scripts/usage-parity/compare';
 import { queryAnalytics } from '../server/usage/analytics';
 import { runCpampJob } from '../server/usage/importCpamp';
-import {
-  FAIL_SUMMARY_WITHHELD,
-  failSummaryFromBody,
-  normalizeUsagePayload,
-  scrubTraceId,
-} from '../server/usage/normalize';
+import { failSummaryFromBody, normalizeUsagePayload, scrubTraceId } from '../server/usage/normalize';
 import { USAGE_MIGRATIONS } from '../server/usage/schema';
 import { migrateUsageDatabase, openUsageReader, UsageStore } from '../server/usage/store';
 import { INGEST, type AccountLabel, type NormalizedEvent } from '../server/usage/types';
@@ -85,15 +80,12 @@ describe('normalizer: failure text', () => {
       expect(failSummaryFromBody(body), body).not.toContain('SECRETVALUE');
     expect(failSummaryFromBody('{"accept":["text/html"],"ok":{"a":[1]}}')).toBe('{"accept":["text/html"],"ok":{"a":[1]}}');
   });
-  test('fails closed: nothing is cut that a pattern needs, and a long text is withheld, not leaked', () => {
-    const word = 'x'.repeat(100);
-    // A key that is long but plausible keeps its suffix, so its value is still redacted.
-    expect(failSummaryFromBody(`{"${word}_api_key":"SECRETVALUE"}`)).not.toContain('SECRETVALUE');
-    expect(failSummaryFromBody(`${'-'.repeat(60)}Bearer abcdef0123456789`)).not.toContain('abcdef0123456789');
-    // A word run over 128 characters cannot be handled safely: the text is not stored.
-    for (const body of [`{"${'x'.repeat(140)}_api_key":"SECRETVALUE"}`, `${'-'.repeat(200)}Bearer SECRETVALUE`, 'a.'.repeat(5000)])
-      expect(failSummaryFromBody(body)).toBe(FAIL_SUMMARY_WITHHELD);
-    expect(failSummaryFromBody(FAIL_SUMMARY_WITHHELD)).toBe(FAIL_SUMMARY_WITHHELD);
+  test('nothing is cut or withheld: long keys and runs are scrubbed whole', () => {
+    // A key that is long keeps its suffix, so its value is still redacted.
+    for (const length of [100, 140, 5000])
+      expect(failSummaryFromBody(`{"${'x'.repeat(length)}_api_key":"SECRETVALUE"}`)).not.toContain('SECRETVALUE');
+    expect(failSummaryFromBody(`${'-'.repeat(200)}Bearer abcdef0123456789`)).not.toContain('abcdef0123456789');
+    expect(failSummaryFromBody('a.'.repeat(5000))).toBe(`${'a.'.repeat(5000).slice(0, 4093)}...`);
     // A private key is redacted first, terminated or not, even inside an assignment that would
     // otherwise rewrite its marker.
     const pem = `-----BEGIN PRIVATE KEY-----\n${'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC '.repeat(300)}`;
@@ -106,11 +98,9 @@ describe('normalizer: failure text', () => {
     ])
       expect(failSummaryFromBody(body)).not.toMatch(/MIIEvQ|SECRETVALUE/);
     expect(failSummaryFromBody(`before ${pem}-----END PRIVATE KEY----- after`)).toBe('before [redacted] after');
-    // Over 16 KiB nothing is cut (a cut can drop a closing quote or marker): it is withheld whole.
+    // Text over 16 KiB is scrubbed whole, so a quote that closes far away still counts.
     const padded = `"password": "first\nSECRETVALUE\n${'padding '.repeat(3000)}"`;
-    expect(failSummaryFromBody(padded)).toBe(FAIL_SUMMARY_WITHHELD);
-    expect(failSummaryFromBody('word '.repeat(4000))).toBe(FAIL_SUMMARY_WITHHELD);
-    expect(failSummaryFromBody('z'.repeat(20000))).toBe(FAIL_SUMMARY_WITHHELD);
+    expect(failSummaryFromBody(padded)).toBe('"password": "[redacted]"');
   });
   test('masks e-mail addresses exactly like CPAMP and in linear time', () => {
     const cpamp = (s: string) => s.replace(/([A-Za-z0-9._%+-])([A-Za-z0-9._%+-]*)(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, '$1***$3');
@@ -169,10 +159,10 @@ describe('normalizer: response trace id', () => {
     expect(normalized().event.headerTraceId).toBeNull();
     expect(headers({ 'X-Request-Id': [KEY] })).not.toContain(KEY);
     expect(scrubTraceId(`${BEARER} ${'x '.repeat(1000)}`)).not.toContain('abcdef0123456789');
-    expect(scrubTraceId('y'.repeat(5000))).toBeNull(); // too long to scrub: dropped, not cut
+    expect(Buffer.byteLength(scrubTraceId('y'.repeat(5000))!)).toBeLessThanOrEqual(1024);
     expect(Buffer.byteLength(scrubTraceId(`${'!'.repeat(1006)} api_key=x`)!)).toBeLessThanOrEqual(1024);
     expect(Buffer.byteLength(scrubTraceId(`${'ab cd '.repeat(300)}`)!)).toBeLessThanOrEqual(1024);
-    expect(headers({ 'X-Request-Id': ['x'.repeat(3000)] })).toBeNull();
+    expect(Buffer.byteLength(headers({ 'X-Request-Id': ['x'.repeat(3000)] })!)).toBeLessThanOrEqual(1024);
     expect(Buffer.byteLength(headers({ 'X-Request-Id': ['x y '.repeat(600)] })!)).toBeLessThanOrEqual(1024);
   });
 });
