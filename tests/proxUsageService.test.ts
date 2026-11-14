@@ -54,6 +54,47 @@ test('status is bearer protected, health is public, missing/empty keys fail clos
   ).toBe(405);
 });
 
+test('status and exporter report the main-thread event-loop lag when a probe is wired', async () => {
+  temp = mkdtempSync(join('/dev/shm', 'prox-usage-status-lag-'));
+  const keyFile = join(temp, 'key');
+  writeFileSync(keyFile, 'synthetic-key');
+  const writer = () => ({
+    backlog: 0,
+    gaps: 0,
+    rawBufferFailures: 0,
+    inserted: 0,
+    duplicates: 0,
+    rejected: 0,
+  });
+  const eventLoop = () => ({ maxLagMs: 1500, stallsOver1s: 2, lastStallAtMs: 5_000 });
+  const get = (handler: ReturnType<typeof createUsageStatusHandler>, path: string) =>
+    handler(
+      new Request(`http://127.0.0.1${path}`, { headers: { Authorization: 'Bearer synthetic-key' } })
+    );
+  const handler = createUsageStatusHandler({
+    keyFile,
+    sources: () => [],
+    healthy: () => true,
+    writer,
+    eventLoop,
+    exporter: async () => ({ schema_version: 1 }) as never,
+  });
+  expect(await (await get(handler, '/v1/status')).json()).toMatchObject({
+    eventLoop: { maxLagMs: 1500, stallsOver1s: 2, lastStallAtMs: 5_000 },
+  });
+  expect(await (await get(handler, '/v1/exporter')).json()).toMatchObject({
+    event_loop: { max_lag_seconds: 1.5, stalls_total: 2, last_stall_time_seconds: 5 },
+  });
+  // Without a probe the existing responses are unchanged.
+  const plain = createUsageStatusHandler({
+    keyFile,
+    sources: () => [],
+    healthy: () => true,
+    writer,
+  });
+  expect(await (await get(plain, '/v1/status')).json()).not.toHaveProperty('eventLoop');
+});
+
 test('the main-thread runtime module graph never imports bun:sqlite or a worker entry', () => {
   const transpiler = new Bun.Transpiler({ loader: 'ts', target: 'bun' });
   const visited = new Set<string>();

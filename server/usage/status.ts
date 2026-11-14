@@ -1,5 +1,6 @@
 // Loopback HTTP presentation of collection and writer state; all database work is elsewhere.
 import { authorized } from '../http/auth';
+import type { EventLoopLagSnapshot } from '../eventLoopLag';
 import type { SourceStatus } from './collector';
 import {
   isBulkJobKind,
@@ -53,6 +54,8 @@ export function createUsageStatusHandler(options: {
   healthy: () => boolean;
   jobs?: JobControls;
   exporter?: () => Promise<NonNullable<WriterStatus['exporter']>>;
+  /** Main-thread event-loop lag since start; absent in tests that do not wire a probe. */
+  eventLoop?: () => EventLoopLagSnapshot;
   now?: () => number;
 }): (request: Request) => Promise<Response> {
   return async (request) => {
@@ -81,8 +84,19 @@ export function createUsageStatusHandler(options: {
       try {
         const snapshot = await options.exporter();
         const now = (options.now ?? Date.now)();
+        const lag = options.eventLoop?.();
         return json({
           ...snapshot,
+          ...(lag
+            ? {
+                event_loop: {
+                  max_lag_seconds: lag.maxLagMs / 1000,
+                  stalls_total: lag.stallsOver1s,
+                  last_stall_time_seconds:
+                    lag.lastStallAtMs === null ? null : lag.lastStallAtMs / 1000,
+                },
+              }
+            : {}),
           sources: options.sources().map((source) => ({
             instance: source.instance,
             state: source.state,
@@ -105,6 +119,7 @@ export function createUsageStatusHandler(options: {
         return json({
           sources: options.sources(),
           writer: { ...writer, job },
+          ...(options.eventLoop ? { eventLoop: options.eventLoop() } : {}),
           ...(rollup ? { rollup } : {}),
         });
       } catch {
