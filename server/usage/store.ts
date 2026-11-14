@@ -1,7 +1,7 @@
 // The only module of the usage service that opens SQLite. Import it from the writer worker and
 // the query workers only: never from a thread that owns sockets (RULES.md).
 import { Database, type Statement } from 'bun:sqlite';
-import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { INGEST } from './types';
 import type { ExporterEvent } from './exporter';
@@ -189,6 +189,36 @@ export function migrateUsageDatabase(
 /** A read-only connection for a query worker. The writer must have created the file. */
 export function openUsageReader(path: string): Database {
   const db = new Database(path, { readonly: true, strict: true });
+  try {
+    db.exec(READER_PRAGMAS_SQL);
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
+}
+
+/** The only job error text that names why the CPAMP file was refused; it holds no path. */
+export const CPAMP_SOURCE_NOT_QUIET = 'CPAMP source is not quiet: -wal or -shm present';
+// SQLITE_OPEN_READONLY | SQLITE_OPEN_URI. Bun's string form of the constructor does not enable
+// URI filenames, so the flags are passed as a number.
+const OPEN_READONLY_URI = 0x01 | 0x40;
+
+/**
+ * Open the CPAMP source for import, reconcile or verify.
+ * `immutable` is for a CPAMP that has stopped, read through a `:ro` mount: a read-only open of a
+ * WAL database must create `-shm`, which that mount forbids. immutable=1 takes no locks and never
+ * looks at `-wal` or `-shm`, so frames still in the `-wal` would be silently skipped. It therefore
+ * refuses any `-shm` and any non-empty `-wal`; both are gone after a clean stop or after
+ * `PRAGMA wal_checkpoint(TRUNCATE)` run on the host with CPAMP stopped.
+ */
+export function openCpampSource(path: string, immutable: boolean): Database {
+  if (!immutable) return openUsageReader(path);
+  const wal = `${path}-wal`;
+  if (existsSync(`${path}-shm`) || (existsSync(wal) && statSync(wal).size > 0))
+    throw new Error(CPAMP_SOURCE_NOT_QUIET);
+  const uri = `file:${resolve(path).replace(/[%?#]/g, encodeURIComponent)}?immutable=1`;
+  const db = new Database(uri, OPEN_READONLY_URI as never);
   try {
     db.exec(READER_PRAGMAS_SQL);
     return db;
