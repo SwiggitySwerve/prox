@@ -9,7 +9,11 @@
   flex-direction: column;
   gap: 18px;
   width: 100%;
+  /* As wide as the grid needs (set from its account count), so toolbar and grid end together. */
+  max-width: var(--models-max-width, none);
   min-width: 0;
+  /* Capped at wide widths: centred beside the sidebar rather than leaving one wide margin. */
+  margin-inline: auto;
 }
 
 /*
@@ -263,8 +267,8 @@
 
 .matrixFrame {
   /* The model column gives up to 64px so account columns keep a comfortable width. */
-  --head-min: 256px;
-  --head-max: 304px;
+  --head-min: 280px;
+  --head-max: 336px;
   --account-comfort: 112px;
   /* The narrowest an account column gets before the table scrolls inside its frame. */
   --account-min: 52px;
@@ -395,7 +399,8 @@
     box-shadow: 1px 0 0 var(--bg-secondary);
     font-weight: 600;
     color: var(--text-secondary);
-    vertical-align: top;
+    /* Bottom: checkboxes stay level when one name takes a third line. */
+    vertical-align: bottom;
   }
 
   /* Same specificity as the rule above, later: the corner stays over everything scrolled. */
@@ -442,6 +447,14 @@
   justify-content: space-between;
   gap: 8px;
   min-height: 24px;
+}
+
+.cornerDomain {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
 }
 
 .cornerAll {
@@ -498,7 +511,7 @@
 
 .accountHeadInner {
   display: grid;
-  grid-template-rows: 30px 14px 24px;
+  grid-template-rows: minmax(30px, auto) 14px 24px;
   gap: 4px;
   justify-items: center;
   min-width: 0;
@@ -511,7 +524,8 @@
   max-width: 100%;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  /* A name with no email may take a third line before the header stands upright. */
+  -webkit-line-clamp: 3;
   font-size: 11.5px;
   font-weight: 600;
   line-height: 15px;
@@ -527,7 +541,7 @@
   white-space: nowrap;
 
   & + & {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 400;
     color: var(--text-tertiary);
   }
@@ -722,9 +736,16 @@
     }
   }
 
-  /* An account that is off: its switches, dimmed as in its column. */
+  /* An account that is off: its switch dimmed on the column's hatch, as in the grid. */
   &[data-off='true'] {
     opacity: 0.6;
+    padding: 3px 4px;
+    border-radius: 4px;
+    background: repeating-linear-gradient(
+      135deg,
+      transparent 0 4px,
+      color-mix(in srgb, var(--text-primary) 18%, transparent) 4px 5px
+    );
   }
 }
 
@@ -799,7 +820,7 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   line-height: 14px;
   color: var(--text-tertiary);
@@ -821,6 +842,12 @@
 
 .matrix td[data-off='true'] {
   opacity: 0.6;
+  /* A column-wide cue besides the dimming, so 'account off' is not one more grey. */
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 7px,
+    color-mix(in srgb, var(--text-primary) 7%, transparent) 7px 8px
+  );
 }
 
 .matrix th[data-failed='true'] {
@@ -1017,7 +1044,8 @@
 
 .saveDock {
   position: fixed;
-  bottom: 0;
+  /* Just under the page's last line when it ends above the fold, else at the bottom. */
+  bottom: var(--dock-bottom, 0px);
   padding: 16px 0 12px;
   /* Rows fade out under the bar instead of showing through below it. */
   background: linear-gradient(to bottom, transparent, var(--bg-secondary) 16px);
@@ -1423,5 +1451,205 @@
     color: var(--text-secondary);
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+}
+
+/* ---------- hidden models: a per-browser view preference ---------- */
+
+/* A band: its label at the left, its action (Hide all / Unhide all) at the right. */
+.bandInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bandAction,
+.hiddenToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 1px;
+  }
+}
+
+.hiddenToggle {
+  position: sticky;
+  left: 2px;
+  padding: 0 8px 0 4px;
+  font-weight: 600;
+}
+
+/* Right when closed, down when open. */
+.hiddenChevron {
+  transition: transform var(--dur-hover) var(--ease-out-strong);
+
+  .hiddenToggle[aria-expanded='false'] & {
+    transform: rotate(-90deg);
+  }
+}
+
+/* A hidden model some account still serves: said in the band, so nothing on disappears. */
+
+/* "Show 16 hidden": at the end of the key row while the Hidden band is out of sight. */
+.hiddenJump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 1px;
+  }
+}
+
+.hiddenStillOn {
+  font-weight: 600;
+  color: var(--text-primary);
+
+  &::before {
+    content: '·';
+    margin-right: 6px;
+    font-weight: 400;
+    color: var(--text-tertiary);
+  }
+}
+
+/* Hidden, but kept in its band (staged, or found by a search). */
+.hiddenTag {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border: 1px solid var(--border-hover);
+  border-radius: 4px;
+  font-size: 10.5px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+
+.hideButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-quaternary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 1px;
+  }
+
+  .phoneView & {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Every row's Hide / Unhide rests in the secondary icon grey (about 5:1) and brightens with its
+ * row on hover or focus. */
+@media (hover: hover) and (pointer: fine) {
+  .matrix tr:is(:hover, :focus-within) .hideButton {
+    color: var(--text-primary);
+  }
+}
+
+/* The note on what the grid leaves out, as the table's last row. */
+.matrix .noteRow > td {
+  height: auto;
+  padding: 10px;
+  border-bottom: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+
+  a {
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.noteText {
+  margin: 0;
+}
+
+.phoneRows li.phoneNote {
+  display: block;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+
+  a {
+    color: var(--text-secondary);
+    text-decoration: underline;
+  }
+}
+
+.phoneView .phoneCell {
+  align-items: center;
+  gap: 2px;
+}
+
+.phoneRows li.phoneSection > .bandInner {
+  flex: 1 1 auto;
+}
+
+.phoneView :is(.bandAction, .hiddenToggle) {
+  min-height: 44px;
+}
+
+@media (max-width: 599px) {
+  .hiddenJump {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hiddenChevron {
+    transition: none;
   }
 }

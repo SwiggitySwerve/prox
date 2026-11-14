@@ -317,6 +317,24 @@ export function sharedLabels(accounts: readonly AccountAccess[]): Set<string> {
   return shared;
 }
 
+/**
+ * The email domain every account shares (two or more emails, all on one domain, no two with the
+ * same name before the @), so it can be said once instead of under every column; else null.
+ */
+export function sharedDomain(accounts: readonly AccountAccess[]): string | null {
+  const emails = accounts
+    .map((account) => account.label)
+    .filter((label) => label.indexOf('@') > 0)
+    .map((label) => ({
+      name: label.slice(0, label.indexOf('@')),
+      domain: label.slice(label.indexOf('@')),
+    }));
+  if (emails.length < 2) return null;
+  const domain = emails[0].domain;
+  if (emails.some((email) => email.domain !== domain)) return null;
+  return new Set(emails.map((email) => email.name)).size === emails.length ? domain : null;
+}
+
 /** Old editor links (`?source=` and `?provider=`) open the matching tab of the Models screen. */
 export function legacyModelsTarget(search: string, tab: ModelsTab): string {
   const params = new URLSearchParams(search);
