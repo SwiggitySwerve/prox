@@ -73,6 +73,9 @@ describe('normalizer: failure text', () => {
       '{"Cookie":["a\\"]SECRETVALUE"]}',
       "{'x-api-key': ['}SECRETVALUE', \"]\"]}",
       'api_key=["SECRETVALUE"]',
+      'api key=["SECRETVALUE"]',
+      'upstream api key=["SECRETVALUE"]',
+      'the upstream api key: {"v":"SECRETVALUE"}',
       'password: {"a": ["]SECRETVALUE"]} trailing',
       '{"token":["SECRETVALUE"',
     ])
@@ -88,13 +91,22 @@ describe('normalizer: failure text', () => {
     for (const body of [`{"${'x'.repeat(140)}_api_key":"SECRETVALUE"}`, `${'-'.repeat(200)}Bearer SECRETVALUE`, 'a.'.repeat(5000)])
       expect(failSummaryFromBody(body)).toBe(FAIL_SUMMARY_WITHHELD);
     expect(failSummaryFromBody(FAIL_SUMMARY_WITHHELD)).toBe(FAIL_SUMMARY_WITHHELD);
-    // A private key running past the 16 KiB window is redacted to the end, never shown half cut.
-    const pem = `-----BEGIN PRIVATE KEY-----\n${'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC '.repeat(600)}`;
-    for (const body of [pem, `${'k=v '.repeat(3000)}${pem}`, `before ${pem}-----END PRIVATE KEY-----`])
-      expect(failSummaryFromBody(body)).not.toContain('MIIEvQ');
-    // The cut text is not half a token: an overlong text is cut at whitespace.
-    const long = `${'word '.repeat(3300)}sk-${'A'.repeat(30)} tail`;
-    expect(failSummaryFromBody(long)!.length).toBeGreaterThan(0);
+    // A private key is redacted first, terminated or not, even inside an assignment that would
+    // otherwise rewrite its marker.
+    const pem = `-----BEGIN PRIVATE KEY-----\n${'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC '.repeat(300)}`;
+    for (const body of [
+      pem,
+      `${'k=v '.repeat(1000)}${pem}`,
+      `before ${pem}-----END PRIVATE KEY----- after`,
+      `password="${pem}`,
+      `password="-----BEGIN PRIVATE KEY-----\nSECRETVALUE\n`,
+    ])
+      expect(failSummaryFromBody(body)).not.toMatch(/MIIEvQ|SECRETVALUE/);
+    expect(failSummaryFromBody(`before ${pem}-----END PRIVATE KEY----- after`)).toBe('before [redacted] after');
+    // Over 16 KiB nothing is cut (a cut can drop a closing quote or marker): it is withheld whole.
+    const padded = `"password": "first\nSECRETVALUE\n${'padding '.repeat(3000)}"`;
+    expect(failSummaryFromBody(padded)).toBe(FAIL_SUMMARY_WITHHELD);
+    expect(failSummaryFromBody('word '.repeat(4000))).toBe(FAIL_SUMMARY_WITHHELD);
     expect(failSummaryFromBody('z'.repeat(20000))).toBe(FAIL_SUMMARY_WITHHELD);
   });
   test('masks e-mail addresses exactly like CPAMP and in linear time', () => {

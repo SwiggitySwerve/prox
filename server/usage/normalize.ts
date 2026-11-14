@@ -207,16 +207,21 @@ const HEADER_VALUE_MAX_BYTES = 1024;
  * Several patterns of the CPAMP-ported scrubber backtrack badly in JavaScript (Go's RE2 does not):
  * an unquoted key may run over a long word, and every '.' or '-' in it is a word boundary, so
  * 10,000 characters of "a." take seconds on the sole writer thread. Upstream text is not trusted,
- * so the scrubber only sees the first 16 KiB (the stored text is capped at 4096 bytes anyway), and
- * text holding a run of word characters longer than 128 is not stored at all: nothing is cut or
- * rewritten, so no recognition context (a key suffix, a token prefix) is ever removed, and the
- * longest run the patterns see bounds their cost to about 100 ms.
+ * so text over 16 KiB, or holding a run of word characters longer than 128, is not stored at all:
+ * nothing is cut or rewritten, so no recognition context (a key suffix, a token prefix, a closing
+ * quote or PEM marker) is ever removed, and the input the patterns see bounds their cost to
+ * about 150 ms.
  */
 const SCRUB_INPUT_MAX_CHARS = 16384;
 const LONG_WORD_RUN = /[A-Za-z0-9_.-]{129,}/;
 /** Stored in place of failure text that cannot be scrubbed safely. */
 export const FAIL_SUMMARY_WITHHELD = '[failure text withheld]';
-const UNTERMINATED_PEM = /-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----[^]*$/;
+const PEM_BEGIN = '-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----';
+const PEM_BLOCK = new RegExp(`${PEM_BEGIN}[^]*?-----END (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----`, 'g');
+const UNTERMINATED_PEM = new RegExp(`${PEM_BEGIN}[^]*$`);
+/** Private keys go first: any other rewrite (a redacted assignment, say) could remove a marker. */
+const withoutPrivateKeys = (text: string): string =>
+  text.replace(PEM_BLOCK, '[redacted]').replace(UNTERMINATED_PEM, '[redacted]');
 
 const EMAIL_LOCAL =/[A-Za-z0-9._%+-]/;
 const EMAIL_DOMAIN = /@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/y;
@@ -247,23 +252,18 @@ function maskEmailAddresses(text: string): string {
  * character, then capped. It is the only way failure text enters the store, for live events and
  * for CPAMP's persisted value alike, and again when it is served. Scrubbing a scrubbed value
  * changes nothing, except CPAMP's own e-mail rule on `a@b.cc@d.ee` (masked again on the second
- * pass). Prox-only hardening beyond CPAMP: arrays and objects under secret-named keys are
- * redacted whole, an unterminated private-key block is redacted to the end, and text the
- * scrubber cannot take safely (see LONG_WORD_RUN) becomes FAIL_SUMMARY_WITHHELD.
+ * pass). Prox-only hardening beyond CPAMP: private-key blocks (even unterminated, to the end)
+ * are redacted first, arrays and objects under secret-named keys are redacted whole, and text the
+ * scrubber cannot take safely (see SCRUB_INPUT_MAX_CHARS) becomes FAIL_SUMMARY_WITHHELD.
  */
 export function failSummaryFromBody(body: string): string | null {
-  let trimmed = body.trim();
+  const trimmed = body.trim();
   if (!trimmed) return null;
-  if (trimmed.length > SCRUB_INPUT_MAX_CHARS) {
-    // Cut at a whitespace boundary: half a token at the cut would escape its pattern.
-    let end = SCRUB_INPUT_MAX_CHARS;
-    while (end > 0 && !/\s/.test(trimmed[end])) end -= 1;
-    trimmed = trimmed.slice(0, end).trim();
-    if (!trimmed) return FAIL_SUMMARY_WITHHELD;
+  if (trimmed.length > SCRUB_INPUT_MAX_CHARS || LONG_WORD_RUN.test(trimmed)) {
+    return FAIL_SUMMARY_WITHHELD;
   }
-  if (LONG_WORD_RUN.test(trimmed)) return FAIL_SUMMARY_WITHHELD;
   const scrubbed = maskEmailAddresses(
-    sanitizeCredentialText(redactSecretCollections(trimmed)).replace(UNTERMINATED_PEM, '[redacted]')
+    sanitizeCredentialText(redactSecretCollections(withoutPrivateKeys(trimmed)))
   );
   return orNull(truncateUtf8(scrubbed.trim(), FAIL_SUMMARY_MAX_BYTES));
 }

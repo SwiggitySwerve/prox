@@ -621,11 +621,11 @@ separate nightly chain below serializes maintenance before invoking parity.
     addresses masked to their first character, capped at 4096 bytes
     (`FAIL_SUMMARY_MAX_BYTES`, the one knob). It is upstream error text with credentials
     removed, not a request body. Returned items scrub it again. Hardening beyond CPAMP:
-    arrays and objects under secret-named keys, and an unterminated private-key block,
-    are redacted whole; only the first 16 KiB (cut at whitespace) is scrubbed, because the
-    ported patterns backtrack badly in JavaScript; and text with a run of more than 128
-    word characters (`[A-Za-z0-9_.-]`, so a JWT or long id) is not stored: the value is
-    `[failure text withheld]` (a trace id is dropped), because cutting such a run would
+    private-key blocks (even unterminated, to the end) are redacted first, and arrays and
+    objects under secret-named keys whole; and because the ported patterns backtrack badly
+    in JavaScript, text over 16 KiB or with a run of more than 128 word characters
+    (`[A-Za-z0-9_.-]`, so a JWT or long id) is not stored: the value is
+    `[failure text withheld]` (a trace id is dropped). Nothing is cut, since a cut can
     remove the context a pattern needs. A CPAMP summary that this rule changes shows as a
     reported difference in verification.
   - `header_trace_id` (`event_detail.header_trace_id`): CPAMP's PrimaryTraceID from the

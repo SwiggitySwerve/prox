@@ -183,9 +183,10 @@ function assignments(
     return prefix + quote + '[redacted]' + trailing;
   });
 }
-// A key (quoted, or a word of at most 128 characters) followed by a separator and `[` or `{`.
+// A key (quoted, or one to three words of at most 128 characters, as the scalar patterns accept)
+// followed by a separator and `[` or `{`.
 const keyBeforeCollectionRegex = new RegExp(
-  '(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\'|\\b([A-Za-z0-9_.-]{1,128})\\b)\\s*[:=]\\s*(?=[\\[{])',
+  '(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\'|\\b([A-Za-z0-9_.-]{1,128}(?:[ \\t]+[A-Za-z0-9_.-]{1,128}){0,2})\\b)\\s*[:=]\\s*(?=[\\[{])',
   'g'
 );
 /**
@@ -215,7 +216,8 @@ export function redactSecretCollections(value: string): string {
   let out = '';
   let last = 0;
   for (const match of value.matchAll(keyBeforeCollectionRegex)) {
-    if (match.index < last || !secret(match[1] || match[2] || match[3])) continue;
+    const quoted = match[1] || match[2];
+    if (match.index < last || !(quoted ? secret(quoted) : unquotedSecret(match[3]))) continue;
     const open = match.index + match[0].length;
     out += `${value.slice(last, open)}"[redacted]"`;
     last = collectionEnd(value, open);
