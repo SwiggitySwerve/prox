@@ -781,7 +781,8 @@ cannot create the `-shm` a read-only WAL open needs. `PROX_USAGE_CPAMP_IMMUTABLE
 with `file:...?immutable=1` instead (Bun needs the numeric `SQLITE_OPEN_READONLY|SQLITE_OPEN_URI`
 flags; its string form rejects URIs). immutable=1 takes no locks and ignores `-wal`, so frames left
 in it would be skipped silently: the open therefore refuses with the fixed job error
-`CPAMP source is not quiet: -wal or -shm present` when `-shm` exists or `-wal` is non-empty.
+`CPAMP source is not quiet: -wal, -shm or -journal present` when `-shm` or `-journal` exists or `-wal` is
+non-empty. A symlinked path is resolved first, since SQLite looks for the sidecars beside the real file.
 
 The oneshot has `TimeoutStartSec=7h40min`; parity has a 5h30min cap and
 absolute noon deadline. The standalone parity service keeps `RuntimeMaxSec=5h30min`.

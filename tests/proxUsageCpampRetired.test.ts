@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageWriter } from '../server/usage/writer';
 import { createUsageStatusHandler } from '../server/usage/status';
@@ -189,6 +189,25 @@ test('immutable=1 refuses a database that is not quiet, because it would skip th
   writeFileSync(`${path}-wal`, '');
   openCpampSource(path, true).close();
   writeFileSync(`${path}-shm`, '');
+  expect(() => openCpampSource(path, true)).toThrow(CPAMP_SOURCE_NOT_QUIET);
+});
+
+test('immutable=1 checks the sidecars of the real file behind a symlink, and a hot -journal', () => {
+  const root = scratch();
+  const real = join(root, 'cpamp');
+  mkdirSync(real);
+  const path = join(real, 'usage.sqlite');
+  const source = createCpamp(path, 3);
+  source.db.exec('PRAGMA journal_mode=WAL');
+  source.add(cpampRow(4)); // committed, but only in the -wal
+  const alias = join(root, 'alias.sqlite');
+  symlinkSync(path, alias);
+  // The alias has no sidecars beside it; the target's -wal still holds a committed row.
+  expect(() => openCpampSource(alias, true)).toThrow(CPAMP_SOURCE_NOT_QUIET);
+  source.db.close();
+  openCpampSource(alias, true).close();
+  // A crashed rollback-journal writer leaves a hot -journal that immutable would skip.
+  writeFileSync(`${path}-journal`, 'hot');
   expect(() => openCpampSource(path, true)).toThrow(CPAMP_SOURCE_NOT_QUIET);
 });
 

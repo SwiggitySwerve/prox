@@ -358,24 +358,26 @@ A retired night is healthy; a failed one still has `"status":"failed"`.
 The final reconcile must happen before the switch, because retired mode refuses it. The `:ro`
 mount cannot create the `-shm` a read-only open of CPAMP's WAL database needs, so the final
 reconcile opens the stopped file with SQLite's `immutable=1` (`PROX_USAGE_CPAMP_IMMUTABLE=1`).
-immutable=1 ignores the `-wal`, so the open refuses a non-empty `-wal` or any `-shm`.
+immutable=1 ignores the `-wal`, so the open refuses a non-empty `-wal`, any `-shm` and any `-journal`.
 
 1. `systemctl --user stop cpa-manager-plus`, then mask the unit.
 2. Confirm nothing holds the file: `fuser ~/.local/share/cpa-manager-plus/usage.sqlite*` and
    `lsof ~/.local/share/cpa-manager-plus/usage.sqlite*` print nothing.
-3. Confirm `ls -l ~/.local/share/cpa-manager-plus/usage.sqlite*` shows no `-shm` and no `-wal`,
-   or an empty `-wal`. If either remains, with nothing holding the file run
+3. Confirm `ls -l ~/.local/share/cpa-manager-plus/usage.sqlite*` shows no `-shm` and no `-journal`
+   and no `-wal`, or an empty `-wal`. If either remains, with nothing holding the file run
    `sqlite3 ~/.local/share/cpa-manager-plus/usage.sqlite 'PRAGMA wal_checkpoint(TRUNCATE)'` on
    the host (this rewrites the file, so take its cold copy first) and check again.
-4. Set `PROX_USAGE_CPAMP_IMMUTABLE=1` in `deploy/prox-usage.container`, deploy, and confirm
-   `prox-usage` restarted.
+4. Set `PROX_USAGE_CPAMP_IMMUTABLE=1` in `deploy/prox-usage.container`, deploy, then run
+   `systemctl --user restart prox-usage.service`. The deploy script restarts it only when its
+   JavaScript bundle changed, so a quadlet-only change needs this explicit restart.
 5. Start `systemctl --user start prox-usage-job@reconcile.service`, then read the result with
    `printf 'Authorization: Bearer %s\n' "$(cat ~/.config/cli-proxy-rerank/management-key)" | curl -sS --header @- http://127.0.0.1:18320/v1/jobs`.
 6. Accept only `state: "succeeded"` with `result.report.verification.exact: true` and
-   `result.report.conflicts: 0`. An error `CPAMP source is not quiet: -wal or -shm present`
+   `result.report.conflicts: 0`. An error `CPAMP source is not quiet: -wal, -shm or -journal present`
    means go back to step 3. Anything else stops the retirement; CPAMP can be unmasked and started.
-7. Set `PROX_USAGE_CPAMP_RETIRED=1` and `PROX_USAGE_CPAMP_IMMUTABLE=0` in the quadlet, deploy, and
-   check `/v1/status` shows `cpamp_retired: true`.
+7. Set `PROX_USAGE_CPAMP_RETIRED=1` and `PROX_USAGE_CPAMP_IMMUTABLE=0` in the quadlet, deploy, run
+   `systemctl --user restart prox-usage.service` (same reason as step 4), and check `/v1/status`
+   shows `cpamp_retired: true`. Until it does, the nightly still runs the CPAMP guard.
 8. The next night's journal JSON carries the `retired` skip record and `status: succeeded`.
 
 Step H (separate change) removes the `/cpamp` mount and `PROX_USAGE_CPAMP_DB_PATH` from the
