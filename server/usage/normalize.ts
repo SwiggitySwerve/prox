@@ -207,18 +207,16 @@ const HEADER_VALUE_MAX_BYTES = 1024;
  * Several patterns of the CPAMP-ported scrubber backtrack badly in JavaScript (Go's RE2 does not):
  * an unquoted key may run over a long word, and every '.' or '-' in it is a word boundary, so
  * 10,000 characters of "a." take seconds on the sole writer thread. Upstream text is not trusted,
- * so the scrubber only sees the first 16 KiB, and a run of word characters longer than 64 (no key
- * name is) is cut to 64. The stored text is capped at 4096 bytes anyway, so this only changes
- * pathological input; the cut text is still scrubbed.
+ * so the scrubber only sees the first 16 KiB (the stored text is capped at 4096 bytes anyway), and
+ * text holding a run of word characters longer than 128 is not stored at all: nothing is cut or
+ * rewritten, so no recognition context (a key suffix, a token prefix) is ever removed, and the
+ * longest run the patterns see bounds their cost to about 100 ms.
  */
 const SCRUB_INPUT_MAX_CHARS = 16384;
-const SCRUB_RUN_MAX_CHARS = 64;
-const boundedForScrubbing = (text: string): string =>
-  text
-    .slice(0, SCRUB_INPUT_MAX_CHARS)
-    .replace(new RegExp(`[A-Za-z0-9_.-]{${SCRUB_RUN_MAX_CHARS + 1},}`, 'g'), (run) =>
-      run.slice(0, SCRUB_RUN_MAX_CHARS)
-    );
+const LONG_WORD_RUN = /[A-Za-z0-9_.-]{129,}/;
+/** Stored in place of failure text that cannot be scrubbed safely. */
+export const FAIL_SUMMARY_WITHHELD = '[failure text withheld]';
+const UNTERMINATED_PEM = /-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED |DSA )?PRIVATE KEY-----[^]*$/;
 
 const EMAIL_LOCAL =/[A-Za-z0-9._%+-]/;
 const EMAIL_DOMAIN = /@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/y;
@@ -247,13 +245,26 @@ function maskEmailAddresses(text: string): string {
 /**
  * CPAMP's FailSummaryFromBody: the credential scrubber, e-mail addresses masked to their first
  * character, then capped. It is the only way failure text enters the store, for live events and
- * for CPAMP's persisted value alike, and again when it is served; scrubbing a scrubbed value
- * changes nothing. Arrays and objects under secret-named keys are redacted whole (Prox-only).
+ * for CPAMP's persisted value alike, and again when it is served. Scrubbing a scrubbed value
+ * changes nothing, except CPAMP's own e-mail rule on `a@b.cc@d.ee` (masked again on the second
+ * pass). Prox-only hardening beyond CPAMP: arrays and objects under secret-named keys are
+ * redacted whole, an unterminated private-key block is redacted to the end, and text the
+ * scrubber cannot take safely (see LONG_WORD_RUN) becomes FAIL_SUMMARY_WITHHELD.
  */
 export function failSummaryFromBody(body: string): string | null {
-  const trimmed = boundedForScrubbing(body.trim());
+  let trimmed = body.trim();
   if (!trimmed) return null;
-  const scrubbed = maskEmailAddresses(sanitizeCredentialText(redactSecretCollections(trimmed)));
+  if (trimmed.length > SCRUB_INPUT_MAX_CHARS) {
+    // Cut at a whitespace boundary: half a token at the cut would escape its pattern.
+    let end = SCRUB_INPUT_MAX_CHARS;
+    while (end > 0 && !/\s/.test(trimmed[end])) end -= 1;
+    trimmed = trimmed.slice(0, end).trim();
+    if (!trimmed) return FAIL_SUMMARY_WITHHELD;
+  }
+  if (LONG_WORD_RUN.test(trimmed)) return FAIL_SUMMARY_WITHHELD;
+  const scrubbed = maskEmailAddresses(
+    sanitizeCredentialText(redactSecretCollections(trimmed)).replace(UNTERMINATED_PEM, '[redacted]')
+  );
   return orNull(truncateUtf8(scrubbed.trim(), FAIL_SUMMARY_MAX_BYTES));
 }
 
@@ -271,8 +282,11 @@ const TRACE_HEADERS = [
 const TRACEPARENT = /^[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
 
 const headerValue = (value: string): string => {
-  const trimmed = value.trim();
-  return trimmed ? truncateUtf8(failSummaryFromBody(trimmed) ?? '', HEADER_VALUE_MAX_BYTES) : '';
+  const scrubbed = failSummaryFromBody(value);
+  // A header value too long to scrub is dropped, not replaced by the failure-text placeholder.
+  return scrubbed === null || scrubbed === FAIL_SUMMARY_WITHHELD
+    ? ''
+    : truncateUtf8(scrubbed, HEADER_VALUE_MAX_BYTES);
 };
 
 /**
@@ -305,7 +319,7 @@ export function headerTraceId(headers: unknown): string | null {
 /** One trace id value as stored: scrubbed and capped, whether it came from a live header or
  * from CPAMP's persisted column, and again when served. */
 export function scrubTraceId(value: string): string | null {
-  return orNull(sanitizeCredentialText(headerValue(value)).trim());
+  return orNull(truncateUtf8(sanitizeCredentialText(headerValue(value)).trim(), HEADER_VALUE_MAX_BYTES));
 }
 
 const UUID_VERSION =/^[0-9a-f]{8}-[0-9a-f]{4}-([0-9a-f])[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/;

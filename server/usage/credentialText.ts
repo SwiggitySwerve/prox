@@ -183,16 +183,26 @@ function assignments(
     return prefix + quote + '[redacted]' + trailing;
   });
 }
+// A key (quoted, or a word of at most 128 characters) followed by a separator and `[` or `{`.
 const keyBeforeCollectionRegex = new RegExp(
-  '(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\')\\s*[:=]\\s*(?=[\\[{])',
+  '(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\'|\\b([A-Za-z0-9_.-]{1,128})\\b)\\s*[:=]\\s*(?=[\\[{])',
   'g'
 );
-/** The index just past the array or object that opens at `open`; the end of the text if unclosed. */
+/**
+ * The index just past the array or object that opens at `open`; the end of the text if unclosed.
+ * Brackets inside quoted strings (with backslash escapes) do not count.
+ */
 function collectionEnd(value: string, open: number): number {
   let depth = 0;
+  let quote = '';
   for (let i = open; i < value.length; i++) {
-    if (value[i] === '[' || value[i] === '{') depth += 1;
-    else if ((value[i] === ']' || value[i] === '}') && --depth === 0) return i + 1;
+    const char = value[i];
+    if (quote) {
+      if (char === '\\') i += 1;
+      else if (char === quote) quote = '';
+    } else if (char === '"' || char === "'") quote = char;
+    else if (char === '[' || char === '{') depth += 1;
+    else if ((char === ']' || char === '}') && --depth === 0) return i + 1;
   }
   return value.length;
 }
@@ -205,7 +215,7 @@ export function redactSecretCollections(value: string): string {
   let out = '';
   let last = 0;
   for (const match of value.matchAll(keyBeforeCollectionRegex)) {
-    if (match.index < last || !secret(match[1] || match[2])) continue;
+    if (match.index < last || !secret(match[1] || match[2] || match[3])) continue;
     const open = match.index + match[0].length;
     out += `${value.slice(last, open)}"[redacted]"`;
     last = collectionEnd(value, open);

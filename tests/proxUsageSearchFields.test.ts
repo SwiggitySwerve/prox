@@ -7,7 +7,12 @@ import { join } from 'node:path';
 import { compareResponses } from '../scripts/usage-parity/compare';
 import { queryAnalytics } from '../server/usage/analytics';
 import { runCpampJob } from '../server/usage/importCpamp';
-import { failSummaryFromBody, normalizeUsagePayload, scrubTraceId } from '../server/usage/normalize';
+import {
+  FAIL_SUMMARY_WITHHELD,
+  failSummaryFromBody,
+  normalizeUsagePayload,
+  scrubTraceId,
+} from '../server/usage/normalize';
 import { USAGE_MIGRATIONS } from '../server/usage/schema';
 import { migrateUsageDatabase, openUsageReader, UsageStore } from '../server/usage/store';
 import { INGEST, type AccountLabel, type NormalizedEvent } from '../server/usage/types';
@@ -62,6 +67,36 @@ describe('normalizer: failure text', () => {
     expect(e.failSummary).toContain('text/html');
     expect(failSummaryFromBody(e.failSummary!)).toBe(e.failSummary);
   });
+  test('collection redaction is string-aware and covers unquoted keys', () => {
+    for (const body of [
+      '{"Cookie":["sid=prefix]SECRETVALUE"]}',
+      '{"Cookie":["a\\"]SECRETVALUE"]}',
+      "{'x-api-key': ['}SECRETVALUE', \"]\"]}",
+      'api_key=["SECRETVALUE"]',
+      'password: {"a": ["]SECRETVALUE"]} trailing',
+      '{"token":["SECRETVALUE"',
+    ])
+      expect(failSummaryFromBody(body), body).not.toContain('SECRETVALUE');
+    expect(failSummaryFromBody('{"accept":["text/html"],"ok":{"a":[1]}}')).toBe('{"accept":["text/html"],"ok":{"a":[1]}}');
+  });
+  test('fails closed: nothing is cut that a pattern needs, and a long text is withheld, not leaked', () => {
+    const word = 'x'.repeat(100);
+    // A key that is long but plausible keeps its suffix, so its value is still redacted.
+    expect(failSummaryFromBody(`{"${word}_api_key":"SECRETVALUE"}`)).not.toContain('SECRETVALUE');
+    expect(failSummaryFromBody(`${'-'.repeat(60)}Bearer abcdef0123456789`)).not.toContain('abcdef0123456789');
+    // A word run over 128 characters cannot be handled safely: the text is not stored.
+    for (const body of [`{"${'x'.repeat(140)}_api_key":"SECRETVALUE"}`, `${'-'.repeat(200)}Bearer SECRETVALUE`, 'a.'.repeat(5000)])
+      expect(failSummaryFromBody(body)).toBe(FAIL_SUMMARY_WITHHELD);
+    expect(failSummaryFromBody(FAIL_SUMMARY_WITHHELD)).toBe(FAIL_SUMMARY_WITHHELD);
+    // A private key running past the 16 KiB window is redacted to the end, never shown half cut.
+    const pem = `-----BEGIN PRIVATE KEY-----\n${'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC '.repeat(600)}`;
+    for (const body of [pem, `${'k=v '.repeat(3000)}${pem}`, `before ${pem}-----END PRIVATE KEY-----`])
+      expect(failSummaryFromBody(body)).not.toContain('MIIEvQ');
+    // The cut text is not half a token: an overlong text is cut at whitespace.
+    const long = `${'word '.repeat(3300)}sk-${'A'.repeat(30)} tail`;
+    expect(failSummaryFromBody(long)!.length).toBeGreaterThan(0);
+    expect(failSummaryFromBody('z'.repeat(20000))).toBe(FAIL_SUMMARY_WITHHELD);
+  });
   test('masks e-mail addresses exactly like CPAMP and in linear time', () => {
     const cpamp = (s: string) => s.replace(/([A-Za-z0-9._%+-])([A-Za-z0-9._%+-]*)(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, '$1***$3');
     for (const s of [
@@ -73,13 +108,19 @@ describe('normalizer: failure text', () => {
       'a.b@c.de-f.gh',
     ])
       expect(failSummaryFromBody(s)).toBe(cpamp(s));
+    // CPAMP's own rule is not idempotent on `a@b.cc@d.ee`; the port keeps it, and says so.
+    expect(failSummaryFromBody('a@b.cc@d.ee')).toBe('a***@b.cc@d.ee');
+    expect(failSummaryFromBody('a***@b.cc@d.ee')).toBe('a***@b***@d.ee');
     // Hostile upstream text: the scrubber's own patterns backtrack on long dotted words, and the
     // e-mail pattern on a long local part, so each stays bounded.
     for (const text of [
       'a'.repeat(100000),
       'a.'.repeat(50000) + '@',
       'a@'.repeat(50000),
-      ('a.b-'.repeat(60) + ' ').repeat(300),
+      ('a.b-'.repeat(30) + ' ').repeat(300),
+      ('a.'.repeat(60) + ' = ').repeat(130),
+      '"k": '.repeat(3000),
+      '{"token":['.repeat(2000),
     ]) {
       const start = performance.now();
       failSummaryFromBody(text);
@@ -112,9 +153,12 @@ describe('normalizer: response trace id', () => {
     expect(headers({ 'Set-Cookie': ['a=b'], Authorization: ['x'], 'Retry-After': ['30'] })).toBeNull();
     expect(normalized().event.headerTraceId).toBeNull();
     expect(headers({ 'X-Request-Id': [KEY] })).not.toContain(KEY);
-    expect(scrubTraceId(`${BEARER} ${'x'.repeat(2000)}`)).not.toContain('abcdef0123456789');
-    expect(Buffer.byteLength(scrubTraceId('y'.repeat(5000))!)).toBeLessThanOrEqual(1024);
-    expect(Buffer.byteLength(headers({ 'X-Request-Id': ['x'.repeat(3000)] })!)).toBeLessThanOrEqual(1024);
+    expect(scrubTraceId(`${BEARER} ${'x '.repeat(1000)}`)).not.toContain('abcdef0123456789');
+    expect(scrubTraceId('y'.repeat(5000))).toBeNull(); // too long to scrub: dropped, not cut
+    expect(Buffer.byteLength(scrubTraceId(`${'!'.repeat(1006)} api_key=x`)!)).toBeLessThanOrEqual(1024);
+    expect(Buffer.byteLength(scrubTraceId(`${'ab cd '.repeat(300)}`)!)).toBeLessThanOrEqual(1024);
+    expect(headers({ 'X-Request-Id': ['x'.repeat(3000)] })).toBeNull();
+    expect(Buffer.byteLength(headers({ 'X-Request-Id': ['x y '.repeat(600)] })!)).toBeLessThanOrEqual(1024);
   });
 });
 
@@ -307,7 +351,7 @@ describe('CPAMP import, reconcile and backfill', () => {
 
   test('an imported trace id passes the same scrubber and cap, and is scrubbed again when served', async () => {
     const f = fixture(1);
-    f.writable.db.exec(`UPDATE usage_events SET header_trace_id = '${BEARER} ${'z'.repeat(2000)}'`);
+    f.writable.db.exec(`UPDATE usage_events SET header_trace_id = '${BEARER} ${'z '.repeat(1000)}'`);
     await run(f);
     const stored = (fields(f.reader) as { header_trace_id: string }[])[0].header_trace_id;
     expect(stored).not.toContain('abcdef0123456789');

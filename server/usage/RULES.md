@@ -620,7 +620,14 @@ separate nightly chain below serializes maintenance before invoking parity.
     proxy record's `fail.body`: the credential scrubber of `credentialText.ts`, e-mail
     addresses masked to their first character, capped at 4096 bytes
     (`FAIL_SUMMARY_MAX_BYTES`, the one knob). It is upstream error text with credentials
-    removed, not a request body. Returned items scrub it again.
+    removed, not a request body. Returned items scrub it again. Hardening beyond CPAMP:
+    arrays and objects under secret-named keys, and an unterminated private-key block,
+    are redacted whole; only the first 16 KiB (cut at whitespace) is scrubbed, because the
+    ported patterns backtrack badly in JavaScript; and text with a run of more than 128
+    word characters (`[A-Za-z0-9_.-]`, so a JWT or long id) is not stored: the value is
+    `[failure text withheld]` (a trace id is dropped), because cutting such a run would
+    remove the context a pattern needs. A CPAMP summary that this rule changes shows as a
+    reported difference in verification.
   - `header_trace_id` (`event_detail.header_trace_id`): CPAMP's PrimaryTraceID from the
     record's `response_headers`: the first present of x-oai-request-id, x-request-id,
     x-oneapi-request-id, x-cloudaicompanion-trace-id, cf-ray, eagleid, x-client-request-id,
