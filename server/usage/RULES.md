@@ -843,6 +843,12 @@ priced-model count. It remains additive during the dual run. Source health repor
 instance, state, subscribed and last-event age in seconds; no event since process
 start is `null`, never a healthy zero age.
 
+`GET /v1/status` carries `eventLoop` (`maxLagMs`, `stallsOver1s`, `lastStallAtMs`) and
+`/v1/exporter` carries `event_loop` (`max_lag_seconds`, `stalls_total`,
+`last_stall_time_seconds`), all since the main thread's probe started. The probe is a
+250 ms timer; a stall is a tick more than 1 s late. This is the measure behind the
+"no main-thread stall over 1 s" sign-off. The exporter shim may ignore the key.
+
 The version-1 snapshot also includes `jobs` for import, reconcile, verify, backup
 and prune, each with nullable `last_success_seconds` and `last_failure_seconds`.
 The writer loads `meta` keys `job-outcome:<kind>` at init and stores JSON

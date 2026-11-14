@@ -4,7 +4,9 @@ import { UsageCollector } from './collector';
 import { UsageWriter } from './writer';
 import { createUsageStatusHandler } from './status';
 import { createAnalyticsHandler, ANALYTICS_PATHS } from './handler';
-import { startEventLoopLagProbe } from '../eventLoopLag';
+import { EventLoopLagStats, startEventLoopLagProbe } from '../eventLoopLag';
+
+const eventLoopLag = new EventLoopLagStats();
 
 const { manifest } = loadSourceManifest(
   process.env.PROX_SOURCE_MANIFEST ??
@@ -40,6 +42,7 @@ const statusHandler = createUsageStatusHandler({
   writer: () => writer.status,
   jobs: writer,
   exporter: () => writer.exporterSnapshot(),
+  eventLoop: () => eventLoopLag.snapshot(),
   healthy: () => healthy,
 });
 const server = Bun.serve({
@@ -80,5 +83,5 @@ writer.onFailure = exit;
 process.once('SIGTERM', exit);
 process.once('SIGINT', exit);
 collectors.forEach((collector) => collector.start());
-startEventLoopLagProbe();
+startEventLoopLagProbe(console.warn, eventLoopLag);
 console.log('Prox usage listening on loopback port 18320');

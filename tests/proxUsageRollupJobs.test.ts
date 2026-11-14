@@ -111,6 +111,35 @@ test('bulk HTTP admission is 409 during a rollup wait and between hours until ba
   });
 });
 
+async function finishJob(jobs: UsageBulkJobs) {
+  for (let i = 0; jobs.report()?.finishedAtMs === null && i < 200; i++) await Bun.sleep(10);
+  return jobs.report()!;
+}
+
+test('a job reports only its own IO, not the shared governor total from earlier jobs', async () => {
+  const f = setup();
+  f.jobs.start('prune', 'first');
+  const first = await finishJob(f.jobs);
+  expect(first.state).toBe('succeeded');
+  expect(first.io.bytesRead).toBeGreaterThan(0);
+  // The governor is shared for the process lifetime; a second job begins at zero.
+  const second = f.jobs.start('prune', 'second');
+  expect(second.io).toEqual({ bytesRead: 0, bytesWritten: 0, pauseSeconds: 0, longPauses: 0 });
+  const finished = await finishJob(f.jobs);
+  expect(finished.state).toBe('succeeded');
+  expect(finished.io.bytesRead).toBeGreaterThan(0);
+  expect(finished.io.bytesRead).toBeLessThanOrEqual(first.io.bytesRead * 2);
+});
+
+test('a finished job report stays fixed while later governed chunks run', async () => {
+  const f = setup();
+  f.jobs.start('prune', 'owner');
+  const done = await finishJob(f.jobs);
+  const settled = { ...done.io };
+  await f.drain(); // Rollup backfill chunks use the same governor after the job ends.
+  expect(f.jobs.report()!.io).toEqual(settled);
+});
+
 test('a manual job admitted first pauses backfill without consuming its resumable progress', async () => {
   const f = setup();
   const manual = f.jobs.start('prune', 'manual-owner');
