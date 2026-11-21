@@ -17,6 +17,8 @@
     "success": "Thành công",
     "error": "Lỗi",
     "info": "Thông tin",
+    "more_info": "Thêm thông tin",
+    "more_info_about": "Thêm thông tin về {{label}}",
     "warning": "Cảnh báo",
     "loading": "Đang tải...",
     "connecting": "Đang kết nối...",
@@ -352,6 +354,7 @@
     "priority_hint": "Chỉ nhận số nguyên. Giá trị không hợp lệ sẽ bị bỏ qua. Giá trị lớn hơn nghĩa là ưu tiên cao hơn.",
     "weight_label": "Trọng số điều phối (weight)",
     "weight_hint": "Mặc định là 1. Giá trị ≤ 0 sẽ loại credential này khỏi điều phối có trọng số; tối đa 1.000.000.",
+    "weight_strategy_note": "Chỉ có hiệu lực khi bật <settingsLink>round robin có trọng số</settingsLink>.",
     "weight_invalid_integer": "Trọng số phải là số nguyên.",
     "weight_invalid_max": "Trọng số không được vượt quá 1.000.000.",
     "disable_cooling_label": "Tắt cooldown lũy thừa (disable_cooling)",
@@ -853,11 +856,14 @@
     "plan_free": "Miễn phí",
     "plan_pro": "Pro 20x",
     "plan_prolite": "Pro 5x",
+    "plan_promax": "Pro 500",
     "credit_balance_label": "Số dư Credit",
     "credit_unlimited": "Không giới hạn",
     "plan_business_premium": "Business Premium"
   },
   "kimi_quota": {
+    "plan_label": "Gói",
+    "plan_unknown": "Không xác định",
     "title": "Quota Kimi",
     "empty_title": "Không có File xác thực Kimi",
     "empty_desc": "Tải lên credential Kimi để xem quota còn lại.",
@@ -909,7 +915,7 @@
   "vertex_import": {
     "title": "Đăng nhập Vertex bằng JSON",
     "description": "Tải lên file JSON service account của Google để lưu thành auth-dir/vertex-<project>.json theo cùng quy tắc với công cụ vertex-import của CLI.",
-    "location_label": "Khu vực (tùy chọn)",
+    "location_label": "Khu vực",
     "location_placeholder": "global",
     "location_hint": "Để trống để dùng khu vực mặc định global.",
     "file_label": "JSON key của service account",
@@ -1079,7 +1085,7 @@
     "anthropic_oauth_polling_error": "Không thể kiểm tra trạng thái xác thực:",
     "antigravity_oauth_title": "Antigravity OAuth",
     "antigravity_oauth_button": "Bắt đầu đăng nhập Antigravity",
-    "antigravity_oauth_hint": "Đăng nhập dịch vụ Antigravity (tài khoản Google) qua luồng OAuth, tự động lấy và lưu file xác thực.",
+    "antigravity_oauth_hint": "Đăng nhập bằng tài khoản Google.",
     "antigravity_open_link": "Mở liên kết",
     "antigravity_copy_link": "Sao chép liên kết",
     "antigravity_oauth_status_waiting": "Đang chờ xác thực...",
@@ -1090,7 +1096,7 @@
     "kimi_oauth_title": "Kimi OAuth",
     "kimi_oauth_button": "Đăng nhập bằng Kimi",
     "kimi_sign_up_button": "Đăng ký ngay",
-    "kimi_oauth_hint": "Đăng nhập nhanh vào Kimi qua ủy quyền thiết bị. File xác thực được lấy và lưu tự động.",
+    "kimi_oauth_hint": "Chỉ dành cho tài khoản kimi.com (Trung Quốc); tài khoản quốc tế hãy dùng mục kimi.ai.",
     "kimi_open_link": "Mở liên kết",
     "kimi_copy_link": "Sao chép liên kết",
     "kimi_oauth_status_waiting": "Đang chờ xác thực...",
@@ -1170,6 +1176,13 @@
     "generating_link": "Đang tạo liên kết đăng nhập…",
     "waiting_background_hint": "Đóng cửa sổ không làm gián đoạn đăng nhập",
     "restart_login": "Bắt đầu lại",
+    "login_proxy_toggle": "Proxy đăng nhập",
+    "login_proxy_status_invalid": "Không hợp lệ",
+    "login_proxy_label": "Proxy cho các lần đăng nhập mới",
+    "login_proxy_placeholder": "socks5://user:pass@host:port",
+    "login_proxy_clear": "Xóa",
+    "login_proxy_invalid": "URL proxy không hợp lệ. Hãy dùng http, https, socks5 hoặc socks5h kèm máy chủ (socks5 cần cổng), không có đường dẫn hay tham số truy vấn.",
+    "login_proxy_in_use": "Đang đăng nhập qua proxy",
     "success_saved_hint": "Đã lưu credential — quản lý trong File xác thực.",
     "sign_up_prompt": "Chưa có tài khoản?",
     "copied": "Đã sao chép",
@@ -1179,7 +1192,7 @@
     "devin_oauth_retry_hint": "Máy chủ có thể vẫn đang chờ ủy quyền. Hãy hủy lượt đăng nhập này trước khi bắt đầu lại.",
     "devin_oauth_title": "Devin OAuth",
     "devin_oauth_button": "Bắt đầu đăng nhập Devin",
-    "devin_oauth_hint": "Đăng nhập Devin / Cognition qua trình duyệt OAuth để tự động lưu file xác thực. Yêu cầu ProxD v7.3.1 trở lên; vui lòng hoàn tất ủy quyền trong vòng năm phút.",
+    "devin_oauth_hint": "Vui lòng hoàn tất ủy quyền trong vòng năm phút.",
     "devin_copy_link": "Sao chép liên kết",
     "devin_open_link": "Mở liên kết",
     "devin_oauth_status_waiting": "Đang chờ xác thực Devin...",
@@ -1204,7 +1217,7 @@
     "device_code_copy": "Sao chép mã thiết bị",
     "kimi_ai_oauth_title": "Kimi quốc tế (kimi.ai)",
     "kimi_ai_oauth_button": "Đăng nhập Kimi quốc tế",
-    "kimi_ai_oauth_hint": "Ủy quyền tài khoản kimi.ai quốc tế qua đăng nhập thiết bị. File xác thực kimi-ai độc lập sẽ được lưu tự động. Tài khoản nội địa Trung Quốc và quốc tế không thể dùng thay thế cho nhau.",
+    "kimi_ai_oauth_hint": "Chỉ dành cho tài khoản kimi.ai (quốc tế); được lưu thành file xác thực kimi-ai riêng.",
     "kimi_ai_open_link": "Mở liên kết",
     "kimi_ai_copy_link": "Sao chép liên kết",
     "kimi_ai_oauth_status_waiting": "Đang chờ xác thực...",
@@ -1575,7 +1588,7 @@
           "good": "Tốt",
           "strong": "Mạnh"
         },
-        "name_label": "Tên / mô tả (tùy chọn)",
+        "name_label": "Tên / mô tả",
         "name_placeholder": "Ví dụ: Laptop của Alice",
         "name_hint": "Được lưu ngay trong trình duyệt này, riêng cho từng máy chủ. Không bao gồm trong cấu hình máy chủ. Xóa trường này để xóa tên.",
         "name_save_error": "Không thể lưu tên vào bộ lưu trữ trình duyệt. Vui lòng kiểm tra cài đặt lưu trữ của trình duyệt."
@@ -1648,7 +1661,12 @@
         "udp_port_capacity": "Phạm vi UDP phải chứa số cổng tối thiểu bằng hai lần số lượng phiên tối đa hiệu dụng (0 phiên sẽ tính là 32)",
         "invalid_ice_servers": "Mỗi máy chủ ICE cần ít nhất một URL stun:, stuns:, turn:, hoặc turns: hợp lệ",
         "integer_range_0_65535": "Nhập số nguyên từ 0 đến 65535",
-        "integer": "Nhập một số nguyên"
+        "integer": "Nhập một số nguyên",
+        "payload_replace_invalid_target": "Vai trò đích phải là user, system hoặc developer.",
+        "payload_replace_invalid_positions": "Chọn tất cả tin nhắn của vai trò đã chọn hoặc nhập danh sách vị trí gồm các số nguyên dương, không chọn cả hai.",
+        "payload_replace_invalid_paths": "Nhập ít nhất một đường dẫn JSON không rỗng. Không dùng đường dẫn cùng vai trò, all hoặc positions.",
+        "payload_replace_invalid_models": "Thêm ít nhất một mô hình có tên không rỗng và các điều kiện hợp lệ.",
+        "payload_replace_invalid_replacements": "Thêm ít nhất một phép thay thế hợp lệ. Văn bản nguồn không được rỗng; biểu thức chính quy dùng Go RE2. Văn bản thay thế rỗng sẽ xóa phần khớp."
       },
       "common": {
         "edit": "Chỉnh sửa",
@@ -1816,6 +1834,30 @@
           "label": "Máy chủ ICE",
           "hint": "Các máy chủ STUN/TURN tùy chọn dùng URL stun:, stuns:, turn:, hoặc turns:. Thông tin xác thực TURN được bỏ qua trong API cấu hình JSON. Nhập thông tin xác thực dưới dạng mật khẩu và không để lộ bí mật trong ảnh chụp màn hình hay log."
         }
+      },
+      "payload_replace": {
+        "title": "Thay thế văn bản trong payload",
+        "description": "Áp dụng sau khi ghi đè và trước khi lọc. Các phép thay thế chạy theo thứ tự trên những chuỗi hiện có.",
+        "target": "Phạm vi áp dụng",
+        "replacements": "Các phép thay thế",
+        "target_all": "Tất cả tin nhắn của vai trò này",
+        "target_positions": "Vị trí tin nhắn",
+        "target_hint": "Đếm từ 1 trong số tin nhắn của vai trò đã chọn ở payload cuối cùng, kể cả tin nhắn không có văn bản chỉnh sửa được. Phân tách bằng dấu phẩy.",
+        "from": "Văn bản nguồn",
+        "to": "Văn bản thay thế (để trống để xóa)",
+        "add_replacement": "Thêm phép thay thế",
+        "move_up": "Di chuyển lên",
+        "move_down": "Di chuyển xuống",
+        "reset_invalid": "Đặt lại quy tắc không hợp lệ",
+        "invalid_hint": "Quy tắc này chứa giá trị không được hỗ trợ hoặc sai định dạng. Hãy sửa trong YAML hoặc đặt lại quy tắc trước khi chỉnh sửa.",
+        "target_selector": "Loại đích",
+        "target_paths": "Đường dẫn JSON",
+        "paths_hint": "Đường dẫn tính từ gốc payload gửi đến nhà cung cấp. Bỏ qua giá trị không tồn tại hoặc không phải chuỗi.",
+        "from_or_pattern": "Văn bản nguồn hoặc mẫu",
+        "replacement_type": "Loại thay thế",
+        "literal": "Văn bản",
+        "regex": "Biểu thức chính quy (RE2)",
+        "pattern": "Mẫu RE2"
       }
     },
     "source_changes_before_visual": "Lưu hoặc hủy các chỉnh sửa mã nguồn chưa lưu trước khi chuyển sang chế độ trực quan.",
@@ -2041,12 +2083,18 @@
     "source_embedding_unsupported": "Không thể nhúng trang tiện ích vì định tuyến đến nguồn chưa được xác minh cho triển khai này."
   },
   "system_info": {
+    "models_refresh_button": "Làm mới danh sách",
+    "models_refresh_success": "Đã làm mới danh sách mô hình khả dụng: {{count}}.",
+    "models_catalog_refresh_button": "Cập nhật danh mục mô hình",
+    "models_catalog_refresh_hint": "Cập nhật danh mục mô hình dùng chung cho mọi người để lấy thông tin mô hình mới nhất.",
+    "models_catalog_refresh_success": "Đã cập nhật danh mục mô hình.",
+    "models_catalog_refresh_failed": "Cập nhật danh mục mô hình thất bại",
     "title": "Thông tin Trung tâm Quản lý",
     "about_title": "Trung tâm Quản lý CLI Proxy API",
     "models_title": "Model khả dụng",
-    "models_desc": "Hiển thị phản hồi /models và tự động dùng API key đã lưu để xác thực.",
+    "models_desc": "Nhấn “Làm mới danh sách” để xem các mô hình khả dụng mới nhất. Nếu thiếu mô hình mới, hãy thử “Cập nhật danh mục mô hình”.",
     "models_loading": "Đang tải model khả dụng...",
-    "models_empty": "/models không trả về model nào",
+    "models_empty": "Chưa có mô hình khả dụng.",
     "models_error": "Không thể tải danh sách model",
     "models_count": "{{count}} model khả dụng",
     "version_check_button": "Kiểm tra cập nhật",
@@ -2154,6 +2202,7 @@
       "activeCount": "{{active}}/{{total}} đang hoạt động"
     },
     "providerNames": {
+      "aiCodeMirror": "AIcodemirror",
       "gemini": "Gemini",
       "interactions": "Interactions API",
       "codex": "Codex",
@@ -2219,6 +2268,8 @@
       "urlMode": "URL {{provider}}",
       "urlHint": "Mọi URL dùng cùng quy ước API. Lưu chỉ ghi endpoint của giao thức được nhóm hiện tại.",
       "urlOptions": {
+        "aiCodeMirrorGlobal": "Tuyến toàn cầu được bảo vệ cao",
+        "aiCodeMirrorDomestic": "Tuyến tối ưu cho Trung Quốc đại lục",
         "standard": "URL chuẩn",
         "direct": "URL trực tiếp",
         "domestic": "Tuyến Trung Quốc đại lục",
@@ -2227,6 +2278,8 @@
         "global": "Toàn cầu"
       },
       "urlOptionDescriptions": {
+        "aiCodeMirrorGlobal": "Tuyến có mức bảo vệ cao dành cho truy cập toàn cầu.",
+        "aiCodeMirrorDomestic": "Tuyến được tối ưu cho mạng tại Trung Quốc đại lục.",
         "domestic": "Dành cho người dùng và khối lượng công việc tại Trung Quốc đại lục; thường có độ trễ thấp hơn trên mạng đại lục.",
         "overseas": "Dành cho triển khai nước ngoài, truy cập xuyên biên giới hoặc khối lượng công việc cần model nước ngoài.",
         "mainlandChinaRecommended": "Khuyến nghị cho người dùng và khối lượng công việc trên mạng Trung Quốc đại lục.",
@@ -2260,7 +2313,15 @@
         "gemini": "Gemini",
         "codexResponses": "Codex API (Responses)"
       },
-      "kimiPromo": "Người dùng mới nạp tiền lần đầu thành công sẽ được tặng hạn mức API trị giá 10% số tiền nạp, tối đa ¥1000. Ưu đãi kết thúc vào ngày 30 tháng 9."
+      "kimiPromo": "Người dùng mới nạp tiền lần đầu thành công sẽ được tặng hạn mức API trị giá 10% số tiền nạp, tối đa ¥1000. Ưu đãi kết thúc vào ngày 30 tháng 9.",
+      "double11": {
+        "badge": "Ưu đãi 11.11 · Có hạn",
+        "title": "{{provider}} khuyến mãi nạp tiền 11.11",
+        "description": "Nạp tiền vào {{provider}} trong thời gian sự kiện để được tặng thêm {{percent}}% giá trị nạp.",
+        "bonus": "Tặng thêm khi nạp",
+        "cta": "Tham gia ngay",
+        "ctaAria": "Tham gia ngay sự kiện nạp tiền 11.11 của {{provider}} (mở trong thẻ mới)"
+      }
     },
     "status": {
       "active": "Đang hoạt động",
@@ -2395,12 +2456,14 @@
       "loading": "Đang tải model…",
       "empty": "Endpoint không trả về model nào",
       "notLoaded": "Nhấn Tải lại để lấy model",
-      "selectAll": "Chọn tất cả",
-      "clearAll": "Bỏ chọn",
+      "selectAll": "Chọn kết quả tìm kiếm",
+      "clearAll": "Bỏ chọn kết quả tìm kiếm",
       "selectedCount": "{{selected}} / {{total}}",
       "alreadyAdded": "Đã thêm",
       "close": "Đóng",
-      "apply": "Áp dụng ({{count}})"
+      "apply": "Áp dụng ({{count}})",
+      "applyChanges": "Áp dụng (+{{added}} / −{{removed}})",
+      "syncHint": "Chọn hoặc bỏ chọn các model đã lấy, rồi áp dụng. Các model ngoài những kết quả này và thiết lập của các model được giữ lại sẽ không thay đổi. Danh sách cấu hình trống sẽ tuân theo mặc định của backend; điều này không nhất thiết vô hiệu hóa tất cả model."
     },
     "toolbar": {
       "sortBy": "Sắp xếp theo",
@@ -2508,8 +2571,8 @@
     }
   },
   "devin_quota": {
-    "daily": "Còn lại hàng ngày",
-    "weekly": "Còn lại hàng tuần",
+    "daily": "Giới hạn ngày",
+    "weekly": "Giới hạn tuần",
     "plan_label": "Gói cước",
     "plan_end": "Hết hạn đăng ký",
     "unavailable": "Không có sẵn dữ liệu",
@@ -2544,10 +2607,10 @@
     "plan": "Gói cước",
     "active": "Đăng ký đang hoạt động",
     "inactive": "Đăng ký không hoạt động",
-    "window": "Chu kỳ sử dụng",
-    "window_duration": "Chu kỳ {{minutes}} phút",
-    "window_duration_hours": "Chu kỳ {{hours}} giờ",
-    "weekly": "Quota hàng tuần",
+    "window": "Giới hạn sử dụng",
+    "window_duration": "Giới hạn {{minutes}} phút",
+    "window_duration_hours": "Giới hạn {{hours}} giờ",
+    "weekly": "Giới hạn tuần",
     "unknown": "Không rõ",
     "remaining": "Còn lại {{percent}}%"
   },
@@ -2624,6 +2687,30 @@
     "error": "Liên kết thất bại. Hãy bắt đầu lại.",
     "unsupported": "Máy chủ này không hỗ trợ liên kết SIWC.",
     "expired": "Phiên liên kết đã hết hạn. Hãy bắt đầu lại."
+  },
+  "sensitive_replacements": {
+    "literal_title": "Thay thế văn bản nguyên dạng",
+    "pattern_title": "Thay thế bằng biểu thức chính quy",
+    "group_title": "Thay thế nội dung nhạy cảm",
+    "literal_hint": "Các dòng chưa có văn bản nguyên dạng chỉ nằm trong bản nháp và không được lưu.",
+    "pattern_hint": "Các quy tắc chạy theo thứ tự với cú pháp Go RE2; không hỗ trợ lookaround và tham chiếu ngược trong mẫu. Máy chủ loại bỏ mẫu không hợp lệ hoặc trống.",
+    "literal_key": "Văn bản nguyên dạng",
+    "replacement": "Nội dung thay thế",
+    "replacement_placeholder": "Để trống để xóa phần khớp",
+    "pattern": "Mẫu",
+    "duplicate_key": "Khóa trùng lặp. Thay đổi thay thế nguyên dạng chưa được áp dụng cho đến khi xử lý các khóa trùng.",
+    "add_literal": "Thêm thay thế nguyên dạng",
+    "add_pattern": "Thêm quy tắc regex",
+    "empty_literal": "Chưa có thay thế nguyên dạng nào.",
+    "empty_pattern": "Chưa có quy tắc regex nào.",
+    "literal_key_row": "Văn bản nguyên dạng, dòng {{row}}",
+    "literal_value_row": "Thay thế nguyên dạng, dòng {{row}}",
+    "pattern_row": "Mẫu regex, dòng {{row}}",
+    "pattern_value_row": "Thay thế regex, dòng {{row}}",
+    "remove_literal": "Xóa thay thế nguyên dạng dòng {{row}}",
+    "remove_pattern": "Xóa quy tắc regex dòng {{row}}",
+    "move_up": "Chuyển quy tắc regex dòng {{row}} lên",
+    "move_down": "Chuyển quy tắc regex dòng {{row}} xuống"
   },
   "quota_pool": {
     "stacked_rate_description": "Mỗi dải thể hiện tốc độ của một nhà cung cấp. Tốc độ tiêu hao ròng dương và âm xếp chồng ở hai phía của số không.",

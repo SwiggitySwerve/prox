@@ -80,6 +80,7 @@ describe('CodexQuotaBody', () => {
   );
 
   test.each([
+    ['promax', 'Pro 500', 'elitePlanValue'],
     ['pro', 'Pro 200', 'elitePlanValue'],
     ['prolite', 'Pro 100', 'premiumPlanValue'],
     ['team', 'Team', 'codexPlanValue'],

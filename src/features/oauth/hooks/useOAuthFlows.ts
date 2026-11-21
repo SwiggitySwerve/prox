@@ -13,6 +13,7 @@ import { invalidateProviderCatalog } from '@/features/authFiles/providerCatalogR
 import { createOAuthAttempts, type OAuthAttempt } from '../oauthAttempts';
 import { validateDevinCallback } from '../devinOAuth';
 import { resolveCallbackUrl } from '../callbackUrl';
+import { isInvalidProxyUrlError, planLoginProxy } from '../loginProxy';
 import {
   buildPluginOAuthProviderCards,
   type OAuthProviderCard,
@@ -34,6 +35,8 @@ export interface ProviderFlowState {
   callbackError?: string;
   /** 本地校验失败（未提交到后端），内联展示在输入框下。 */
   callbackValidation?: string;
+  /** 本次尝试使用的登录代理（原值，仅内存；展示时必须脱敏）。 */
+  proxyUrl?: string;
 }
 
 interface UseOAuthFlowsOptions {
@@ -112,6 +115,17 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
   /** 本次会话新增的凭证数（含 Vertex 导入），换连接时归零。 */
   const [addedCount, setAddedCount] = useState(0);
   const recordCredentialAdded = useCallback(() => setAddedCount((count) => count + 1), []);
+  /**
+   * 页面级登录代理：作用于从本页发起的内置及插件提供商登录。仅存于内存，
+   * 不写 storage / URL；换连接或登出时清空。
+   */
+  const [loginProxy, setLoginProxyValue] = useState('');
+  /** 最近一次因代理被拦下的启动所用的值（本地校验或后端 400），供输入框显示内联错误。 */
+  const [loginProxyRejected, setLoginProxyRejected] = useState<string | null>(null);
+  const setLoginProxy = useCallback((value: string) => {
+    setLoginProxyValue(value);
+    if (!value.trim()) setLoginProxyRejected(null);
+  }, []);
   const attempts = useRef(
     createOAuthAttempts({
       setTimeout: (callback, delay) => window.setTimeout(callback, delay),
@@ -129,6 +143,8 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
       pinned.current.clear();
       setStates({});
       setAddedCount(0);
+      setLoginProxyValue('');
+      setLoginProxyRejected(null);
     };
     session.signal.addEventListener('abort', invalidate);
     return () => {
@@ -282,20 +298,38 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
     // explicit cancellation before replacing that Devin session.
     if (provider === 'devin' && states[provider]?.state) return;
     const attempt = attempts.current.begin(provider);
-    updateProviderState(provider, {
+    const proxyPlan = planLoginProxy(loginProxy);
+    const resetFields: Partial<ProviderFlowState> = {
       url: undefined,
       userCode: undefined,
       state: undefined,
-      status: 'waiting',
-      polling: true,
       cancelling: false,
       cancelError: undefined,
-      error: undefined,
       callbackStatus: undefined,
       callbackError: undefined,
       callbackValidation: undefined,
       callbackUrl: '',
       callbackSubmitting: false,
+      proxyUrl: proxyPlan.kind === 'proxy' ? proxyPlan.url : undefined,
+    };
+    if (proxyPlan.kind === 'invalid') {
+      // Never fall back to a login without the requested proxy: fail before any request.
+      const message = t('auth_login.login_proxy_invalid');
+      setLoginProxyRejected(loginProxy.trim());
+      updateProviderState(provider, {
+        ...resetFields,
+        status: 'error',
+        error: message,
+        polling: false,
+      });
+      notify(provider, `${providerText(provider, 'oauth_start_error')} ${message}`, 'error');
+      return;
+    }
+    updateProviderState(provider, {
+      ...resetFields,
+      status: 'waiting',
+      polling: true,
+      error: undefined,
     });
     // A new attempt never inherits the previous attempt's hub.
     pinned.current.delete(provider);
@@ -308,6 +342,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
       const res = await pinnedApi(destination).startAuth(provider, attempt.signal, {
         webui: card?.kind === 'plugin' ? card.webui : undefined,
         exact: card?.kind === 'plugin',
+        ...(proxyPlan.kind === 'proxy' ? { proxyUrl: proxyPlan.url } : {}),
       });
       if (!attempt.isCurrent()) return;
       if (!res.state) {
@@ -332,7 +367,9 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
       startPolling(provider, res.state, attempt, destination);
     } catch (err: unknown) {
       if (!attempt.isCurrent()) return;
-      const message = getErrorMessage(err);
+      const proxyRejected = proxyPlan.kind === 'proxy' && isInvalidProxyUrlError(err);
+      if (proxyRejected) setLoginProxyRejected(proxyPlan.url);
+      const message = proxyRejected ? t('auth_login.login_proxy_invalid') : getErrorMessage(err);
       updateProviderState(provider, { status: 'error', error: message, polling: false });
       notify(
         provider,
@@ -441,6 +478,9 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
     states,
     addedCount,
     recordCredentialAdded,
+    loginProxy,
+    loginProxyRejected,
+    setLoginProxy,
     providerText,
     startAuth,
     cancelAuth,

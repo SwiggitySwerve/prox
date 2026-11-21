@@ -3,9 +3,12 @@ import en from '@/i18n/locales/en.json';
 import zhCN from '@/i18n/locales/zh-CN.json';
 import zhTW from '@/i18n/locales/zh-TW.json';
 import ru from '@/i18n/locales/ru.json';
+import vi from '@/i18n/locales/vi.json';
+import ko from '@/i18n/locales/ko.json';
 import {
   ELITE_CODEX_PLAN_TYPE,
   PREMIUM_CODEX_PLAN_TYPES,
+  PRO_MAX_CODEX_PLAN_TYPES,
   resolvePlanTier,
 } from '@/utils/quota';
 
@@ -16,6 +19,30 @@ describe('Codex Pro display names', () => {
       expect(messages.codex_quota.plan_pro).toBe('Pro 200');
     });
   }
+});
+
+describe('Codex Pro 500', () => {
+  for (const [locale, messages] of Object.entries({
+    en,
+    'zh-CN': zhCN,
+    'zh-TW': zhTW,
+    ru,
+    vi,
+    ko,
+  })) {
+    test(`${locale} labels Pro Max as Pro 500`, () => {
+      expect(messages.codex_quota.plan_promax).toBe('Pro 500');
+    });
+  }
+
+  test('every Pro Max spelling gets the top badge, like Pro 200 below it', () => {
+    for (const planType of ['promax', 'pro-max', 'pro_max', '  PROMAX  ']) {
+      expect(resolvePlanTier(planType)).toBe('elite');
+    }
+    expect(PRO_MAX_CODEX_PLAN_TYPES.has('promax')).toBe(true);
+    // Pro 200 keeps the badge it has today.
+    expect(resolvePlanTier('pro')).toBe('elite');
+  });
 });
 
 describe('resolvePlanTier', () => {

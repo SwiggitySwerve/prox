@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { IconAlertTriangle, IconExternalLink, IconPlug } from '@/components/ui/icons';
 import type { PluginStoreEntry } from '@/types';
+import { getStoreEntryDisplay } from '../pluginStoreMetadata';
 import {
   buildRepositoryURL,
   getPluginConfirmToken,
@@ -42,7 +43,7 @@ export function PluginInstallGateModal({
   onClose,
   onConfirm,
 }: PluginInstallGateModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [step, setStep] = useState(1);
   const [typed, setTyped] = useState('');
   const [wasOpen, setWasOpen] = useState(false);
@@ -59,7 +60,7 @@ export function PluginInstallGateModal({
 
   if (!entry) return null;
 
-  const title = entry.name || entry.id;
+  const title = getStoreEntryDisplay(entry, i18n.language).name || entry.id;
   const repoSlug = getPluginRepositorySlug(entry.repository);
   const repositoryURL = buildRepositoryURL(entry.repository);
   const repoLabel = repoSlug || entry.id;

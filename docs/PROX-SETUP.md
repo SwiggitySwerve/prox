@@ -2,7 +2,8 @@
 
 This is a fork of [CLI Proxy API Management Center](https://github.com/router-for-me/Cli-Proxy-API-Management-Center),
 independent of CPA-Manager-Plus at `usage.swervelab.xyz`. Upstream is MIT licensed;
-keep its license and attribution. Base commit: `64b4f5aed19b8f791eb21eb9e785ea379ea05b44`.
+keep its license and attribution. Forked at `64b4f5aed19b8f791eb21eb9e785ea379ea05b44`; upstream
+`main` was last merged at `e5eb4fe63ad8a2a20d13022e13e6dc4d386ac07b` (21 Nov 2026).
 
 The upstream navigation matches the supplied ProxUI screenshot, including Quota
 Management, Quick Start, Auth Files, Plugin Store, and Management Center Info.

@@ -19,6 +19,7 @@ import type { SourceSession } from '@/services/api/sourceSession';
 import type { QuotaStore as BoundQuotaStore } from '@/stores/useQuotaStore';
 import { createQuotaConfigs } from './scoped';
 import { createSourceResetGrants, type ResetGrantScope } from './claude/resetGrantScope';
+import { generateResetGrantRequestId } from './claude/resetGrantRequestId';
 import type { TFunction } from 'i18next';
 import { useQuotaStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
@@ -118,7 +119,8 @@ function serverCodexReset(
     let open = openCodexClaims.get(session.owner);
     if (!open) openCodexClaims.set(session.owner, (open = new Map()));
     const retry = open.get(accountId);
-    const clientRequestId = retry ?? crypto.randomUUID();
+    // A plain-HTTP page has no crypto.randomUUID; the shared generator falls back safely.
+    const clientRequestId = retry ?? generateResetGrantRequestId();
     open.set(accountId, clientRequestId);
     let result;
     try {

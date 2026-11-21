@@ -43,6 +43,14 @@ const normalizeProviderForManagementPath = (provider: string, exact = false): st
   return exact || key !== 'anthropic' ? key : 'claude';
 };
 
+export interface OAuthStartOptions {
+  /**
+   * Session-only proxy for this login and the credential it produces. The backend accepts it
+   * only in a POST body; blank values keep the original GET request.
+   */
+  proxyUrl?: string;
+}
+
 export interface SiwcBindResponse {
   status: 'ok';
   url: string;
@@ -60,12 +68,21 @@ function buildOAuthApi(client: ManagementTransport) {
     startAuth: (
       provider: string,
       signal?: AbortSignal,
-      options?: { webui?: boolean; exact?: boolean }
+      options?: { webui?: boolean; exact?: boolean } & OAuthStartOptions
     ) => {
       const providerKey = normalizeProviderForManagementPath(provider, options?.exact);
       const params: Record<string, string | boolean> = { provider: providerKey };
       if (options?.webui === true || WEBUI_SUPPORTED.has(providerKey)) {
         params.is_webui = true;
+      }
+      const proxyUrl = options?.proxyUrl?.trim();
+      if (proxyUrl) {
+        // The backend rejects proxy_url in the query string, so everything moves to the body.
+        return client.post<OAuthStartResponse>(
+          '/oauth/auth-url',
+          { ...params, proxy_url: proxyUrl },
+          signal ? { signal } : undefined
+        );
       }
       return client.get<OAuthStartResponse>('/oauth/auth-url', {
         params,

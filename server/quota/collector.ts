@@ -1359,6 +1359,10 @@ export class QuotaCollector {
   }> {
     if (!projectId) return { response: null };
     let lastResponse: unknown = null;
+    // A daily host can answer 200 with only the Claude/GPT group. That answer is kept, and the
+    // next endpoint is asked for the Gemini pool windows instead of recording them as missing.
+    type Reading = { response: unknown; samples: QuotaSample[]; windows: AccountQuotaWindow[] };
+    let partial = null as Reading | null;
     for (const url of ANTIGRAVITY_QUOTA_URLS) {
       if (signal.aborted) throw new Error('Quota request aborted');
       let response: unknown;
@@ -1378,14 +1382,23 @@ export class QuotaCollector {
       lastResponse = response;
       const body = quotaResponseBody(response);
       if (body === null) continue;
+      let parsed: ReturnType<typeof quotaSamples>;
       try {
-        const parsed = quotaSamples('antigravity', accountId, body, this.now());
-        return { response, ...parsed };
+        parsed = quotaSamples('antigravity', accountId, body, this.now());
       } catch {
         continue;
       }
+      const ids = new Set(parsed.windows.map((window) => window.id));
+      const windows: AccountQuotaWindow[] = [
+        ...parsed.windows,
+        ...(partial?.windows.filter((window) => !ids.has(window.id)) ?? []),
+      ];
+      if (parsed.samples.some((sample) => sample.remainingPercent !== null)) {
+        return { response, samples: parsed.samples, windows };
+      }
+      partial = { response: partial?.response ?? response, samples: parsed.samples, windows };
     }
-    return { response: lastResponse };
+    return partial ?? { response: lastResponse };
   }
 
   private async readCatalog(

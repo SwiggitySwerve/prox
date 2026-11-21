@@ -10,6 +10,7 @@ import {
   normalizePlanType,
   resolvePlanTier,
   PREMIUM_CODEX_PLAN_TYPES,
+  PRO_MAX_CODEX_PLAN_TYPES,
   buildResetDisplay,
   parseIsoToMs,
   resolveResetMs,
@@ -66,6 +67,7 @@ export function CodexQuotaBody({
     if (normalized === 'self_serve_business_prolite') {
       return t('codex_quota.plan_business_premium');
     }
+    if (PRO_MAX_CODEX_PLAN_TYPES.has(normalized)) return t('codex_quota.plan_promax');
     if (normalized === 'pro') return t('codex_quota.plan_pro');
     if (PREMIUM_CODEX_PLAN_TYPES.has(normalized) && normalized !== 'pro') {
       return t('codex_quota.plan_prolite');

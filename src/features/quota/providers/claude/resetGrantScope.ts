@@ -13,6 +13,7 @@ import {
   type ResetGrantJournal,
 } from './resetGrantOperations';
 import { createResetGrantReader } from './resetGrantReads';
+import { generateResetGrantRequestId } from './resetGrantRequestId';
 
 export interface ResetGrantScope {
   current: () => boolean;
@@ -67,7 +68,7 @@ export function createSourceResetGrants(session: SourceSession): ResetGrantScope
         );
       },
       now: () => Date.now(),
-      requestId: () => crypto.randomUUID(),
+      requestId: generateResetGrantRequestId,
     },
     journal
   );

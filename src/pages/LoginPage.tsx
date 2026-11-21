@@ -254,7 +254,8 @@ export function LoginPage() {
                 placeholder={t('login.custom_connection_placeholder')}
                 value={apiBase}
                 onChange={(e) => setApiBase(e.target.value)}
-                hint={t('login.custom_connection_hint')}
+                // `note` keeps this line visible; the shared Input now moves a `hint` into an InfoTip.
+                note={t('login.custom_connection_hint')}
               />
             )}
 

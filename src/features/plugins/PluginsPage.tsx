@@ -522,7 +522,8 @@ function SourcePluginsPage({
         value={textValue}
         onChange={handleFieldTextChange(field.name)}
         inputMode={fieldType === 'integer' || fieldType === 'number' ? 'decimal' : undefined}
-        hint={field.description || undefined}
+        // `note` keeps the description visible; the shared Input now moves a `hint` into an InfoTip.
+        note={field.description || undefined}
         error={errorText || undefined}
       />
     );

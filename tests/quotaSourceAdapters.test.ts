@@ -204,7 +204,9 @@ test('Kimi download and allowed quota domain remain bound to the requested owner
   await Promise.all(
     ['alpha', 'beta'].map((id) => createQuotaAdapters(f.capture(id)).kimi.fetchQuota(file, t))
   );
-  expect(f.calls).toHaveLength(4);
+  // Per owner: the credential download, the usage read and the plan-name read (/me), each on
+  // that owner's own Kimi domain (asserted by the handler above).
+  expect(f.calls).toHaveLength(6);
 });
 
 const codexUsage = {

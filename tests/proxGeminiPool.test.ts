@@ -588,6 +588,49 @@ describe('Gemini (Antigravity) in the quota pool', () => {
     expect(transport.store.listSamples(0, NOW).find((s) => s.window === 'weekly')?.remainingPercent)
       .toBeCloseTo(70, 6);
 
+    // Case 2b: a daily host can answer 200 with only the Claude/GPT group. That is not a missing
+    // Gemini pool: the next endpoint is asked, and its Gemini windows are recorded.
+    const thirdPartyOnly = () => ({ groups: summary().groups.slice(1) });
+    const partial = makeCollector((url) =>
+      url === ANTIGRAVITY_QUOTA_URLS[0]
+        ? Response.json({ status_code: 200, body: JSON.stringify(thirdPartyOnly()) })
+        : Response.json({
+            status_code: 200,
+            body: JSON.stringify({ groups: summary(0.6, 0.4).groups.slice(0, 1) }),
+          })
+    );
+    await partial.collector.refresh();
+    expect(partial.attempted).toEqual(ANTIGRAVITY_QUOTA_URLS.slice(0, 2));
+    expect(partial.collector.issues).toEqual([]);
+    const partialSamples = partial.store.listSamples(0, NOW);
+    expect(partialSamples.find((s) => s.window === 'weekly')?.remainingPercent).toBeCloseTo(60, 6);
+    expect(partialSamples.find((s) => s.window === 'five-hour')?.remainingPercent).toBeCloseTo(
+      40,
+      6
+    );
+    // The Claude/GPT windows of the first answer are kept beside the Gemini ones.
+    const partialAccount = partial.store.listAccounts()[0]!;
+    expect(
+      (partial.collector.windows.get(partialAccount.id) ?? []).map((window) => window.id).sort()
+    ).toEqual([
+      'claude-and-gpt-models:3p-5h',
+      'claude-and-gpt-models:3p-weekly',
+      'five-hour',
+      'weekly',
+    ]);
+
+    // Case 2c: no endpoint has a Gemini group, so the Claude/GPT answer stands and the pool
+    // windows are recorded as missing, as before.
+    const noGemini = makeCollector(() =>
+      Response.json({ status_code: 200, body: JSON.stringify(thirdPartyOnly()) })
+    );
+    await noGemini.collector.refresh();
+    expect(noGemini.attempted).toEqual(ANTIGRAVITY_QUOTA_URLS);
+    expect(noGemini.collector.issues).toEqual([]);
+    expect(
+      noGemini.store.listSamples(0, NOW).find((s) => s.window === 'weekly')?.remainingPercent
+    ).toBeNull();
+
     // Case 3: stopping/aborting during the first endpoint does not attempt the second.
     let releaseFirst!: () => void;
     const firstReached = new Promise<void>((resolve) => {

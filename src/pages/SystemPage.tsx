@@ -12,7 +12,15 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { IconGithub, IconBookOpen, IconExternalLink, IconCode } from '@/components/ui/icons';
+import { InfoTip, Tooltip } from '@/components/ui/Tooltip';
+import {
+  IconGithub,
+  IconBookOpen,
+  IconExternalLink,
+  IconCode,
+  IconDownload,
+  IconRefreshCw,
+} from '@/components/ui/icons';
 import { useAuthStore, useThemeStore } from '@/stores';
 import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
 import { formatDateTimeValue } from '@/utils/format';
@@ -34,6 +42,9 @@ import iconGrok from '@/assets/icons/grok.svg';
 import iconGrokDark from '@/assets/icons/grok-dark.svg';
 import iconDeepseek from '@/assets/icons/deepseek.svg';
 import iconMinimax from '@/assets/icons/minimax.svg';
+import iconXiaomi from '@/assets/icons/xiaomi.svg';
+import iconStepfun from '@/assets/icons/stepfun.svg';
+import iconStepfunDark from '@/assets/icons/stepfun-dark.svg';
 import styles from './SystemPage.module.scss';
 
 const MODEL_CATEGORY_ICONS: Record<string, string | { light: string; dark: string }> = {
@@ -48,6 +59,8 @@ const MODEL_CATEGORY_ICONS: Record<string, string | { light: string; dark: strin
   grok: { light: iconGrok, dark: iconGrokDark },
   deepseek: iconDeepseek,
   minimax: iconMinimax,
+  xiaomi: iconXiaomi,
+  stepfun: { light: iconStepfun, dark: iconStepfunDark },
 };
 
 const parseVersionSegments = (version?: string | null) => {
@@ -116,14 +129,16 @@ function SourceSystemPage() {
   const updateConfigValue = useConfigStore((state) => state.updateConfigValue);
 
   const models = useModelsStore((state) => state.models);
-  const modelsLoading = useModelsStore((state) => state.loading);
-  const modelsError = useModelsStore((state) => state.error);
+  const modelsStoreLoading = useModelsStore((state) => state.loading);
   const fetchModelsFromStore = useModelsStore((state) => state.fetchModels);
 
   const [modelStatus, setModelStatus] = useState<{
-    type: 'success' | 'warning' | 'error' | 'muted';
+    type: 'warning' | 'error';
     message: string;
   }>();
+  const [modelsRequestLoading, setModelsRequestLoading] = useState(false);
+  const [syncingModelCatalog, setSyncingModelCatalog] = useState(false);
+  const modelsLoading = modelsStoreLoading || modelsRequestLoading;
   const [requestLogModalOpen, setRequestLogModalOpen] = useState(false);
   const [requestLogDraft, setRequestLogDraft] = useState(false);
   const [requestLogTouched, setRequestLogTouched] = useState(false);
@@ -131,6 +146,8 @@ function SourceSystemPage() {
   const [checkingVersion, setCheckingVersion] = useState(false);
 
   const versionTapCount = useRef(0);
+  const modelsRequestId = useRef(0);
+  const catalogRequestId = useRef(0);
   const versionTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const otherLabel = useMemo(
@@ -156,7 +173,13 @@ function SourceSystemPage() {
 
   const resolveApiKeysForModels = useApiKeysForModels();
 
-  const fetchModels = async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+  const fetchModels = async ({
+    forceRefresh = false,
+    notify = false,
+  }: { forceRefresh?: boolean; notify?: boolean } = {}) => {
+    const requestId = ++modelsRequestId.current;
+    // The page remounts for every source session, so an aborted session is a replaced one.
+    const isCurrent = () => requestId === modelsRequestId.current && !scope.session.signal.aborted;
     if (auth.connectionStatus !== 'connected') {
       setModelStatus({
         type: 'warning',
@@ -170,23 +193,53 @@ function SourceSystemPage() {
       return;
     }
 
-    setModelStatus({ type: 'muted', message: t('system_info.models_loading') });
+    setModelStatus(undefined);
+    setModelsRequestLoading(true);
     try {
       const apiKeys = await resolveApiKeysForModels({ force: forceRefresh });
+      if (!isCurrent()) return;
       const primaryKey = apiKeys[0];
       const list = await fetchModelsFromStore(auth.apiBase, primaryKey, forceRefresh);
-      const hasModels = list.length > 0;
-      setModelStatus({
-        type: hasModels ? 'success' : 'warning',
-        message: hasModels
-          ? t('system_info.models_count', { count: list.length })
-          : t('system_info.models_empty'),
-      });
+      if (!isCurrent()) return;
+      if (notify) {
+        showNotification(
+          t('system_info.models_refresh_success', { count: list.length }),
+          'success'
+        );
+      }
     } catch (err: unknown) {
+      if (!isCurrent()) return;
       const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
       const suffix = message ? `: ${message}` : '';
       const text = `${t('system_info.models_error')}${suffix}`;
       setModelStatus({ type: 'error', message: text });
+      if (notify) showNotification(text, 'error');
+    } finally {
+      if (isCurrent()) setModelsRequestLoading(false);
+    }
+  };
+
+  const handleCatalogRefresh = async () => {
+    if (syncingModelCatalog || modelsLoading || auth.connectionStatus !== 'connected') return;
+    const requestId = ++catalogRequestId.current;
+    const isCurrent = () => requestId === catalogRequestId.current && !scope.session.signal.aborted;
+    setSyncingModelCatalog(true);
+    try {
+      // Refreshes this hub's backend model catalogs, not auth-file credentials.
+      await scope.session.management.post('/models/refresh');
+      if (!isCurrent()) return;
+      await fetchModels({ forceRefresh: true });
+      if (!isCurrent()) return;
+      showNotification(t('system_info.models_catalog_refresh_success'), 'success');
+    } catch (error: unknown) {
+      if (!isCurrent()) return;
+      const message = error instanceof Error ? error.message : '';
+      showNotification(
+        `${t('system_info.models_catalog_refresh_failed')}${message ? `: ${message}` : ''}`,
+        'error'
+      );
+    } finally {
+      if (isCurrent()) setSyncingModelCatalog(false);
     }
   };
 
@@ -284,7 +337,7 @@ function SourceSystemPage() {
       }
 
       if (comparison > 0) {
-        showNotification(t('system_info.version_update_available', { version: latest }), 'warning');
+        showNotification(t('system_info.version_update_available', { version: latest }), 'info');
       } else {
         showNotification(t('system_info.version_is_latest'), 'success');
       }
@@ -319,9 +372,15 @@ function SourceSystemPage() {
   }, []);
 
   useEffect(() => {
+    setModelsRequestLoading(false);
+    setSyncingModelCatalog(false);
     fetchModels();
+    return () => {
+      modelsRequestId.current += 1;
+      catalogRequestId.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.connectionStatus, auth.apiBase]);
+  }, [auth.connectionStatus, auth.apiBase, auth.managementKey]);
 
   return (
     <div className={styles.container}>
@@ -380,7 +439,6 @@ function SourceSystemPage() {
         </Card>
 
         <Card title={t('system_info.quick_links_title')}>
-          <p className={styles.sectionDescription}>{t('system_info.quick_links_desc')}</p>
           <div className={styles.quickLinks}>
             <a
               href="https://github.com/router-for-me/CLIProxyAPI"
@@ -389,14 +447,13 @@ function SourceSystemPage() {
               className={styles.linkCard}
             >
               <div className={`${styles.linkIcon} ${styles.github}`}>
-                <IconGithub size={22} />
+                <IconGithub size={18} />
               </div>
               <div className={styles.linkContent}>
                 <div className={styles.linkTitle}>
                   {t('system_info.link_main_repo')}
                   <IconExternalLink size={14} />
                 </div>
-                <div className={styles.linkDesc}>{t('system_info.link_main_repo_desc')}</div>
               </div>
             </a>
 
@@ -407,14 +464,13 @@ function SourceSystemPage() {
               className={styles.linkCard}
             >
               <div className={`${styles.linkIcon} ${styles.github}`}>
-                <IconCode size={22} />
+                <IconCode size={18} />
               </div>
               <div className={styles.linkContent}>
                 <div className={styles.linkTitle}>
                   {t('system_info.link_webui_repo')}
                   <IconExternalLink size={14} />
                 </div>
-                <div className={styles.linkDesc}>{t('system_info.link_webui_repo_desc')}</div>
               </div>
             </a>
 
@@ -425,41 +481,72 @@ function SourceSystemPage() {
               className={styles.linkCard}
             >
               <div className={`${styles.linkIcon} ${styles.docs}`}>
-                <IconBookOpen size={22} />
+                <IconBookOpen size={18} />
               </div>
               <div className={styles.linkContent}>
                 <div className={styles.linkTitle}>
                   {t('system_info.link_docs')}
                   <IconExternalLink size={14} />
                 </div>
-                <div className={styles.linkDesc}>{t('system_info.link_docs_desc')}</div>
               </div>
             </a>
           </div>
         </Card>
 
         <Card
-          title={t('system_info.models_title')}
+          title={
+            <>
+              {t('system_info.models_title')}
+              {/* When to use which of the two buttons on the right. */}
+              <InfoTip
+                content={t('system_info.models_desc')}
+                label={t('system_info.models_title')}
+              />
+            </>
+          }
           extra={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => fetchModels({ forceRefresh: true })}
-              loading={modelsLoading}
-            >
-              {t('common.refresh')}
-            </Button>
+            <div className={styles.modelsActions}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void fetchModels({ forceRefresh: true, notify: true })}
+                loading={modelsLoading}
+                disabled={syncingModelCatalog || auth.connectionStatus !== 'connected'}
+              >
+                <span className={styles.modelsActionLabel}>
+                  {!modelsLoading && <IconRefreshCw size={16} />}
+                  {t('system_info.models_refresh_button')}
+                </span>
+              </Button>
+              {/* The catalog is shared by every user of the backend: say so before it is pressed. */}
+              <Tooltip content={t('system_info.models_catalog_refresh_hint')}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void handleCatalogRefresh()}
+                  loading={syncingModelCatalog}
+                  disabled={modelsLoading || auth.connectionStatus !== 'connected'}
+                >
+                  <span className={styles.modelsActionLabel}>
+                    {!syncingModelCatalog && <IconDownload size={16} />}
+                    {t('system_info.models_catalog_refresh_button')}
+                  </span>
+                </Button>
+              </Tooltip>
+            </div>
           }
         >
-          <p className={styles.sectionDescription}>{t('system_info.models_desc')}</p>
-          {modelStatus && (
+          {modelStatus && models.length === 0 && (
             <div className={`status-badge ${modelStatus.type}`}>{modelStatus.message}</div>
           )}
-          {modelsError && <div className="error-box">{modelsError}</div>}
-          {modelsLoading ? (
+          {modelsLoading && models.length === 0 ? (
             <div className="hint">{t('common.loading')}</div>
           ) : models.length === 0 ? (
-            <div className="hint">{t('system_info.models_empty')}</div>
+            modelStatus ? null : (
+              <div className="hint">{t('system_info.models_empty')}</div>
+            )
           ) : (
             <div className="item-list">
               {groupedModels.map((group) => {
@@ -483,7 +570,11 @@ function SourceSystemPage() {
                           title={model.description || ''}
                         >
                           <span className={styles.modelName}>{model.name}</span>
-                          {model.alias && <span className={styles.modelAlias}>{model.alias}</span>}
+                          {(model.alias || model.displayName) && (
+                            <span className={styles.modelAlias}>
+                              {model.alias || model.displayName}
+                            </span>
+                          )}
                         </span>
                       ))}
                     </div>
